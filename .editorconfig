@@ -1,0 +1,14 @@
+# Recommended syntax: https://EditorConfig.org
+
+# top-most EditorConfig file
+root = true
+
+# All files
+[*]
+insert_final_newline = true
+
+# All code files
+[{*.rs,*.json,*.html,*.hbs,*.js,*.ts,*.css,*.scss,*.toml}]
+charset = utf-8
+indent_style = space
+indent_size = 2

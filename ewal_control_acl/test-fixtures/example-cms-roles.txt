@@ -1,0 +1,6 @@
+cms-guest
+cms-editor cms-guest
+cms-publisher cms-editor
+cms-tester cms-editor
+cms-developer cms-editor
+cms-super-admin cms-publisher cms-developer cms-tester

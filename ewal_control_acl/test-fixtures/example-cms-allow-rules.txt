@@ -1,0 +1,9 @@
+index
+dashboard
+  cms-guest index
+  cms-editor
+user
+  cms-guest read update
+  cms-super-admin
+term
+  cms-editor index create read update delete

@@ -1,2 +1,4 @@
-# ewal-rs
-Enterprise Web Application Library, for Rust.
+# wal-rs
+
+Web Application Library, for Rust.
+
