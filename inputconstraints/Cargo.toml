@@ -1,0 +1,10 @@
+[package]
+name = "walrs_inputconstraints"
+version = "0.1.0"
+authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
+edition = "2021"
+include = ["src/**/*", "Cargo.toml"]
+
+[dependencies]
+regex = "1.3.1"
+derive_builder = "0.9.0"

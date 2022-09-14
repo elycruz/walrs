@@ -1,20 +1,20 @@
 [package]
-name = "ewal-rs"
+name = "wal-rs"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ewal_acl = { path = 'ewal_control_acl' }
-ewal_control_graph = { path = './ewal_control_graph' }
-ewal_form = { path = 'ewal_control_form' }
-ewal_inputvalidator = { path = "ewal_control_inputconstraints" }
+walrs_acl = { path = 'acl' }
+walrs_graph = { path = 'graph' }
+walrs_form = { path = 'form' }
+walrs_inputconstraints = { path = "inputconstraints" }
 
 [workspace]
 members = [
-    "ewal_control_acl",
-    "ewal_control_graph",
-    "ewal_control_inputconstraints",
-    "ewal_control_form",
+    "acl",
+    "graph",
+    "inputconstraints",
+    "form",
 ]
