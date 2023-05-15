@@ -1,4 +1,4 @@
-# walrs_inputconstraints
+# wal_inputconstraints
 
 A set of `InputRule` validation structs used to validate, currently, text, and/or number, input values.
 

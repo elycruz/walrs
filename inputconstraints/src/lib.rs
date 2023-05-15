@@ -1,8 +1,8 @@
 #[macro_use]
 extern crate derive_builder;
 
-pub mod number;
-pub mod text;
+pub mod constants;
+pub mod input;
 pub mod types;
 
-// @todo Add 'Builder' for `walrs_inputconstraints` structs.
+// @todo Add 'Builder' for `wal_inputconstraints` structs.

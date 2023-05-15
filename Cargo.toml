@@ -8,7 +8,6 @@ edition = "2021"
 [dependencies]
 walrs_acl = { path = 'acl' }
 walrs_graph = { path = 'graph' }
-walrs_form = { path = 'form' }
 walrs_inputconstraints = { path = "inputconstraints" }
 
 [workspace]
@@ -16,5 +15,4 @@ members = [
     "acl",
     "graph",
     "inputconstraints",
-    "form",
 ]
