@@ -1,8 +1,4 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::input::ConstraintViolation;
-
-pub type Message = String;
-pub type ValidationResult = Result<(), ConstraintViolation>;
 
 #[derive(Clone, Debug, Default, PartialEq, PartialOrd)]
 pub struct PhantomValue {}
@@ -34,7 +30,31 @@ impl InputValue for &'_ str {}
 impl InputValue for String {}
 impl InputValue for PhantomValue {}
 
-pub trait HasLength {
-  fn len(&self) -> usize;
+pub enum InputType {
+  Button,
+  Checkbox,
+  Color,
+  Date,
+  Datetime,
+  DatetimeLocal,
+  Email,
+  File,
+  Hidden,
+  Image,
+  Month,
+  Number,
+  Password,
+  Radio,
+  Range,
+  Reset,
+  Search,
+  SelectMultiple,
+  SelectOne,
+  Submit,
+  Tel,
+  Text,
+  TextArea,
+  Time,
+  URL,
+  Week
 }
-
