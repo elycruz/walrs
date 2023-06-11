@@ -8,11 +8,11 @@ edition = "2021"
 [dependencies]
 walrs_acl = { path = 'acl' }
 walrs_graph = { path = 'graph' }
-walrs_inputconstraints = { path = "inputconstraints" }
+walrs_inputfilter = { path = "inputfilter" }
 
 [workspace]
 members = [
     "acl",
     "graph",
-    "inputconstraints",
+    "inputfilter",
 ]

@@ -5,4 +5,4 @@ pub mod constants;
 pub mod input;
 pub mod types;
 
-// @todo Add 'Builder' for `wal_inputconstraints` structs.
+// @todo Add 'Builder' for `wal_inputfilter` structs.

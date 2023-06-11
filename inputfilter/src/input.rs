@@ -1,14 +1,13 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug};
 use std::sync::Arc;
-use regex::Regex;
-use crate::input::ValidityState::{CustomError, PatternMismatch, TooLong, TooShort, Valid, ValueMissing};
+
 use crate::types::InputValue;
 
-pub type ConstraintViolationMsg = String;
+pub type ViolationMsg = String;
 
 #[derive(PartialEq, Debug)]
-pub enum ValidityState {
+pub enum ConstraintViolation {
   CustomError,
   PatternMismatch,
   RangeOverflow,
@@ -19,268 +18,269 @@ pub enum ValidityState {
 
   /// When value is in invalid format, and not validated
   /// against `pattern` (email, url, etc.) - currently unused.
+  // @todo should probably be 'format mismatch'
   TypeMismatch,
-  // @todo should probably 'format mismatch'
   ValueMissing,
   Valid,
 }
 
-pub type ConstraintViolationFn<T> =
-dyn Fn(&Input<T>, Option<T>) ->
-ConstraintViolationMsg + Send + Sync;
-
-pub type ConstraintCheck<T> =
-dyn Fn(T) -> bool + Send + Sync;
+pub type ViolationMsgGetter<T> =
+dyn Fn(&Input<T>, Option<T>) -> ViolationMsg + Send + Sync;
 
 pub type Message = String;
-pub type ValidationResult = Result<(), ValidityState>;
-pub type ValidationResultTuple = (ValidityState, Message);
+pub type ValidationError = (ConstraintViolation, Message);
+pub type ValidationResult = Result<(), Vec<ValidationError>>;
 pub type Validator<'a, T> = &'a (
-dyn Fn(T) -> Option<Vec<(ValidityState, Message)>> + Send + Sync
+dyn Fn(T) -> Result<(), ValidationError> + Send + Sync
 );
-pub type Filter<'a, T> = &'a (dyn Fn(Cow<T>) -> Cow<T> + Send + Sync);
+pub type Filter<'a, T> = &'a (
+dyn Fn(Option<Cow<T>>) -> Option<Cow<T>> + Send + Sync
+);
 
 #[derive(Builder, Clone)]
 pub struct Input<'a, T> where
-  T: InputValue
+  T: InputValue + 'a
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
 
   #[builder(default = "None")]
-  pub min: Option<T>,
+  pub name: Option<Cow<'a, str>>,
 
-  #[builder(default = "None")]
-  pub max: Option<T>,
+  #[builder(setter(strip_option), default = "None")]
+  pub validators: Option<Arc<Vec<Arc<Validator<'a, T>>>>>
 
-  #[builder(default = "None")]
-  pub step: Option<T>,
-
-  #[builder(default = "None")]
-  pub min_length: Option<usize>,
-
-  #[builder(default = "None")]
-  pub max_length: Option<usize>,
-
-  #[builder(default = "false")]
-  pub required: bool,
-
-  #[builder(default = "None")]
-  pub pattern: Option<Regex>,
-
-  #[builder(default = "None")]
-  pub custom: Option<Arc<&'a ConstraintCheck<T>>>,
-
-  #[builder(default = "None")]
-  pub validators: Option<Arc<Vec<Validator<'a, T>>>>,
-
-  #[builder(default = "None")]
-  pub filters: Option<Arc<Vec<Filter<'a, T>>>>,
-
-  #[builder(default = "Arc::new(&pattern_mismatch_msg)")]
-  pub pattern_mismatch: Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&too_long_msg)")]
-  pub too_long: Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&too_short_msg)")]
-  pub too_short: Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&range_underflow_msg)")]
-  pub range_underflow:
-  Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&range_overflow_msg)")]
-  pub range_overflow:
-  Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&value_missing_msg)")]
-  pub value_missing:
-  Arc<&'a ConstraintViolationFn<T>>,
-
-  #[builder(default = "Arc::new(&custom_error_msg)")]
-  pub custom_error:
-  Arc<&'a ConstraintViolationFn<T>>,
+  // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
 
-impl<T: InputValue> Input<'_, T> {
+impl<T> Input<'_, T> where T: InputValue {
   pub fn new() -> Self {
     Input {
       break_on_failure: false,
-      min: None,
-      max: None,
-      step: None,
-      min_length: None,
-      max_length: None,
-      pattern: None,
-      required: false,
-      custom: None,
+      name: None,
       validators: None,
-      filters: None,
-
-      pattern_mismatch: Arc::new(&pattern_mismatch_msg),
-      too_long: Arc::new(&too_long_msg),
-      too_short: Arc::new(&too_short_msg),
-      range_underflow: Arc::new(&range_underflow_msg),
-      range_overflow: Arc::new(&range_overflow_msg),
-      value_missing: Arc::new(&value_missing_msg),
-      custom_error: Arc::new(&custom_error_msg),
     }
   }
 
-  /// Applies filters in `filters` from right-to-left.
-  pub fn filter<'x>(&self, xs: Cow<'x, T>) -> Cow<'x, T> {
-    match self.filters.as_deref() {
-      Some(filters) => {
-        filters.iter().rfold(xs, |_xs, f| f(_xs))
-      }
-      _ => xs
-    }
+  fn _validate_against_validators(&self, value: &T) -> Option<Vec<(ConstraintViolation, Message)>> {
+    self.validators.as_deref().map(|vs| {
+      vs.iter().fold(vec![], |mut agg, f| {
+        match (f)(value.clone()) {
+          Err(message_tuples) => {
+            agg.push(message_tuples);
+            agg
+          }
+          _ => agg
+        }
+      })
+    })
   }
 
-  pub fn validate(&self, value: Option<T>) -> Result<(), (ValidityState, String)> {
-    let validity = match &value {
-      None => if !self.required {
-        Valid
+  fn _option_rslt_to_rslt(&self, rslt: Option<Vec<ValidationError>>) -> ValidationResult {
+    match rslt {
+      None => Ok(()),
+      Some(_msgs) => if !_msgs.is_empty() {
+        Err(_msgs)
       } else {
-        ValueMissing
-      },
-      Some(v) => _validate(self, v.clone())
+        Ok(())
+      }
+    }
+  }
+
+  pub fn validate(&self, value: Option<T>) -> ValidationResult {
+    match &value {
+      None => Ok(()),
+      Some(v) => self._option_rslt_to_rslt(
+        self._validate_against_validators(v)
+      )
+    }
+  }
+}
+
+impl<T: InputValue> Default for Input<'_, T> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use std::borrow::Cow;
+  use std::sync::{Arc, Mutex};
+  use regex::Regex;
+  use crate::input::{InputBuilder, ConstraintViolation};
+  use std::error::Error;
+  use std::thread;
+  use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
+
+  type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
+
+  struct PatternValidator<'a> {
+    pattern: Cow<'a, Regex>,
+    pattern_mismatch_callback: Arc<&'a PatternViolationCallback>,
+  }
+
+  impl<'a> PatternValidator<'a> {
+    pub fn validate(&self, value: &str) -> Result<(), (ConstraintViolation, String)> {
+      match self.pattern.is_match(value) {
+        false => Err((PatternMismatch, (&self.pattern_mismatch_callback.clone())(self, value))),
+        _ => Ok(())
+      }
+    }
+  }
+
+  #[test]
+  fn test_input_builder() -> Result<(), Box<dyn Error>> {
+    let unsized_less_100 = |x: u32| -> Result<(), (ConstraintViolation, String)> {
+      if x >= 100 {
+        return Err((RangeOverflow, "Value greater than 100".to_string()));
+      }
+      Ok(())
     };
 
-    if validity != Valid {
-      return match _get_validation_message(self, &validity, value) {
-        Some(msg) => Err((validity, msg)),
-        _ => Ok(()),
-      };
+    // Simplified ISO year-month-date regex
+    let ymd_regex = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$")?;
+    let ymd_mismatch_msg = |s: &str| -> String {
+      format!("{} doesn't match pattern {}", s, ymd_regex.as_str())
+    };
+    let ymd_check = |s: &str| -> Result<(), (ConstraintViolation, String)> {
+      if !ymd_regex.is_match(s) {
+        return Err(
+          (PatternMismatch,
+           ymd_mismatch_msg(s))
+        );
+      }
+      Ok(())
+    };
+
+    let less_than_100_input = InputBuilder::<u32>::default()
+      .validators(Arc::new(vec![Arc::new(&unsized_less_100)]))
+      .build()?;
+
+    let yyyy_mm_dd_input = InputBuilder::<&str>::default()
+      .validators(Arc::new(vec![Arc::new(&ymd_check)]))
+      .build()?;
+
+    match less_than_100_input.validate(None) {
+      Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
+      Ok(()) => ()
+    }
+
+    let value = "1000-99-999";
+
+    // Mismatch check
+    match yyyy_mm_dd_input.validate(Some(value)) {
+      Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
+      Err(tuples) => {
+        assert_eq!(tuples[0].0, PatternMismatch);
+        assert_eq!(tuples[0].1, ymd_mismatch_msg(value).as_str());
+      }
+    }
+
+    // Valid check
+    match yyyy_mm_dd_input.validate(None) {
+      Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
+      Ok(()) => ()
+    }
+
+    // Valid check 2
+    let value = "1000-99-99";
+    match yyyy_mm_dd_input.validate(Some(value)) {
+      Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
+      Ok(()) => ()
+    }
+
+    // Validator case 1
+    let pattern_validator = PatternValidator {
+      pattern: Cow::Owned(ymd_regex.clone()),
+      pattern_mismatch_callback: Arc::new(&|validator, s| {
+        format!("{} doesn't match pattern {}", s, validator.pattern.as_str())
+      }),
+    };
+
+    let ymd_validator2 = move |v| pattern_validator.validate(v);
+    let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
+      .validators(Arc::new(vec![Arc::new(&ymd_validator2)]))
+      .build()?;
+
+    // Valid check
+    let value = "1000-99-99";
+    match yyyy_mm_dd_input2.validate(Some(value)) {
+      Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
+      Ok(()) => ()
     }
 
     Ok(())
   }
 
-  pub fn validate_and_filter<'x>(&self, value: Option<T>) -> Result<Option<Cow<'x, T>>, (ValidityState, String)> {
-    self.validate(value.clone())?;
-
-    Ok(value.map(|v| Cow::Owned(v))) //self.filter(Cow::Borrowed(&v))))
-  }
-}
-
-fn _validate<T: InputValue>(rules: &Input<T>, value: T) -> ValidityState {
-  let xs = value.to_string();
-
-  // Run custom test
-  if let Some(custom) = &rules.custom {
-    let _fn = Arc::clone(custom);
-    if !((_fn)(value)) {
-      return CustomError;
+  #[test]
+  fn test_thread_safety() -> Result<(), Box<dyn Error>> {
+    fn unsized_less_100_msg (value: u32) -> String {
+      format!("{} is greater than 100", value)
     }
-  }
 
-  // Test against Min Length
-  if let Some(min_length) = &rules.min_length {
-    if &xs.len() < min_length {
-      return TooShort;
+    fn unsized_less_100 (x: u32) -> Result<(), (ConstraintViolation, String)> {
+      if x >= 100 {
+        return Err((RangeOverflow, unsized_less_100_msg(x)));
+      }
+      Ok(())
     }
-  }
 
-  // Test against Max Length
-  if let Some(max_length) = &rules.max_length {
-    if &xs.len() > max_length {
-      return TooLong;
+    fn ymd_mismatch_msg (s: &str, pattern_str: &str) -> String {
+      format!("{} doesn't match pattern {}", s, pattern_str)
     }
+
+    fn ymd_check(s: &str) -> Result<(), (ConstraintViolation, String)> {
+      // Simplified ISO year-month-date regex
+      let rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
+      if !rx.is_match(s) {
+        return Err(
+          (PatternMismatch,
+           ymd_mismatch_msg(s, rx.as_str()))
+        );
+      }
+      Ok(())
+    };
+
+    let less_than_100_input = InputBuilder::<u32>::default()
+      .validators(Arc::new(vec![Arc::new(&unsized_less_100)]))
+      .build()?;
+
+    let ymd_input = InputBuilder::<&str>::default()
+      .validators(Arc::new(vec![Arc::new(&ymd_check)]))
+      .build()?;
+
+    let u32_input = Arc::new(less_than_100_input);
+    let u32_input_instance = Arc::clone(&u32_input);
+
+    let str_input = Arc::new(ymd_input);
+    let str_input_instance = Arc::clone(&str_input);
+
+    let handle = thread::spawn(move || {
+      match u32_input_instance.validate(Some(101)) {
+        Err(x) => {
+          assert_eq!(x[0].1.as_str(), unsized_less_100_msg(101));
+        },
+        _ => panic!("Expected `Err(...)`")
+      }
+    });
+
+    let handle2 = thread::spawn(move || {
+      match str_input_instance.validate(Some("")) {
+        Err(x) => {
+          assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap().as_str()));
+        },
+        _ => panic!("Expected `Err(...)`")
+      }
+    });
+
+    // @note Conclusion of tests here is that validators can only (easily) be shared between threads if they're function pointers -
+    //   closures are too loose and require over the top value management and planning due to the nature of multi-threaded
+    //  contexts.
+
+    handle.join().unwrap();
+    handle2.join().unwrap();
+
+    Ok(())
   }
-
-  // Test pattern
-  if let Some(pattern) = &rules.pattern {
-    if !pattern.is_match(&xs) {
-      return PatternMismatch;
-    }
-  }
-
-  Valid
-}
-
-fn _get_validation_message<T: InputValue>(
-  constraints: &Input<T>,
-  validity_enum: &ValidityState,
-  x: Option<T>,
-) -> Option<String> {
-  let f = match validity_enum {
-    CustomError => Some(&constraints.custom_error),
-    PatternMismatch => Some(&constraints.pattern_mismatch),
-    TooLong => Some(&constraints.too_long),
-    TooShort => Some(&constraints.too_short),
-    ValueMissing => Some(&constraints.value_missing),
-    _ => None,
-  };
-
-  f.map(|_f| {
-    let _fn = Arc::clone(_f);
-    (_fn)(constraints, x)
-  })
-}
-
-pub fn pattern_mismatch_msg<'a, T>(rules: &Input<T>, xs: Option<T>) -> String
-  where
-    T: InputValue + 'a
-{
-  format!(
-    "`{}` does not match pattern `{}`",
-    &xs.as_ref().unwrap(),
-    rules.pattern.as_ref().unwrap()
-  )
-}
-
-pub fn range_underflow_msg<T>(rules: &Input<T>, x: Option<T>) -> String
-  where
-    T: InputValue
-{
-  format!(
-    "`{:}` is less than minimum `{:}`.",
-    &x.as_ref().unwrap(),
-    &rules.min.as_ref().unwrap()
-  )
-}
-
-pub fn range_overflow_msg<T>(rules: &Input<T>, x: Option<T>) -> String
-  where
-    T: InputValue
-{
-  format!(
-    "`{:}` is greater than maximum `{:}`.",
-    &x.as_ref().unwrap(),
-    &rules.max.as_ref().unwrap()
-  )
-}
-
-pub fn too_short_msg<T>(rules: &Input<T>, xs: Option<T>) -> String
-  where
-    T: InputValue {
-  format!(
-    "Value length `{:}` is less than allowed minimum `{:}`.",
-    &xs.as_ref().unwrap().to_string().len(),
-    &rules.min_length.unwrap_or(0)
-  )
-}
-
-pub fn too_long_msg<T>(rules: &Input<T>, xs: Option<T>) -> String
-  where
-    T: InputValue {
-  format!(
-    "Value length `{:}` is greater than allowed maximum `{:}`.",
-    &xs.as_ref().unwrap().to_string().len(),
-    &rules.min_length.unwrap_or(0)
-  )
-}
-
-pub fn value_missing_msg<T>(_: &Input<T>, _: Option<T>) -> String
-  where
-    T: InputValue {
-  "Value is missing.".to_string()
-}
-
-pub fn custom_error_msg<T>(_: &Input<T>, _: Option<T>) -> String
-  where
-    T: InputValue {
-  "Custom error.".to_string()
 }

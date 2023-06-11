@@ -1,5 +1,5 @@
 [package]
-name = "walrs_inputconstraints"
+name = "walrs_inputfilter"
 version = "0.1.0"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
 edition = "2021"
