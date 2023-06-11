@@ -21,7 +21,6 @@ pub enum ConstraintViolation {
   // @todo should probably be 'format mismatch'
   TypeMismatch,
   ValueMissing,
-  Valid,
 }
 
 pub type ViolationMsgGetter<T> =
@@ -34,7 +33,7 @@ pub type Validator<'a, T> = &'a (
 dyn Fn(T) -> Result<(), ValidationError> + Send + Sync
 );
 pub type Filter<'a, T> = &'a (
-dyn Fn(Option<Cow<T>>) -> Option<Cow<T>> + Send + Sync
+dyn Fn(Option<T>) -> Option<T> + Send + Sync
 );
 
 #[derive(Builder, Clone)]
@@ -48,7 +47,10 @@ pub struct Input<'a, T> where
   pub name: Option<Cow<'a, str>>,
 
   #[builder(setter(strip_option), default = "None")]
-  pub validators: Option<Arc<Vec<Arc<Validator<'a, T>>>>>
+  pub validators: Option<Arc<Vec<Arc<Validator<'a, T>>>>>,
+
+  #[builder(setter(strip_option), default = "None")]
+  pub filters: Option<Arc<Vec<Arc<Filter<'a, T>>>>>
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -59,6 +61,7 @@ impl<T> Input<'_, T> where T: InputValue {
       break_on_failure: false,
       name: None,
       validators: None,
+      filters: None,
     }
   }
 
@@ -87,6 +90,18 @@ impl<T> Input<'_, T> where T: InputValue {
     }
   }
 
+  fn _filter_against_filters(&self, value: Option<T>) -> Option<T> {
+    self.filters.as_deref().map(|fs| {
+      fs.iter().fold(value, |agg, f| {
+        (f)(agg)
+      })
+    }).flatten()
+  }
+
+  pub fn filter(&self, value: Option<T>) -> Option<T> {
+    self._filter_against_filters(value)
+  }
+
   pub fn validate(&self, value: Option<T>) -> ValidationResult {
     match &value {
       None => Ok(()),
@@ -106,7 +121,7 @@ impl<T: InputValue> Default for Input<'_, T> {
 #[cfg(test)]
 mod test {
   use std::borrow::Cow;
-  use std::sync::{Arc, Mutex};
+  use std::sync::{Arc};
   use regex::Regex;
   use crate::input::{InputBuilder, ConstraintViolation};
   use std::error::Error;
@@ -240,7 +255,7 @@ mod test {
         );
       }
       Ok(())
-    };
+    }
 
     let less_than_100_input = InputBuilder::<u32>::default()
       .validators(Arc::new(vec![Arc::new(&unsized_less_100)]))
