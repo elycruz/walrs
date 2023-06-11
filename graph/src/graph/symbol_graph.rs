@@ -167,7 +167,7 @@ impl TryFrom<&mut BufReader<File>> for SymbolGraph {
         Ok(_line) => {
           let vs: Vec<&str> = _line.split_ascii_whitespace().collect();
 
-          if vs.len() == 0 {
+          if vs.is_empty() {
             return Err(format!(
               "Malformed symbol graph buffer at buffer line {:}",
               line_num

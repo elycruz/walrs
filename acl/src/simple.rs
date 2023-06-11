@@ -58,7 +58,7 @@ impl PrivilegeRules {
 
   pub fn set_rule(&mut self, privilege_ids: Option<&[&str]>, rule: Rule) -> RuleContextScope {
     if let Some(ps) = privilege_ids {
-      if ps.len() > 0 {
+      if !ps.is_empty() {
         ps.iter().for_each(|p| {
           self
             .by_privilege_id
@@ -114,7 +114,7 @@ impl RolePrivilegeRules {
     role_ids: &[&str],
     privilege_rules: PrivilegeRules,
   ) -> RuleContextScope {
-    if role_ids.len() == 0 {
+    if role_ids.is_empty() {
       self.for_all_roles = privilege_rules;
       RuleContextScope::ForAllSymbols
     } else {
@@ -198,7 +198,7 @@ impl ResourceRoleRules {
     let _role_privilege_rules = role_privilege_rules.unwrap_or(RolePrivilegeRules::new(false));
     match resources {
       Some(resource_ids) => {
-        if resource_ids.len() > 0 {
+        if !resource_ids.is_empty() {
           resource_ids.iter().for_each(|r_id| {
             self
               .by_resource_id
@@ -615,12 +615,12 @@ impl Acl {
     // Select given `role`'s inherited symbols lists
     let _roles = role
       .and_then(|_role| self._roles.adj(_role))
-      .and_then(|xs| if xs.len() == 0 { None } else { Some(xs) });
+      .and_then(|xs| if xs.is_empty() { None } else { Some(xs) });
 
     // Select given `resource`'s inherited symbols list
     let _resources = resource
       .and_then(|_resource| self._resources.adj(_resource))
-      .and_then(|xs| if xs.len() == 0 { None } else { Some(xs) });
+      .and_then(|xs| if xs.is_empty() { None } else { Some(xs) });
 
     // Callback for returning `allow` check result, or checking if current parameter set has `allow` permission
     //  Helps dry up the code, below, a bit
@@ -708,12 +708,12 @@ impl Acl {
     xss: Option<&[&'a str]>,
   ) -> Vec<Option<&'a str>> {
     xss.map_or(vec![None], |_xss| {
-      if _xss.len() == 0 {
+      if _xss.is_empty() {
         return vec![None];
       }
       _xss
         .iter()
-        .filter(|xs| pred(**xs))
+        .filter(|xs| pred(xs))
         .map(|xs| Some(*xs))
         .collect()
     })
@@ -728,7 +728,7 @@ impl Acl {
     xss: Option<&[&'a str]>,
   ) -> Vec<Option<String>> {
     xss.map_or(vec![None], |_xss| {
-      if _xss.len() == 0 {
+      if _xss.is_empty() {
         return vec![None];
       }
       _xss
@@ -884,6 +884,12 @@ impl Acl {
         }
     }*/
     self
+  }
+}
+
+impl Default for Acl {
+  fn default() -> Self {
+    Self::new()
   }
 }
 
@@ -1183,7 +1189,7 @@ mod test_role_privilege_rules {
 
   // Tests setter, and getter results
   fn test_when_only_roles(r_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-    if r_ids.len() == 0 {
+    if r_ids.is_empty() {
       panic!("Expected role IDs list with greater than `0` length");
     }
     r_ids.iter().for_each(|r_id| {
@@ -1205,7 +1211,7 @@ mod test_role_privilege_rules {
 
   // Tests setter, and getter results
   fn test_when_only_privileges(p_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-    if p_ids.len() == 0 {
+    if p_ids.is_empty() {
       panic!("Expected privilege IDs list with greater than `0` length");
     }
     p_ids.iter().for_each(|p_id| {
@@ -1331,7 +1337,7 @@ mod test_role_privilege_rules {
       let mut privilege_rules = PrivilegeRules::new(false);
       let privilege_rules = match privilege_ids.as_ref() {
         Some(p_ids) => {
-          if p_ids.len() > 0 {
+          if !p_ids.is_empty() {
             p_ids.iter().for_each(|p_id| {
               privilege_rules
                 .by_privilege_id
@@ -1482,7 +1488,7 @@ mod test_resource_role_rules {
               r
             );
           });
-          if resources.len() == 0 {
+          if resources.is_empty() {
             assert_eq!(&ctrl.for_all_resources, role_rules.as_ref().unwrap());
             assert_eq!(
               ctrl.get_role_privilege_rules(None),

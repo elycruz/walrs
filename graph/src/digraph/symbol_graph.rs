@@ -83,7 +83,7 @@ impl DisymGraph {
 
   /// Returns the indices for the given symbol strings.
   pub fn indices(&self, vs: &[&str]) -> Option<Vec<usize>> {
-    if vs.len() == 0 || self.vert_count() == 0 {
+    if vs.is_empty() || self.vert_count() == 0 {
       None
     } else {
       Some(vs.iter().filter_map(|v| self.index(v)).collect())
@@ -101,7 +101,7 @@ impl DisymGraph {
 
   /// Returns the symbol names for the given indices.
   pub fn names(&self, indices: &[usize]) -> Option<Vec<String>> {
-    if indices.len() == 0 || self.vert_count() == 0 {
+    if indices.is_empty() || self.vert_count() == 0 {
       None
     } else {
       Some(indices.iter().filter_map(|i| self.name(*i)).collect())
@@ -196,6 +196,12 @@ impl DisymGraph {
     }
 
     Ok(self)
+  }
+}
+
+impl Default for DisymGraph {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

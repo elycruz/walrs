@@ -91,11 +91,11 @@ impl<T> Input<'_, T> where T: InputValue {
   }
 
   fn _filter_against_filters(&self, value: Option<T>) -> Option<T> {
-    self.filters.as_deref().map(|fs| {
+    self.filters.as_deref().and_then(|fs| {
       fs.iter().fold(value, |agg, f| {
         (f)(agg)
       })
-    }).flatten()
+    })
   }
 
   pub fn filter(&self, value: Option<T>) -> Option<T> {
