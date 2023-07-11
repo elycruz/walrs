@@ -120,15 +120,18 @@ impl<T: InputValue> Default for Input<'_, T> {
 
 #[cfg(test)]
 mod test {
-  use std::borrow::Cow;
-  use std::sync::{Arc};
+  use std::{
+    borrow::Cow,
+    sync::{Arc},
+    error::Error,
+    thread
+  };
   use regex::Regex;
-  use crate::input::{InputBuilder, ConstraintViolation};
-  use std::error::Error;
-  use std::thread;
+
+  use crate::input::{InputBuilder, ConstraintViolation, ViolationMsg};
   use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
 
-  type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
+  type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> ViolationMsg + Send + Sync;
 
   struct PatternValidator<'a> {
     pattern: Cow<'a, Regex>,
@@ -293,8 +296,82 @@ mod test {
     //   closures are too loose and require over the top value management and planning due to the nature of multi-threaded
     //  contexts.
 
+    // Contrary to the above, 'scoped threads', will allow variable sharing without requiring them to
+    // be 'moved' first (as long as rust's lifetime rules are followed -
+    //  @see https://blog.logrocket.com/using-rust-scoped-threads-improve-efficiency-safety/
+    // ).
+
     handle.join().unwrap();
     handle2.join().unwrap();
+
+    Ok(())
+  }
+
+
+  /// Example showing shared references in `Input`, and user-land, controls.
+  #[test]
+  fn test_thread_safety_with_scoped_threads() -> Result<(), Box<dyn Error>> {
+    let unsized_less_100_msg =  |value: u32| -> String {
+      format!("{} is greater than 100", value)
+    };
+
+    let unsized_less_100 = |x: u32| -> Result<(), (ConstraintViolation, String)> {
+      if x >= 100 {
+        return Err((RangeOverflow, unsized_less_100_msg(x)));
+      }
+      Ok(())
+    };
+
+    let ymd_mismatch_msg = |s: &str, pattern_str: &str| -> String {
+      format!("{} doesn't match pattern {}", s, pattern_str)
+    };
+
+    let ymd_rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
+
+    let ymd_check = |s: &str| -> Result<(), (ConstraintViolation, String)> {
+      // Simplified ISO year-month-date regex
+      if !ymd_rx.is_match(s) {
+        return Err(
+          (PatternMismatch,
+           ymd_mismatch_msg(s, ymd_rx.as_str()))
+        );
+      }
+      Ok(())
+    };
+
+    let less_than_100_input = InputBuilder::<u32>::default()
+      .validators(Arc::new(vec![Arc::new(&unsized_less_100)]))
+      .build()?;
+
+    let ymd_input = InputBuilder::<&str>::default()
+      .validators(Arc::new(vec![Arc::new(&ymd_check)]))
+      .build()?;
+
+    let u32_input = Arc::new(less_than_100_input);
+    let u32_input_instance = Arc::clone(&u32_input);
+
+    let str_input = Arc::new(ymd_input);
+    let str_input_instance = Arc::clone(&str_input);
+
+    thread::scope(|scope| {
+      scope.spawn(|| {
+        match u32_input_instance.validate(Some(101)) {
+          Err(x) => {
+            assert_eq!(x[0].1.as_str(), unsized_less_100_msg(101));
+          },
+          _ => panic!("Expected `Err(...)`")
+        }
+      });
+
+      scope.spawn(|| {
+        match str_input_instance.validate(Some("")) {
+          Err(x) => {
+            assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
+          },
+          _ => panic!("Expected `Err(...)`")
+        }
+      });
+    });
 
     Ok(())
   }
