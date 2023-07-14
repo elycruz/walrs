@@ -29,7 +29,11 @@ impl InputValue for f64 {}
 impl InputValue for &'_ str {}
 impl InputValue for Cow<'_, str> {}
 impl InputValue for String {}
+impl InputValue for &'_ char {}
+impl InputValue for Cow<'_, char> {}
 impl InputValue for PhantomValue {}
+
+impl InputValue for bool {}
 
 pub enum InputType {
   Button,

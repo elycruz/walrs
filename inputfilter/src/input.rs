@@ -6,7 +6,7 @@ use crate::types::InputValue;
 
 pub type ViolationMsg = String;
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
   CustomError,
   PatternMismatch,
@@ -46,6 +46,9 @@ pub struct Input<'a, T> where
   #[builder(default = "None")]
   pub name: Option<Cow<'a, str>>,
 
+  #[builder(default = "false")]
+  pub required: bool,
+
   #[builder(setter(strip_option), default = "None")]
   pub validators: Option<Arc<Vec<Arc<Validator<'a, T>>>>>,
 
@@ -60,6 +63,7 @@ impl<T> Input<'_, T> where T: InputValue {
     Input {
       break_on_failure: false,
       name: None,
+      required: false,
       validators: None,
       filters: None,
     }
@@ -310,7 +314,7 @@ mod test {
 
   /// Example showing shared references in `Input`, and user-land, controls.
   #[test]
-  fn test_thread_safety_with_scoped_threads() -> Result<(), Box<dyn Error>> {
+  fn test_thread_safety_with_scoped_threads_and_closures() -> Result<(), Box<dyn Error>> {
     let unsized_less_100_msg =  |value: u32| -> String {
       format!("{} is greater than 100", value)
     };
