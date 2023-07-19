@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::ops::Div;
 use std::sync::Arc;
 
 use crate::input::{ConstraintViolation, ValidationError};
@@ -8,7 +8,7 @@ use crate::types::InputValue;
 pub type NumberViolationCallback<T> = dyn Fn(&NumberValidator<T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
-pub struct NumberValidator<'a, T: InputValue + Copy> {
+pub struct NumberValidator<'a, T: InputValue + Copy + Div> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -29,7 +29,7 @@ pub struct NumberValidator<'a, T: InputValue + Copy> {
 }
 
 impl<'a, T> NumberValidator<'a, T>
-  where T: InputValue + Copy
+  where T: InputValue + Copy + Div
 {
   fn _validate_number(&self, v: T) -> Option<ConstraintViolation> {
     // Test Min
@@ -47,12 +47,12 @@ impl<'a, T> NumberValidator<'a, T>
     }
 
     // Test Step
-    if let Some(step) = self.step {
-      // let quotient = v / step;
-      if step != Default::default() /*&& quotient != Default::default()*/ {
-        return Some(StepMismatch);
-      }
-    }
+    // if let Some(step) = self.step {
+    //   // let quotient = v / step;
+    //   if step != Default::default() /*&& quotient != Default::default()*/ {
+    //     return Some(StepMismatch);
+    //   }
+    // }
 
     None
   }
@@ -94,7 +94,7 @@ impl<'a, T> NumberValidator<'a, T>
 }
 
 impl<'a, T>  Default for NumberValidator<'a, T>
-  where T: InputValue + Copy {
+  where T: InputValue + Copy + Div {
   fn default() -> Self {
     NumberValidator::new()
   }
@@ -102,7 +102,7 @@ impl<'a, T>  Default for NumberValidator<'a, T>
 
 pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   where
-    T: InputValue + Copy,
+    T: InputValue + Copy + Div,
 {
   format!(
     "`{:}` is less than minimum `{:}`.",
@@ -113,7 +113,7 @@ pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 
 pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   where
-    T: InputValue + Copy,
+    T: InputValue + Copy + Div,
 {
   format!(
     "`{:}` is greater than maximum `{:}`.",
@@ -122,13 +122,15 @@ pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   )
 }
 
-pub fn step_mismatch_msg<T>(rules: &NumberValidator<T>, x: T) -> String
-  where
-    T: InputValue + Copy,
-{
+pub fn step_mismatch_msg<T: InputValue + Copy + Div>(rules: &NumberValidator<T>, x: T) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
     x,
     &rules.step.as_ref().unwrap()
   )
+}
+
+#[cfg(test)]
+mod test {
+
 }

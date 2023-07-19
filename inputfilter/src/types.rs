@@ -10,7 +10,7 @@ impl Display for PhantomValue {
   }
 }
 
-pub trait InputValue: Clone + Debug + Display + Default + PartialEq + PartialOrd {}
+pub trait InputValue: Default + Display + PartialEq + PartialOrd {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
@@ -29,8 +29,8 @@ impl InputValue for f64 {}
 impl InputValue for &'_ str {}
 impl InputValue for Cow<'_, str> {}
 impl InputValue for String {}
-// impl InputValue for &'_ char {}
-// impl InputValue for Cow<'_, char> {}
+// impl InputValue for &'_ char {} // @note `Default` not implemented for this type.
+impl InputValue for Cow<'_, char> {}
 impl InputValue for PhantomValue {}
 
 impl InputValue for bool {}
