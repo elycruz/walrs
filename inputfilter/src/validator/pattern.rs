@@ -8,8 +8,8 @@ use crate::input::ConstraintViolation::PatternMismatch;
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
 pub struct PatternValidator<'a> {
-  pattern: Cow<'a, Regex>,
-  pattern_mismatch: Arc<&'a PatternViolationCallback>,
+  pub pattern: Cow<'a, Regex>,
+  pub pattern_mismatch: Arc<&'a PatternViolationCallback>,
 }
 
 impl<'a> PatternValidator<'a> {

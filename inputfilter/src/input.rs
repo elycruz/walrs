@@ -4,8 +4,6 @@ use std::sync::Arc;
 
 use crate::types::InputValue;
 
-pub type ViolationMsg = String;
-
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
   CustomError,
@@ -23,20 +21,17 @@ pub enum ConstraintViolation {
   ValueMissing,
 }
 
-pub type ViolationMsgGetter<T> =
-dyn Fn(&Input<T>, Option<T>) -> ViolationMsg + Send + Sync;
+pub type ViolationMessage = String;
+pub type ViolationMsgGetter<T> = dyn Fn(&Input<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
-pub type Message = String;
-pub type ValidationError = (ConstraintViolation, Message);
+pub type ValidationError = (ConstraintViolation, ViolationMessage);
 pub type ValidationResult = Result<(), Vec<ValidationError>>;
-pub type Validator<'a, T> = &'a (
-dyn Fn(T) -> Result<(), ValidationError> + Send + Sync
-);
-pub type Filter<'a, T> = &'a (
-dyn Fn(Option<T>) -> Option<T> + Send + Sync
-);
+pub type Validator<'a, T> = &'a (dyn Fn(T) -> Result<(), ValidationError> + Send + Sync);
+pub type Filter<'a, T> = &'a (dyn Fn(Option<T>) -> Option<T> + Send + Sync);
 
-#[derive(Builder, Clone)]
+pub type ValueMissingViolationCallback<T> = dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
+
+#[derive(Clone, Builder)]
 pub struct Input<'a, T> where
   T: InputValue + 'a
 {
@@ -53,7 +48,10 @@ pub struct Input<'a, T> where
   pub validators: Option<Arc<Vec<Arc<Validator<'a, T>>>>>,
 
   #[builder(setter(strip_option), default = "None")]
-  pub filters: Option<Arc<Vec<Arc<Filter<'a, T>>>>>
+  pub filters: Option<Arc<Vec<Arc<Filter<'a, T>>>>>,
+
+  #[builder(default = "Arc::new(&value_missing_msg)")]
+  pub value_missing: Arc<&'a ValueMissingViolationCallback<T>>,
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -66,10 +64,11 @@ impl<T> Input<'_, T> where T: InputValue {
       required: false,
       validators: None,
       filters: None,
+      value_missing: Arc::new(&(value_missing_msg)),
     }
   }
 
-  fn _validate_against_validators(&self, value: &T) -> Option<Vec<(ConstraintViolation, Message)>> {
+  fn _validate_against_validators(&self, value: &T) -> Option<Vec<(ConstraintViolation, ViolationMessage)>> {
     self.validators.as_deref().map(|vs| {
       vs.iter().fold(vec![], |mut agg, f| {
         match (f)(value.clone()) {
@@ -132,24 +131,9 @@ mod test {
   };
   use regex::Regex;
 
-  use crate::input::{InputBuilder, ConstraintViolation, ViolationMsg};
+  use crate::input::{InputBuilder, ConstraintViolation, ViolationMessage};
   use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
-
-  type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> ViolationMsg + Send + Sync;
-
-  struct PatternValidator<'a> {
-    pattern: Cow<'a, Regex>,
-    pattern_mismatch_callback: Arc<&'a PatternViolationCallback>,
-  }
-
-  impl<'a> PatternValidator<'a> {
-    pub fn validate(&self, value: &str) -> Result<(), (ConstraintViolation, String)> {
-      match self.pattern.is_match(value) {
-        false => Err((PatternMismatch, (&self.pattern_mismatch_callback.clone())(self, value))),
-        _ => Ok(())
-      }
-    }
-  }
+  use crate::validator::pattern::PatternValidator;
 
   #[test]
   fn test_input_builder() -> Result<(), Box<dyn Error>> {
@@ -215,7 +199,7 @@ mod test {
     // Validator case 1
     let pattern_validator = PatternValidator {
       pattern: Cow::Owned(ymd_regex.clone()),
-      pattern_mismatch_callback: Arc::new(&|validator, s| {
+      pattern_mismatch: Arc::new(&|validator, s| {
         format!("{} doesn't match pattern {}", s, validator.pattern.as_str())
       }),
     };
@@ -380,3 +364,11 @@ mod test {
     Ok(())
   }
 }
+
+pub fn value_missing_msg<T>(_: &Input<T>) -> String
+  where
+    T: InputValue,
+{
+  "Value is missing.".to_string()
+}
+

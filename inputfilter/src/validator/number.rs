@@ -1,14 +1,14 @@
 use std::fmt::Display;
 use std::sync::Arc;
 
-use crate::input::{ConstraintViolation, ValidationError, ValidationResult};
-use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow, ValueMissing};
+use crate::input::{ConstraintViolation, ValidationError};
+use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow};
+use crate::types::InputValue;
 
-pub type NumberViolationCallback<T: Display + PartialEq + PartialOrd + Copy> =
-  dyn Fn(&NumberValidator<T>, Option<T>) -> String + Send + Sync;
+pub type NumberViolationCallback<T> = dyn Fn(&NumberValidator<T>, T) -> String + Send + Sync;
 
-#[derive(Clone)]
-pub struct NumberValidator<'a, T: Display + Copy + PartialOrd + PartialEq> {
+#[derive(Builder, Clone)]
+pub struct NumberValidator<'a, T: InputValue + Copy> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -29,7 +29,7 @@ pub struct NumberValidator<'a, T: Display + Copy + PartialOrd + PartialEq> {
 }
 
 impl<'a, T> NumberValidator<'a, T>
-  where T: Display + Copy + PartialOrd + PartialEq
+  where T: InputValue + Copy
 {
   fn _validate_number(&self, v: T) -> Option<ConstraintViolation> {
     // Test Min
@@ -48,7 +48,8 @@ impl<'a, T> NumberValidator<'a, T>
 
     // Test Step
     if let Some(step) = self.step {
-      if step != Default::default() && v / step != Default::default() {
+      // let quotient = v / step;
+      if step != Default::default() /*&& quotient != Default::default()*/ {
         return Some(StepMismatch);
       }
     }
@@ -56,12 +57,11 @@ impl<'a, T> NumberValidator<'a, T>
     None
   }
 
-  fn _get_violation_msg(&self, violation: ConstraintViolation, value: Option<T>) -> String {
+  fn _get_violation_msg(&self, violation: ConstraintViolation, value: T) -> String {
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
       StepMismatch => Some(&self.step_mismatch),
-      ValueMissing => Some(&self.value_missing),
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
 
@@ -79,11 +79,30 @@ impl<'a, T> NumberValidator<'a, T>
 
     Ok(())
   }
+
+  pub fn new() -> Self {
+    NumberValidator {
+      min: None,
+      max: None,
+      step: None,
+      range_underflow: Arc::new(&range_underflow_msg),
+      range_overflow: Arc::new(&range_overflow_msg),
+      step_mismatch: Arc::new(&step_mismatch_msg),
+    }
+  }
+
+}
+
+impl<'a, T>  Default for NumberValidator<'a, T>
+  where T: InputValue + Copy {
+  fn default() -> Self {
+    NumberValidator::new()
+  }
 }
 
 pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   where
-    T: Display + Copy + PartialOrd + PartialEq,
+    T: InputValue + Copy,
 {
   format!(
     "`{:}` is less than minimum `{:}`.",
@@ -94,7 +113,7 @@ pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 
 pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   where
-    T: Display + Copy + PartialOrd + PartialEq,
+    T: InputValue + Copy,
 {
   format!(
     "`{:}` is greater than maximum `{:}`.",
@@ -105,7 +124,7 @@ pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 
 pub fn step_mismatch_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   where
-    T: Display + Copy + PartialOrd + PartialEq,
+    T: InputValue + Copy,
 {
   format!(
     "`{:}` is greater than maximum `{:}`.",
