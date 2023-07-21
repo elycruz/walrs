@@ -1,39 +1,41 @@
 use std::borrow::Cow;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Display};
+use crate::input::ConstraintViolation;
 
-#[derive(Clone, Debug, Default, PartialEq, PartialOrd)]
-pub struct PhantomValue {}
-
-impl Display for PhantomValue {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "do not instantiate - struct is meant to be used as a `PhantomData` type")
-  }
-}
-
-pub trait InputValue: Default + Display + PartialEq + PartialOrd {}
+pub trait InputValue: Clone + Default + Display + PartialEq + PartialOrd {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
 impl InputValue for i32 {}
 impl InputValue for i64 {}
 impl InputValue for i128 {}
+impl InputValue for isize {}
 
 impl InputValue for u8 {}
 impl InputValue for u16 {}
 impl InputValue for u32 {}
 impl InputValue for u64 {}
 impl InputValue for u128 {}
+impl InputValue for usize {}
 
 impl InputValue for f32 {}
 impl InputValue for f64 {}
-impl InputValue for &'_ str {}
-impl InputValue for Cow<'_, str> {}
-impl InputValue for String {}
-// impl InputValue for &'_ char {} // @note `Default` not implemented for this type.
-impl InputValue for Cow<'_, char> {}
-impl InputValue for PhantomValue {}
-
 impl InputValue for bool {}
+impl InputValue for &'_ str {}
+
+pub type ViolationMessage = String;
+
+pub type ValidationError = (ConstraintViolation, ViolationMessage);
+
+pub type ValidationResult = Result<(), Vec<ValidationError>>;
+
+pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
+
+pub type Validator<T> = dyn Fn(Cow<'_, T>) -> ValidationResult + Send + Sync;
+
+pub trait ValidateValue<T: InputValue> {
+  fn validate(&self, x: Cow<T>) -> ValidationResult;
+}
 
 pub enum InputType {
   Button,

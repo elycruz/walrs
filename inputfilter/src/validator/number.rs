@@ -1,14 +1,14 @@
+use std::borrow::Cow;
 use std::ops::Div;
-use std::sync::Arc;
 
-use crate::input::{ConstraintViolation, ValidationError};
+use crate::input::{ConstraintViolation};
 use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow};
-use crate::types::InputValue;
+use crate::types::{InputValue, ValidateValue, ValidationResult};
 
 pub type NumberViolationCallback<T> = dyn Fn(&NumberValidator<T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
-pub struct NumberValidator<'a, T: InputValue + Copy + Div> {
+pub struct NumberValidator<'a, T: InputValue + Copy + Div + 'static> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -18,14 +18,14 @@ pub struct NumberValidator<'a, T: InputValue + Copy + Div> {
   #[builder(default = "None")]
   pub step: Option<T>,
 
-  #[builder(default = "Arc::new(&range_underflow_msg)")]
-  pub range_underflow: Arc<&'a NumberViolationCallback<T>>,
+  #[builder(default = "&range_underflow_msg")]
+  pub range_underflow: &'a NumberViolationCallback<T>,
 
-  #[builder(default = "Arc::new(&range_overflow_msg)")]
-  pub range_overflow: Arc<&'a NumberViolationCallback<T>>,
+  #[builder(default = "&range_overflow_msg")]
+  pub range_overflow: &'a NumberViolationCallback<T>,
 
-  #[builder(default = "Arc::new(&step_mismatch_msg)")]
-  pub step_mismatch: Arc<&'a NumberViolationCallback<T>>,
+  #[builder(default = "&step_mismatch_msg")]
+  pub step_mismatch: &'a NumberViolationCallback<T>,
 }
 
 impl<'a, T> NumberValidator<'a, T>
@@ -65,19 +65,7 @@ impl<'a, T> NumberValidator<'a, T>
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
 
-    f.map(|_f| {
-      let _fn: Arc<&NumberViolationCallback<T>> = Arc::clone(_f);
-      (_fn)(self, value)
-    }).unwrap()
-  }
-
-  pub fn validate(&self, value: T) -> Result<(), ValidationError> {
-    // Perform validation
-    if let Some(violation) = self._validate_number(value) {
-      return Err((violation, self._get_violation_msg(violation, value)));
-    }
-
-    Ok(())
+    f.map(|_f| (_f)(self, value)).unwrap()
   }
 
   pub fn new() -> Self {
@@ -85,15 +73,35 @@ impl<'a, T> NumberValidator<'a, T>
       min: None,
       max: None,
       step: None,
-      range_underflow: Arc::new(&range_underflow_msg),
-      range_overflow: Arc::new(&range_overflow_msg),
-      step_mismatch: Arc::new(&step_mismatch_msg),
+      range_underflow: &range_underflow_msg,
+      range_overflow: &range_overflow_msg,
+      step_mismatch: &step_mismatch_msg,
     }
   }
-
 }
 
-impl<'a, T>  Default for NumberValidator<'a, T>
+impl<T> ValidateValue<T> for NumberValidator<'_, T>
+  where T: InputValue + Copy + Div {
+  fn validate(&self, value: Cow<'_, T>) -> ValidationResult {
+    // Perform validation
+    if let Some(violation) = self._validate_number(*value) {
+      return Err(vec![(violation, self._get_violation_msg(violation, *value))]);
+    }
+
+    Ok(())
+  }
+}
+
+impl<T> FnOnce<(Cow<'_, T>, )> for NumberValidator<'_, T>
+  where T: InputValue + Copy + Div {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (Cow<'_, T>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<'a, T> Default for NumberValidator<'a, T>
   where T: InputValue + Copy + Div {
   fn default() -> Self {
     NumberValidator::new()
@@ -131,6 +139,4 @@ pub fn step_mismatch_msg<T: InputValue + Copy + Div>(rules: &NumberValidator<T>,
 }
 
 #[cfg(test)]
-mod test {
-
-}
+mod test {}

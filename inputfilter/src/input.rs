@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug};
 use std::sync::Arc;
 
-use crate::types::InputValue;
+use crate::types::{Filter, InputValue, ValidationError, ValidationResult, ValidateValue, ViolationMessage, Validator};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
@@ -21,23 +21,14 @@ pub enum ConstraintViolation {
   ValueMissing,
 }
 
-pub type ViolationMessage = String;
-
 pub type ViolationMsgGetter<T> = dyn Fn(&Input<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
-pub type ValidationError = (ConstraintViolation, ViolationMessage);
-
-pub type ValidationResult = Result<(), Vec<ValidationError>>;
-
-pub type Validator<'a, T> = &'a (dyn Fn(T) -> Result<(), ValidationError> + Send + Sync);
-
-pub type Filter<'a, T> = &'a (dyn Fn(Option<T>) -> Option<T> + Send + Sync);
-
-pub type ValueMissingViolationCallback<T> = dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
+pub type ValueMissingViolationCallback<T> = dyn Fn(&'_ Input<T>) -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
+#[builder(pattern = "owned")]
 pub struct Input<'a, T> where
-  T: InputValue + 'a
+  T: InputValue
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
@@ -49,18 +40,18 @@ pub struct Input<'a, T> where
   pub required: bool,
 
   #[builder(setter(strip_option), default = "None")]
-  pub validators: Option<Arc<Vec<Validator<'a, T>>>>,
+  pub validators: Option<Vec<Arc<&'a Validator<T>>>>,
 
   #[builder(setter(strip_option), default = "None")]
-  pub filters: Option<Arc<Vec<Filter<'a, T>>>>,
-
-  #[builder(default = "Arc::new(&value_missing_msg)")]
-  pub value_missing: Arc<&'a ValueMissingViolationCallback<T>>,
+  pub filters: Option<Vec<&'a Filter<T>>>,
+  //
+  // #[builder(default = "&value_missing_msg")]
+  // pub value_missing: &'a ValueMissingViolationCallback<T>,
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
 
-impl<T> Input<'_, T> where T: InputValue {
+impl<'a, T> Input<'a, T> where T: InputValue {
   pub fn new() -> Self {
     Input {
       break_on_failure: false,
@@ -68,16 +59,16 @@ impl<T> Input<'_, T> where T: InputValue {
       required: false,
       validators: None,
       filters: None,
-      value_missing: Arc::new(&(value_missing_msg)),
+      // value_missing: &value_missing_msg,
     }
   }
 
-  fn _validate_against_validators(&self, value: &T) -> Option<Vec<(ConstraintViolation, ViolationMessage)>> {
+  fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
     self.validators.as_deref().map(|vs| {
-      vs.iter().fold(vec![], |mut agg, f| {
-        match (f)(value) {
-          Err(message_tuples) => {
-            agg.push(message_tuples);
+      vs.iter().fold(Vec::<ValidationError>::new(), |mut agg, f| {
+        match (Arc::clone(f))(Cow::Borrowed(value)) {
+          Err(mut message_tuples) => {
+            agg.append(message_tuples.as_mut());
             agg
           }
           _ => agg
@@ -125,10 +116,7 @@ impl<T: InputValue> Default for Input<'_, T> {
   }
 }
 
-pub fn value_missing_msg<T>(_: &Input<T>) -> String
-  where
-    T: InputValue,
-{
+pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
   "Value is missing.".to_string()
 }
 
@@ -142,40 +130,66 @@ mod test {
   };
   use regex::Regex;
 
-  use crate::input::{InputBuilder, ConstraintViolation, ValidationError, Validator};
+  use crate::input::{InputBuilder, ConstraintViolation, ValidateValue};
   use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
+  use super::{ValidationResult};
   use crate::validator::pattern::PatternValidator;
+
+  // Tests setup types
+  fn unsized_less_than_100_msg(value: usize) -> String {
+    format!("{} is greater than 100", value)
+  }
+
+  fn ymd_mismatch_msg(s: &str, pattern_str: &str) -> String {
+    format!("{} doesn't match pattern {}", s, pattern_str)
+  }
+
+  fn unsized_less_100(x: Cow<usize>) -> ValidationResult {
+    if *x >= 100 {
+      return Err(vec![(RangeOverflow, unsized_less_than_100_msg(*x))]);
+    }
+    Ok(())
+  }
 
   #[test]
   fn test_input_builder() -> Result<(), Box<dyn Error>> {
-    let unsized_less_100 = |x: u32| -> Result<(), (ConstraintViolation, String)> {
-      if x >= 100 {
-        return Err((RangeOverflow, "Value greater than 100".to_string()));
-      }
-      Ok(())
-    };
-
     // Simplified ISO year-month-date regex
     let ymd_regex = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$")?;
-    let ymd_mismatch_msg = |s: &str| -> String {
-      format!("{} doesn't match pattern {}", s, ymd_regex.as_str())
-    };
-    let ymd_check = |s: &str| -> Result<(), (ConstraintViolation, String)> {
-      if !ymd_regex.is_match(s) {
+    let ymd_regex_2 = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$")?;
+    let ymd_regex_arc_orig = Arc::new(ymd_regex);
+    let ymd_regex_arc = Arc::clone(&ymd_regex_arc_orig);
+
+    let ymd_mismatch_msg = Arc::new(move |s: &str| -> String {
+      format!("{} doesn't match pattern {}", s, ymd_regex_arc.as_str())
+    });
+
+    let ymd_mismatch_msg_arc = Arc::clone(&ymd_mismatch_msg);
+    let ymd_regex_arc = Arc::clone(&ymd_regex_arc_orig);
+
+    let ymd_check = move |s: Cow<&str>| -> ValidationResult {
+      if !ymd_regex_arc.is_match(*s) {
         return Err(
-          (PatternMismatch,
-           ymd_mismatch_msg(s))
+          vec![(PatternMismatch,
+                (&ymd_mismatch_msg_arc)(*s))]
         );
       }
       Ok(())
     };
 
-    let less_than_100_input = InputBuilder::<u32>::default()
-      .validators(Arc::new(vec![&unsized_less_100]))
+    // Validator case 1
+    let pattern_validator = PatternValidator {
+      pattern: Cow::Owned(ymd_regex_2),
+      pattern_mismatch: &|validator, s| {
+        format!("{} doesn't match pattern {}", s, validator.pattern.as_str())
+      },
+    };
+
+    let less_than_100_input = InputBuilder::<usize>::default()
+      .validators(vec![Arc::new(&unsized_less_100)])
       .build()?;
 
     let yyyy_mm_dd_input = InputBuilder::<&str>::default()
-      .validators(Arc::new(vec![&ymd_check]))
+      .validators(vec![Arc::new(&ymd_check)])
       .build()?;
 
     match less_than_100_input.validate(None) {
@@ -207,17 +221,8 @@ mod test {
       Ok(()) => ()
     }
 
-    // Validator case 1
-    let pattern_validator = PatternValidator {
-      pattern: Cow::Owned(ymd_regex.clone()),
-      pattern_mismatch: Arc::new(&|validator, s| {
-        format!("{} doesn't match pattern {}", s, validator.pattern.as_str())
-      }),
-    };
-
-    let ymd_validator2 = move |v| pattern_validator.validate(v);
     let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
-      .validators(Arc::new(vec![&ymd_validator2]))
+      .validators(vec![Arc::new(&pattern_validator)])
       .build()?;
 
     // Valid check
@@ -232,51 +237,40 @@ mod test {
 
   #[test]
   fn test_thread_safety() -> Result<(), Box<dyn Error>> {
-    fn unsized_less_100_msg(value: u32) -> String {
-      format!("{} is greater than 100", value)
-    }
-
-    fn unsized_less_100(x: u32) -> Result<(), (ConstraintViolation, String)> {
-      if x >= 100 {
-        return Err((RangeOverflow, unsized_less_100_msg(x)));
-      }
-      Ok(())
-    }
-
     fn ymd_mismatch_msg(s: &str, pattern_str: &str) -> String {
       format!("{} doesn't match pattern {}", s, pattern_str)
     }
 
-    fn ymd_check(s: &str) -> Result<(), (ConstraintViolation, String)> {
+    fn ymd_check(s: Cow<&str>) -> ValidationResult {
       // Simplified ISO year-month-date regex
       let rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
-      if !rx.is_match(s) {
+      if !rx.is_match(*s) {
         return Err(
-          (PatternMismatch,
-           ymd_mismatch_msg(s, rx.as_str()))
+          vec![(PatternMismatch,
+                ymd_mismatch_msg(*s, rx.as_str()))]
         );
       }
       Ok(())
     }
 
-    let less_than_100_input = InputBuilder::<u32>::default()
-      .validators(Arc::new(vec![&unsized_less_100]))
+    let less_than_100_input = InputBuilder::<usize>::default()
+      .validators(vec![Arc::new(&unsized_less_100)])
       .build()?;
 
     let ymd_input = InputBuilder::<&str>::default()
-      .validators(Arc::new(vec![&ymd_check]))
+      .validators(vec![Arc::new(&ymd_check)])
       .build()?;
 
-    let u32_input = Arc::new(less_than_100_input);
-    let u32_input_instance = Arc::clone(&u32_input);
+    let usize_input = Arc::new(less_than_100_input);
+    let usize_input_instance = Arc::clone(&usize_input);
 
     let str_input = Arc::new(ymd_input);
     let str_input_instance = Arc::clone(&str_input);
 
     let handle = thread::spawn(move || {
-      match u32_input_instance.validate(Some(101)) {
+      match usize_input_instance.validate(Some(101)) {
         Err(x) => {
-          assert_eq!(x[0].1.as_str(), unsized_less_100_msg(101));
+          assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
         }
         _ => panic!("Expected `Err(...)`")
       }
@@ -291,7 +285,7 @@ mod test {
       }
     });
 
-    // @note Conclusion of tests here is that validators can only (easily) be shared between threads if they're function pointers -
+    // @note Conclusion of tests here is that validators can only (easily) be shared between threads if they are function pointers -
     //   closures are too loose and require over the top value management and planning due to the nature of multi-threaded
     //  contexts.
 
@@ -309,53 +303,39 @@ mod test {
   /// Example showing shared references in `Input`, and user-land, controls.
   #[test]
   fn test_thread_safety_with_scoped_threads_and_closures() -> Result<(), Box<dyn Error>> {
-    let unsized_less_100_msg = |value: u32| -> String {
-      format!("{} is greater than 100", value)
-    };
+    let ymd_rx = Arc::new(Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap());
+    let ymd_rx_clone = Arc::clone(&ymd_rx);
 
-    let unsized_less_100 = |x: u32| -> Result<(), (ConstraintViolation, String)> {
-      if x >= 100 {
-        return Err((RangeOverflow, unsized_less_100_msg(x)));
-      }
-      Ok(())
-    };
-
-    let ymd_mismatch_msg = |s: &str, pattern_str: &str| -> String {
-      format!("{} doesn't match pattern {}", s, pattern_str)
-    };
-
-    let ymd_rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
-
-    let ymd_check = |s: &str| -> Result<(), (ConstraintViolation, String)> {
+    let ymd_check = move |s: Cow<&str>| -> ValidationResult {
       // Simplified ISO year-month-date regex
-      if !ymd_rx.is_match(s) {
+      if !(&ymd_rx_clone).is_match(*s) {
         return Err(
-          (PatternMismatch,
-           ymd_mismatch_msg(s, ymd_rx.as_str()))
+          vec![(PatternMismatch,
+                (&ymd_mismatch_msg)(*s, ymd_rx_clone.as_str()))]
         );
       }
       Ok(())
     };
 
-    let less_than_100_input = InputBuilder::<u32>::default()
-      .validators(Arc::new(vec![&unsized_less_100]))
+    let less_than_100_input = InputBuilder::<usize>::default()
+      .validators(vec![Arc::new(&unsized_less_100)])
       .build()?;
 
     let ymd_input = InputBuilder::<&str>::default()
-      .validators(Arc::new(vec![&ymd_check]))
+      .validators(vec![Arc::new(&ymd_check)])
       .build()?;
 
-    let u32_input = Arc::new(less_than_100_input);
-    let u32_input_instance = Arc::clone(&u32_input);
+    let usize_input = Arc::new(less_than_100_input);
+    let usize_input_instance = Arc::clone(&usize_input);
 
     let str_input = Arc::new(ymd_input);
     let str_input_instance = Arc::clone(&str_input);
 
     thread::scope(|scope| {
       scope.spawn(|| {
-        match u32_input_instance.validate(Some(101)) {
+        match usize_input_instance.validate(Some(101)) {
           Err(x) => {
-            assert_eq!(x[0].1.as_str(), unsized_less_100_msg(101));
+            assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
           _ => panic!("Expected `Err(...)`")
         }
@@ -374,22 +354,19 @@ mod test {
     Ok(())
   }
 
-
   #[test]
   fn test_value_type() {
-    let callback1 = |xs: &str| -> Result<(), ValidationError> {
-      if xs != "" {
+    let callback1 = |xs: Cow<&str>| -> ValidationResult {
+      if *xs != "" {
         Ok(())
-      } else { Err((ConstraintViolation::TypeMismatch, "Error".to_string())) }
+      } else { Err(vec![(ConstraintViolation::TypeMismatch, "Error".to_string())]) }
     };
 
-    let xs: Arc<Vec<Validator<&str>>> = Arc::new(vec![
-      &callback1
-    ]);
-
-    let input = InputBuilder::default()
+    let _input = InputBuilder::default()
       .name(Some(Cow::from("hello")))
-      .validators(xs.clone())
+      .validators(vec![
+        Arc::new(&callback1)
+      ])
       .build()
       .unwrap();
   }
