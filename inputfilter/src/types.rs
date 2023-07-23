@@ -31,7 +31,7 @@ pub type ValidationResult = Result<(), Vec<ValidationError>>;
 
 pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 
-pub type Validator<T> = dyn Fn(Cow<'_, T>) -> ValidationResult + Send + Sync;
+pub type Validator<T> = dyn Fn(Cow<T>) -> ValidationResult + Send + Sync;
 
 pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: Cow<T>) -> ValidationResult;

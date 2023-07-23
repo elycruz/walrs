@@ -23,7 +23,7 @@ pub enum ConstraintViolation {
 
 pub type ViolationMsgGetter<T> = dyn Fn(&Input<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
-pub type ValueMissingViolationCallback<T> = dyn Fn(&'_ Input<T>) -> ViolationMessage + Send + Sync;
+pub type ValueMissingViolationCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
@@ -44,9 +44,9 @@ pub struct Input<'a, T> where
 
   #[builder(setter(strip_option), default = "None")]
   pub filters: Option<Vec<&'a Filter<T>>>,
-  //
-  // #[builder(default = "&value_missing_msg")]
-  // pub value_missing: &'a ValueMissingViolationCallback<T>,
+
+  #[builder(default = "&value_missing_msg")]
+  pub value_missing: &'a ValueMissingViolationCallback,
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -59,7 +59,7 @@ impl<'a, T> Input<'a, T> where T: InputValue {
       required: false,
       validators: None,
       filters: None,
-      // value_missing: &value_missing_msg,
+      value_missing: &value_missing_msg,
     }
   }
 
@@ -88,7 +88,7 @@ impl<'a, T> Input<'a, T> where T: InputValue {
     }
   }
 
-  fn _filter_against_filters(&self, value: Option<T>) -> Option<T> {
+  pub fn filter(&self, value: Option<T>) -> Option<T> {
     self.filters.as_deref().and_then(|fs| {
       fs.iter().fold(value, |agg, f| {
         (f)(agg)
@@ -96,13 +96,13 @@ impl<'a, T> Input<'a, T> where T: InputValue {
     })
   }
 
-  pub fn filter(&self, value: Option<T>) -> Option<T> {
-    self._filter_against_filters(value)
-  }
-
   pub fn validate(&self, value: Option<T>) -> ValidationResult {
     match &value {
-      None => Ok(()),
+      None => if self.required {
+        Err(vec![(ConstraintViolation::ValueMissing, (self.value_missing)())])
+      } else {
+        Ok(())
+      },
       Some(v) => self._option_rslt_to_rslt(
         self._validate_against_validators(v)
       )
@@ -116,7 +116,7 @@ impl<T: InputValue> Default for Input<'_, T> {
   }
 }
 
-pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
+pub fn value_missing_msg() -> String {
   "Value is missing.".to_string()
 }
 
