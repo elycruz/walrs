@@ -13,15 +13,16 @@ pub enum ConstraintViolation {
   StepMismatch,
   TooLong,
   TooShort,
+  NotEqual,
 
-  /// When value is in invalid format, and not validated
+  /// When value is in an invalid format, and cannot not validated
   /// against `pattern` (email, url, etc.) - currently unused.
   // @todo should probably be 'format mismatch'
   TypeMismatch,
   ValueMissing,
 }
 
-pub type ValueMissingViolationCallback = dyn Fn() -> ViolationMessage + Send + Sync;
+pub type ValueMissingViolationCallback<T> = dyn Fn(&Input<'_, T>) -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
@@ -44,7 +45,7 @@ pub struct Input<'a, T> where
   pub filters: Option<Vec<&'a Filter<T>>>,
 
   #[builder(default = "&value_missing_msg")]
-  pub value_missing: &'a ValueMissingViolationCallback,
+  pub value_missing: &'a ValueMissingViolationCallback<T>,
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -94,10 +95,10 @@ impl<'a, T> Input<'a, T> where T: InputValue {
     })
   }
 
-  pub fn validate(&self, value: Option<T>) -> ValidationResult {
+  pub fn validate(&self, value: Option<Cow<T>>) -> ValidationResult {
     match &value {
       None => if self.required {
-        Err(vec![(ConstraintViolation::ValueMissing, (self.value_missing)())])
+        Err(vec![(ConstraintViolation::ValueMissing, (self.value_missing)(self))])
       } else {
         Ok(())
       },
@@ -114,7 +115,7 @@ impl<T: InputValue> Default for Input<'_, T> {
   }
 }
 
-pub fn value_missing_msg() -> String {
+pub fn value_missing_msg<T: InputValue>(_: &Input<'_, T>) -> String {
   "Value is missing.".to_string()
 }
 

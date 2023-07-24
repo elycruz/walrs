@@ -5,7 +5,7 @@ use crate::input::{ConstraintViolation};
 use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow};
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
-pub type NumberViolationCallback<T> = dyn Fn(&NumberValidator<T>, T) -> String + Send + Sync;
+pub type NumberViolationCallback<T> = dyn Fn(&NumberValidator<T>, Cow<'_, T>) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
 pub struct NumberValidator<'a, T: InputValue + Copy + Div + 'static> {
@@ -65,7 +65,7 @@ impl<'a, T> NumberValidator<'a, T>
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
 
-    f.map(|_f| (_f)(self, value)).unwrap()
+    f.map(|_f| (_f)(self, Cow::Owned(value))).unwrap()
   }
 
   pub fn new() -> Self {
@@ -108,7 +108,7 @@ impl<'a, T> Default for NumberValidator<'a, T>
   }
 }
 
-pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
+pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: Cow<T>) -> String
   where
     T: InputValue + Copy + Div,
 {
@@ -119,7 +119,7 @@ pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   )
 }
 
-pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
+pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: Cow<T>) -> String
   where
     T: InputValue + Copy + Div,
 {
@@ -130,7 +130,7 @@ pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
   )
 }
 
-pub fn step_mismatch_msg<T: InputValue + Copy + Div>(rules: &NumberValidator<T>, x: T) -> String {
+pub fn step_mismatch_msg<T: InputValue + Copy + Div>(rules: &NumberValidator<T>, x: Cow<T>) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
     x,
