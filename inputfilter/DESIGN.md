@@ -8,37 +8,6 @@
 
 - Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  Yes.
 
-## Scratch area
-
-```text
-// Pseudo code
-
-type Message = String
-
-Validator<T>
-  validate(&self, value: Option<T>) -> Result<(), Message>
-
-Input<T>
-  validate(&self, value: Option<T>) -> Result<(), Error>,
-  filter(value: Option<T>) -> Option<T>
-
-Inputfilter<T>
-  filter(&self, value: Option<T>) -> Result<Option<T>, Error> {
-    calls validate
-    calls filter
-  }
-
-Component Context
-  validate_and_filter (&self, _inpt_filters: &InputFilter) -> Result<Self, HashMap<&str, Vec<String>>>,
-
-```
-
-Other possible implementation:
-```text
-Input<T>
-
-```
-
 ## FAQs
 
 - What are the pros and cons of accepting `Cow<T>`, vs, `&T`, vs `T` in validator functions (note all userland, and lib. land, validators will have to match chosen type)?

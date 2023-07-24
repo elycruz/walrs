@@ -1,6 +1,8 @@
 # Validators
 
-## Integer Validator
+## Desired APIs
+
+### Integer Validator
 
 Can validate (signed, and unsigned) integer types:
 
@@ -18,9 +20,11 @@ Can validate (signed, and unsigned) integer types:
 - u128
 - usize
 
-## Float Validator
+### Float Validator
 
 Can validate float types:
 
 - f32
 - f64
+
+## @TODO

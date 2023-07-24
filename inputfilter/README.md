@@ -1,11 +1,16 @@
 # wal_inputfilter
 
-A set of `InputRule` validation structs used to validate, currently, text, and/or number, input values.
+A set of `Input` validation structs used to validate primitive values as they pertain to web applications.
 
 ## Members
 
-- `TextInput` - Used for validating string types.
-- `NumberInput` - Used for validating numeric/number types.
+- `Input` - Rule struct to add validators, and/or 'filters', to.
+- 'validators/'
+  - `IntegerValidator`
+  - `FloatValidator`
+  - `StringValidator`
+  - `EqualityValidator`
+  - `ArrayValidator`
 
 ## Usage:
 
