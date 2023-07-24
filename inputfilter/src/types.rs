@@ -21,7 +21,9 @@ impl InputValue for usize {}
 impl InputValue for f32 {}
 impl InputValue for f64 {}
 impl InputValue for bool {}
+impl InputValue for Box<str> {}
 impl InputValue for &'_ str {}
+impl InputValue for Cow<'_, str> {}
 
 pub type ViolationMessage = String;
 
@@ -37,6 +39,9 @@ pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: Cow<T>) -> ValidationResult;
 }
 
+/*
+// Unused
+// - Saved for reference
 pub enum InputType {
   Button,
   Checkbox,
@@ -65,3 +70,4 @@ pub enum InputType {
   URL,
   Week
 }
+*/

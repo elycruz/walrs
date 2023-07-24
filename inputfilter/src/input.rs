@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug};
 use std::sync::Arc;
 
-use crate::types::{Filter, InputValue, ValidationError, ValidationResult, ValidateValue, ViolationMessage, Validator};
+use crate::types::{Filter, InputValue, ValidationError, ValidationResult, ViolationMessage, Validator};
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
@@ -20,8 +20,6 @@ pub enum ConstraintViolation {
   TypeMismatch,
   ValueMissing,
 }
-
-pub type ViolationMsgGetter<T> = dyn Fn(&Input<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
 pub type ValueMissingViolationCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
@@ -130,7 +128,7 @@ mod test {
   };
   use regex::Regex;
 
-  use crate::input::{InputBuilder, ConstraintViolation, ValidateValue};
+  use crate::input::{InputBuilder, ConstraintViolation};
   use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
   use super::{ValidationResult};
   use crate::validator::pattern::PatternValidator;
