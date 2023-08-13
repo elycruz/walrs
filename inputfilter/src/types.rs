@@ -19,7 +19,9 @@ impl InputValue for usize {}
 
 impl InputValue for f32 {}
 impl InputValue for f64 {}
+
 impl InputValue for bool {}
+
 impl InputValue for &'_ str {}
 impl InputValue for Box<str> {}
 impl InputValue for Cow<'_, str> {}
@@ -54,36 +56,3 @@ pub type Validator<T> = dyn Fn(Cow<T>) -> ValidationResult + Send + Sync;
 pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: Cow<T>) -> ValidationResult;
 }
-
-/*
-// Unused
-// - Saved for reference
-pub enum InputType {
-  Button,
-  Checkbox,
-  Color,
-  Date,
-  Datetime,
-  DatetimeLocal,
-  Email,
-  File,
-  Hidden,
-  Image,
-  Month,
-  Number,
-  Password,
-  Radio,
-  Range,
-  Reset,
-  Search,
-  SelectMultiple,
-  SelectOne,
-  Submit,
-  Tel,
-  Text,
-  TextArea,
-  Time,
-  URL,
-  Week
-}
-*/

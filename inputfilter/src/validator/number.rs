@@ -6,12 +6,13 @@ use crate::types::{
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 use std::borrow::Cow;
 use std::ops::{Div, Rem};
+use crate::input::number::NumberValue;
 
 pub type IntegerViolationCallback<'a, T> =
   dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
-pub struct IntegerValidator<'a, T: InputValue + Copy + Rem + Div> {
+pub struct IntegerValidator<'a, T: NumberValue> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -36,7 +37,7 @@ pub struct IntegerValidator<'a, T: InputValue + Copy + Rem + Div> {
 
 impl<'a, T> IntegerValidator<'a, T>
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   fn _validate_integer(&self, v: T) -> Option<ConstraintViolation> {
     // Test Min
@@ -61,13 +62,11 @@ where
     }
 
     // Test Step
-    // if let Some(step) = self.step {
-    //   let remainder = T::try_from(v % step).unwrap();
-    //
-    //   if step != Default::default() && remainder != Default::default() {
-    //     return Some(StepMismatch);
-    //   }
-    // }
+    if let Some(step) = self.step {
+      if step != Default::default() && v % step != Default::default() {
+        return Some(StepMismatch);
+      }
+    }
 
     None
   }
@@ -98,7 +97,7 @@ where
 
 impl<T> ValidateValue<T> for IntegerValidator<'_, T>
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   fn validate(&self, value: Cow<'_, T>) -> ValidationResult {
     if let Some(violation) = self._validate_integer(*value) {
@@ -114,7 +113,7 @@ where
 
 impl<T> FnOnce<(Cow<'_, T>,)> for IntegerValidator<'_, T>
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   type Output = ValidationResult;
 
@@ -125,7 +124,7 @@ where
 
 impl<'a, T> Default for IntegerValidator<'a, T>
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   fn default() -> Self {
     IntegerValidator::new()
@@ -134,7 +133,7 @@ where
 
 pub fn range_underflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   format!(
     "`{:}` is less than minimum `{:}`.",
@@ -145,7 +144,7 @@ where
 
 pub fn range_overflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
 where
-  T: InputValue + Copy + Rem + Div,
+  T: NumberValue,
 {
   format!(
     "`{:}` is greater than maximum `{:}`.",
@@ -154,7 +153,7 @@ where
   )
 }
 
-pub fn step_mismatch_msg<T: InputValue + Copy + Rem + Div>(
+pub fn step_mismatch_msg<T: NumberValue>(
   rules: &IntegerValidator<T>,
   x: T,
 ) -> String {

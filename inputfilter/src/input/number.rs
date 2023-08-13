@@ -1,26 +1,10 @@
 use std::borrow::Cow;
-use std::fmt::Display;
+use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::sync::Arc;
 
-use crate::types::{
-  ConstraintViolation, Filter, ValidationError, ValidationResult, Validator, ViolationMessage,
-};
+use crate::types::{ConstraintViolation, Filter, InputValue, ValidationError, ValidationResult, Validator, ViolationMessage};
 
-pub trait Number: Clone + Default + Display + PartialEq + PartialOrd {}
-
-impl Number for i8 {}
-impl Number for i16 {}
-impl Number for i32 {}
-impl Number for i64 {}
-impl Number for i128 {}
-impl Number for isize {}
-
-impl Number for u8 {}
-impl Number for u16 {}
-impl Number for u32 {}
-impl Number for u64 {}
-impl Number for u128 {}
-impl Number for usize {}
+pub trait NumberValue: InputValue + Copy + Add + Mul + Sub + Div + Rem<Output = Self> {}
 
 pub type ValueMissingViolationCallback<'a, T> =
   dyn Fn(&NumberInput<'a, T>) -> ViolationMessage + Send + Sync;
@@ -29,7 +13,7 @@ pub type ValueMissingViolationCallback<'a, T> =
 #[builder(pattern = "owned")]
 pub struct NumberInput<'a, T>
 where
-  T: Number,
+  T: NumberValue,
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
@@ -53,7 +37,7 @@ where
 
 impl<'a, T> NumberInput<'a, T>
 where
-  T: Number,
+  T: NumberValue,
 {
   pub fn new() -> Self {
     NumberInput {
@@ -118,13 +102,13 @@ where
   }
 }
 
-impl<T: Number> Default for NumberInput<'_, T> {
+impl<T: NumberValue> Default for NumberInput<'_, T> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-pub fn value_missing_msg<T: Number>(_: &NumberInput<T>) -> String {
+pub fn value_missing_msg<T: NumberValue>(_: &NumberInput<T>) -> String {
   "Value is missing.".to_string()
 }
 
