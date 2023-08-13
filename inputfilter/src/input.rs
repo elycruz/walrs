@@ -9,8 +9,6 @@ use crate::types::{
 pub type ValueMissingViolationCallback<'a, T> =
   dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
 
-/// @Deprecated - Use text, and/or number input controls.
-///
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
 pub struct Input<'a, T>
@@ -34,6 +32,7 @@ where
 
   #[builder(default = "&value_missing_msg")]
   pub value_missing: &'a (dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync),
+
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
 
@@ -118,10 +117,12 @@ pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
 mod test {
   use regex::Regex;
   use std::{borrow::Cow, error::Error, sync::Arc, thread};
+  use std::fmt::Display;
 
   use super::ValidationResult;
-  use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
-  use crate::input::{ConstraintViolation, InputBuilder};
+  use crate::types::{NumberValue, ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow}};
+  use crate::input::{InputBuilder};
+  use crate::validator::number::{NumberValidatorBuilder, step_mismatch_msg};
   use crate::validator::pattern::PatternValidator;
 
   // Tests setup types
@@ -144,6 +145,14 @@ mod test {
       )]);
     }
     Ok(())
+  }
+
+  fn div_by_two_msg<T: Display>(x: T) -> String {
+    format!("{} is not divisible by 2", &x)
+  }
+
+  fn is_divisible_by<T: NumberValue>(a: T, b: T) -> bool {
+     a % b == Default::default()
   }
 
   #[test]
@@ -184,14 +193,37 @@ mod test {
       .validators(vec![Arc::new(&ymd_check)])
       .build()?;
 
+    let even_0_to_100 = NumberValidatorBuilder::<usize>::default()
+      .min(0)
+      .max(100)
+      .step(2)
+      .build()?;
+
+    let even_from_0_to_100_input = InputBuilder::<usize>::default()
+      .validators(vec![Arc::new(&even_0_to_100)])
+      .build()?;
+
+    let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
+      .validators(vec![Arc::new(&pattern_validator)])
+      .build()?;
+
+    // Missing value check
     match less_than_100_input.validate(None) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => (),
     }
 
-    let value = "1000-99-999";
+    // `Rem` (Remainder) trait check
+    match even_from_0_to_100_input.validate(Some(Cow::Owned(3))) {
+      Err(errs) => errs.iter().for_each(|v_err| {
+        assert_eq!(v_err.0, ConstraintViolation::StepMismatch);
+        assert_eq!(v_err.1, step_mismatch_msg(&even_0_to_100, 3));
+      }),
+      _ => panic!("Expected Err(...);  Received Ok(())")
+    }
 
     // Mismatch check
+    let value = "1000-99-999";
     match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
       Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
       Err(tuples) => {
@@ -212,10 +244,6 @@ mod test {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => (),
     }
-
-    let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
-      .validators(vec![Arc::new(&pattern_validator)])
-      .build()?;
 
     // Valid check
     let value = "1000-99-99";

@@ -1,41 +1,39 @@
-use crate::types::{
-  ConstraintViolation,
-  ConstraintViolation::{NotEqual, RangeOverflow, RangeUnderflow, StepMismatch},
-};
-
-use crate::types::{InputValue, ValidateValue, ValidationResult};
 use std::borrow::Cow;
-use std::ops::{Div, Rem};
-use crate::input::number::NumberValue;
+use crate::types::{ConstraintViolation, ConstraintViolation::{NotEqual, RangeOverflow, RangeUnderflow, StepMismatch}, NumberValue};
 
-pub type IntegerViolationCallback<'a, T> =
-  dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync;
+use crate::types::{ValidateValue, ValidationResult};
+
+pub type NumberVldrViolationCallback<'a, T> =
+  (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
 
 #[derive(Builder, Clone)]
-pub struct IntegerValidator<'a, T: NumberValue> {
-  #[builder(default = "None")]
+pub struct NumberValidator<'a, T: NumberValue> {
+  #[builder(setter(into), default = "None")]
   pub min: Option<T>,
 
-  #[builder(default = "None")]
+  #[builder(setter(into), default = "None")]
   pub max: Option<T>,
 
-  #[builder(default = "None")]
+  #[builder(setter(into), default = "None")]
   pub step: Option<T>,
 
-  #[builder(default = "None")]
+  #[builder(setter(into), default = "None")]
   pub equals: Option<T>,
 
   #[builder(default = "&range_underflow_msg")]
-  pub range_underflow: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
+  pub range_underflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&range_overflow_msg")]
-  pub range_overflow: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
+  pub range_overflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&step_mismatch_msg")]
-  pub step_mismatch: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
+  pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
+
+  #[builder(default = "&step_mismatch_msg")]
+  pub not_equal: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T> IntegerValidator<'a, T>
+impl<'a, T> NumberValidator<'a, T>
 where
   T: NumberValue,
 {
@@ -75,6 +73,7 @@ where
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
+      NotEqual => Some(&self.not_equal),
       StepMismatch => Some(&self.step_mismatch),
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
@@ -83,7 +82,7 @@ where
   }
 
   pub fn new() -> Self {
-    IntegerValidator {
+    NumberValidator {
       min: None,
       max: None,
       step: None,
@@ -91,11 +90,12 @@ where
       range_underflow: &range_underflow_msg,
       range_overflow: &range_overflow_msg,
       step_mismatch: &step_mismatch_msg,
+      not_equal: &not_equal_msg,
     }
   }
 }
 
-impl<T> ValidateValue<T> for IntegerValidator<'_, T>
+impl<T> ValidateValue<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
@@ -111,10 +111,19 @@ where
   }
 }
 
-impl<T> FnOnce<(Cow<'_, T>,)> for IntegerValidator<'_, T>
-where
-  T: NumberValue,
-{
+impl<T: NumberValue> FnMut<(Cow<'_, T>, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, T>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: NumberValue> Fn<(Cow<'_, T>, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (Cow<'_, T>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: NumberValue> FnOnce<(Cow<'_, T>,)> for NumberValidator<'_, T> {
   type Output = ValidationResult;
 
   extern "rust-call" fn call_once(self, args: (Cow<'_, T>,)) -> Self::Output {
@@ -122,16 +131,16 @@ where
   }
 }
 
-impl<'a, T> Default for IntegerValidator<'a, T>
+impl<'a, T> Default for NumberValidator<'a, T>
 where
   T: NumberValue,
 {
   fn default() -> Self {
-    IntegerValidator::new()
+    NumberValidator::new()
   }
 }
 
-pub fn range_underflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
+pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 where
   T: NumberValue,
 {
@@ -142,7 +151,7 @@ where
   )
 }
 
-pub fn range_overflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
+pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 where
   T: NumberValue,
 {
@@ -154,11 +163,22 @@ where
 }
 
 pub fn step_mismatch_msg<T: NumberValue>(
-  rules: &IntegerValidator<T>,
+  rules: &NumberValidator<T>,
   x: T,
 ) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
+    x,
+    &rules.step.as_ref().unwrap()
+  )
+}
+
+pub fn not_equal_msg<T: NumberValue>(
+  rules: &NumberValidator<T>,
+  x: T,
+) -> String {
+  format!(
+    "`{:}` is not equal to `{:}`.",
     x,
     &rules.step.as_ref().unwrap()
   )

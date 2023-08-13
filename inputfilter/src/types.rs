@@ -1,3 +1,4 @@
+use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::borrow::Cow;
 use std::fmt::{Display};
 
@@ -25,6 +26,25 @@ impl InputValue for bool {}
 impl InputValue for &'_ str {}
 impl InputValue for Box<str> {}
 impl InputValue for Cow<'_, str> {}
+
+pub trait NumberValue: InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
+
+impl NumberValue for i8 {}
+impl NumberValue for i16 {}
+impl NumberValue for i32 {}
+impl NumberValue for i64 {}
+impl NumberValue for i128 {}
+impl NumberValue for isize {}
+
+impl NumberValue for u8 {}
+impl NumberValue for u16 {}
+impl NumberValue for u32 {}
+impl NumberValue for u64 {}
+impl NumberValue for u128 {}
+impl NumberValue for usize {}
+
+impl NumberValue for f32 {}
+impl NumberValue for f64 {}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
