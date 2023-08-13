@@ -2,7 +2,8 @@ use std::borrow::Cow;
 use std::sync::Arc;
 
 use crate::types::{
-  ConstraintViolation, Filter, InputValue, ValidationError, ValidationResult, Validator,
+  ConstraintViolation, Filter, InputValue, ValidationError,
+  ValidationResult, Validator,
   ViolationMessage,
 };
 
@@ -18,8 +19,8 @@ where
   #[builder(default = "true")]
   pub break_on_failure: bool,
 
-  #[builder(default = "None")]
-  pub name: Option<Cow<'a, str>>,
+  #[builder(setter(into), default = "None")]
+  pub name: Option<&'a str>,
 
   #[builder(default = "false")]
   pub required: bool,
@@ -117,10 +118,9 @@ pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
 mod test {
   use regex::Regex;
   use std::{borrow::Cow, error::Error, sync::Arc, thread};
-  use std::fmt::Display;
 
   use super::ValidationResult;
-  use crate::types::{NumberValue, ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow}};
+  use crate::types::{ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow}};
   use crate::input::{InputBuilder};
   use crate::validator::number::{NumberValidatorBuilder, step_mismatch_msg};
   use crate::validator::pattern::PatternValidator;
@@ -145,14 +145,6 @@ mod test {
       )]);
     }
     Ok(())
-  }
-
-  fn div_by_two_msg<T: Display>(x: T) -> String {
-    format!("{} is not divisible by 2", &x)
-  }
-
-  fn is_divisible_by<T: NumberValue>(a: T, b: T) -> bool {
-     a % b == Default::default()
   }
 
   #[test]
@@ -200,6 +192,7 @@ mod test {
       .build()?;
 
     let even_from_0_to_100_input = InputBuilder::<usize>::default()
+      .name("even-0-to-100")
       .validators(vec![Arc::new(&even_0_to_100)])
       .build()?;
 
@@ -393,7 +386,7 @@ mod test {
     };
 
     let _input = InputBuilder::default()
-      .name(Some(Cow::from("hello")))
+      .name("hello")
       .validators(vec![Arc::new(&callback1)])
       .build()
       .unwrap();

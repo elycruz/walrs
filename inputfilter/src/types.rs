@@ -46,6 +46,12 @@ impl NumberValue for usize {}
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
 
+pub trait TextValue: InputValue {}
+
+impl TextValue for &'_ str {}
+impl TextValue for Box<str> {}
+impl TextValue for Cow<'_, str> {}
+
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
   CustomError,

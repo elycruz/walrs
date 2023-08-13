@@ -1,15 +1,39 @@
 # `inputfilter` package design
 
+## Implementation Goals
+
+Controls here should:
+
+- not be stateful - In the sense of 'changing' state;  E.g., should not hold on/mutate values received for validation.
+- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc. (note we can support arbitrary structures (later) via derive macros).
+
 ## Inspiration
 
+Original inspiration comes from:
+
 - https://docs.laminas.dev/laminas-inputfilter/
+- https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-validator
+- https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-inputfilter
+
+## Where and how would we use `Input` controls
+
+- In action handlers where we might need to instantiate a validator, or optionally, retrieve a globally instantiated/stored one.
+- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust built-in facilities for working with command line flags might be more appropriate (possibly less memory over, et al.?)).
+
+## Notes:
+
+- So far the only (test) implementation that worked out is the one where we recieve `Cow<T>` in `validate` (method) calls - The more desirable type, though, here is `T`.
 
 ## Questions
 
+### General
+
 - Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  Yes.
 
-## FAQs
+### `Cow<T>` vs `&T` vs `T` in `validate` method calls 
 
-- What are the pros and cons of accepting `Cow<T>`, vs, `&T`, vs `T` in validator functions (note all userland, and lib. land, validators will have to match chosen type)?
-  - For now we'll think about/implement the design using `&T`, for validators.  If any roadblocks are reached we'll adjust to them as required. 
-- Is it ok to not wrap `Input.validators` in an `Arc<>`?  Seems `Arc` makes all internal members, of target value, accessible in "atomic reference" context, hence probably not requiring us to wrap internal members, since the purpose of using Arc is to allow the parent struct to be reused across multiple threads.
+| Type     | PROs                           | CONs                                                            |
+|----------|--------------------------------|-----------------------------------------------------------------|
+| `Cow<T>` | Allows better type flexibility | Tedious to type                                                 |
+| `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
+| `T`      | Simplifies APIs                | Offsets API complexity elsewhere and can cause lifetime errors. |

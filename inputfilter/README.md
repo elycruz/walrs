@@ -6,11 +6,9 @@ A set of `Input` validation structs used to validate primitive values as they pe
 
 - `Input` - Rule struct to add validators, and/or 'filters' to.
 - 'validators/'
-  - `IntegerValidator`
-  - `FloatValidator`
-  - `StringValidator`
+  - `NumberValidator`
+  - `PatternValidator`
   - `EqualityValidator`
-  - `ArrayValidator`
 
 ## Usage:
 
