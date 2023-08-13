@@ -35,9 +35,8 @@ pub enum ConstraintViolation {
   TooShort,
   NotEqual,
 
-  /// When value is in an invalid format, and cannot not validated
-  /// against `pattern` (email, url, etc.) - currently unused.
-  // @todo should probably be 'format mismatch'
+  /// Used to convey an expected string format (not necessarily a `Pattern` format;
+  ///  E.g., invalid email hostname, in email, etc.).
   TypeMismatch,
   ValueMissing,
 }
