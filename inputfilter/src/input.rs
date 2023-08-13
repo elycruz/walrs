@@ -22,7 +22,7 @@ pub enum ConstraintViolation {
   ValueMissing,
 }
 
-pub type ValueMissingViolationCallback<T> = dyn Fn(&Input<'_, T>) -> ViolationMessage + Send + Sync;
+pub type ValueMissingViolationCallback<'a, T> = dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
@@ -45,7 +45,7 @@ pub struct Input<'a, T> where
   pub filters: Option<Vec<&'a Filter<T>>>,
 
   #[builder(default = "&value_missing_msg")]
-  pub value_missing: &'a ValueMissingViolationCallback<T>,
+  pub value_missing: &'a (dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync),
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -115,7 +115,7 @@ impl<T: InputValue> Default for Input<'_, T> {
   }
 }
 
-pub fn value_missing_msg<T: InputValue>(_: &Input<'_, T>) -> String {
+pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
   "Value is missing.".to_string()
 }
 
@@ -145,7 +145,12 @@ mod test {
 
   fn unsized_less_100(x: Cow<usize>) -> ValidationResult {
     if *x >= 100 {
-      return Err(vec![(RangeOverflow, unsized_less_than_100_msg(*x))]);
+      return Err(vec![(RangeOverflow,
+      match x {
+          Cow::Owned(v) => unsized_less_than_100_msg(v),
+          Cow::Borrowed(v) => unsized_less_than_100_msg(v.clone())
+        }
+      )]);
     }
     Ok(())
   }
@@ -199,7 +204,7 @@ mod test {
     let value = "1000-99-999";
 
     // Mismatch check
-    match yyyy_mm_dd_input.validate(Some(value)) {
+    match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
       Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
       Err(tuples) => {
         assert_eq!(tuples[0].0, PatternMismatch);
@@ -215,7 +220,7 @@ mod test {
 
     // Valid check 2
     let value = "1000-99-99";
-    match yyyy_mm_dd_input.validate(Some(value)) {
+    match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => ()
     }
@@ -226,7 +231,7 @@ mod test {
 
     // Valid check
     let value = "1000-99-99";
-    match yyyy_mm_dd_input2.validate(Some(value)) {
+    match yyyy_mm_dd_input2.validate(Some(Cow::Borrowed(&value))) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => ()
     }
@@ -267,7 +272,7 @@ mod test {
     let str_input_instance = Arc::clone(&str_input);
 
     let handle = thread::spawn(move || {
-      match usize_input_instance.validate(Some(101)) {
+      match usize_input_instance.validate(Some(Cow::Owned(101))) {
         Err(x) => {
           assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
         }
@@ -276,7 +281,7 @@ mod test {
     });
 
     let handle2 = thread::spawn(move || {
-      match str_input_instance.validate(Some("")) {
+      match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
         Err(x) => {
           assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap().as_str()));
         }
@@ -332,7 +337,7 @@ mod test {
 
     thread::scope(|scope| {
       scope.spawn(|| {
-        match usize_input_instance.validate(Some(101)) {
+        match usize_input_instance.validate(Some(Cow::Owned(101))) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
@@ -341,7 +346,7 @@ mod test {
       });
 
       scope.spawn(|| {
-        match str_input_instance.validate(Some("")) {
+        match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
           }

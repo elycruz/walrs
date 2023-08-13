@@ -4,7 +4,7 @@ A set of `Input` validation structs used to validate primitive values as they pe
 
 ## Members
 
-- `Input` - Rule struct to add validators, and/or 'filters', to.
+- `Input` - Rule struct to add validators, and/or 'filters' to.
 - 'validators/'
   - `IntegerValidator`
   - `FloatValidator`
