@@ -1,33 +1,21 @@
 use std::borrow::Cow;
-use std::fmt::{Debug};
 use std::sync::Arc;
 
-use crate::types::{Filter, InputValue, ValidationError, ValidationResult, ViolationMessage, Validator};
+use crate::types::{
+  ConstraintViolation, Filter, InputValue, ValidationError, ValidationResult, Validator,
+  ViolationMessage,
+};
 
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum ConstraintViolation {
-  CustomError,
-  PatternMismatch,
-  RangeOverflow,
-  RangeUnderflow,
-  StepMismatch,
-  TooLong,
-  TooShort,
-  NotEqual,
+pub type ValueMissingViolationCallback<'a, T> =
+  dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
 
-  /// When value is in an invalid format, and cannot not validated
-  /// against `pattern` (email, url, etc.) - currently unused.
-  // @todo should probably be 'format mismatch'
-  TypeMismatch,
-  ValueMissing,
-}
-
-pub type ValueMissingViolationCallback<'a, T> = dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
-
+/// @Deprecated - Use text, and/or number input controls.
+///
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
-pub struct Input<'a, T> where
-  T: InputValue
+pub struct Input<'a, T>
+where
+  T: InputValue,
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
@@ -46,11 +34,13 @@ pub struct Input<'a, T> where
 
   #[builder(default = "&value_missing_msg")]
   pub value_missing: &'a (dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync),
-
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
 
-impl<'a, T> Input<'a, T> where T: InputValue {
+impl<'a, T> Input<'a, T>
+where
+  T: InputValue,
+{
   pub fn new() -> Self {
     Input {
       break_on_failure: false,
@@ -64,47 +54,52 @@ impl<'a, T> Input<'a, T> where T: InputValue {
 
   fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
     self.validators.as_deref().map(|vs| {
-      vs.iter().fold(Vec::<ValidationError>::new(), |mut agg, f| {
-        match (Arc::clone(f))(Cow::Borrowed(value)) {
+      vs.iter().fold(
+        Vec::<ValidationError>::new(),
+        |mut agg, f| match (Arc::clone(f))(Cow::Borrowed(value)) {
           Err(mut message_tuples) => {
             agg.append(message_tuples.as_mut());
             agg
           }
-          _ => agg
-        }
-      })
+          _ => agg,
+        },
+      )
     })
   }
 
   fn _option_rslt_to_rslt(&self, rslt: Option<Vec<ValidationError>>) -> ValidationResult {
     match rslt {
       None => Ok(()),
-      Some(_msgs) => if !_msgs.is_empty() {
-        Err(_msgs)
-      } else {
-        Ok(())
+      Some(_msgs) => {
+        if !_msgs.is_empty() {
+          Err(_msgs)
+        } else {
+          Ok(())
+        }
       }
     }
   }
 
   pub fn filter(&self, value: Option<T>) -> Option<T> {
-    self.filters.as_deref().and_then(|fs| {
-      fs.iter().fold(value, |agg, f| {
-        (f)(agg)
-      })
-    })
+    self
+      .filters
+      .as_deref()
+      .and_then(|fs| fs.iter().fold(value, |agg, f| (f)(agg)))
   }
 
   pub fn validate(&self, value: Option<Cow<T>>) -> ValidationResult {
     match &value {
-      None => if self.required {
-        Err(vec![(ConstraintViolation::ValueMissing, (self.value_missing)(self))])
-      } else {
-        Ok(())
-      },
-      Some(v) => self._option_rslt_to_rslt(
-        self._validate_against_validators(v)
-      )
+      None => {
+        if self.required {
+          Err(vec![(
+            ConstraintViolation::ValueMissing,
+            (self.value_missing)(self),
+          )])
+        } else {
+          Ok(())
+        }
+      }
+      Some(v) => self._option_rslt_to_rslt(self._validate_against_validators(v)),
     }
   }
 }
@@ -121,17 +116,12 @@ pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
 
 #[cfg(test)]
 mod test {
-  use std::{
-    borrow::Cow,
-    sync::{Arc},
-    error::Error,
-    thread,
-  };
   use regex::Regex;
+  use std::{borrow::Cow, error::Error, sync::Arc, thread};
 
-  use crate::input::{InputBuilder, ConstraintViolation};
+  use super::ValidationResult;
   use crate::input::ConstraintViolation::{PatternMismatch, RangeOverflow};
-  use super::{ValidationResult};
+  use crate::input::{ConstraintViolation, InputBuilder};
   use crate::validator::pattern::PatternValidator;
 
   // Tests setup types
@@ -145,11 +135,12 @@ mod test {
 
   fn unsized_less_100(x: Cow<usize>) -> ValidationResult {
     if *x >= 100 {
-      return Err(vec![(RangeOverflow,
-      match x {
+      return Err(vec![(
+        RangeOverflow,
+        match x {
           Cow::Owned(v) => unsized_less_than_100_msg(v),
-          Cow::Borrowed(v) => unsized_less_than_100_msg(v.clone())
-        }
+          Cow::Borrowed(v) => unsized_less_than_100_msg(v.clone()),
+        },
       )]);
     }
     Ok(())
@@ -172,10 +163,7 @@ mod test {
 
     let ymd_check = move |s: Cow<&str>| -> ValidationResult {
       if !ymd_regex_arc.is_match(*s) {
-        return Err(
-          vec![(PatternMismatch,
-                (&ymd_mismatch_msg_arc)(*s))]
-        );
+        return Err(vec![(PatternMismatch, (&ymd_mismatch_msg_arc)(*s))]);
       }
       Ok(())
     };
@@ -198,7 +186,7 @@ mod test {
 
     match less_than_100_input.validate(None) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-      Ok(()) => ()
+      Ok(()) => (),
     }
 
     let value = "1000-99-999";
@@ -215,14 +203,14 @@ mod test {
     // Valid check
     match yyyy_mm_dd_input.validate(None) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-      Ok(()) => ()
+      Ok(()) => (),
     }
 
     // Valid check 2
     let value = "1000-99-99";
     match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-      Ok(()) => ()
+      Ok(()) => (),
     }
 
     let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
@@ -233,7 +221,7 @@ mod test {
     let value = "1000-99-99";
     match yyyy_mm_dd_input2.validate(Some(Cow::Borrowed(&value))) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-      Ok(()) => ()
+      Ok(()) => (),
     }
 
     Ok(())
@@ -249,10 +237,7 @@ mod test {
       // Simplified ISO year-month-date regex
       let rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
       if !rx.is_match(*s) {
-        return Err(
-          vec![(PatternMismatch,
-                ymd_mismatch_msg(*s, rx.as_str()))]
-        );
+        return Err(vec![(PatternMismatch, ymd_mismatch_msg(*s, rx.as_str()))]);
       }
       Ok(())
     }
@@ -271,23 +256,31 @@ mod test {
     let str_input = Arc::new(ymd_input);
     let str_input_instance = Arc::clone(&str_input);
 
-    let handle = thread::spawn(move || {
-      match usize_input_instance.validate(Some(Cow::Owned(101))) {
-        Err(x) => {
-          assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
-        }
-        _ => panic!("Expected `Err(...)`")
-      }
-    });
+    let handle =
+      thread::spawn(
+        move || match usize_input_instance.validate(Some(Cow::Owned(101))) {
+          Err(x) => {
+            assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
+          }
+          _ => panic!("Expected `Err(...)`"),
+        },
+      );
 
-    let handle2 = thread::spawn(move || {
-      match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
-        Err(x) => {
-          assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap().as_str()));
-        }
-        _ => panic!("Expected `Err(...)`")
-      }
-    });
+    let handle2 =
+      thread::spawn(
+        move || match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
+          Err(x) => {
+            assert_eq!(
+              x[0].1.as_str(),
+              ymd_mismatch_msg(
+                "",
+                Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap().as_str()
+              )
+            );
+          }
+          _ => panic!("Expected `Err(...)`"),
+        },
+      );
 
     // @note Conclusion of tests here is that validators can only (easily) be shared between threads if they are function pointers -
     //   closures are too loose and require over the top value management and planning due to the nature of multi-threaded
@@ -313,10 +306,10 @@ mod test {
     let ymd_check = move |s: Cow<&str>| -> ValidationResult {
       // Simplified ISO year-month-date regex
       if !(&ymd_rx_clone).is_match(*s) {
-        return Err(
-          vec![(PatternMismatch,
-                (&ymd_mismatch_msg)(*s, ymd_rx_clone.as_str()))]
-        );
+        return Err(vec![(
+          PatternMismatch,
+          (&ymd_mismatch_msg)(*s, ymd_rx_clone.as_str()),
+        )]);
       }
       Ok(())
     };
@@ -336,23 +329,23 @@ mod test {
     let str_input_instance = Arc::clone(&str_input);
 
     thread::scope(|scope| {
-      scope.spawn(|| {
-        match usize_input_instance.validate(Some(Cow::Owned(101))) {
+      scope.spawn(
+        || match usize_input_instance.validate(Some(Cow::Owned(101))) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
-          _ => panic!("Expected `Err(...)`")
-        }
-      });
+          _ => panic!("Expected `Err(...)`"),
+        },
+      );
 
-      scope.spawn(|| {
-        match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
+      scope.spawn(
+        || match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
           }
-          _ => panic!("Expected `Err(...)`")
-        }
-      });
+          _ => panic!("Expected `Err(...)`"),
+        },
+      );
     });
 
     Ok(())
@@ -363,14 +356,17 @@ mod test {
     let callback1 = |xs: Cow<&str>| -> ValidationResult {
       if *xs != "" {
         Ok(())
-      } else { Err(vec![(ConstraintViolation::TypeMismatch, "Error".to_string())]) }
+      } else {
+        Err(vec![(
+          ConstraintViolation::TypeMismatch,
+          "Error".to_string(),
+        )])
+      }
     };
 
     let _input = InputBuilder::default()
       .name(Some(Cow::from("hello")))
-      .validators(vec![
-        Arc::new(&callback1)
-      ])
+      .validators(vec![Arc::new(&callback1)])
       .build()
       .unwrap();
   }

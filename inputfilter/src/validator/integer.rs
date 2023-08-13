@@ -1,14 +1,17 @@
-use std::borrow::Cow;
-use std::ops::Div;
+use crate::types::{
+  ConstraintViolation,
+  ConstraintViolation::{NotEqual, RangeOverflow, RangeUnderflow, StepMismatch},
+};
 
-use crate::input::{ConstraintViolation};
-use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow, NotEqual};
 use crate::types::{InputValue, ValidateValue, ValidationResult};
+use std::borrow::Cow;
+use std::ops::{Div, Rem};
 
-pub type IntegerViolationCallback<'a, T> = dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync;
+pub type IntegerViolationCallback<'a, T> =
+  dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
-pub struct IntegerValidator<'a, T: InputValue + Copy + Div> {
+pub struct IntegerValidator<'a, T: InputValue + Copy + Rem + Div> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -32,7 +35,8 @@ pub struct IntegerValidator<'a, T: InputValue + Copy + Div> {
 }
 
 impl<'a, T> IntegerValidator<'a, T>
-  where T: InputValue + Copy + Div
+where
+  T: InputValue + Copy + Rem + Div,
 {
   fn _validate_integer(&self, v: T) -> Option<ConstraintViolation> {
     // Test Min
@@ -58,8 +62,9 @@ impl<'a, T> IntegerValidator<'a, T>
 
     // Test Step
     // if let Some(step) = self.step {
-    //   let quotient = v / step;
-    //   if step != Default::default() && quotient != Default::default() {
+    //   let remainder = T::try_from(v % step).unwrap();
+    //
+    //   if step != Default::default() && remainder != Default::default() {
     //     return Some(StepMismatch);
     //   }
     // }
@@ -92,36 +97,44 @@ impl<'a, T> IntegerValidator<'a, T>
 }
 
 impl<T> ValidateValue<T> for IntegerValidator<'_, T>
-  where T: InputValue + Copy + Div {
+where
+  T: InputValue + Copy + Rem + Div,
+{
   fn validate(&self, value: Cow<'_, T>) -> ValidationResult {
-    // Perform validation
     if let Some(violation) = self._validate_integer(*value) {
-      return Err(vec![(violation, self._get_violation_msg(violation, *value))]);
+      return Err(vec![(
+        violation,
+        self._get_violation_msg(violation, *value),
+      )]);
     }
 
     Ok(())
   }
 }
 
-impl<T> FnOnce<(Cow<'_, T>, )> for IntegerValidator<'_, T>
-  where T: InputValue + Copy + Div {
+impl<T> FnOnce<(Cow<'_, T>,)> for IntegerValidator<'_, T>
+where
+  T: InputValue + Copy + Rem + Div,
+{
   type Output = ValidationResult;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, T>, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'_, T>,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 impl<'a, T> Default for IntegerValidator<'a, T>
-  where T: InputValue + Copy + Div {
+where
+  T: InputValue + Copy + Rem + Div,
+{
   fn default() -> Self {
     IntegerValidator::new()
   }
 }
 
 pub fn range_underflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
-  where
-    T: InputValue + Copy + Div,
+where
+  T: InputValue + Copy + Rem + Div,
 {
   format!(
     "`{:}` is less than minimum `{:}`.",
@@ -131,8 +144,8 @@ pub fn range_underflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
 }
 
 pub fn range_overflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
-  where
-    T: InputValue + Copy + Div,
+where
+  T: InputValue + Copy + Rem + Div,
 {
   format!(
     "`{:}` is greater than maximum `{:}`.",
@@ -141,7 +154,10 @@ pub fn range_overflow_msg<T>(rules: &IntegerValidator<T>, x: T) -> String
   )
 }
 
-pub fn step_mismatch_msg<T: InputValue + Copy + Div>(rules: &IntegerValidator<T>, x: T) -> String {
+pub fn step_mismatch_msg<T: InputValue + Copy + Rem + Div>(
+  rules: &IntegerValidator<T>,
+  x: T,
+) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
     x,

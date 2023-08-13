@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use regex::Regex;
 
-use crate::input::ConstraintViolation::PatternMismatch;
+use crate::types::ConstraintViolation::PatternMismatch;
 use crate::types::{ValidationResult, ValidateValue};
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;

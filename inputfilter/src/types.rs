@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::fmt::{Display};
-use crate::input::ConstraintViolation;
 
 pub trait InputValue: Clone + Default + Display + PartialEq + PartialOrd {}
 
@@ -21,9 +20,27 @@ impl InputValue for usize {}
 impl InputValue for f32 {}
 impl InputValue for f64 {}
 impl InputValue for bool {}
-impl InputValue for Box<str> {}
 impl InputValue for &'_ str {}
+impl InputValue for Box<str> {}
 impl InputValue for Cow<'_, str> {}
+
+#[derive(PartialEq, Debug, Clone, Copy)]
+pub enum ConstraintViolation {
+  CustomError,
+  PatternMismatch,
+  RangeOverflow,
+  RangeUnderflow,
+  StepMismatch,
+  TooLong,
+  TooShort,
+  NotEqual,
+
+  /// When value is in an invalid format, and cannot not validated
+  /// against `pattern` (email, url, etc.) - currently unused.
+  // @todo should probably be 'format mismatch'
+  TypeMismatch,
+  ValueMissing,
+}
 
 pub type ViolationMessage = String;
 

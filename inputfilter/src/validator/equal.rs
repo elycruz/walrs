@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use crate::input::ConstraintViolation;
+use crate::types::ConstraintViolation;
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
 #[derive(Builder, Clone)]
