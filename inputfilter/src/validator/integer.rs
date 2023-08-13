@@ -2,13 +2,13 @@ use std::borrow::Cow;
 use std::ops::Div;
 
 use crate::input::{ConstraintViolation};
-use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow};
+use crate::input::ConstraintViolation::{StepMismatch, RangeOverflow, RangeUnderflow, NotEqual};
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
-pub type IntegerViolationCallback<T> = dyn Fn(&IntegerValidator<T>, T) -> String + Send + Sync;
+pub type IntegerViolationCallback<'a, T> = dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
-pub struct IntegerValidator<'a, T: InputValue + Copy + Div + 'static> {
+pub struct IntegerValidator<'a, T: InputValue + Copy + Div> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -18,14 +18,17 @@ pub struct IntegerValidator<'a, T: InputValue + Copy + Div + 'static> {
   #[builder(default = "None")]
   pub step: Option<T>,
 
+  #[builder(default = "None")]
+  pub equals: Option<T>,
+
   #[builder(default = "&range_underflow_msg")]
-  pub range_underflow: &'a IntegerViolationCallback<T>,
+  pub range_underflow: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&range_overflow_msg")]
-  pub range_overflow: &'a IntegerViolationCallback<T>,
+  pub range_overflow: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&step_mismatch_msg")]
-  pub step_mismatch: &'a IntegerViolationCallback<T>,
+  pub step_mismatch: &'a (dyn Fn(&IntegerValidator<'a, T>, T) -> String + Send + Sync),
 }
 
 impl<'a, T> IntegerValidator<'a, T>
@@ -46,10 +49,17 @@ impl<'a, T> IntegerValidator<'a, T>
       }
     }
 
+    // Test Equal
+    if let Some(rhs) = self.equals {
+      if v == rhs {
+        return Some(NotEqual);
+      }
+    }
+
     // Test Step
     // if let Some(step) = self.step {
-    //   // let quotient = v / step;
-    //   if step != Default::default() /*&& quotient != Default::default()*/ {
+    //   let quotient = v / step;
+    //   if step != Default::default() && quotient != Default::default() {
     //     return Some(StepMismatch);
     //   }
     // }
@@ -73,6 +83,7 @@ impl<'a, T> IntegerValidator<'a, T>
       min: None,
       max: None,
       step: None,
+      equals: None,
       range_underflow: &range_underflow_msg,
       range_overflow: &range_overflow_msg,
       step_mismatch: &step_mismatch_msg,
