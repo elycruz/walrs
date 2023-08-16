@@ -1,11 +1,7 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use crate::types::{
-  ConstraintViolation, Filter, InputValue, ValidationError,
-  ValidationResult, Validator,
-  ViolationMessage,
-};
+use crate::types::{ConstraintViolation, Filter, InputConstraints, InputValue, ValidationError, ValidationResult, Validator, ViolationMessage};
 
 pub type ValueMissingViolationCallback<'a, T> =
   dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
@@ -79,16 +75,11 @@ where
       }
     }
   }
+}
 
-  pub fn filter(&self, value: Option<T>) -> Option<T> {
-    self
-      .filters
-      .as_deref()
-      .and_then(|fs| fs.iter().fold(value, |agg, f| (f)(agg)))
-  }
-
-  pub fn validate(&self, value: Option<Cow<T>>) -> ValidationResult {
-    match &value {
+impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
+  fn validate(&self, value: Option<&T>) -> ValidationResult {
+    match value {
       None => {
         if self.required {
           Err(vec![(
@@ -101,6 +92,18 @@ where
       }
       Some(v) => self._option_rslt_to_rslt(self._validate_against_validators(v)),
     }
+  }
+
+  fn filter<'b: 'c, 'c>(&self, value: Option<Cow<'b, T>>) -> Option<Cow<'c, T>> {
+    self
+      .filters
+      .as_deref()
+      .and_then(move |fs| fs.iter().fold(value, |agg, f| (f)(agg)))
+  }
+
+  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<Cow<'b, T>>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
+    self.validate(x.as_deref())
+      .and_then(|_| Ok(self.filter(x)))
   }
 }
 
@@ -120,7 +123,8 @@ mod test {
   use std::{borrow::Cow, error::Error, sync::Arc, thread};
 
   use super::ValidationResult;
-  use crate::types::{ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow}};
+  use crate::types::{ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow},
+                     InputConstraints};
   use crate::input::{InputBuilder};
   use crate::validator::number::{NumberValidatorBuilder, step_mismatch_msg};
   use crate::validator::pattern::PatternValidator;
@@ -207,7 +211,7 @@ mod test {
     }
 
     // `Rem` (Remainder) trait check
-    match even_from_0_to_100_input.validate(Some(Cow::Owned(3))) {
+    match even_from_0_to_100_input.validate(Some(&3)) {
       Err(errs) => errs.iter().for_each(|v_err| {
         assert_eq!(v_err.0, ConstraintViolation::StepMismatch);
         assert_eq!(v_err.1, step_mismatch_msg(&even_0_to_100, 3));
@@ -217,7 +221,7 @@ mod test {
 
     // Mismatch check
     let value = "1000-99-999";
-    match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
+    match yyyy_mm_dd_input.validate(Some(&value)) {
       Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
       Err(tuples) => {
         assert_eq!(tuples[0].0, PatternMismatch);
@@ -233,14 +237,14 @@ mod test {
 
     // Valid check 2
     let value = "1000-99-99";
-    match yyyy_mm_dd_input.validate(Some(Cow::Borrowed(&value))) {
+    match yyyy_mm_dd_input.validate(Some(&value)) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => (),
     }
 
     // Valid check
     let value = "1000-99-99";
-    match yyyy_mm_dd_input2.validate(Some(Cow::Borrowed(&value))) {
+    match yyyy_mm_dd_input2.validate(Some(&value)) {
       Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
       Ok(()) => (),
     }
@@ -279,7 +283,7 @@ mod test {
 
     let handle =
       thread::spawn(
-        move || match usize_input_instance.validate(Some(Cow::Owned(101))) {
+        move || match usize_input_instance.validate(Some(&101)) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
           }
@@ -289,7 +293,7 @@ mod test {
 
     let handle2 =
       thread::spawn(
-        move || match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
+        move || match str_input_instance.validate(Some(&"")) {
           Err(x) => {
             assert_eq!(
               x[0].1.as_str(),
@@ -351,7 +355,7 @@ mod test {
 
     thread::scope(|scope| {
       scope.spawn(
-        || match usize_input_instance.validate(Some(Cow::Owned(101))) {
+        || match usize_input_instance.validate(Some(&101)) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
@@ -360,7 +364,7 @@ mod test {
       );
 
       scope.spawn(
-        || match str_input_instance.validate(Some(Cow::Borrowed(&""))) {
+        || match str_input_instance.validate(Some(&"")) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
           }

@@ -75,10 +75,17 @@ pub type ValidationError = (ConstraintViolation, ViolationMessage);
 
 pub type ValidationResult = Result<(), Vec<ValidationError>>;
 
-pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
+pub type Filter<T> = dyn Fn(Option<Cow<T>>) -> Option<Cow<T>> + Send + Sync;
 
 pub type Validator<T> = dyn Fn(Cow<T>) -> ValidationResult + Send + Sync;
 
 pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: Cow<T>) -> ValidationResult;
+}
+
+pub trait InputConstraints<T: InputValue>
+where T: InputValue {
+  fn validate(&self, x: Option<&T>) -> ValidationResult;
+  fn filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Option<Cow<'b, T>>;
+  fn validate_and_filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Result<Option<Cow<'b, T>>, Vec<ValidationError>>;
 }
