@@ -50,16 +50,30 @@ where
 
   fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
     self.validators.as_deref().map(|vs| {
-      vs.iter().fold(
-        Vec::<ValidationError>::new(),
-        |mut agg, f| match (Arc::clone(f))(value) {
-          Err(mut message_tuples) => {
-            agg.append(message_tuples.as_mut());
-            agg
-          }
-          _ => agg,
-        },
-      )
+      if vs.is_empty() {
+        return Vec::<ValidationError>::new();
+      }
+      else if !self.break_on_failure {
+        return vs.iter().fold(
+          Vec::<ValidationError>::new(),
+          |mut agg, f| match (Arc::clone(f))(value) {
+            Err(mut message_tuples) => {
+              agg.append(message_tuples.as_mut());
+              agg
+            }
+            _ => agg,
+          });
+      }
+
+      let mut agg= Vec::<ValidationError>::new();
+      for f in vs.iter() {
+        if let Err(mut message_tuples) = (Arc::clone(f))(value) {
+          agg.append(message_tuples.as_mut());
+
+          if self.break_on_failure { break; }
+        }
+      }
+      agg
     })
   }
 
