@@ -24,7 +24,6 @@ impl InputValue for f64 {}
 impl InputValue for bool {}
 
 impl InputValue for &'_ str {}
-impl InputValue for Box<str> {}
 impl InputValue for Cow<'_, str> {}
 
 pub trait NumberValue: InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
@@ -45,12 +44,6 @@ impl NumberValue for usize {}
 
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
-
-pub trait TextValue: InputValue {}
-
-impl TextValue for &'_ str {}
-impl TextValue for Box<str> {}
-impl TextValue for Cow<'_, str> {}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ConstraintViolation {
