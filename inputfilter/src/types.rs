@@ -24,7 +24,6 @@ impl InputValue for f64 {}
 impl InputValue for bool {}
 
 impl InputValue for &'_ str {}
-impl InputValue for Cow<'_, str> {}
 
 pub trait NumberValue: InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
