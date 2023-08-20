@@ -4,7 +4,7 @@
 
 Controls here should:
 
-- not be stateful - In the sense of 'changing' state;  E.g., should not hold on/mutate values received for validation.
+- not be stateful - In the sense of 'changing' state;  E.g., should not hold on to/mutate values.
 - Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc. (note we can support arbitrary structures (later) via derive macros).
 
 ## Inspiration
@@ -18,11 +18,7 @@ Original inspiration comes from:
 ## Where and how would we use `Input` controls
 
 - In action handlers where we might need to instantiate a validator, or optionally, retrieve a globally instantiated/stored one.
-- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust built-in facilities for working with command line flags might be more appropriate (possibly less memory over, et al.?)).
-
-## Notes:
-
-- So far the only (test) implementation that worked out is the one where we recieve `Cow<T>` in `validate` (method) calls - The more desirable type, though, here is `T`.
+- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust built-in facilities for working with command line flags might be more appropriate (possibly less memory overhead, et al.?)).
 
 ## Questions
 
@@ -36,7 +32,9 @@ Original inspiration comes from:
 |----------|--------------------------------|-----------------------------------------------------------------|
 | `Cow<T>` | Allows better type flexibility | Tedious to type                                                 |
 | `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
-| `T`      | Simplifies APIs                | Offsets API complexity elsewhere and can cause lifetime errors. |
+| `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
+
+Here we're going with `&T` for simplicities' sake.
 
 ## Scratch Area
 
