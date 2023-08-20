@@ -37,3 +37,11 @@ Original inspiration comes from:
 | `Cow<T>` | Allows better type flexibility | Tedious to type                                                 |
 | `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
 | `T`      | Simplifies APIs                | Offsets API complexity elsewhere and can cause lifetime errors. |
+
+## Scratch Area
+
+### Possible "more appropriate" names:
+
+| Current Name | Alternate Name |
+|--------------|----------------|
+| `Input`      | `Constraints`  |

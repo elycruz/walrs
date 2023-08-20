@@ -52,7 +52,7 @@ where
     self.validators.as_deref().map(|vs| {
       vs.iter().fold(
         Vec::<ValidationError>::new(),
-        |mut agg, f| match (Arc::clone(f))(Cow::Borrowed(value)) {
+        |mut agg, f| match (Arc::clone(f))(value) {
           Err(mut message_tuples) => {
             agg.append(message_tuples.as_mut());
             agg
@@ -101,9 +101,9 @@ impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
       .and_then(move |fs| fs.iter().fold(value, |agg, f| (f)(agg)))
   }
 
-  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<Cow<'b, T>>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
-    self.validate(x.as_deref())
-      .and_then(|_| Ok(self.filter(x)))
+  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
+    self.validate(x)
+      .and_then(|_| Ok(self.filter(x.map(|_x| Cow::Borrowed(_x)))))
   }
 }
 
@@ -138,14 +138,11 @@ mod test {
     format!("{} doesn't match pattern {}", s, pattern_str)
   }
 
-  fn unsized_less_100(x: Cow<usize>) -> ValidationResult {
+  fn unsized_less_100(x: &usize) -> ValidationResult {
     if *x >= 100 {
       return Err(vec![(
         RangeOverflow,
-        match x {
-          Cow::Owned(v) => unsized_less_than_100_msg(v),
-          Cow::Borrowed(v) => unsized_less_than_100_msg(v.clone()),
-        },
+        unsized_less_than_100_msg(*x)
       )]);
     }
     Ok(())
@@ -166,9 +163,9 @@ mod test {
     let ymd_mismatch_msg_arc = Arc::clone(&ymd_mismatch_msg);
     let ymd_regex_arc = Arc::clone(&ymd_regex_arc_orig);
 
-    let ymd_check = move |s: Cow<&str>| -> ValidationResult {
-      if !ymd_regex_arc.is_match(*s) {
-        return Err(vec![(PatternMismatch, (&ymd_mismatch_msg_arc)(*s))]);
+    let ymd_check = move |s: &&str| -> ValidationResult {
+      if !ymd_regex_arc.is_match(s) {
+        return Err(vec![(PatternMismatch, (&ymd_mismatch_msg_arc)(s))]);
       }
       Ok(())
     };
@@ -258,7 +255,7 @@ mod test {
       format!("{} doesn't match pattern {}", s, pattern_str)
     }
 
-    fn ymd_check(s: Cow<&str>) -> ValidationResult {
+    fn ymd_check(s: &&str) -> ValidationResult {
       // Simplified ISO year-month-date regex
       let rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
       if !rx.is_match(*s) {
@@ -328,7 +325,7 @@ mod test {
     let ymd_rx = Arc::new(Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap());
     let ymd_rx_clone = Arc::clone(&ymd_rx);
 
-    let ymd_check = move |s: Cow<&str>| -> ValidationResult {
+    let ymd_check = move |s: &&str| -> ValidationResult {
       // Simplified ISO year-month-date regex
       if !(&ymd_rx_clone).is_match(*s) {
         return Err(vec![(
@@ -378,7 +375,7 @@ mod test {
 
   #[test]
   fn test_value_type() {
-    let callback1 = |xs: Cow<&str>| -> ValidationResult {
+    let callback1 = |xs: &&str| -> ValidationResult {
       if *xs != "" {
         Ok(())
       } else {

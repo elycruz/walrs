@@ -99,7 +99,7 @@ impl<T> ValidateValue<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn validate(&self, value: Cow<'_, T>) -> ValidationResult {
+  fn validate(&self, value: &T) -> ValidationResult {
     if let Some(violation) = self._validate_integer(*value) {
       return Err(vec![(
         violation,
@@ -111,22 +111,22 @@ where
   }
 }
 
-impl<T: NumberValue> FnMut<(Cow<'_, T>, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, T>, )) -> Self::Output {
+impl<T: NumberValue> FnMut<(&T, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (&T, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: NumberValue> Fn<(Cow<'_, T>, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call(&self, args: (Cow<'_, T>, )) -> Self::Output {
+impl<T: NumberValue> Fn<(&T, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (&T, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: NumberValue> FnOnce<(Cow<'_, T>,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   type Output = ValidationResult;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, T>,)) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
     self.validate(args.0)
   }
 }

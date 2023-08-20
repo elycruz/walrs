@@ -14,32 +14,33 @@ pub struct PatternValidator<'a> {
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
-impl ValidateValue<&str> for PatternValidator<'_> {
-  fn validate(&self, value: Cow<'_, &str>) -> ValidationResult {
-    match self.pattern.is_match(value.as_ref()) {
+impl ValidateValue<&str> for PatternValidator<'_>
+where {
+  fn validate(&self, value: &&str) -> ValidationResult {
+    match self.pattern.is_match(value) {
       false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value.as_ref()))]),
       _ => Ok(())
     }
   }
 }
 
-impl FnOnce<(Cow<'_, &str>, )> for PatternValidator<'_> {
+impl FnOnce<(&&str, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, &str>, )) -> Self::Output {
-    self.validate(args.0)
+  extern "rust-call" fn call_once(self, args: (&&str, )) -> Self::Output {
+    self.validate(&args.0)
   }
 }
 
-impl FnMut<(Cow<'_, &str>, )> for PatternValidator<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, &str>, )) -> Self::Output {
-    self.validate(args.0)
+impl FnMut<(&&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (&&str, )) -> Self::Output {
+    self.validate(&args.0)
   }
 }
 
-impl Fn<(Cow<'_, &str>, )> for PatternValidator<'_> {
-  extern "rust-call" fn call(&self, args: (Cow<'_, &str>, )) -> Self::Output {
-    self.validate(args.0)
+impl Fn<(&&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (&&str, )) -> Self::Output {
+    self.validate(&args.0)
   }
 }
 

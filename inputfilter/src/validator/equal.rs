@@ -7,14 +7,14 @@ pub struct EqualValidator<'a, T>
   where T: InputValue
 {
   pub rhs_value: Cow<'a, T>,
-  pub not_equal_msg: &'a (dyn Fn(&EqualValidator<'a, T>, Cow<'_, T>) -> String + Send + Sync),
+  pub not_equal_msg: &'a (dyn Fn(&EqualValidator<'a, T>, &T) -> String + Send + Sync),
 }
 
 impl<'a, T> ValidateValue<T> for EqualValidator<'a, T>
   where T: InputValue,
 {
-  fn validate(&self, x: Cow<'_, T>) -> ValidationResult {
-    if x == self.rhs_value {
+  fn validate(&self, x: &T) -> ValidationResult {
+    if x == &*self.rhs_value {
       Ok(())
     } else {
       Err(vec![(ConstraintViolation::NotEqual, (self.not_equal_msg)(self, x))])
@@ -22,8 +22,8 @@ impl<'a, T> ValidateValue<T> for EqualValidator<'a, T>
   }
 }
 
-pub fn not_equal_msg<'a, T>(_: &EqualValidator<'a, T>, value: Cow<'a, T>) -> String
+pub fn not_equal_msg<T>(_: &EqualValidator<T>, value: &T) -> String
   where T: InputValue,
 {
-  format!("Value must equal {}", &value)
+  format!("Value must equal {}", value)
 }
