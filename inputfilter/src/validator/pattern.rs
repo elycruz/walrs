@@ -18,7 +18,7 @@ impl ValidateValue<&str> for PatternValidator<'_>
 where {
   fn validate(&self, value: &&str) -> ValidationResult {
     match self.pattern.is_match(value) {
-      false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value.as_ref()))]),
+      false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value))]),
       _ => Ok(())
     }
   }
@@ -28,19 +28,19 @@ impl FnOnce<(&&str, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
   extern "rust-call" fn call_once(self, args: (&&str, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 
 impl FnMut<(&&str, )> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&&str, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 
 impl Fn<(&&str, )> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&&str, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 

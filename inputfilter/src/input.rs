@@ -116,8 +116,7 @@ impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
   }
 
   fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
-    self.validate(x)
-      .and_then(|_| Ok(self.filter(x.map(|_x| Cow::Borrowed(_x)))))
+    self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
   }
 }
 
@@ -179,7 +178,7 @@ mod test {
 
     let ymd_check = move |s: &&str| -> ValidationResult {
       if !ymd_regex_arc.is_match(s) {
-        return Err(vec![(PatternMismatch, (&ymd_mismatch_msg_arc)(s))]);
+        return Err(vec![(PatternMismatch, ymd_mismatch_msg_arc(s))]);
       }
       Ok(())
     };
@@ -272,8 +271,8 @@ mod test {
     fn ymd_check(s: &&str) -> ValidationResult {
       // Simplified ISO year-month-date regex
       let rx = Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap();
-      if !rx.is_match(*s) {
-        return Err(vec![(PatternMismatch, ymd_mismatch_msg(*s, rx.as_str()))]);
+      if !rx.is_match(s) {
+        return Err(vec![(PatternMismatch, ymd_mismatch_msg(s, rx.as_str()))]);
       }
       Ok(())
     }
@@ -341,10 +340,10 @@ mod test {
 
     let ymd_check = move |s: &&str| -> ValidationResult {
       // Simplified ISO year-month-date regex
-      if !(&ymd_rx_clone).is_match(*s) {
+      if !ymd_rx_clone.is_match(s) {
         return Err(vec![(
           PatternMismatch,
-          (&ymd_mismatch_msg)(*s, ymd_rx_clone.as_str()),
+          ymd_mismatch_msg(s, ymd_rx_clone.as_str()),
         )]);
       }
       Ok(())
@@ -390,7 +389,7 @@ mod test {
   #[test]
   fn test_value_type() {
     let callback1 = |xs: &&str| -> ValidationResult {
-      if *xs != "" {
+      if !xs.is_empty() {
         Ok(())
       } else {
         Err(vec![(
