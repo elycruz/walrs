@@ -1,4 +1,4 @@
-
+use std::fmt::{Display, Formatter};
 use crate::types::{ConstraintViolation, ConstraintViolation::{NotEqual, RangeOverflow, RangeUnderflow, StepMismatch}, NumberValue};
 
 use crate::types::{ValidateValue, ValidationResult};
@@ -137,6 +137,17 @@ where
 {
   fn default() -> Self {
     NumberValidator::new()
+  }
+}
+
+impl<T: NumberValue> Display for NumberValidator<'_, T> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "NumberValidator {{min: {}, max: {}, step: {}, equals: {}}}",
+           &self.min.map(|x| x.to_string()).unwrap_or("None".to_string()),
+           &self.max.map(|x| x.to_string()).unwrap_or("None".to_string()),
+           &self.step.map(|x| x.to_string()).unwrap_or("None".to_string()),
+           &self.equals.map(|x| x.to_string()).unwrap_or("None".to_string()),
+    )
   }
 }
 

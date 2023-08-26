@@ -1,16 +1,17 @@
 use std::borrow::Cow;
+use std::fmt::Display;
 use crate::types::ConstraintViolation;
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
 #[derive(Builder, Clone)]
-pub struct EqualValidator<'a, T>
+pub struct EqualityValidator<'a, T>
   where T: InputValue
 {
   pub rhs_value: Cow<'a, T>,
-  pub not_equal_msg: &'a (dyn Fn(&EqualValidator<'a, T>, &T) -> String + Send + Sync),
+  pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, &T) -> String + Send + Sync),
 }
 
-impl<'a, T> ValidateValue<T> for EqualValidator<'a, T>
+impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
   where T: InputValue,
 {
   fn validate(&self, x: &T) -> ValidationResult {
@@ -22,7 +23,15 @@ impl<'a, T> ValidateValue<T> for EqualValidator<'a, T>
   }
 }
 
-pub fn not_equal_msg<T>(_: &EqualValidator<T>, value: &T) -> String
+impl<T> Display for EqualityValidator<'_, T>
+  where T: InputValue,
+{
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "EqualValidator {{rhs_value: {}}}", &self.rhs_value.to_string())
+  }
+}
+
+pub fn not_equal_msg<T>(_: &EqualityValidator<T>, value: &T) -> String
   where T: InputValue,
 {
   format!("Value must equal {}", value)

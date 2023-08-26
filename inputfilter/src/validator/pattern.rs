@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt::Display;
 use regex::Regex;
 
 use crate::types::ConstraintViolation::PatternMismatch;
@@ -41,6 +42,12 @@ impl FnMut<(&&str, )> for PatternValidator<'_> {
 impl Fn<(&&str, )> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&&str, )) -> Self::Output {
     self.validate(args.0)
+  }
+}
+
+impl Display for PatternValidator<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "PatternValidator {{pattern: {}}}", &self.pattern.to_string())
   }
 }
 
