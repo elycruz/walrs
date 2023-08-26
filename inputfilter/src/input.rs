@@ -399,6 +399,12 @@ mod test {
           _ => panic!("Expected `Err(...)`"),
         },
       );
+
+      scope.spawn(
+        || if let Err(_err_tuple) = str_input_instance.validate(Some(&"2013-08-31")) {
+          panic!("Expected `Ok(());  Received Err(...)`")
+        },
+      );
     });
 
     Ok(())
