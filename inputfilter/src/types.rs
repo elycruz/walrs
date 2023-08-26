@@ -56,7 +56,7 @@ pub enum ConstraintViolation {
   NotEqual,
 
   /// Used to convey an expected string format (not necessarily a `Pattern` format;
-  ///  E.g., invalid email hostname, in email, etc.).
+  ///  E.g., invalid email hostname in email pattern, etc.).
   TypeMismatch,
   ValueMissing,
 }
