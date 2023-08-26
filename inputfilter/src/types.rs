@@ -81,4 +81,3 @@ where T: InputValue {
   fn filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Option<Cow<'b, T>>;
   fn validate_and_filter<'a: 'b, 'b>(&self, x: Option<&'a T>) -> Result<Option<Cow<'b, T>>, Vec<ValidationError>>;
 }
-

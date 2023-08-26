@@ -2,10 +2,10 @@ use std::borrow::Cow;
 use crate::constants::{TEXT_SYMBOL};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::{Debug, Display, Formatter};
+use std::fmt::{Debug};
 
 use derive_builder::Builder;
-use crate::walrs_inputfilter::{types::{InputConstraints}, input::InputValue};
+use crate::walrs_inputfilter::{types::{InputConstraints, InputValue}};
 
 /// HTML Input Control Draft - meant as a data struct only - not as an actual DOM Node.
 /// ----
@@ -20,11 +20,11 @@ where
   pub name: Option<Cow<'a, str>>,
 
   /// HTML `required` attrib.
-  #[builder(setter(into), default = "None")]
+  #[builder(setter(into), default = "false")]
   pub required: bool,
 
   /// HTML `disabled` attribute.
-  #[builder(setter(into), default = "None")]
+  #[builder(setter(into), default = "false")]
   pub disabled: bool,
 
   /// HTML `type` attribute.

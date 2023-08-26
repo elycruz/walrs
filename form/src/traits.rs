@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
+use serde_json::Map;
 use crate::walrs_inputfilter::types::{InputConstraints, InputValue};
 
 pub trait FormControl<'a, Value, Constraints>
@@ -17,11 +17,11 @@ pub trait FormControl<'a, Value, Constraints>
   fn set_validation_message(&mut self, msg: Option<String>);
 
   /// Validate this control against it's validation constraints.
-  fn validate(&mut self, value: Option<&'a Value>) -> Result<(), String> {
+  fn validate(&mut self, value: Option<&Value>) -> Result<(), String> {
     match self.get_constraints() {
       Some(constraints) => match constraints.validate(value) {
         Ok(()) => Ok(()),
-        Err((_, msg)) => Err(msg.into()),
+        Err(msgs) => Err(msgs[0].1.to_string()),
       },
       _ => Ok(()),
     }
@@ -30,7 +30,7 @@ pub trait FormControl<'a, Value, Constraints>
   /// Runs control's validation, stores the result, and returns a bool indicating whether control's
   /// `value`/control's validity itself, is valid or not.
   fn check_validity(&mut self) -> bool {
-    let rslt = match self.validate(self.get_value().map(|x| x.as_ref())) {
+    let rslt = match self.validate(self.get_value().as_deref()) {
       Ok(()) => None,
       Err(err) => Some(err),
     };
@@ -52,38 +52,25 @@ pub trait FormControl<'a, Value, Constraints>
     self.check_validity()
   }
 
-  fn get_attributes(&self) -> Option<&HashMap<&'a str,  Option<&'a str>>>;
+  fn get_attributes(&self) -> Option<&Map<String, serde_json::Value>>;
 
-  fn set_attributes(&mut self, attributes: Option<HashMap<&'a str, Option<&'a str>>>);
+  fn get_attributes_mut(&self) -> Option<&mut Map<String, serde_json::Value>>;
+
+  fn set_attributes(&mut self, attributes: Option<Map<String, serde_json::Value>>);
 
   /// Populates internal html attribute cache.
-  fn set_attribute(&mut self, key: &str, value: &str) {
-    self.set_attributes(
-      self.get_attributes().map_or_else(
-        || Some(HashMap::new()),
-        |attribs| {
-          let mut out = attribs.clone();
-          out.insert(key, Some(value));
-          Some(attribs.to_owned())
-        })
-    );
+  fn set_attribute(&mut self, key: &'a str, value: serde_json::Value) {
+    if let Some(map) = self.get_attributes_mut() {
+        map.insert(key.into(), value);
+    }
   }
 
   /// Removes html attribute entry, in html attrib. cache.
-  fn remove_attribute(&mut self, key: &str) -> Option<String> {
-    match self.get_attributes()
-      .map(|attribs|{
-        let mut out = attribs.clone();
-
-        (out.remove(key).flatten().map(|v| v.to_string()), out)
-      }) {
-      Some((removed_value, new_attribs)) => {
-        self.set_attributes(Some(new_attribs));
-
-        removed_value
-      },
-      _ => None
+  fn remove_attribute(&mut self, key: &str) -> Option<serde_json::Value> {
+    if let Some(map) = self.get_attributes_mut() {
+      return map.remove(key);
     }
+    None
   }
 
   /// Returns a boolean indicating whether attribute exists in html attrib. cache or not.

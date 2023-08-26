@@ -27,6 +27,6 @@ Can validate (signed, and unsigned) integer, and float values:
 
 Can validate incoming value against stored regular expression.
 
-## Equal
+## Equality Validator
 
-Equality validator.
+Equality validator - Holds a 'rhs_value' and validates incoming value against it.
