@@ -1,4 +1,5 @@
 use std::borrow::Cow;
+use std::fmt::{Display, Formatter};
 use std::sync::Arc;
 
 use crate::types::{ConstraintViolation, Filter, InputConstraints, InputValue, ValidationError, ValidationResult, Validator, ViolationMessage};
@@ -123,6 +124,23 @@ impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
 impl<T: InputValue> Default for Input<'_, T> {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+impl<'a, T: InputValue> Display for Input<'a, T> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "Input {{ name: {}, required: {}, validators: {}, filters: {} }}",
+      self.name.unwrap_or("None"),
+      self.required,
+      self.validators.as_deref().map(|vs|
+        format!("Some([Validator; {}])", vs.len())
+      ).unwrap_or("None".to_string()),
+      self.filters.as_deref().map(|fs|
+        format!("Some([Filter; {}])", fs.len())
+      ).unwrap_or("None".to_string()),
+    )
   }
 }
 
@@ -404,5 +422,19 @@ mod test {
       .validators(vec![Arc::new(&callback1)])
       .build()
       .unwrap();
+  }
+
+  #[test]
+  fn test_display() {
+    let input = InputBuilder::<usize>::default()
+      .name("hello")
+      .validators(vec![Arc::new(&unsized_less_100)])
+      .build()
+      .unwrap();
+
+    assert_eq!(
+      input.to_string(),
+      "Input { name: hello, required: false, validators: Some([Validator; 1]), filters: None }"
+    );
   }
 }
