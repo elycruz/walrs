@@ -7,12 +7,14 @@ edition = "2021"
 
 [dependencies]
 walrs_acl = { path = 'acl' }
+walrs_form = { path = "form" }
 walrs_graph = { path = 'graph' }
 walrs_inputfilter = { path = "inputfilter" }
 
 [workspace]
 members = [
     "acl",
+    "form",
     "graph",
     "inputfilter",
 ]

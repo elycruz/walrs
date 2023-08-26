@@ -4,7 +4,6 @@
 #[macro_use]
 extern crate derive_builder;
 
-pub mod constants;
 pub mod types;
 pub mod validator;
 pub mod input;
