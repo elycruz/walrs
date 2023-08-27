@@ -1,6 +1,7 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::borrow::Cow;
 use std::fmt::{Debug, Display};
+use std::sync::Arc;
 
 pub trait InputValue: Clone + Default + Display + PartialEq + PartialOrd {}
 
@@ -75,15 +76,74 @@ pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: &T) -> ValidationResult;
 }
 
-pub trait ToAttribute {
-  fn to_attribute(&self) -> (String, serde_json::Value) {
-    ("".to_string(), serde_json::Value::Null)
+pub trait ToAttributes {
+  fn to_attributes(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    None
   }
 }
 
-pub trait InputConstraints<T: InputValue>: Display + Debug
+pub trait InputConstraints<'a, T: InputValue>: Display + Debug + 'a
 where T: InputValue {
-  fn validate(&self, x: Option<&T>) -> ValidationResult;
-  fn filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Option<Cow<'b, T>>;
-  fn validate_and_filter<'a: 'b, 'b>(&self, x: Option<&'a T>) -> Result<Option<Cow<'b, T>>, Vec<ValidationError>>;
+  fn get_should_break_on_failure(&self) -> bool;
+  fn get_required(&self) -> bool;
+  fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync);
+  fn get_validators(&self) -> Option<&[Arc<&Validator<T>>]>;
+  fn get_filters(&self) -> Option<&[&Filter<T>]>;
+
+  fn validate_with_validators(&self, value: &T, validators: Option<&[Arc<&Validator<T>>]>) -> ValidationResult {
+    validators.as_deref().map(|vs| {
+
+      // If not break on failure then capture all validation errors.
+      if !self.get_should_break_on_failure() {
+        return vs.iter().fold(
+          Vec::<ValidationError>::new(),
+          |mut agg, f| match (Arc::clone(f))(value) {
+            Err(mut message_tuples) => {
+              agg.append(message_tuples.as_mut());
+              agg
+            }
+            _ => agg,
+          });
+      }
+
+      // Else break on, and capture, first failure.
+      let mut agg = Vec::<ValidationError>::new();
+      for f in vs.iter() {
+        if let Err(mut message_tuples) = (Arc::clone(f))(value) {
+          agg.append(message_tuples.as_mut());
+          break;
+        }
+      }
+      agg
+    })
+      .and_then(|msgs| if msgs.is_empty() { None } else { Some(msgs) })
+      .map_or(Ok(()), |msgs| Err(msgs))
+  }
+
+  fn validate(&self, value: Option<&T>) -> ValidationResult {
+    match value {
+      None => {
+        if self.get_required() {
+          Err(vec![(
+            ConstraintViolation::ValueMissing,
+            (self.get_value_missing_handler())(self),
+          )])
+        } else {
+          Ok(())
+        }
+      }
+      Some(v) => self.validate_with_validators(v, self.get_validators()),
+    }
+  }
+
+  fn filter<'b: 'c, 'c>(&self, value: Option<Cow<'b, T>>) -> Option<Cow<'c, T>> {
+    match self.get_filters() {
+      None => value,
+      Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
+    }
+  }
+
+  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
+    self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
+  }
 }

@@ -48,76 +48,27 @@ where
       value_missing: &value_missing_msg,
     }
   }
-
-  fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
-    // Unwrap and run validators
-    self.validators.as_deref().map(|vs| {
-      // If not break on failure then capture all validation errors.
-      if !self.break_on_failure {
-        return vs.iter().fold(
-          Vec::<ValidationError>::new(),
-          |mut agg, f| match (Arc::clone(f))(value) {
-            Err(mut message_tuples) => {
-              agg.append(message_tuples.as_mut());
-              agg
-            }
-            _ => agg,
-          });
-      }
-
-      // Else break on, and capture, first failure.
-      let mut agg = Vec::<ValidationError>::new();
-      for f in vs.iter() {
-        if let Err(mut message_tuples) = (Arc::clone(f))(value) {
-          agg.append(message_tuples.as_mut());
-          break;
-        }
-      }
-      agg
-    })
-      .and_then(|msgs| if msgs.is_empty() { None } else { Some(msgs) })
-  }
-
-  fn _option_rslt_to_rslt(&self, rslt: Option<Vec<ValidationError>>) -> ValidationResult {
-    match rslt {
-      None => Ok(()),
-      Some(_msgs) => {
-        if !_msgs.is_empty() {
-          Err(_msgs)
-        } else {
-          Ok(())
-        }
-      }
-    }
-  }
 }
 
-impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
-  fn validate(&self, value: Option<&T>) -> ValidationResult {
-    match value {
-      None => {
-        if self.required {
-          Err(vec![(
-            ConstraintViolation::ValueMissing,
-            (self.value_missing)(self),
-          )])
-        } else {
-          Ok(())
-        }
-      }
-      Some(v) => self._option_rslt_to_rslt(self._validate_against_validators(v)),
-    }
+impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
+  fn get_should_break_on_failure(&self) -> bool {
+    self.break_on_failure
   }
 
-  fn filter<'b: 'c, 'c>(&self, value: Option<Cow<'b, T>>) -> Option<Cow<'c, T>> {
-    match self.filters.as_deref() {
-      None => value,
-      Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
-    }
+  fn get_required(&self) -> bool {
+    self.required
   }
 
-  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
-    self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
+  fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync) {
+    self.value_missing
+  }
+
+  fn get_validators(&self) -> Option<&[Arc<&Validator<T>>]> {
+    self.validators.as_deref()
+  }
+
+  fn get_filters(&self) -> Option<&[&Filter<T>]> {
+    self.filters.as_deref()
   }
 }
 
