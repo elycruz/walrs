@@ -1,10 +1,11 @@
 use std::borrow::Cow;
 use crate::constants::{TEXT_SYMBOL};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fmt::{Debug};
+use serde_json::Map;
+use std::fmt::{Debug, Display, Formatter};
 
 use derive_builder::Builder;
+use crate::traits::FormControl;
 use crate::walrs_inputfilter::{types::{InputConstraints, InputValue}};
 
 /// HTML Input Control Draft - meant as a data struct only - not as an actual DOM Node.
@@ -35,7 +36,7 @@ where
   /// Hashmap for control's html attributes that are not defined on this struct;
   /// Other attribs.: e.g., `placeholder`, `cols` etc.;
   #[builder(setter(into), default = "None")]
-  pub attributes: Option<HashMap<&'a str, Option<&'a str>>>,
+  pub attributes: Option<Map<String, serde_json::Value>>,
 
   /// Form control's `value`.
   #[builder(setter(into), default = "None")]
@@ -80,6 +81,63 @@ where
       constraints: None,
       help_message: None,
     }
+  }
+}
+
+
+impl<'a, Value: 'a, ValueConstraints: 'a> FormControl<'a, Value, ValueConstraints>
+for HTMLInput<'a, Value, ValueConstraints>
+  where
+    Value: InputValue,
+    ValueConstraints: InputConstraints<Value>,
+{
+  /// Returns the control's validation constraints struct.
+  fn get_constraints(&self) -> Option<&ValueConstraints> {
+    self.constraints.as_ref()
+  }
+
+  /// Gets ref to validation message.
+  fn get_validation_message(&self) -> Option<Cow<'a, str>> {
+    self.validation_message.as_deref().map(|x| Cow::Owned(x.to_string()))
+  }
+
+  /// Sets validation message.
+  fn set_validation_message(&mut self, msg: Option<String>) {
+    self.validation_message = msg;
+  }
+
+  /// Gets control's `value`.
+  fn get_value(&self) -> Option<Cow<'a, Value>> {
+    self.value.as_ref().map(|x| Cow::Owned(x.to_owned()))
+  }
+
+  /// Convenience setter for setting `value`, calling `check_validity()`, which updates
+  /// `validation_message` based on whether `value` is valid or not.`
+  fn set_value(&mut self, value: Option<Value>) -> bool {
+    self.value = value;
+    self.check_validity()
+  }
+
+  fn get_attributes(&self) -> Option<&serde_json::Map<String, serde_json::Value>> {
+    self.attributes.as_ref()
+  }
+
+  fn get_attributes_mut(&mut self) -> Option<&mut serde_json::Map<String, serde_json::Value>> {
+    self.attributes.as_mut()
+  }
+
+  fn set_attributes(&mut self, attributes: Option<serde_json::Map<String, serde_json::Value>>) {
+    self.attributes = attributes;
+  }
+}
+
+impl<Value, ValueConstraints> Display for HTMLInput<'_, Value, ValueConstraints>
+  where
+    Value: InputValue,
+    ValueConstraints: InputConstraints<Value>,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", &self)
   }
 }
 

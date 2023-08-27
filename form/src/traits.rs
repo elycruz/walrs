@@ -52,14 +52,17 @@ pub trait FormControl<'a, Value, Constraints>
     self.check_validity()
   }
 
+  /// Returns attributes map.
   fn get_attributes(&self) -> Option<&Map<String, serde_json::Value>>;
 
-  fn get_attributes_mut(&self) -> Option<&mut Map<String, serde_json::Value>>;
+  /// Returns mutable version of attributes map.
+  fn get_attributes_mut(&mut self) -> Option<&mut Map<String, serde_json::Value>>;
 
+  /// Sets attributes map.
   fn set_attributes(&mut self, attributes: Option<Map<String, serde_json::Value>>);
 
   /// Populates internal html attribute cache.
-  fn set_attribute(&mut self, key: &'a str, value: serde_json::Value) {
+  fn set_attribute(&mut self, key: &str, value: serde_json::Value) {
     if let Some(map) = self.get_attributes_mut() {
         map.insert(key.into(), value);
     }

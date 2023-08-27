@@ -75,7 +75,7 @@ pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: &T) -> ValidationResult;
 }
 
-pub trait InputConstraints<T: InputValue>
+pub trait InputConstraints<T: InputValue>: Display
 where T: InputValue {
   fn validate(&self, x: Option<&T>) -> ValidationResult;
   fn filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Option<Cow<'b, T>>;
