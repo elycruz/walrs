@@ -50,11 +50,19 @@ where
   }
 
   fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
+    // Ensure `self` is in a valid state if no validators.
+    if let None = self.validators.as_deref() {
+      return if self.required {
+        panic!("Validators cannot be empty when `values` is 'required'");
+      } else {
+        None
+      };
+    }
+
+    // Unwrap and run validators
     self.validators.as_deref().map(|vs| {
-      if vs.is_empty() {
-        return Vec::<ValidationError>::new();
-      }
-      else if !self.break_on_failure {
+      // If not break on failure then capture all validation errors.
+      if !self.break_on_failure {
         return vs.iter().fold(
           Vec::<ValidationError>::new(),
           |mut agg, f| match (Arc::clone(f))(value) {
@@ -66,16 +74,17 @@ where
           });
       }
 
-      let mut agg= Vec::<ValidationError>::new();
+      // Else break on, and capture, first failure.
+      let mut agg = Vec::<ValidationError>::new();
       for f in vs.iter() {
         if let Err(mut message_tuples) = (Arc::clone(f))(value) {
           agg.append(message_tuples.as_mut());
-
-          if self.break_on_failure { break; }
+          break;
         }
       }
       agg
     })
+      .and_then(|msgs| if msgs.is_empty() { None } else { Some(msgs) })
   }
 
   fn _option_rslt_to_rslt(&self, rslt: Option<Vec<ValidationError>>) -> ValidationResult {
@@ -110,10 +119,10 @@ impl<'a, T: InputValue> InputConstraints<T> for Input<'a, T> {
   }
 
   fn filter<'b: 'c, 'c>(&self, value: Option<Cow<'b, T>>) -> Option<Cow<'c, T>> {
-    self
-      .filters
-      .as_deref()
-      .and_then(move |fs| fs.iter().fold(value, |agg, f| (f)(agg)))
+    match self.filters.as_deref() {
+      None => value,
+      Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
+    }
   }
 
   fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
@@ -127,7 +136,7 @@ impl<T: InputValue> Default for Input<'_, T> {
   }
 }
 
-impl<'a, T: InputValue> Display for Input<'a, T> {
+impl<T: InputValue> Display for Input<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -408,6 +417,19 @@ mod test {
     });
 
     Ok(())
+  }
+
+  #[test]
+  fn test_validate_and_filter() {
+    let input = InputBuilder::<usize>::default()
+      .name("hello")
+      .required(true)
+      .validators(vec![Arc::new(&unsized_less_100)])
+      .build()
+      .unwrap();
+
+    assert_eq!(input.validate_and_filter(Some(&101)), Err(vec![(RangeOverflow, unsized_less_than_100_msg(101))]));
+    assert_eq!(input.validate_and_filter(Some(&99)), Ok(Some(Cow::Borrowed(&99))));
   }
 
   #[test]
