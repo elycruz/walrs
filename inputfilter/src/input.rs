@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use std::fmt::{Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
 use crate::types::{ConstraintViolation, Filter, InputConstraints, InputValue, ValidationError, ValidationResult, Validator, ViolationMessage};
@@ -50,15 +50,6 @@ where
   }
 
   fn _validate_against_validators(&self, value: &T) -> Option<Vec<ValidationError>> {
-    // Ensure `self` is in a valid state if no validators.
-    if let None = self.validators.as_deref() {
-      return if self.required {
-        panic!("Validators cannot be empty when `values` is 'required'");
-      } else {
-        None
-      };
-    }
-
     // Unwrap and run validators
     self.validators.as_deref().map(|vs| {
       // If not break on failure then capture all validation errors.
@@ -150,6 +141,12 @@ impl<T: InputValue> Display for Input<'_, T> {
         format!("Some([Filter; {}])", fs.len())
       ).unwrap_or("None".to_string()),
     )
+  }
+}
+
+impl<T: InputValue> Debug for Input<'_, T> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", &self)
   }
 }
 

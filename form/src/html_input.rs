@@ -142,4 +142,174 @@ impl<Value, ValueConstraints> Display for HTMLInput<'_, Value, ValueConstraints>
 }
 
 #[cfg(test)]
-pub mod test {}
+pub mod test {
+  use std::borrow::Cow;
+  use walrs_inputfilter::input::{Input, InputBuilder, value_missing_msg};
+  use super::*;
+
+  fn _new_input<T: InputValue>(constraints: Option<Input<T>>) -> HTMLInput<T, Input<T>> {
+    if let Some(_constraints) = constraints {
+      HTMLInputBuilder::default()
+        .constraints(_constraints)
+        .build()
+        .unwrap()
+    } else {
+      HTMLInputBuilder::default()
+        .build()
+        .unwrap()
+    }
+  }
+
+  #[test]
+  fn test_html_input_new() {
+    for name in [Some(Cow::Borrowed(&"test_name")), None] as [Option<Cow<str>>; 2] {
+      let input: HTMLInput<&str, Input<&str>> = HTMLInput::new(name.clone());
+      assert_eq!(&input.name, &name, "name is invalid");
+    }
+  }
+
+  #[test]
+  fn test_html_input_set_validation_message() {
+    for validation_message in
+    [Some("Some validation message".to_string()), None] as [Option<String>; 2]
+    {
+      let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
+      input.set_validation_message(validation_message.clone());
+      assert_eq!(
+        &input.validation_message, &validation_message,
+        "validation message is invalid"
+      );
+    }
+  }
+
+  #[test]
+  fn test_html_input_get_value() {
+    for value in [Some("some-value"), None] as [Option<&str>; 2] {
+      let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
+      input.value = value.into();
+      assert_eq!(input.get_value().map(|x| *x), value, "`value` is invalid");
+    }
+  }
+
+  #[test]
+  fn test_html_input_get_constraints() {
+    let constraint_seed: Input<&str> = Input::new();
+
+    for in_constraints in [
+      None,
+      Some(constraint_seed.clone()),
+    ] as [Option<Input<&str>>; 2]
+    {
+      let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
+      let in_constraints_cloned = in_constraints.clone();
+      input.constraints = in_constraints;
+      println!("input.constraints: {:?}, in_constraints_cloned: {:?}",
+               &input.constraints, &in_constraints_cloned);
+      if input.constraints.is_none() && in_constraints_cloned.is_none() {
+        assert!(true);
+        continue;
+      }
+      assert_eq!(
+        format!("{}", input.constraints.unwrap()),
+        format!("{}", in_constraints_cloned.unwrap()),
+                 "constraints are invalid"
+      );
+    }
+  }
+
+  #[test]
+  fn test_html_input_validate() {
+    let constraints: Input<&str> = InputBuilder::default()
+      .required(true)
+      .build()
+      .unwrap();
+
+    for (value, constraints, expected_rslt) in [
+      (None, None, Ok(())),
+      (Some("some-value"), None, Ok(())),
+      (Some("some-value"), Some(constraints.clone()), Ok(())),
+      (
+        None,
+        Some(constraints.clone()),
+        Err(value_missing_msg(&constraints)),
+      ),
+    ]
+      as [(
+      Option<&str>,
+      Option<Input<&str>>,
+      Result<(), String>,
+    ); 4]
+    {
+      let mut input: HTMLInput<&str, Input<&str>> = _new_input(constraints);
+      let initial_validation_msg = input.validation_message.clone();
+      let rslt = input.validate(value.as_ref());
+
+      assert_eq!(&rslt, &expected_rslt, "result is invalid");
+
+      // Validity state should not have changed.
+      assert_eq!(
+        &input.validation_message, &initial_validation_msg,
+        "validity state is invalid"
+      );
+    }
+  }
+
+  #[test]
+  fn test_html_input_check_validity() {
+    let mut constraints: Input<&str> = Input::new();
+    constraints.required = true;
+    for (value, constraints, rslt, expected_validation_msg) in [
+      (None, None, true, None),
+      (Some("some-value"), None, true, None),
+      (Some("some-value"), Some(constraints.clone()), true, None),
+      (
+        None,
+        Some(constraints.clone()),
+        false,
+        Some(value_missing_msg(&constraints)),
+      ),
+    ]
+      as [(
+      Option<&str>,
+      Option<Input<&str>>,
+      bool,
+      Option<String>,
+    ); 4]
+    {
+      let mut input: HTMLInput<&str, Input<&str>> = _new_input(constraints);
+      input.value = value.into();
+      let v_rslt = input.check_validity();
+
+      assert_eq!(v_rslt, rslt, "result is invalid");
+
+      // Validity state should not have changed.
+      assert_eq!(
+        input.validation_message, expected_validation_msg,
+        "validity state is invalid"
+      );
+    }
+  }
+
+  #[test]
+  fn test_html_input_set_value() {
+    for value in [Some("some-value"), None] as [Option<&str>; 2] {
+      let mut constraints: Input<&str> = Input::new();
+      constraints.required = true;
+
+      let mut input: HTMLInput<&str, Input<&str>> =
+        HTMLInputBuilder::default()
+          .constraints(constraints)
+          .build()
+          .unwrap();
+      input.set_value(value.into());
+      assert_eq!(&input.value, &value, "`value` is invalid");
+
+      // Since we marked `value` as `required` we can check for control's 'validity state'.
+      assert_eq!(
+        input.validation_message.is_some(),
+        value.is_none(),
+        "validity state is invalid"
+      );
+    }
+  }
+}

@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::borrow::Cow;
-use std::fmt::{Display};
+use std::fmt::{Debug, Display};
 
 pub trait InputValue: Clone + Default + Display + PartialEq + PartialOrd {}
 
@@ -75,7 +75,13 @@ pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: &T) -> ValidationResult;
 }
 
-pub trait InputConstraints<T: InputValue>: Display
+pub trait ToAttribute {
+  fn to_attribute(&self) -> (String, serde_json::Value) {
+    ("".to_string(), serde_json::Value::Null)
+  }
+}
+
+pub trait InputConstraints<T: InputValue>: Display + Debug
 where T: InputValue {
   fn validate(&self, x: Option<&T>) -> ValidationResult;
   fn filter<'a: 'b, 'b>(&self, x: Option<Cow<'a, T>>) -> Option<Cow<'b, T>>;
