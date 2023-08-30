@@ -1,8 +1,7 @@
-use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use crate::types::{ConstraintViolation, Filter, InputConstraints, InputValue, ValidationError, ValidationResult, Validator, ViolationMessage};
+use crate::types::{Filter, InputConstraints, InputValue, ValidationResult, Validator, ViolationMessage};
 
 pub type ValueMissingViolationCallback<'a, T> =
   dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;

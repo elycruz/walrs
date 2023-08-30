@@ -5,7 +5,7 @@ use crate::walrs_inputfilter::types::{InputConstraints, InputValue};
 pub trait FormControl<'a, Value, Constraints>
   where
     Value: 'a + InputValue,
-    Constraints: 'a + InputConstraints<Value>,
+    Constraints: 'a + InputConstraints<'a, Value>,
 {
   /// Returns the control's validation constraints struct.
   fn get_constraints(&self) -> Option<&Constraints>;

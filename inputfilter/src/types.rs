@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
 
-pub trait InputValue: Clone + Default + Display + PartialEq + PartialOrd {}
+pub trait InputValue: Clone + Default + Debug + Display + PartialEq + PartialOrd {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}

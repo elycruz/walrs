@@ -2,7 +2,7 @@
 
 An experimental Web Application Library, for Rust - The project is in research and development so please do not use for production code.
 
-## Currently in development:
+## (currently) in development:
 
 - `wal_inputfilter` - A set of `Input` validation structs used to validate primitive values as they pertain to web applications.
 - `wal_acl` - An access control list structure.

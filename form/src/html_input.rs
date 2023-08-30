@@ -14,7 +14,7 @@ use crate::walrs_inputfilter::{types::{InputConstraints, InputValue}};
 pub struct HTMLInput<'a, Value, Constraints>
 where
   Value: InputValue,
-  Constraints: 'a + InputConstraints<Value>,
+  Constraints: 'a + InputConstraints<'a, Value>,
 {
   /// Name associated with control's parent (html) form.
   #[builder(setter(into), default = "None")]
@@ -66,7 +66,7 @@ where
 impl<'a, Value, Constraints> HTMLInput<'a, Value, Constraints>
 where
   Value: InputValue,
-  Constraints: 'a + InputConstraints<Value>,
+  Constraints: 'a + InputConstraints<'a, Value>,
 {
   pub fn new(name: Option<Cow<'a, str>>) -> Self {
     HTMLInput {
@@ -84,12 +84,11 @@ where
   }
 }
 
-
 impl<'a, Value: 'a, ValueConstraints: 'a> FormControl<'a, Value, ValueConstraints>
 for HTMLInput<'a, Value, ValueConstraints>
   where
     Value: InputValue,
-    ValueConstraints: InputConstraints<Value>,
+    ValueConstraints: InputConstraints<'a, Value>,
 {
   /// Returns the control's validation constraints struct.
   fn get_constraints(&self) -> Option<&ValueConstraints> {
@@ -118,26 +117,26 @@ for HTMLInput<'a, Value, ValueConstraints>
     self.check_validity()
   }
 
-  fn get_attributes(&self) -> Option<&serde_json::Map<String, serde_json::Value>> {
+  fn get_attributes(&self) -> Option<&Map<String, serde_json::Value>> {
     self.attributes.as_ref()
   }
 
-  fn get_attributes_mut(&mut self) -> Option<&mut serde_json::Map<String, serde_json::Value>> {
+  fn get_attributes_mut(&mut self) -> Option<&mut Map<String, serde_json::Value>> {
     self.attributes.as_mut()
   }
 
-  fn set_attributes(&mut self, attributes: Option<serde_json::Map<String, serde_json::Value>>) {
+  fn set_attributes(&mut self, attributes: Option<Map<String, serde_json::Value>>) {
     self.attributes = attributes;
   }
 }
 
-impl<Value, ValueConstraints> Display for HTMLInput<'_, Value, ValueConstraints>
+impl<'a, Value, ValueConstraints> Display for HTMLInput<'a, Value, ValueConstraints>
   where
     Value: InputValue,
-    ValueConstraints: InputConstraints<Value>,
+    ValueConstraints: InputConstraints<'a, Value>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", &self)
+    write!(f, "{:#?}", &self)
   }
 }
 
@@ -171,7 +170,7 @@ pub mod test {
   #[test]
   fn test_html_input_set_validation_message() {
     for validation_message in
-    [Some("Some validation message".to_string()), None] as [Option<String>; 2]
+    [Some("Some validation message".to_string()), None]
     {
       let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
       input.set_validation_message(validation_message.clone());
@@ -184,7 +183,7 @@ pub mod test {
 
   #[test]
   fn test_html_input_get_value() {
-    for value in [Some("some-value"), None] as [Option<&str>; 2] {
+    for value in [Some("some-value"), None] {
       let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
       input.value = value.into();
       assert_eq!(input.get_value().map(|x| *x), value, "`value` is invalid");
@@ -198,7 +197,7 @@ pub mod test {
     for in_constraints in [
       None,
       Some(constraint_seed.clone()),
-    ] as [Option<Input<&str>>; 2]
+    ]
     {
       let mut input: HTMLInput<&str, Input<&str>> = HTMLInput::new(None);
       let in_constraints_cloned = in_constraints.clone();
@@ -234,11 +233,6 @@ pub mod test {
         Err(value_missing_msg(&constraints)),
       ),
     ]
-      as [(
-      Option<&str>,
-      Option<Input<&str>>,
-      Result<(), String>,
-    ); 4]
     {
       let mut input: HTMLInput<&str, Input<&str>> = _new_input(constraints);
       let initial_validation_msg = input.validation_message.clone();
@@ -269,12 +263,6 @@ pub mod test {
         Some(value_missing_msg(&constraints)),
       ),
     ]
-      as [(
-      Option<&str>,
-      Option<Input<&str>>,
-      bool,
-      Option<String>,
-    ); 4]
     {
       let mut input: HTMLInput<&str, Input<&str>> = _new_input(constraints);
       input.value = value.into();
@@ -292,7 +280,7 @@ pub mod test {
 
   #[test]
   fn test_html_input_set_value() {
-    for value in [Some("some-value"), None] as [Option<&str>; 2] {
+    for value in [Some("some-value"), None] {
       let mut constraints: Input<&str> = Input::new();
       constraints.required = true;
 
