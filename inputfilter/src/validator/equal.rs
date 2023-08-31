@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::ToAttributes;
+use crate::ToAttributesList;
 use crate::types::ConstraintViolation;
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
@@ -32,7 +32,14 @@ impl<T> Display for EqualityValidator<'_, T>
   }
 }
 
-impl<T: InputValue> ToAttributes for EqualityValidator<'_, T> {}
+impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    Some(vec![(
+      "pattern".to_string(),
+      serde_json::to_value(self.rhs_value.to_owned()).unwrap(),
+    )])
+  }
+}
 
 pub fn not_equal_msg<T>(_: &EqualityValidator<T>, value: &T) -> String
   where T: InputValue,

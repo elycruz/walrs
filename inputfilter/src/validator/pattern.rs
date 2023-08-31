@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 use regex::Regex;
+use crate::ToAttributesList;
 
 use crate::types::ConstraintViolation::PatternMismatch;
 use crate::types::{ValidationResult, ValidateValue};
@@ -22,6 +23,12 @@ where {
       false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value))]),
       _ => Ok(())
     }
+  }
+}
+
+impl ToAttributesList for PatternValidator<'_> {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    Some(vec![("pattern".into(), self.pattern.to_string().into())])
   }
 }
 

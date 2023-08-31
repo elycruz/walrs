@@ -1,5 +1,5 @@
 use std::fmt::{Display, Formatter};
-use crate::ToAttributes;
+use crate::ToAttributesList;
 use crate::types::{
   ConstraintViolation,
   ConstraintViolation::{
@@ -117,11 +117,11 @@ where
   }
 }
 
-impl<T> ToAttributes for NumberValidator<'_, T>
+impl<T> ToAttributesList for NumberValidator<'_, T>
   where
     T: NumberValue,
 {
-  fn to_attributes(&self) -> Option<Vec<(String, serde_json::Value)>> {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     let mut attrs = Vec::<(String, serde_json::Value)>::new();
 
     if let Some(min) = self.min {

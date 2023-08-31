@@ -1,7 +1,7 @@
 use std::fmt::{Debug, Display, Formatter};
 use std::sync::Arc;
 
-use crate::types::{Filter, InputConstraints, InputValue, ValidationResult, Validator, ViolationMessage};
+use crate::types::{Filter, InputConstraints, InputValue, Validator, ViolationMessage};
 
 pub type ValueMissingViolationCallback<'a, T> =
   dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
@@ -109,9 +109,8 @@ mod test {
   use regex::Regex;
   use std::{borrow::Cow, error::Error, sync::Arc, thread};
 
-  use super::ValidationResult;
   use crate::types::{ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow},
-                     InputConstraints};
+                     ValidationResult, InputConstraints};
   use crate::input::{InputBuilder};
   use crate::validator::number::{NumberValidatorBuilder, step_mismatch_msg};
   use crate::validator::pattern::PatternValidator;
