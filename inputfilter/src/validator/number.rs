@@ -1,7 +1,13 @@
 use std::fmt::{Display, Formatter};
-use crate::types::{ConstraintViolation, ConstraintViolation::{NotEqual, RangeOverflow, RangeUnderflow, StepMismatch}, NumberValue};
+use crate::ToAttributes;
+use crate::types::{
+  ConstraintViolation,
+  ConstraintViolation::{
+    NotEqual, RangeOverflow, RangeUnderflow, StepMismatch,
+  }, NumberValue, ValidateValue, ValidationResult,
+};
 
-use crate::types::{ValidateValue, ValidationResult};
+use serde_json::value::to_value as to_json_value;
 
 pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
@@ -108,6 +114,37 @@ where
     }
 
     Ok(())
+  }
+}
+
+impl<T> ToAttributes for NumberValidator<'_, T>
+  where
+    T: NumberValue,
+{
+  fn to_attributes(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    let mut attrs = Vec::<(String, serde_json::Value)>::new();
+
+    if let Some(min) = self.min {
+      attrs.push(("min".to_string(), to_json_value(min).unwrap()));
+    }
+
+    if let Some(max) = self.max {
+      attrs.push(("max".to_string(), to_json_value(max).unwrap()));
+    }
+
+    if let Some(step) = self.step {
+      attrs.push(("step".to_string(), to_json_value(step).unwrap()));
+    }
+
+    if let Some(equals) = self.equals {
+      attrs.push(("pattern".to_string(), to_json_value(equals).unwrap()));
+    }
+
+    if attrs.is_empty() {
+      None
+    } else {
+      Some(attrs)
+    }
   }
 }
 

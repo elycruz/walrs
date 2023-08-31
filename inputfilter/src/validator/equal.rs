@@ -1,5 +1,6 @@
 use std::borrow::Cow;
 use std::fmt::Display;
+use crate::ToAttributes;
 use crate::types::ConstraintViolation;
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
@@ -30,6 +31,8 @@ impl<T> Display for EqualityValidator<'_, T>
     write!(f, "EqualValidator {{rhs_value: {}}}", &self.rhs_value.to_string())
   }
 }
+
+impl<T: InputValue> ToAttributes for EqualityValidator<'_, T> {}
 
 pub fn not_equal_msg<T>(_: &EqualityValidator<T>, value: &T) -> String
   where T: InputValue,

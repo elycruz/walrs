@@ -8,5 +8,9 @@ pub mod types;
 pub mod validator;
 pub mod input;
 
+pub use types::*;
+pub use validator::*;
+pub use input::*;
+
 // @todo Add 'Builder' for `wal_inputfilter` structs.
 

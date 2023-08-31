@@ -2,8 +2,9 @@ use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 use std::sync::Arc;
+use serde::Serialize;
 
-pub trait InputValue: Clone + Default + Debug + Display + PartialEq + PartialOrd {}
+pub trait InputValue: Clone + Default + Debug + Display + PartialEq + PartialOrd + Serialize {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
