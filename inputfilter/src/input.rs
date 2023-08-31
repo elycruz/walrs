@@ -15,6 +15,7 @@ where
   #[builder(default = "true")]
   pub break_on_failure: bool,
 
+  /// @todo This should be an `Option<Cow<'a, str>>`, for compatibility.
   #[builder(setter(into), default = "None")]
   pub name: Option<&'a str>,
 

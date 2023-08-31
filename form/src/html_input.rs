@@ -35,6 +35,8 @@ where
 
   /// Hashmap for control's html attributes that are not defined on this struct;
   /// Other attribs.: e.g., `placeholder`, `cols` etc.;
+  /// **Note:** This field gets flattened into parent struct.
+  #[serde(flatten)]
   #[builder(setter(into), default = "None")]
   pub attributes: Option<Map<String, serde_json::Value>>,
 
