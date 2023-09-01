@@ -1,7 +1,6 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::borrow::Cow;
 use std::fmt::{Debug, Display};
-use std::sync::Arc;
 use serde::Serialize;
 
 pub trait InputValue: Clone + Default + Debug + Display + PartialEq + PartialOrd + Serialize {}
@@ -87,18 +86,19 @@ pub trait InputConstraints<'a, T: InputValue>: Display + Debug + 'a
 where T: InputValue {
   fn get_should_break_on_failure(&self) -> bool;
   fn get_required(&self) -> bool;
+  fn get_name(&self) -> Option<Cow<'a, str>>;
   fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync);
-  fn get_validators(&self) -> Option<&[Arc<&Validator<T>>]>;
+  fn get_validators(&self) -> Option<&[&Validator<T>]>;
   fn get_filters(&self) -> Option<&[&Filter<T>]>;
 
-  fn validate_with_validators(&self, value: &T, validators: Option<&[Arc<&Validator<T>>]>) -> ValidationResult {
+  fn validate_with_validators(&self, value: &T, validators: Option<&[&Validator<T>]>) -> ValidationResult {
     validators.as_deref().map(|vs| {
 
       // If not break on failure then capture all validation errors.
       if !self.get_should_break_on_failure() {
         return vs.iter().fold(
           Vec::<ValidationError>::new(),
-          |mut agg, f| match (Arc::clone(f))(value) {
+          |mut agg, f| match (f)(value) {
             Err(mut message_tuples) => {
               agg.append(message_tuples.as_mut());
               agg
@@ -110,7 +110,7 @@ where T: InputValue {
       // Else break on, and capture, first failure.
       let mut agg = Vec::<ValidationError>::new();
       for f in vs.iter() {
-        if let Err(mut message_tuples) = (Arc::clone(f))(value) {
+        if let Err(mut message_tuples) = (f)(value) {
           agg.append(message_tuples.as_mut());
           break;
         }

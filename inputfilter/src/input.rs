@@ -1,5 +1,5 @@
+use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::Arc;
 
 use crate::types::{Filter, InputConstraints, InputValue, Validator, ViolationMessage};
 
@@ -23,7 +23,7 @@ where
   pub required: bool,
 
   #[builder(setter(strip_option), default = "None")]
-  pub validators: Option<Vec<Arc<&'a Validator<T>>>>,
+  pub validators: Option<Vec<&'a Validator<T>>>,
 
   #[builder(setter(strip_option), default = "None")]
   pub filters: Option<Vec<&'a Filter<T>>>,
@@ -38,10 +38,10 @@ impl<'a, T> Input<'a, T>
 where
   T: InputValue,
 {
-  pub fn new() -> Self {
+  pub fn new(name: Option<&'a str>) -> Self {
     Input {
       break_on_failure: false,
-      name: None,
+      name,
       required: false,
       validators: None,
       filters: None,
@@ -59,11 +59,15 @@ impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
     self.required
   }
 
+  fn get_name(&self) -> Option<Cow<'a, str>> {
+    self.name.map(move |s: &'a str| Cow::Borrowed(s))
+  }
+
   fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync) {
     self.value_missing
   }
 
-  fn get_validators(&self) -> Option<&[Arc<&Validator<T>>]> {
+  fn get_validators(&self) -> Option<&[&Validator<T>]> {
     self.validators.as_deref()
   }
 
@@ -74,7 +78,7 @@ impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
 
 impl<T: InputValue> Default for Input<'_, T> {
   fn default() -> Self {
-    Self::new()
+    Self::new(None)
   }
 }
 
@@ -83,7 +87,7 @@ impl<T: InputValue> Display for Input<'_, T> {
     write!(
       f,
       "Input {{ name: {}, required: {}, validators: {}, filters: {} }}",
-      self.name.unwrap_or("None"),
+      self.name.as_deref().unwrap_or("None"),
       self.required,
       self.validators.as_deref().map(|vs|
         format!("Some([Validator; {}])", vs.len())
@@ -113,6 +117,7 @@ mod test {
   use crate::types::{ConstraintViolation, ConstraintViolation::{PatternMismatch, RangeOverflow},
                      ValidationResult, InputConstraints};
   use crate::input::{InputBuilder};
+  use crate::number::range_overflow_msg;
   use crate::validator::number::{NumberValidatorBuilder, step_mismatch_msg};
   use crate::validator::pattern::PatternValidator;
 
@@ -133,6 +138,10 @@ mod test {
       )]);
     }
     Ok(())
+  }
+
+  fn times_two(x: Option<Cow<usize>>) -> Option<Cow<usize>> {
+    x.map(|_x| Cow::Owned(*_x * 2))
   }
 
   #[test]
@@ -166,11 +175,11 @@ mod test {
     };
 
     let less_than_100_input = InputBuilder::<usize>::default()
-      .validators(vec![Arc::new(&unsized_less_100)])
+      .validators(vec![&unsized_less_100])
       .build()?;
 
     let yyyy_mm_dd_input = InputBuilder::<&str>::default()
-      .validators(vec![Arc::new(&ymd_check)])
+      .validators(vec![&ymd_check])
       .build()?;
 
     let even_0_to_100 = NumberValidatorBuilder::<usize>::default()
@@ -181,11 +190,11 @@ mod test {
 
     let even_from_0_to_100_input = InputBuilder::<usize>::default()
       .name("even-0-to-100")
-      .validators(vec![Arc::new(&even_0_to_100)])
+      .validators(vec![&even_0_to_100])
       .build()?;
 
     let yyyy_mm_dd_input2 = InputBuilder::<&str>::default()
-      .validators(vec![Arc::new(&pattern_validator)])
+      .validators(vec![&pattern_validator])
       .build()?;
 
     // Missing value check
@@ -252,11 +261,11 @@ mod test {
     }
 
     let less_than_100_input = InputBuilder::<usize>::default()
-      .validators(vec![Arc::new(&unsized_less_100)])
+      .validators(vec![&unsized_less_100])
       .build()?;
 
     let ymd_input = InputBuilder::<&str>::default()
-      .validators(vec![Arc::new(&ymd_check)])
+      .validators(vec![&ymd_check])
       .build()?;
 
     let usize_input = Arc::new(less_than_100_input);
@@ -322,17 +331,29 @@ mod test {
       }
       Ok(())
     };
+    let unsized_one_to_one_hundred = NumberValidatorBuilder::<usize>::default()
+      .min(0)
+      .max(100)
+      .build()?;
 
     let less_than_100_input = InputBuilder::<usize>::default()
-      .validators(vec![Arc::new(&unsized_less_100)])
+      .validators(vec![&unsized_less_100])
+      .filters(vec![&times_two])
+      .build()?;
+
+    let less_than_100_input2 = InputBuilder::<usize>::default()
+      .validators(vec![&unsized_one_to_one_hundred])
+      .filters(vec![&times_two])
       .build()?;
 
     let ymd_input = InputBuilder::<&str>::default()
-      .validators(vec![Arc::new(&ymd_check)])
+      .validators(vec![&ymd_check])
       .build()?;
 
     let usize_input = Arc::new(less_than_100_input);
     let usize_input_instance = Arc::clone(&usize_input);
+    let usize_input2 = Arc::new(&less_than_100_input2);
+    let usize_input2_instance = Arc::clone(&usize_input2);
 
     let str_input = Arc::new(ymd_input);
     let str_input_instance = Arc::clone(&str_input);
@@ -344,6 +365,33 @@ mod test {
             assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
           _ => panic!("Expected `Err(...)`"),
+        },
+      );
+
+      scope.spawn(
+        || match usize_input_instance.validate_and_filter(Some(&99)) {
+          Err(err) => panic!("Expected `Ok(Some({:#?})`;  Received `Err({:#?})`",
+                        Cow::<usize>::Owned(99 * 2), err),
+          Ok(Some(x)) => assert_eq!(x, Cow::<usize>::Owned(99 * 2)),
+          _ => panic!("Expected `Ok(Some(Cow::Owned(99 * 2)))`;  Received `Ok(None)`"),
+        },
+      );
+
+      scope.spawn(
+        || match usize_input2_instance.validate(Some(&101)) {
+          Err(x) => {
+            assert_eq!(x[0].1.as_str(), &range_overflow_msg(&unsized_one_to_one_hundred, 101));
+          }
+          _ => panic!("Expected `Err(...)`"),
+        },
+      );
+
+      scope.spawn(
+        || match usize_input2_instance.validate_and_filter(Some(&99)) {
+          Err(err) => panic!("Expected `Ok(Some({:#?})`;  Received `Err({:#?})`",
+                        Cow::<usize>::Owned(99 * 2), err),
+          Ok(Some(x)) => assert_eq!(x, Cow::<usize>::Owned(99 * 2)),
+          _ => panic!("Expected `Ok(Some(Cow::Owned(99 * 2)))`;  Received `Ok(None)`"),
         },
       );
 
@@ -371,12 +419,13 @@ mod test {
     let input = InputBuilder::<usize>::default()
       .name("hello")
       .required(true)
-      .validators(vec![Arc::new(&unsized_less_100)])
+      .validators(vec![&unsized_less_100])
+      .filters(vec![&times_two])
       .build()
       .unwrap();
 
     assert_eq!(input.validate_and_filter(Some(&101)), Err(vec![(RangeOverflow, unsized_less_than_100_msg(101))]));
-    assert_eq!(input.validate_and_filter(Some(&99)), Ok(Some(Cow::Borrowed(&99))));
+    assert_eq!(input.validate_and_filter(Some(&99)), Ok(Some(Cow::Borrowed(&(99 * 2)))));
   }
 
   #[test]
@@ -394,7 +443,7 @@ mod test {
 
     let _input = InputBuilder::default()
       .name("hello")
-      .validators(vec![Arc::new(&callback1)])
+      .validators(vec![&callback1])
       .build()
       .unwrap();
   }
@@ -403,7 +452,7 @@ mod test {
   fn test_display() {
     let input = InputBuilder::<usize>::default()
       .name("hello")
-      .validators(vec![Arc::new(&unsized_less_100)])
+      .validators(vec![&unsized_less_100])
       .build()
       .unwrap();
 

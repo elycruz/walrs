@@ -194,7 +194,7 @@ pub mod test {
 
   #[test]
   fn test_html_input_get_constraints() {
-    let constraint_seed: Input<&str> = Input::new();
+    let constraint_seed: Input<&str> = Input::new(None);
 
     for in_constraints in [
       None,
@@ -252,7 +252,7 @@ pub mod test {
 
   #[test]
   fn test_html_input_check_validity() {
-    let mut constraints: Input<&str> = Input::new();
+    let mut constraints: Input<&str> = Input::new(None);
     constraints.required = true;
     for (value, constraints, rslt, expected_validation_msg) in [
       (None, None, true, None),
@@ -283,7 +283,7 @@ pub mod test {
   #[test]
   fn test_html_input_set_value() {
     for value in [Some("some-value"), None] {
-      let mut constraints: Input<&str> = Input::new();
+      let mut constraints: Input<&str> = Input::new(None);
       constraints.required = true;
 
       let mut input: HTMLInput<&str, Input<&str>> =
