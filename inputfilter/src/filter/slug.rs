@@ -104,14 +104,14 @@ impl<'a, 'b> FnMut<(Cow<'a, str>, )> for SlugFilter {
 
 #[cfg(test)]
 mod test {
-  use std::borrow::Cow;
+  use std::{borrow::Cow, thread};
   use super::*;
 
   #[test]
   fn test_to_slug_standalone_method() {
     for (cow_str, expected) in vec![
       (Cow::Borrowed("Hello World"), "hello-world"),
-      (Cow::Borrowed("$Hello World$"), "hello-world"),
+      (Cow::Borrowed("#$@#$Hello World$@#$"), "hello-world"),
       (Cow::Borrowed("$Hello'\"@$World$"), "hello----world"),
     ] {
       assert_eq!(to_slug(cow_str), expected);
@@ -137,4 +137,15 @@ mod test {
 
   #[test]
   fn test_fn_trait_impls() {}
+
+  #[test]
+  fn test_standalone_methods_in_threaded_contexts() {
+    thread::scope(|scope| {
+      scope.spawn(move ||{
+        assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
+        assert_eq!(to_slug(Cow::Borrowed("Hello   World")), "hello---world");
+        assert_eq!(to_pretty_slug(Cow::Borrowed("$@#$Hello@#$@#$World@#$@#$")), "hello-world");
+      });
+    });
+  }
 }
