@@ -48,7 +48,7 @@ pub fn _to_slug<'a, 'b>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) ->
     .to_string();
 
   if rslt.len() > max_length {
-    Cow::Owned(rslt[..201].to_string())
+    Cow::Owned(rslt[..max_length + 1].to_string())
   } else {
     Cow::Owned(rslt)
   }
@@ -130,13 +130,25 @@ mod test {
   }
 
   #[test]
-  fn test_slug_filter_constructor() {}
+  fn test_slug_filter_constructor() {
+    for x in vec![0, 1, 2] {
+      assert_eq!(SlugFilter::new(x).max_length, x);
+    }
+  }
 
   #[test]
-  fn test_slug_filter_builder() {}
+  fn test_slug_filter_builder() {
+    assert_eq!(SlugFilterBuilder::default().build().unwrap().max_length, 200);
+  }
 
   #[test]
-  fn test_fn_trait_impls() {}
+  fn test_fn_trait_impls()  {
+    let slug_filter = SlugFilter { max_length: 200 };
+
+    assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
+    assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello---world");
+    assert_eq!(slug_filter(Cow::Borrowed("$@#$Hello   @World@#$@#$")), "hello----world");
+  }
 
   #[test]
   fn test_standalone_methods_in_threaded_contexts() {
@@ -145,6 +157,18 @@ mod test {
         assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
         assert_eq!(to_slug(Cow::Borrowed("Hello   World")), "hello---world");
         assert_eq!(to_pretty_slug(Cow::Borrowed("$@#$Hello@#$@#$World@#$@#$")), "hello-world");
+      });
+    });
+  }
+
+  #[test]
+  fn test_struct_in_threaded_contexts() {
+    let slug_filter = SlugFilterBuilder::default().build().unwrap();
+
+    thread::scope(|scope| {
+      scope.spawn(move ||{
+        assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
+        assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello---world");
       });
     });
   }
