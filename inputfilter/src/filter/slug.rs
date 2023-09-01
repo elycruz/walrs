@@ -41,7 +41,7 @@ pub fn to_pretty_slug(xs: Cow<str>) -> Cow<str> {
   _to_pretty_slug(get_slug_filter_regex(), 200, xs)
 }
 
-pub fn _to_slug<'a, 'b>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'b, str> {
+pub fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
   let rslt = pattern.replace_all(xs.as_ref(), "-")
     .to_lowercase()
     .trim_matches('-')
@@ -55,7 +55,7 @@ pub fn _to_slug<'a, 'b>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) ->
 }
 
 pub fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
-  if xs.is_empty() { return xs.to_owned() }
+  if xs.is_empty() { return xs; }
 
   get_dash_filter_regex()
     .replace_all(&_to_slug(pattern, max_length, xs), "-")
@@ -68,17 +68,25 @@ pub fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>)
 pub struct SlugFilter {
   #[builder(setter(into), default = "200")]
   pub max_length: usize,
+
+  #[builder(setter(into), default = "true")]
+  pub allow_duplicate_dashes: bool,
 }
 
 impl SlugFilter {
-  pub fn new(max_length: usize) -> Self {
+  pub fn new(max_length: usize, allow_duplicate_dashes: bool) -> Self {
     SlugFilter {
       max_length,
+      allow_duplicate_dashes,
     }
   }
 
-  pub fn filter<'a, 'b: 'a>(&self, xs: Cow<'a, str>) -> Cow<'b, str> {
-    _to_slug(get_slug_filter_regex(), self.max_length, xs)
+  pub fn filter<'a>(&self, xs: Cow<'a, str>) -> Cow<'a, str> {
+    if self.allow_duplicate_dashes {
+      _to_slug(get_slug_filter_regex(), self.max_length, xs)
+    } else {
+      _to_pretty_slug(get_slug_filter_regex(), self.max_length, xs)
+    }
   }
 }
 
@@ -132,18 +140,22 @@ mod test {
   #[test]
   fn test_slug_filter_constructor() {
     for x in vec![0, 1, 2] {
-      assert_eq!(SlugFilter::new(x).max_length, x);
+      let instance = SlugFilter::new(x, false);
+      assert_eq!(instance.max_length, x);
+      assert_eq!(instance.allow_duplicate_dashes, false);
     }
   }
 
   #[test]
   fn test_slug_filter_builder() {
-    assert_eq!(SlugFilterBuilder::default().build().unwrap().max_length, 200);
+    let instance = SlugFilterBuilder::default().build().unwrap();
+    assert_eq!(instance.max_length, 200);
+    assert_eq!(instance.allow_duplicate_dashes, true);
   }
 
   #[test]
   fn test_fn_trait_impls()  {
-    let slug_filter = SlugFilter { max_length: 200 };
+    let slug_filter = SlugFilter { max_length: 200, allow_duplicate_dashes: true };
 
     assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
     assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello---world");
@@ -163,12 +175,15 @@ mod test {
 
   #[test]
   fn test_struct_in_threaded_contexts() {
-    let slug_filter = SlugFilterBuilder::default().build().unwrap();
+    let slug_filter = SlugFilterBuilder::default()
+      .allow_duplicate_dashes(false)
+      .build()
+      .unwrap();
 
     thread::scope(|scope| {
       scope.spawn(move ||{
         assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
-        assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello---world");
+        assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello-world");
       });
     });
   }
