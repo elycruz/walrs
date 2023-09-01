@@ -15,6 +15,10 @@ Original inspiration comes from:
 - https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-validator
 - https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-inputfilter
 
+**Note:** In comparison to laminas-inputfilter we don't need to convert string values to numbers, etc., when using a web-framework like actix-web, as they automatically do this for us (see https://actix.rs/docs/extractors, for more).  
+
+Due to the above, in this library, we'll require less Validator, and Filter, structs since type coercion is handled for us.
+
 ## Where and how would we use `Input` controls
 
 - In action handlers where we might need to instantiate a validator, or optionally, retrieve a globally instantiated/stored one.
@@ -24,7 +28,7 @@ Original inspiration comes from:
 
 ### General
 
-- Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  Yes.
+- Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  No - If the owning struct is itself wrapped in `Arc<...>` then all members that can satisfy `Send + Sync` automatically become shareable (across threads) .
 
 ### `Cow<T>` vs `&T` vs `T` in `validate` method calls 
 
@@ -35,11 +39,3 @@ Original inspiration comes from:
 | `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
 
 Here we're going with `&T` for simplicities' sake.
-
-## Scratch Area
-
-### Possible "more appropriate" names:
-
-| Current Name | Alternate Name |
-|--------------|----------------|
-| `Input`      | `Constraints`  |
