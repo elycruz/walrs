@@ -41,7 +41,7 @@ pub fn to_pretty_slug(xs: Cow<str>) -> Cow<str> {
   _to_pretty_slug(get_slug_filter_regex(), 200, xs)
 }
 
-pub fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
+fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
   let rslt = pattern.replace_all(xs.as_ref(), "-")
     .to_lowercase()
     .trim_matches('-')
@@ -54,7 +54,7 @@ pub fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow
   }
 }
 
-pub fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
+fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
   if xs.is_empty() { return xs; }
 
   get_dash_filter_regex()
