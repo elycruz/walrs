@@ -1,5 +1,8 @@
 use std::borrow::Cow;
+use std::sync::OnceLock;
 use ammonia;
+
+static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 
 pub struct StripTags<'a> {
   pub ammonia: Option<ammonia::Builder<'a>>,
@@ -15,7 +18,8 @@ impl<'a> StripTags<'a> {
   pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
     match self.ammonia {
       None => Cow::Owned(
-        ammonia::Builder::default().clean(&input).to_string()
+        DEFAULT_AMMONIA_BUILDER.get_or_init(|| ammonia::Builder::default())
+          .clean(&input).to_string()
       ),
       Some(ref sanitizer) => Cow::Owned(
         sanitizer.clean(&input).to_string()

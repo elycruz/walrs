@@ -76,6 +76,10 @@ pub trait ValidateValue<T: InputValue> {
   fn validate(&self, x: &T) -> ValidationResult;
 }
 
+pub trait FilterValue<T: InputValue> {
+  fn filter(&self, x: Option<Cow<T>>) -> Option<Cow<T>>;
+}
+
 pub trait ToAttributesList {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     None
