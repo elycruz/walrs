@@ -5,6 +5,30 @@ use std::sync::OnceLock;
 static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock::new();
 
 /// Encodes >, <, &, ', and " as XML entities.
+///
+/// Note: This filter does not skip already (XML) encoded characters;
+///   E.g., the `&` in `&amp;` will get encoded as well resulting in the value `&amp;amp;`.
+///
+/// @todo Update algorithm to skip over existing XML entity declarations, or use a third-party lib.;
+///   E.g., ignore results like `&amp;amp;` for string `&amp;`, etc.
+///
+/// ```rust
+/// use walrs_inputfilter::filter::XmlEntitiesFilter;
+///
+/// let filter = XmlEntitiesFilter::new();
+///
+/// for (incoming_src, expected_src) in [
+///  ("", ""),
+///  ("Socrates'", "Socrates&apos;"),
+///  ("\"Hello\"", "&quot;Hello&quot;"),
+///  ("Hello", "Hello"),
+///  ("S & P", "S &amp; P"),
+///  ("S &amp; P", "S &amp;amp; P"),
+///  ("<script>alert('hello');</script>", "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;"),
+/// ] {
+///  assert_eq!(filter(incoming_src.into()), expected_src.to_string());
+/// }
+/// ```
 pub struct XmlEntitiesFilter<'a> {
   pub chars_assoc_map: &'a HashMap<char, &'static str>,
 }
@@ -34,6 +58,7 @@ impl<'a> XmlEntitiesFilter<'a> {
   ///
   /// for (incoming_src, expected_src) in [
   ///   ("", ""),
+  ///   (" ", " "),
   ///   ("Socrates'", "Socrates&apos;"),
   ///   ("\"Hello\"", "&quot;Hello&quot;"),
   ///   ("Hello", "Hello"),
@@ -54,7 +79,7 @@ impl<'a> XmlEntitiesFilter<'a> {
       }
     }
 
-    Cow::Owned(output.trim().to_string())
+    Cow::Owned(output.to_string())
   }
 }
 
@@ -97,7 +122,7 @@ mod test {
       ("<", "&lt;"),
       (">", "&gt;"),
       ("&", "&amp;"),
-      ("<script></script>", "&lt;script&gt;&lt;/script&gt;"),
+      ("<script>alert('hello');</script>", "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;"),
     ] {
       assert_eq!(filter(incoming_src.into()), expected_src.to_string());
     }
