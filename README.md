@@ -1,6 +1,6 @@
 # wal-rs (work-in-progress)
 
-An experimental Web Application Library, for Rust - The project is in research and development so please do not use it for production.
+An experimental Web Application Library, for Rust - The project is in research and development stage so please do not use it for production.
 
 ## Currently in development:
 
