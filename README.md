@@ -9,6 +9,12 @@ An experimental Web Application Library, for Rust - The project is in research a
 - `wal_graph` - A collection of basic graph structures to use in `wal_acl` and `wal_navigation`, etc.
 - `wal_navigation` - A collection of structs to use to compose web page link graphs.  Can also be integrated with `wal_acl`.  This structure is overall useful in scenarios where page access needs to be controlled from the application level.
 
+## Development
+
+### Notes:
+
+- Code coverage: `gcov`, until state of the art is known
+
 ## License:
 
 MIT 3.0 + Apache 2.0
