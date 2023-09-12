@@ -1,20 +1,61 @@
+use std::borrow::Cow;
 use std::fmt::Debug;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::str::FromStr;
 
 use crate::graph::Graph;
+use crate::graph::traits::Symbol;
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct GenericSymbol {
+  _id: Cow<'static, str>,
+}
+
+impl GenericSymbol {
+  pub fn new(id: &'static str) -> Self {
+    GenericSymbol {
+      _id: Cow::Borrowed(id),
+    }
+  }
+}
+
+impl Symbol for GenericSymbol {
+  fn id(&self) -> Cow<str> {
+    self._id.clone()
+  }
+}
+
+impl FromStr for GenericSymbol {
+  type Err = String;
+
+  fn from_str(s: &str) -> Result<Self, Self::Err> {
+    Ok(GenericSymbol {
+      _id: Cow::Borrowed(s),
+    })
+  }
+}
+
+impl <'a> From<&'a str> for GenericSymbol {
+  fn from(id: &'a str) -> Self {
+    GenericSymbol {
+      _id: Cow::Borrowed(id),
+    }
+  }
+}
 
 /// `SymbolGraph` A Directed Acyclic Graph (B-DAG) data structure.
 /// ```rust
 /// // @todo
 /// ```
 #[derive(Debug)]
-pub struct SymbolGraph {
-  _vertices: Vec<String>,
+pub struct SymbolGraph<T> where
+T: Symbol {
+  _vertices: Vec<T>,
   _graph: Graph,
 }
 
-impl SymbolGraph {
+impl <T>SymbolGraph<T> where T: Symbol {
   /// Instantiates a new SymbolGraph and returns it.
   pub fn new() -> Self {
     SymbolGraph {
@@ -35,9 +76,21 @@ impl SymbolGraph {
 
   /// Returns a `Result` containing given vertex' index adjacency list - A list containing adjacent indices;
   /// Else, returns an 'index is out of bounds' error string.
-  pub fn adj(&self, symbol_name: &str) -> Result<&Vec<usize>, String> {
+  pub fn adj_indices(&self, symbol_name: &str) -> Result<&[usize], String> {
     if let Some(i) = self.index(symbol_name) {
       self._graph.adj(i)
+    } else {
+      Err(format!(
+        "Symbol \"{}\" doesn't exist in symbol graph",
+        symbol_name
+      ))
+    }
+  }
+
+  pub fn adj(&self, symbol_name: &str) -> Result<&[&T], String> {
+    if let Some(i) = self.index(symbol_name) {
+      let indices = self._graph.adj(i)?;
+      Ok(self.vertices(&indices).as_slice())
     } else {
       Err(format!(
         "Symbol \"{}\" doesn't exist in symbol graph",
@@ -67,7 +120,7 @@ impl SymbolGraph {
 
   /// Returns an option of "the index of the given symbol", or `None`.
   pub fn index(&self, symbol_name: &str) -> Option<usize> {
-    self._vertices.iter().position(|v| v == symbol_name)
+    self._vertices.iter().position(|v| v.id().as_ref() == symbol_name)
   }
 
   /// Returns the indices for the given symbol strings.
@@ -76,25 +129,34 @@ impl SymbolGraph {
   }
 
   /// Returns the name of the given symbol index.
-  pub fn name(&self, symbol_idx: usize) -> Option<String> {
-    self._vertices.get(symbol_idx).map(|x| x.to_string())
+  pub fn name(&self, symbol_idx: usize) -> Option<Cow<str>> {
+    self._vertices.get(symbol_idx).map(|x| x.id())
   }
 
   /// Returns the symbol names for the given indices.
-  pub fn names(&self, indices: &[usize]) -> Vec<String> {
+  pub fn names(&self, indices: &[usize]) -> Vec<Cow<str>> {
     indices.iter().filter_map(|i| self.name(*i)).collect()
   }
 
+  pub fn vertices(&self, indices: &[usize]) -> Vec<&T> {
+    indices.iter().filter_map(|i| self._vertices.get(*i).clone()).collect()
+  }
+
   /// Adds a symbol vertex to the graph.
-  pub fn add_vertex(&mut self, v: &str) -> usize {
-    if let Some(i) = self.index(v) {
+  pub fn add_symbol(&mut self, symbol: T) -> usize {
+    if let Some(i) = self.index(&symbol.id()) {
       i
     } else {
       let i = self.vert_count();
-      self._vertices.push(v.to_string());
+      self._vertices.push(symbol);
       self._graph.add_vertex(i);
       i
     }
+  }
+
+  /// Proxy to `add_symbol()
+  pub fn add_vertex(&mut self, v: T) -> usize {
+    self.add_symbol(v)
   }
 
   /// Checks if graph has vertex.
@@ -103,7 +165,7 @@ impl SymbolGraph {
   }
 
   /// Adds edge to graph
-  pub fn add_edge(&mut self, vertex: &str, weights: Option<&[&str]>) -> Result<&mut Self, String> {
+  pub fn add_edge(&mut self, vertex: T, weights: Option<Vec<T>>) -> Result<&mut Self, String> {
     let v1 = self.add_vertex(vertex);
 
     if let Some(_ws) = weights {
@@ -156,11 +218,11 @@ impl SymbolGraph {
   }*/
 }
 
-impl TryFrom<&mut BufReader<File>> for SymbolGraph {
+impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
   type Error = String;
 
   fn try_from(reader: &mut BufReader<File>) -> Result<Self, Self::Error> {
-    let mut g: SymbolGraph = SymbolGraph::new();
+    let mut g: SymbolGraph<T> = SymbolGraph::new();
 
     for (line_num, line) in reader.lines().enumerate() {
       match line {
@@ -174,11 +236,11 @@ impl TryFrom<&mut BufReader<File>> for SymbolGraph {
             ));
           }
 
-          g.add_vertex(vs[0]);
+          g.add_vertex(vs[0].into());
 
           if vs.len() >= 2 {
-            g.add_vertex(vs[1]);
-            if let Err(err) = g.add_edge(vs[0], Some(&vs[1..])) {
+            g.add_vertex(vs[1].into());
+            if let Err(err) = g.add_edge(vs[0].into(), Some(&vs[1..].iter().map(|x| x.into()) as Vec<T>)) {
               return Err(err);
             }
           }

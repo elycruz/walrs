@@ -5,6 +5,7 @@ use std::io::{BufRead, BufReader, Lines};
 pub mod shared_utils;
 pub mod single_source_dfs;
 pub mod symbol_graph;
+pub mod traits;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -34,8 +35,8 @@ impl Graph {
 
   /// Returns a result containing given vertex' adjacency list, or a string
   /// containing the "out-of-bounds index" error.
-  pub fn adj(&self, i: usize) -> Result<&Vec<usize>, String> {
-    self.validate_vertex(i).map(|_| &self._adj_lists[i])
+  pub fn adj(&self, i: usize) -> Result<&[usize], String> {
+    self.validate_vertex(i).map(|_| self._adj_lists[i].as_slice())
   }
 
   /// Returns a `Result` containing the number of edges touching a given vertex,
@@ -74,14 +75,14 @@ impl Graph {
     let target_v_adj = self.adj(v).unwrap();
 
     // Remove related edges and offset vertices greater than target, in adj lists
-    target_v_adj.clone().iter().for_each(|w| {
+    target_v_adj.iter().for_each(|w| {
       // Remove edge
       let found_v_idx = match self.remove_edge(v, *w) {
         Ok(val) => val,
         Err(err) => panic!("{}", err),
       };
 
-      let w_adj = &mut self._adj_lists[*w];
+      let w_adj = self._adj_lists[*w].as_mut_slice();
 
       // Offset vertices greater than target
       for i in found_v_idx..w_adj.len() {
@@ -488,7 +489,7 @@ mod test {
               related_adj.contains(&target_v),
               "Backward edge adj lists should contain vertex to remove"
             );
-            (*x, related_adj.clone())
+            (*x, related_adj.to_owned())
           })
           .collect();
 
