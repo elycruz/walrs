@@ -249,7 +249,7 @@ mod test {
     // Test edges count
     assert_eq!(
       graph.edge_count(),
-      // All verts have edges to other verts (vert_count - 1 = x) for each vert (x * vert_count = y) to each other vert (y * 2)
+      // All vertices have edges to other vertices (vert_count - 1 = x) for each vert (x * vert_count = y) to each other vert (y * 2)
       (vert_count - 1) * vert_count,
       "`SymbolGraph` should contain {:?} edges",
       vert_count.to_string()
