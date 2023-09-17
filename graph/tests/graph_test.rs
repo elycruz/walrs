@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, Seek};
 
 use walrs_graph::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
 use walrs_graph::graph::symbol_graph::SymbolGraph;
-use walrs_graph::graph::Graph;
+use walrs_graph::graph::{GenericSymbol, Graph};
 
 #[test]
 pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
@@ -73,7 +73,7 @@ pub fn test_symbol_graph() -> std::io::Result<()> {
   // Graph vertex, and edge, sizes
   let mut reader = BufReader::new(f);
 
-  let g: SymbolGraph = (&mut reader).try_into().unwrap();
+  let g: SymbolGraph<GenericSymbol> = (&mut reader).try_into().unwrap();
 
   println!("{:?}", &g);
 

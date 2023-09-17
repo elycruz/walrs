@@ -2,6 +2,7 @@ pub mod shared_utils;
 pub mod single_source_dfs;
 pub mod symbol_graph;
 pub mod graph;
+pub mod traits;
 
 pub use shared_utils::*;
 pub use single_source_dfs::*;

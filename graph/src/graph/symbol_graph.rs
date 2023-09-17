@@ -74,7 +74,7 @@ impl<T> SymbolGraph<T> where T: Symbol {
   /// Else, returns an 'index is out of bounds' error string.
   pub fn adj_indices(&self, symbol_name: &str) -> Result<&[usize], String> {
     if let Some(i) = self.index(symbol_name) {
-      self._graph.adj(i)
+      self._graph.adj(i).map(|x| x.as_slice())
     } else {
       Err(format!(
         "Symbol \"{}\" doesn't exist in symbol graph",

@@ -97,6 +97,7 @@ mod test {
   use crate::graph::symbol_graph::SymbolGraph;
   use std::fs::File;
   use std::io::BufReader;
+  use crate::graph::GenericSymbol;
 
   use super::*;
 
@@ -107,7 +108,7 @@ mod test {
 
     // Graph vertex, and edge, sizes
     let mut reader = BufReader::new(f);
-    let sg: SymbolGraph = (&mut reader).try_into().unwrap();
+    let sg: SymbolGraph<GenericSymbol> = (&mut reader).try_into().unwrap();
     let _dfs = DFS::new(&sg.graph(), 3);
     // println!("{:?}", &sg);
     // println!("{:?}", &dfs.has_path_to(3));
