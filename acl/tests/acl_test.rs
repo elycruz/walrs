@@ -1,6 +1,4 @@
 use std::fs::File;
-use std::io::BufReader;
-
 use walrs_acl::simple::{Acl, AclData};
 
 #[test]

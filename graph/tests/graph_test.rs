@@ -42,7 +42,7 @@ pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
       // Test vertices length
       assert_eq!(
         g.vert_count(),
-        vert_count as usize,
+        vert_count,
         "Should have expected vertices length"
       );
 
