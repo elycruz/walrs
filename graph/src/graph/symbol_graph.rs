@@ -9,38 +9,34 @@ use crate::graph::traits::Symbol;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericSymbol {
-  _id: Cow<'static, str>,
+  _id: String,
 }
 
 impl GenericSymbol {
-  pub fn new(id: &'static str) -> Self {
+  pub fn new(id: String) -> Self {
     GenericSymbol {
-      _id: Cow::Borrowed(id),
+      _id: id,
     }
-  }
-}
-
-impl Symbol for GenericSymbol {
-  fn id(&self) -> Cow<str> {
-    self._id.clone()
   }
 }
 
 impl FromStr for GenericSymbol {
-  type Err = String;
+  type Err = ();
 
   fn from_str(s: &str) -> Result<Self, Self::Err> {
-    Ok(GenericSymbol {
-      _id: Cow::Borrowed(s),
-    })
+    Ok(GenericSymbol::new(s.to_string()))
   }
 }
 
-impl <'a> From<&'a str> for GenericSymbol {
-  fn from(id: &'a str) -> Self {
-    GenericSymbol {
-      _id: Cow::Borrowed(id),
-    }
+impl Symbol for GenericSymbol {
+  fn id(&self) -> String {
+    self._id.clone()
+  }
+}
+
+impl From<String> for GenericSymbol {
+  fn from(id: String) -> Self {
+    GenericSymbol::new(id)
   }
 }
 
@@ -55,7 +51,7 @@ T: Symbol {
   _graph: Graph,
 }
 
-impl <T>SymbolGraph<T> where T: Symbol {
+impl<T> SymbolGraph<T> where T: Symbol {
   /// Instantiates a new SymbolGraph and returns it.
   pub fn new() -> Self {
     SymbolGraph {
@@ -87,10 +83,10 @@ impl <T>SymbolGraph<T> where T: Symbol {
     }
   }
 
-  pub fn adj(&self, symbol_name: &str) -> Result<&[&T], String> {
+  pub fn adj(&self, symbol_name: &str) -> Result<Vec<&T>, String> {
     if let Some(i) = self.index(symbol_name) {
       let indices = self._graph.adj(i)?;
-      Ok(self.vertices(&indices).as_slice())
+      Ok(self.vertices(&indices))
     } else {
       Err(format!(
         "Symbol \"{}\" doesn't exist in symbol graph",
@@ -120,7 +116,7 @@ impl <T>SymbolGraph<T> where T: Symbol {
 
   /// Returns an option of "the index of the given symbol", or `None`.
   pub fn index(&self, symbol_name: &str) -> Option<usize> {
-    self._vertices.iter().position(|v| v.id().as_ref() == symbol_name)
+    self._vertices.iter().position(|v| v.id() == symbol_name)
   }
 
   /// Returns the indices for the given symbol strings.
@@ -130,7 +126,7 @@ impl <T>SymbolGraph<T> where T: Symbol {
 
   /// Returns the name of the given symbol index.
   pub fn name(&self, symbol_idx: usize) -> Option<Cow<str>> {
-    self._vertices.get(symbol_idx).map(|x| x.id())
+    self._vertices.get(symbol_idx).map(|x| x.id().into())
   }
 
   /// Returns the symbol names for the given indices.
@@ -236,11 +232,15 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
             ));
           }
 
-          g.add_vertex(vs[0].into());
+          g.add_vertex(T::from(vs[0].to_string()));
 
           if vs.len() >= 2 {
-            g.add_vertex(vs[1].into());
-            if let Err(err) = g.add_edge(vs[0].into(), Some(&vs[1..].iter().map(|x| x.into()) as Vec<T>)) {
+            g.add_vertex(T::from(vs[1].to_string()));
+
+            if let Err(err) = g.add_edge(
+              T::from(vs[0].to_string()),
+              Some(vs[1..].iter().map(|x| T::from(x.to_string())).collect())
+            ) {
               return Err(err);
             }
           }
@@ -260,7 +260,8 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
 #[cfg(test)]
 mod test {
-  use crate::graph::symbol_graph::SymbolGraph;
+  use std::str::FromStr;
+  use crate::graph::symbol_graph::{GenericSymbol, SymbolGraph};
 
   #[test]
   pub fn test_symbol_graph_builder_from_buf_reader() {}
@@ -278,10 +279,12 @@ mod test {
     // ----
     for (i, v) in values.iter().enumerate() {
       // Craft vertex' adjacency list
-      let adjacency_list = if i > 0 { Some(&values[0..i]) } else { None };
+      let adjacency_list: Option<Vec<GenericSymbol>> = if i > 0 {
+        Some(values[0..i].iter().map(|x| GenericSymbol::from(x.to_string())).collect())
+      } else { None };
 
       // Add edges
-      if let Err(err) = graph.add_edge(v, adjacency_list) {
+      if let Err(err) = graph.add_edge(GenericSymbol::from(v.to_string()), adjacency_list) {
         panic!("{}", err);
       }
 
@@ -290,7 +293,7 @@ mod test {
 
       // Assert `v` is in `_vertices`
       assert!(
-        graph._vertices.contains(&v_as_string),
+        graph._vertices.contains(&GenericSymbol::from_str(v).unwrap()),
         "SymbolGraph should contain \"{:}\" in it's vertices list.",
         &v_as_string
       );

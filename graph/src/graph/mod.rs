@@ -72,17 +72,17 @@ impl Graph {
       return Err(err);
     }
 
-    let target_v_adj = self.adj(v).unwrap();
+    let target_v_adj = self._adj_lists[v].clone();
 
     // Remove related edges and offset vertices greater than target, in adj lists
-    target_v_adj.iter().for_each(|w| {
+    target_v_adj.into_iter().for_each(|w| {
       // Remove edge
-      let found_v_idx = match self.remove_edge(v, *w) {
+      let found_v_idx = match self.remove_edge(v, w) {
         Ok(val) => val,
         Err(err) => panic!("{}", err),
       };
 
-      let w_adj = self._adj_lists[*w].as_mut_slice();
+      let w_adj = self._adj_lists[w].as_mut_slice();
 
       // Offset vertices greater than target
       for i in found_v_idx..w_adj.len() {
