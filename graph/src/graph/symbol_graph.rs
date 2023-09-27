@@ -51,6 +51,8 @@ T: Symbol {
   _graph: Graph,
 }
 
+/// @todo Methods here should take an `&T` instead of an `&str` when working with vertices,
+///   since vertices here are actually `T` - Makes methods more straight forward.
 impl<T> SymbolGraph<T> where T: Symbol {
   /// Instantiates a new SymbolGraph and returns it.
   pub fn new() -> Self {
@@ -260,8 +262,14 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
 #[cfg(test)]
 mod test {
-  use std::str::FromStr;
-  use crate::graph::symbol_graph::{GenericSymbol, SymbolGraph};
+  use crate::graph::symbol_graph::{SymbolGraph};
+  use crate::graph::traits::Symbol;
+
+  impl Symbol for String {
+    fn id(&self) -> String {
+      self.clone()
+    }
+  }
 
   #[test]
   pub fn test_symbol_graph_builder_from_buf_reader() {}
@@ -279,12 +287,12 @@ mod test {
     // ----
     for (i, v) in values.iter().enumerate() {
       // Craft vertex' adjacency list
-      let adjacency_list: Option<Vec<GenericSymbol>> = if i > 0 {
-        Some(values[0..i].iter().map(|x| GenericSymbol::from(x.to_string())).collect())
+      let adjacency_list: Option<Vec<String>> = if i > 0 {
+        Some(values[0..i].iter().map(|x| x.to_string()).collect())
       } else { None };
 
       // Add edges
-      if let Err(err) = graph.add_edge(GenericSymbol::from(v.to_string()), adjacency_list) {
+      if let Err(err) = graph.add_edge(v.to_string(), adjacency_list) {
         panic!("{}", err);
       }
 
@@ -293,7 +301,7 @@ mod test {
 
       // Assert `v` is in `_vertices`
       assert!(
-        graph._vertices.contains(&GenericSymbol::from_str(v).unwrap()),
+        graph._vertices.contains(&v.to_string()),
         "SymbolGraph should contain \"{:}\" in it's vertices list.",
         &v_as_string
       );
