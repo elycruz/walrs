@@ -74,7 +74,7 @@ impl<T> SymbolGraph<T> where T: Symbol {
   /// Else, returns an 'index is out of bounds' error string.
   pub fn adj_indices(&self, symbol_name: &str) -> Result<&[usize], String> {
     if let Some(i) = self.index(symbol_name) {
-      self._graph.adj(i).map(|x| x.as_slice())
+      self._graph.adj(i)
     } else {
       Err(format!(
         "Symbol \"{}\" doesn't exist in symbol graph",
@@ -135,7 +135,7 @@ impl<T> SymbolGraph<T> where T: Symbol {
   }
 
   pub fn vertices(&self, indices: &[usize]) -> Vec<&T> {
-    indices.iter().filter_map(|i| self._vertices.get(*i).clone()).collect()
+    indices.iter().filter_map(|i| self._vertices.get(*i)).collect()
   }
 
   /// Adds a symbol vertex to the graph.
