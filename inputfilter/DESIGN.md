@@ -38,4 +38,4 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 | `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
 | `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
 
-Here we're going with `&T` for simplicities' sake.
+Here we're going with `&T` for simplicity's sake.
