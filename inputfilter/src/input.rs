@@ -3,12 +3,12 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, InputValue, Validator, ViolationMessage};
 
-pub type ValueMissingViolationCallback<'a, T> =
-  dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync;
+pub type ValueMissingViolationCallback<T> =
+  dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
-pub struct Input<'a, T>
+pub struct Input<'a, 'b, T>
 where
   T: InputValue,
 {
@@ -23,18 +23,18 @@ where
   pub required: bool,
 
   #[builder(setter(strip_option), default = "None")]
-  pub validators: Option<Vec<&'a Validator<T>>>,
+  pub validators: Option<Vec<&'a Validator<&'b T>>>,
 
   #[builder(setter(strip_option), default = "None")]
   pub filters: Option<Vec<&'a Filter<T>>>,
 
   #[builder(default = "&value_missing_msg")]
-  pub value_missing: &'a (dyn Fn(&Input<'a, T>) -> ViolationMessage + Send + Sync),
+  pub value_missing: &'a (dyn Fn(&Input<'a, 'b, T>) -> ViolationMessage + Send + Sync),
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
 
-impl<'a, T> Input<'a, T>
+impl<'a, 'b, T> Input<'a, 'b, T>
 where
   T: InputValue,
 {
@@ -50,7 +50,7 @@ where
   }
 }
 
-impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
+impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
   fn get_should_break_on_failure(&self) -> bool {
     self.break_on_failure
   }
@@ -67,7 +67,7 @@ impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
     self.value_missing
   }
 
-  fn get_validators(&self) -> Option<&[&Validator<T>]> {
+  fn get_validators(&self) -> Option<&[&Validator<&'b T>]> {
     self.validators.as_deref()
   }
 
@@ -76,13 +76,13 @@ impl<'a, T: InputValue> InputConstraints<'a, T> for Input<'a, T> {
   }
 }
 
-impl<T: InputValue> Default for Input<'_, T> {
+impl<T: InputValue> Default for Input<'_, '_, T> {
   fn default() -> Self {
     Self::new(None)
   }
 }
 
-impl<T: InputValue> Display for Input<'_, T> {
+impl<T: InputValue> Display for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -99,7 +99,7 @@ impl<T: InputValue> Display for Input<'_, T> {
   }
 }
 
-impl<T: InputValue> Debug for Input<'_, T> {
+impl<T: InputValue> Debug for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
