@@ -20,6 +20,7 @@ Cargo.lock
 
 # Misc. file types
 *.log
-
 /*.profraw
 
+# Tests and Reports
+htmlReport/
