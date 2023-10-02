@@ -16,6 +16,18 @@ pub struct PatternValidator<'a> {
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
+impl PatternValidator<'_> {
+  pub fn new() -> Self {
+    PatternValidatorBuilder::default().build().unwrap()
+  }
+}
+
+impl Default for PatternValidator<'_> {
+  fn default() -> Self {
+    PatternValidatorBuilder::default().build().unwrap()
+  }
+}
+
 impl ValidateValue<&str> for PatternValidator<'_>
 where {
   fn validate(&self, value: &&str) -> ValidationResult {

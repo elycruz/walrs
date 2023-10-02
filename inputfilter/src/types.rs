@@ -3,7 +3,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 
-pub trait InputValue: Clone + Default + Debug + Display + PartialEq + PartialOrd + Serialize {}
+pub trait InputValue: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
@@ -26,7 +26,7 @@ impl InputValue for bool {}
 
 impl InputValue for &'_ str {}
 
-pub trait NumberValue: InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
+pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
 impl NumberValue for i8 {}
 impl NumberValue for i16 {}
@@ -68,16 +68,16 @@ pub type ValidationError = (ConstraintViolation, ViolationMessage);
 
 pub type ValidationResult = Result<(), Vec<ValidationError>>;
 
-pub type Filter<T> = dyn Fn(Option<Cow<T>>) -> Option<Cow<T>> + Send + Sync;
+pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 
-pub type Validator<T> = dyn Fn(&T) -> ValidationResult + Send + Sync;
+pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
 pub trait ValidateValue<T: InputValue> {
-  fn validate(&self, x: &T) -> ValidationResult;
+  fn validate(&self, value: &T) -> ValidationResult;
 }
 
 pub trait FilterValue<T: InputValue> {
-  fn filter(&self, x: Option<Cow<T>>) -> Option<Cow<T>>;
+  fn filter(&self, value: Option<Cow<T>>) -> Option<Cow<T>>;
 }
 
 pub trait ToAttributesList {
@@ -86,16 +86,15 @@ pub trait ToAttributesList {
   }
 }
 
-pub trait InputConstraints<'a, T: InputValue>: Display + Debug + 'a
-where T: InputValue {
+pub trait InputConstraints<'a, 'call_ctx: 'a, T: InputValue>: Display + Debug + 'a {
   fn get_should_break_on_failure(&self) -> bool;
   fn get_required(&self) -> bool;
   fn get_name(&self) -> Option<Cow<'a, str>>;
   fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync);
-  fn get_validators(&self) -> Option<&[&Validator<T>]>;
-  fn get_filters(&self) -> Option<&[&Filter<T>]>;
+  fn get_validators(&self) -> Option<&[&'a Validator<&'call_ctx T>]>;
+  fn get_filters(&self) -> Option<&[&'a Filter<Cow<'call_ctx, T>>]>;
 
-  fn validate_with_validators(&self, value: &T, validators: Option<&[&Validator<T>]>) -> ValidationResult {
+  fn validate_with_validators(&self, value: &'call_ctx T, validators: Option<&[&'a Validator<&'call_ctx T>]>) -> ValidationResult {
     validators.as_deref().map(|vs| {
 
       // If not break on failure then capture all validation errors.
@@ -121,11 +120,11 @@ where T: InputValue {
       }
       agg
     })
-      .and_then(|msgs| if msgs.is_empty() { None } else { Some(msgs) })
-      .map_or(Ok(()), |msgs| Err(msgs))
+      .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
+      .map_or(Ok(()), |messages| Err(messages))
   }
 
-  fn validate(&self, value: Option<&T>) -> ValidationResult {
+  fn validate(&self, value: Option<&'call_ctx T>) -> ValidationResult {
     match value {
       None => {
         if self.get_required() {
@@ -141,14 +140,15 @@ where T: InputValue {
     }
   }
 
-  fn filter<'b: 'c, 'c>(&self, value: Option<Cow<'b, T>>) -> Option<Cow<'c, T>> {
+  fn filter(&self, value: Option<Cow<'call_ctx, T>>) -> Option<Cow<'call_ctx, T>> {
     match self.get_filters() {
       None => value,
       Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
     }
   }
 
-  fn validate_and_filter<'b: 'c, 'c>(&self, x: Option<&'b T>) -> Result<Option<Cow<'c, T>>, Vec<ValidationError>> {
+  fn validate_and_filter(&self, x: Option<&'call_ctx T>) -> Result<Option<Cow<'call_ctx, T>>, Vec<ValidationError>> {
     self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
   }
 }
+
