@@ -26,7 +26,7 @@ where
   pub validators: Option<Vec<&'a Validator<&'b T>>>,
 
   #[builder(setter(strip_option), default = "None")]
-  pub filters: Option<Vec<&'a Filter<T>>>,
+  pub filters: Option<Vec<&'a Filter<Cow<'b, T>>>>,
 
   #[builder(default = "&value_missing_msg")]
   pub value_missing: &'a (dyn Fn(&Input<'a, 'b, T>) -> ViolationMessage + Send + Sync),
@@ -67,11 +67,11 @@ impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
     self.value_missing
   }
 
-  fn get_validators(&self) -> Option<&[&Validator<&'b T>]> {
+  fn get_validators(&self) -> Option<&[&'a Validator<&'b T>]> {
     self.validators.as_deref()
   }
 
-  fn get_filters(&self) -> Option<&[&Filter<T>]> {
+  fn get_filters(&self) -> Option<&[&'a Filter<Cow<'b, T>>]> {
     self.filters.as_deref()
   }
 }
