@@ -24,6 +24,8 @@ impl InputValue for f64 {}
 
 impl InputValue for bool {}
 
+impl InputValue for str {}
+
 impl InputValue for &'_ str {}
 
 pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
