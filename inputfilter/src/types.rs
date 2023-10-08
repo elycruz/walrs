@@ -77,7 +77,7 @@ pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
 pub trait ValidateValue<T: InputValue> {
-  fn validate(&self, value: &T) -> ValidationResult;
+  fn validate(&self, value: T) -> ValidationResult;
 }
 
 pub trait FilterValue<T: InputValue> {

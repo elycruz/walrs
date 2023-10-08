@@ -30,7 +30,7 @@ impl Default for PatternValidator<'_> {
 
 impl ValidateValue<&str> for PatternValidator<'_>
 where {
-  fn validate(&self, value: &&str) -> ValidationResult {
+  fn validate(&self, value: &str) -> ValidationResult {
     match self.pattern.is_match(value) {
       false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value))]),
       _ => Ok(())
@@ -41,6 +41,26 @@ where {
 impl ToAttributesList for PatternValidator<'_> {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![("pattern".into(), self.pattern.to_string().into())])
+  }
+}
+
+impl FnOnce<(&str, )> for PatternValidator<'_> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (&str, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl FnMut<(&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (&str, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl Fn<(&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (&str, )) -> Self::Output {
+    self.validate(args.0)
   }
 }
 

@@ -105,11 +105,11 @@ impl<T> ValidateValue<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn validate(&self, value: &T) -> ValidationResult {
-    if let Some(violation) = self._validate_integer(*value) {
+  fn validate(&self, value: T) -> ValidationResult {
+    if let Some(violation) = self._validate_integer(value) {
       return Err(vec![(
         violation,
-        self._get_violation_msg(violation, *value),
+        self._get_violation_msg(violation, value),
       )]);
     }
 
@@ -148,15 +148,35 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
   }
 }
 
+impl<T: NumberValue> FnMut<(T, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: NumberValue> Fn<(T, )> for NumberValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
 impl<T: NumberValue> FnMut<(&T, )> for NumberValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T, )) -> Self::Output {
-    self.validate(args.0)
+    self.validate(*args.0)
   }
 }
 
 impl<T: NumberValue> Fn<(&T, )> for NumberValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (&T, )) -> Self::Output {
-    self.validate(args.0)
+    self.validate(*args.0)
   }
 }
 
@@ -164,7 +184,7 @@ impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   type Output = ValidationResult;
 
   extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate(*args.0)
   }
 }
 
