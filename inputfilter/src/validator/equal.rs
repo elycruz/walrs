@@ -73,11 +73,18 @@ mod test {
   use super::*;
 
   #[test]
-  fn test_construction() {
-    let _ = EqualityValidatorBuilder::<&str>::default()
+  fn test_construction() -> Result<(), Box<dyn Error>> {
+    let instance = EqualityValidatorBuilder::<&str>::default()
       .rhs_value("foo".into())
-      .not_equal_msg(&not_equal_msg)
-      .build();
+      .build()?;
+
+    assert_eq!(instance.rhs_value, "foo");
+
+    assert_eq!((&instance.not_equal_msg)(&instance, "foo"),
+               not_equal_msg(&instance, "foo"),
+    "Default 'not_equal_msg' fn should return expected value");
+
+    Ok(())
   }
 
   #[test]

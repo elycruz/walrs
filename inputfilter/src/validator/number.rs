@@ -263,41 +263,43 @@ mod test {
   fn test_construction() -> Result<(), Box<dyn Error>> {
     // Assert all property states for difference construction scenarios
     // ----
-    let _instance = NumberValidatorBuilder::<usize>::default()
-        .build()?;
+    for (testName, instance, min, max, step, equal) in [
+      ("Default", NumberValidatorBuilder::<usize>::default()
+          .build()?, None, None, None, None),
+      ("With Range", NumberValidatorBuilder::<usize>::default()
+           .min(0)
+           .max(100)
+           .build()?, Some(0), Some(100), None, None),
+      ("With `equal`", NumberValidatorBuilder::<usize>::default()
+           .equal(101)
+           .build()?, None, None, None, Some(101)),
+      ("With `step`", NumberValidatorBuilder::<usize>::default()
+           .step(5)
+           .build()?, None, None, Some(5), None),
+    ] {
+      println!("{}", testName);
 
-    assert_eq!(_instance.min, None);
-    assert_eq!(_instance.max, None);
-    assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equal, None);
+      assert_eq!(instance.min, min);
+      assert_eq!(instance.max, max);
+      assert_eq!(instance.step, step);
+      assert_eq!(instance.equal, equal);
 
-    let _instance = NumberValidatorBuilder::<usize>::default()
-        .min(0)
-        .max(100)
-        .build()?;
+      // Ensure default message callbacks are set
+      // ----
+      let test_value = 99;
 
-    assert_eq!(_instance.min, Some(0));
-    assert_eq!(_instance.max, Some(100));
-    assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equal, None);
+      assert_eq!((&instance.range_overflow)(&instance, test_value),
+                 range_overflow_msg(&instance, test_value));
 
-    let _instance = NumberValidatorBuilder::<usize>::default()
-        .equal(101)
-        .build()?;
+      assert_eq!((&instance.range_underflow)(&instance, test_value),
+                 range_underflow_msg(&instance, test_value));
 
-    assert_eq!(_instance.min, None);
-    assert_eq!(_instance.max, None);
-    assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equal, Some(101));
+      assert_eq!((&instance.step_mismatch)(&instance, test_value),
+                 step_mismatch_msg(&instance, test_value));
 
-    let _instance = NumberValidatorBuilder::<usize>::default()
-        .step(5)
-        .build()?;
-
-    assert_eq!(_instance.min, None);
-    assert_eq!(_instance.max, None);
-    assert_eq!(_instance.step, Some(5));
-    assert_eq!(_instance.equal, None);
+      assert_eq!((&instance.not_equal)(&instance, test_value),
+                 not_equal_msg(&instance, test_value));
+    }
 
     Ok(())
   }
