@@ -40,6 +40,26 @@ impl<T: InputValue + Clone> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
+impl<T: InputValue + Clone> FnOnce<(T, )> for EqualityValidator<'_, T> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: InputValue + Clone> FnMut<(T, )> for EqualityValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl<T: InputValue + Clone> Fn<(T, )> for EqualityValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
 pub fn not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) -> String
   where T: InputValue,
 {
@@ -48,6 +68,8 @@ pub fn not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) 
 
 #[cfg(test)]
 mod test {
+  use std::error::Error;
+  use crate::ConstraintViolation::NotEqual;
   use super::*;
 
   #[test]
@@ -58,12 +80,34 @@ mod test {
       .build();
   }
 
-  fn test_types() {
-    let _ = EqualityValidatorBuilder::<&str>::default()
-      .rhs_value("foo".into())
-      .not_equal_msg(&not_equal_msg)
-      .build();
+  #[test]
+  fn test_validate_and_fn_trait() -> Result<(), Box<dyn Error>> {
+    // Test `validate`, and `Fn*` trait
+    for (lhs_value, rhs_value, should_be_ok) in [
+      ("foo", "foo", true),
+      ("", "abc", false),
+      ("", "", true),
+    ] {
+      let validator = EqualityValidatorBuilder::<&str>::default()
+        .rhs_value(rhs_value)
+        .not_equal_msg(&not_equal_msg)
+        .build()?;
 
+      if should_be_ok {
+        assert!(validator.validate(lhs_value).is_ok());
+        assert!((&validator)(lhs_value).is_ok());
+      } else {
+        assert_eq!(
+          validator.validate(lhs_value),
+          Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
+        );
+        assert_eq!(
+          (&validator)(lhs_value),
+          Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
+        );
+      }
+    }
 
+    Ok(())
   }
 }

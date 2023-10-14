@@ -29,6 +29,7 @@ impl InputValue for Box<str> {}
 impl InputValue for String {}
 impl<'a> InputValue for Cow<'a, str> {}
 impl InputValue for &'_ str {}
+impl InputValue for &&'_ str {}
 
 pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
