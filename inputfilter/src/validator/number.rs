@@ -24,7 +24,7 @@ pub struct NumberValidator<'a, T: NumberValue> {
   pub step: Option<T>,
 
   #[builder(setter(into), default = "None")]
-  pub equals: Option<T>,
+  pub equal: Option<T>,
 
   #[builder(default = "&range_underflow_msg")]
   pub range_underflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
@@ -59,7 +59,7 @@ where
     }
 
     // Test Equal
-    if let Some(rhs) = self.equals {
+    if let Some(rhs) = self.equal {
       if v != rhs {
         return Some(NotEqual);
       }
@@ -92,7 +92,7 @@ where
       min: None,
       max: None,
       step: None,
-      equals: None,
+      equal: None,
       range_underflow: &range_underflow_msg,
       range_overflow: &range_overflow_msg,
       step_mismatch: &step_mismatch_msg,
@@ -136,8 +136,8 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
       attrs.push(("step".to_string(), to_json_value(step).unwrap()));
     }
 
-    if let Some(equals) = self.equals {
-      attrs.push(("pattern".to_string(), to_json_value(equals).unwrap()));
+    if let Some(equal) = self.equal {
+      attrs.push(("pattern".to_string(), to_json_value(equal).unwrap()));
     }
 
     if attrs.is_empty() {
@@ -199,11 +199,11 @@ where
 
 impl<T: NumberValue> Display for NumberValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "NumberValidator {{min: {}, max: {}, step: {}, equals: {}}}",
+    write!(f, "NumberValidator {{min: {}, max: {}, step: {}, equal: {}}}",
            &self.min.map(|x| x.to_string()).unwrap_or("None".to_string()),
            &self.max.map(|x| x.to_string()).unwrap_or("None".to_string()),
            &self.step.map(|x| x.to_string()).unwrap_or("None".to_string()),
-           &self.equals.map(|x| x.to_string()).unwrap_or("None".to_string()),
+           &self.equal.map(|x| x.to_string()).unwrap_or("None".to_string()),
     )
   }
 }
@@ -248,7 +248,7 @@ pub fn not_equal_msg<T: NumberValue>(
   format!(
     "`{:}` is not equal to `{:}`.",
     x,
-    &rules.equals.as_ref().unwrap()
+    &rules.equal.as_ref().unwrap()
   )
 }
 
@@ -269,7 +269,7 @@ mod test {
     assert_eq!(_instance.min, None);
     assert_eq!(_instance.max, None);
     assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equals, None);
+    assert_eq!(_instance.equal, None);
 
     let _instance = NumberValidatorBuilder::<usize>::default()
         .min(0)
@@ -279,16 +279,16 @@ mod test {
     assert_eq!(_instance.min, Some(0));
     assert_eq!(_instance.max, Some(100));
     assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equals, None);
+    assert_eq!(_instance.equal, None);
 
     let _instance = NumberValidatorBuilder::<usize>::default()
-        .equals(101)
+        .equal(101)
         .build()?;
 
     assert_eq!(_instance.min, None);
     assert_eq!(_instance.max, None);
     assert_eq!(_instance.step, None);
-    assert_eq!(_instance.equals, Some(101));
+    assert_eq!(_instance.equal, Some(101));
 
     let _instance = NumberValidatorBuilder::<usize>::default()
         .step(5)
@@ -297,7 +297,7 @@ mod test {
     assert_eq!(_instance.min, None);
     assert_eq!(_instance.max, None);
     assert_eq!(_instance.step, Some(5));
-    assert_eq!(_instance.equals, None);
+    assert_eq!(_instance.equal, None);
 
     Ok(())
   }
@@ -330,7 +330,7 @@ mod test {
        25,
        Ok(())),
       (NumberValidatorBuilder::<usize>::default()
-           .equals(99)
+           .equal(99)
            .build()?,
        99,
        Ok(())),
@@ -361,7 +361,7 @@ mod test {
        26,
        Err(StepMismatch)),
       (NumberValidatorBuilder::<usize>::default()
-           .equals(99)
+           .equal(99)
            .build()?,
        101,
        Err(NotEqual)),
