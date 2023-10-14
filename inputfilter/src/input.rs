@@ -245,10 +245,10 @@ mod test {
     Ok(())
   }
 
-  #[test]
-  fn test_input_exotic_value_types() -> Result<(), Box<dyn Error>> {
-    todo!("Input control exotic `InputValue` test cases.")
-  }
+  // #[test]
+  // fn test_input_exotic_value_types() -> Result<(), Box<dyn Error>> {
+  //   todo!("Input control exotic `InputValue` test cases.")
+  // }
 
   #[test]
   fn test_thread_safety() -> Result<(), Box<dyn Error>> {
