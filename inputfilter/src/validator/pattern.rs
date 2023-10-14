@@ -1,7 +1,9 @@
 use std::borrow::Cow;
+use std::fmt::Display;
 use regex::Regex;
+use crate::ToAttributesList;
 
-use crate::input::ConstraintViolation::PatternMismatch;
+use crate::types::ConstraintViolation::PatternMismatch;
 use crate::types::{ValidationResult, ValidateValue};
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
@@ -14,32 +16,77 @@ pub struct PatternValidator<'a> {
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
-impl ValidateValue<&str> for PatternValidator<'_> {
-  fn validate(&self, value: Cow<'_, &str>) -> ValidationResult {
-    match self.pattern.is_match(value.as_ref()) {
-      false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value.as_ref()))]),
+impl PatternValidator<'_> {
+  pub fn new() -> Self {
+    PatternValidatorBuilder::default().build().unwrap()
+  }
+}
+
+impl Default for PatternValidator<'_> {
+  fn default() -> Self {
+    PatternValidatorBuilder::default().build().unwrap()
+  }
+}
+
+impl ValidateValue<&str> for PatternValidator<'_>
+where {
+  fn validate(&self, value: &str) -> ValidationResult {
+    match self.pattern.is_match(value) {
+      false => Err(vec![(PatternMismatch, (self.pattern_mismatch)(self, value))]),
       _ => Ok(())
     }
   }
 }
 
-impl FnOnce<(Cow<'_, &str>, )> for PatternValidator<'_> {
+impl ToAttributesList for PatternValidator<'_> {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    Some(vec![("pattern".into(), self.pattern.to_string().into())])
+  }
+}
+
+impl FnOnce<(&str, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, &str>, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (&str, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl FnMut<(Cow<'_, &str>, )> for PatternValidator<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, &str>, )) -> Self::Output {
+impl FnMut<(&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (&str, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl Fn<(Cow<'_, &str>, )> for PatternValidator<'_> {
-  extern "rust-call" fn call(&self, args: (Cow<'_, &str>, )) -> Self::Output {
+impl Fn<(&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (&str, )) -> Self::Output {
     self.validate(args.0)
+  }
+}
+
+impl FnOnce<(&&str, )> for PatternValidator<'_> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (&&str, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl FnMut<(&&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (&&str, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl Fn<(&&str, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (&&str, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl Display for PatternValidator<'_> {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    write!(f, "PatternValidator {{pattern: {}}}", &self.pattern.to_string())
   }
 }
 

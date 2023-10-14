@@ -1,18 +1,21 @@
 [package]
-name = "wal-rs"
+name = "walrs"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ammonia = "3.3.0"
 walrs_acl = { path = 'acl' }
 walrs_graph = { path = 'graph' }
 walrs_inputfilter = { path = "inputfilter" }
+walrs_navigation = { path = "navigation" }
 
 [workspace]
 members = [
     "acl",
     "graph",
     "inputfilter",
+    "navigation"
 ]

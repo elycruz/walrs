@@ -4,7 +4,7 @@ Basic Access Control List (ACL) structure for adding role/permissions based acce
 
 ## How does it work?
 
-The ACL control is designed to manage relationships between resources, roles, privileges and rules and their inter-relationships to each of their set (roles inheriting from other roles etc.).
+The ACL control is designed to manage relationships between resources, roles, privileges and rules and their interrelationships to each of their set (roles inheriting from other roles etc.).
 
 @todo
 

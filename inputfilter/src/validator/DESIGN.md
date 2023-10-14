@@ -2,9 +2,9 @@
 
 ## Desired APIs
 
-### Integer Validator
+### Number Validator
 
-Can validate (signed, and unsigned) integer types:
+Can validate (signed, and unsigned) integer, and float values:
 
 - i8
 - i16
@@ -20,11 +20,13 @@ Can validate (signed, and unsigned) integer types:
 - u128
 - usize
 
-### Float Validator
-
-Can validate float types:
-
 - f32
 - f64
 
-## @TODO
+## Pattern Validator
+
+Can validate incoming value against stored regular expression.
+
+## Equality Validator
+
+Equality validator - Holds a 'rhs_value' and validates incoming value against it.
