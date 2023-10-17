@@ -97,3 +97,26 @@ pub fn pattern_mismatch_msg(rules: &PatternValidator, x: &str) -> String {
     &rules.pattern.to_string()
   )
 }
+#[cfg(test)]
+mod test {
+  use std::borrow::Cow;
+  use std::error::Error;
+  use regex::Regex;
+
+  use crate::pattern::{PatternValidatorBuilder};
+
+  #[test]
+  fn test_construction() -> Result<(), Box<dyn Error>> {
+    let _rx = Regex::new(r"/\w{2,55}/")?;
+
+    for (name, instance) in [
+      ("Default", PatternValidatorBuilder::default()
+          .pattern(Cow::Owned(_rx))
+          .build()?)
+    ] {
+
+    }
+
+    Ok(())
+  }
+}
