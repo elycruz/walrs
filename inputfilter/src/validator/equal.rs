@@ -8,6 +8,8 @@ pub struct EqualityValidator<'a, T>
   where T: InputValue + Clone
 {
   pub rhs_value: T,
+
+  #[builder(default = "&not_equal_msg")]
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 

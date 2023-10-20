@@ -90,10 +90,61 @@ impl Display for PatternValidator<'_> {
   }
 }
 
-pub fn pattern_mismatch_msg(rules: &PatternValidator, x: &str) -> String {
+pub fn pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
   format!(
-    "`{:}` is greater than maximum `{:}`.",
-    x,
+    "`{:}` does not match pattern `{:}`.",
+    xs,
     &rules.pattern.to_string()
   )
+}
+#[cfg(test)]
+mod test {
+  use std::borrow::Cow;
+  use std::error::Error;
+  use regex::Regex;
+  use crate::{ValidateValue};
+  use crate::ConstraintViolation::PatternMismatch;
+
+  use super::*;
+
+  #[test]
+  fn test_construction_and_validation() -> Result<(), Box<dyn Error>> {
+    let _rx = Regex::new(r"^\w{2,55}$")?;
+
+    fn on_custom_pattern_mismatch(_: &PatternValidator, _: &str) -> String {
+      return "custom pattern mismatch err message".into()
+    }
+
+    for (name, instance, passingValue, failingValue, err_callback) in [
+      ("Default", PatternValidatorBuilder::default()
+          .pattern(Cow::Owned(_rx.clone()))
+          .build()?, "abc", "!@#)(*", &pattern_mismatch_msg),
+      ("Custom ", PatternValidatorBuilder::default()
+          .pattern(Cow::Owned(_rx.clone()))
+          .pattern_mismatch(&on_custom_pattern_mismatch)
+          .build()?, "abc", "!@#)(*", &on_custom_pattern_mismatch)
+    ] as [(
+      &str,
+      PatternValidator,
+      &str,
+      &str,
+      &PatternViolationCallback
+    ); 2] {
+      println!("{}", name);
+
+      // Test as an `Fn*` trait
+      assert_eq!((&instance)(passingValue), Ok(()));
+      assert_eq!((&instance)(failingValue), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      ]));
+
+      // Test `validate` method directly
+      assert_eq!(instance.validate(passingValue), Ok(()));
+      assert_eq!(instance.validate(failingValue), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      ]));
+    }
+
+    Ok(())
+  }
 }
