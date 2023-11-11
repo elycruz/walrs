@@ -100,7 +100,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: InputValue>: Display + Debug + 
   fn get_filters(&self) -> Option<&[&'a Filter<Cow<'call_ctx, T>>]>;
 
   fn validate_with_validators(&self, value: &'call_ctx T, validators: Option<&[&'a Validator<&'call_ctx T>]>) -> ValidationResult {
-    validators.as_deref().map(|vs| {
+    validators.map(|vs| {
 
       // If not break on failure then capture all validation errors.
       if !self.get_should_break_on_failure() {
@@ -126,7 +126,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: InputValue>: Display + Debug + 
       agg
     })
       .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
-      .map_or(Ok(()), |messages| Err(messages))
+      .map_or(Ok(()), Err)
   }
 
   fn validate(&self, value: Option<&'call_ctx T>) -> ValidationResult {

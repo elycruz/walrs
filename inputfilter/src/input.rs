@@ -87,7 +87,7 @@ impl<T: InputValue> Display for Input<'_, '_, T> {
     write!(
       f,
       "Input {{ name: {}, required: {}, validators: {}, filters: {} }}",
-      self.name.as_deref().unwrap_or("None"),
+      self.name.unwrap_or("None"),
       self.required,
       self.validators.as_deref().map(|vs|
         format!("Some([Validator; {}])", vs.len())

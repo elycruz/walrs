@@ -92,13 +92,19 @@ impl<'a> StripTags<'a> {
   pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
     match self.ammonia {
       None => Cow::Owned(
-        DEFAULT_AMMONIA_BUILDER.get_or_init(|| ammonia::Builder::default())
+        DEFAULT_AMMONIA_BUILDER.get_or_init(ammonia::Builder::default)
           .clean(&input).to_string()
       ),
       Some(ref sanitizer) => Cow::Owned(
         sanitizer.clean(&input).to_string()
       ),
     }
+  }
+}
+
+impl<'a> Default for StripTags<'a> {
+  fn default() -> Self {
+    Self::new()
   }
 }
 

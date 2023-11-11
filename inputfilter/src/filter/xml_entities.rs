@@ -83,6 +83,12 @@ impl<'a> XmlEntitiesFilter<'a> {
   }
 }
 
+impl<'a> Default for XmlEntitiesFilter<'a> {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for XmlEntitiesFilter<'a> {
   type Output = Cow<'b, str>;
 
