@@ -62,6 +62,151 @@ Next tie the interface into your application's frontend/action controller/dispat
   - [ ] Language in acl, and API, should be changed to match 'privilege' instead of 'access to privilege' since, we're effectively saying the same thing (lol).
   - [ ] Cleanup API - Remove un-required methods etc., in rule structs, etc..
 
+### About Access Control Lists (ACLs)
+
+ACL's can be defined either in a domain model, or as one, or more, text files.
+
+ACLs are made up of the following entities:
+
+- Resources - Named internet resources (internal, or otherwise).
+- Roles - Roles a user may take in an application.
+- Group - Group of Roles.
+- Role and Groups - List of groups of roles.
+- Privileges - A subset, action, and/or a subset entrypoint to a resource.
+- Access Control Lists (ACLs).
+
+Additionally, ACLs can be made up of the following data structures:
+
+1.  A roles/role-groups graph - Allows nodes to inherit from each other.
+2.  A resources graph - "".
+3.  An ACL.
+
+#### Storage Mechanisms
+
+ACLs can be stored in any storage format that is accessible by a target application:
+
+- Relational DB.
+- Text files (*.txt, *.yaml, etc.).
+- etc.
+
+##### Text Representation
+
+Common text based formats, that can easily be used to create an ACL representation, include (but are not limited to):
+
+- *.txt
+- *.json
+- *.yaml
+- etc.
+
+###### Plain Text Example:
+
+Here we'll demonstrate storing role, resource, and role-group, graphs alongside the ACL structure, in a plain text file.
+
+**General Structure:**
+
+```text
+# Role Graph
+
+{role} {[..., {role}]} 
+
+# Role Group Graph
+
+{role-group} {[..., {role-group}]} 
+
+# Resource Graph
+
+{resource} {[..., {resource}]}
+
+# ACL
+
+{resource}
+  {[deny, allow]}
+    {privilege}
+      {user-group}
+```
+
+**Example:**
+
+```text
+# Roles
+# ----
+guest
+user guest
+admin user
+
+# Resources
+# ----
+index
+blog index
+products blog
+
+# Groups
+# ----
+app-guest guest
+app-user app-guest
+app-admin app-user
+cms-guest app-guest
+cms-user cms-guest
+cms-admin cms-user
+
+# ACL
+# ----
+all
+  deny
+    all
+index all
+  allow
+    index
+      guest
+blog index
+  allow
+    create
+      cms-user
+    read 
+      guest
+    update
+      cms-user
+    delete
+      cms-admin
+    disable
+      cms-user
+products blog
+```
+
+###### JSON Example
+
+**example-acl.json** (WIP)
+
+```json
+{
+  "roles": [
+    ["guest", null],
+    ["user", ["guest"]],
+    ["admin", ["user"]]
+  ],
+  "resources": [
+    ["index", null],
+    ["blog", ["index"]],
+    ["account", null],
+    ["users", null]
+  ],
+  "rules": {
+    "allow": [
+      ["index", [["guest", null]]],
+      ["account", [["user", ["index", "update", "read"]]]],
+      ["users", [["admin", null]]]
+    ],
+    "deny": null
+  }
+}
+```
+
+Here roles inherit from other roles, and resources, from other resources.
+
+Where ever you see `null` those we represent as `Option<...>`, in data struct.
+
+For `rules.allow` resources allow access to roles on privileges, if `null` means all privileges ('read', 'update', etc.).
+
 ## Brainstorm
 
 Distill rules structure:

@@ -84,6 +84,66 @@ impl Fn<(&&str, )> for PatternValidator<'_> {
   }
 }
 
+impl FnOnce<(&Box<str>, )> for PatternValidator<'_> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (&Box<str>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl FnMut<(&Box<str>, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (&Box<str>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl Fn<(&Box<str>, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (&Box<str>, )) -> Self::Output {
+    self.validate(args.0)
+  }
+}
+
+impl FnOnce<(Box<str>, )> for PatternValidator<'_> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (Box<str>, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
+impl FnMut<(Box<str>, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (Box<str>, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
+impl Fn<(Box<str>, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (Box<str>, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
+impl FnOnce<(String, )> for PatternValidator<'_> {
+  type Output = ValidationResult;
+
+  extern "rust-call" fn call_once(self, args: (String, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
+impl FnMut<(String, )> for PatternValidator<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (String, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
+impl Fn<(String, )> for PatternValidator<'_> {
+  extern "rust-call" fn call(&self, args: (String, )) -> Self::Output {
+    self.validate(&args.0)
+  }
+}
+
 impl Display for PatternValidator<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "PatternValidator {{pattern: {}}}", &self.pattern.to_string())
@@ -97,6 +157,7 @@ pub fn pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
     &rules.pattern.to_string()
   )
 }
+
 #[cfg(test)]
 mod test {
   use std::borrow::Cow;
@@ -141,6 +202,27 @@ mod test {
       // Test `validate` method directly
       assert_eq!(instance.validate(passingValue), Ok(()));
       assert_eq!(instance.validate(failingValue), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      ]));
+
+      // Passing value as `&Box<str>` (same as passing `&str`, but from the heap), to `Fn*` trait
+      // ----
+      assert_eq!((&instance)(&Box::from(passingValue)), Ok(()));
+      assert_eq!((&instance)(&Box::from(failingValue)), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, &Box::from(failingValue)))
+      ]));
+
+      // Passing value as `Box<str>` (heap allocated slice), to `Fn*` trait
+      // ----
+      assert_eq!((&instance)(Box::from(passingValue)), Ok(()));
+      assert_eq!((&instance)(Box::from(failingValue)), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      ]));
+
+      // Passing value as `String`, to `Fn*` trait
+      // ----
+      assert_eq!((&instance)(passingValue.to_string()), Ok(()));
+      assert_eq!((&instance)(failingValue.to_string()), Err(vec![
         (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
       ]));
     }
