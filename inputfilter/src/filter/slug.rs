@@ -98,13 +98,13 @@ impl<'a> FnOnce<(Cow<'a, str>, )> for SlugFilter {
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'a, str>, )> for SlugFilter {
+impl<'a> Fn<(Cow<'a, str>, )> for SlugFilter {
   extern "rust-call" fn call(&self, args: (Cow<'a, str>, )) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'a, str>, )> for SlugFilter {
+impl<'a> FnMut<(Cow<'a, str>, )> for SlugFilter {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>, )) -> Self::Output {
     self.filter(args.0)
   }

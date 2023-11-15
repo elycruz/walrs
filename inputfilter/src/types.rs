@@ -24,7 +24,6 @@ impl InputValue for f64 {}
 
 impl InputValue for bool {}
 
-impl InputValue for str {}
 impl InputValue for Box<str> {}
 impl InputValue for String {}
 impl<'a> InputValue for Cow<'a, str> {}
@@ -91,7 +90,7 @@ pub trait ToAttributesList {
   }
 }
 
-pub trait InputConstraints<'a, 'call_ctx: 'a, T: InputValue>: Display + Debug + 'a {
+pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize + ?Sized>: Display + Debug + 'a {
   fn get_should_break_on_failure(&self) -> bool;
   fn get_required(&self) -> bool;
   fn get_name(&self) -> Option<Cow<'a, str>>;
