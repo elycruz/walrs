@@ -124,8 +124,8 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
       }
       agg
     })
-      .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
-      .map_or(Ok(()), Err)
+        .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
+        .map_or(Ok(()), Err)
   }
 
   fn validate(&self, value: Option<&'call_ctx T>) -> ValidationResult {
@@ -144,6 +144,39 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
     }
   }
 
+  /// Special case of `validate` where the error type enums are ignored (in `Err(...)`) result,
+  /// and only the error messages are returned.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::*;
+  ///
+  /// let input = StrInputBuilder::default()
+  ///   .required(true)
+  ///   .value_missing(&|_| "Value missing".to_string())
+  ///   .validators(vec![&|x: &str| {
+  ///     if x.len() < 3 {
+  ///       return Err(vec![(
+  ///         ConstraintViolation::TooShort,
+  ///        "Too short".to_string(),
+  ///       )]);
+  ///     }
+  ///     Ok(())
+  ///   }])
+  ///   .build()
+  ///   .unwrap()
+  /// ;
+  ///
+  /// assert_eq!(input.validate1(Some(&"ab")), Err(vec!["Too short".to_string()]));
+  /// assert_eq!(input.validate1(None), Err(vec!["Value missing".to_string()]));
+  /// ```
+  fn validate1(&self, value: Option<&'call_ctx T>) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate(value) {
+      Err(messages) =>
+        Err(messages.into_iter().map(|(_, message)| message).collect()),
+      Ok(_) => Ok(()),
+    }
+  }
+
   fn filter(&self, value: Option<Cow<'call_ctx, T>>) -> Option<Cow<'call_ctx, T>> {
     match self.get_filters() {
       None => value,
@@ -154,5 +187,46 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   fn validate_and_filter(&self, x: Option<&'call_ctx T>) -> Result<Option<Cow<'call_ctx, T>>, Vec<ValidationError>> {
     self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
   }
+
+  /// Special case of `validate_and_filter` where the error type enums are ignored (in `Err(...)`) result,
+  /// and only the error messages are returned, for `Err` case.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::*;
+  /// use std::borrow::Cow;
+  ///
+  /// let input = StrInputBuilder::default()
+  ///   .required(true)
+  ///   .value_missing(&|_| "Value missing".to_string())
+  ///   .validators(vec![&|x: &str| {
+  ///     if x.len() < 3 {
+  ///       return Err(vec![(
+  ///         ConstraintViolation::TooShort,
+  ///        "Too short".to_string(),
+  ///       )]);
+  ///     }
+  ///     Ok(())
+  ///   }])
+  ///  .filters(vec![&|xs: Option<Cow<str>>| {
+  ///     xs.map(|xs| Cow::Owned(xs.to_lowercase()))
+  ///   }])
+  ///   .build()
+  ///   .unwrap()
+  /// ;
+  ///
+  /// assert_eq!(input.validate_and_filter1(Some(&"ab")), Err(vec!["Too short".to_string()]));
+  /// assert_eq!(input.validate_and_filter1(Some(&"Abba")), Ok(Some("Abba".to_lowercase().into())));
+  /// assert_eq!(input.validate_and_filter1(None), Err(vec!["Value missing".to_string()]));
+  /// ```
+  ///
+  fn validate_and_filter1(&self, x: Option<&'call_ctx T>) -> Result<Option<Cow<'call_ctx, T>>, Vec<ViolationMessage>> {
+    match self.validate_and_filter(x) {
+      Err(messages) =>
+        Err(messages.into_iter().map(|(_, message)| message).collect()),
+      Ok(filtered) => Ok(filtered),
+    }
+  }
+
 }
+
 
