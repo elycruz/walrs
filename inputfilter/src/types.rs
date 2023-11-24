@@ -24,11 +24,9 @@ impl InputValue for f64 {}
 
 impl InputValue for bool {}
 
-impl InputValue for Box<str> {}
-impl InputValue for String {}
-impl<'a> InputValue for Cow<'a, str> {}
-impl InputValue for &'_ str {}
-impl InputValue for &&'_ str {}
+impl InputValue for char {}
+impl InputValue for str {}
+impl InputValue for &str {}
 
 pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
@@ -76,11 +74,11 @@ pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub trait ValidateValue<T: InputValue> {
+pub trait ValidateValue<T: InputValue + ?Sized> {
   fn validate(&self, value: T) -> ValidationResult;
 }
 
-pub trait FilterValue<T: InputValue> {
+pub trait FilterValue<T: InputValue + ?Sized> {
   fn filter(&self, value: Option<Cow<T>>) -> Option<Cow<T>>;
 }
 
@@ -115,7 +113,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///   .unwrap()
   /// ;
   ///
-  /// let too_long_str = &"ab".repeat(30);;
+  /// let too_long_str = &"ab".repeat(30);
   ///
   /// assert_eq!(input.validate1(Some(&"ab")), Err(vec!["Too short".to_string()]));
   /// assert_eq!(input.validate1(Some(&too_long_str)), Err(vec!["Too long".to_string()]));
@@ -189,7 +187,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///     // Pretend "not allowed" case.
   ///     &|x: &isize| -> Result<(), Vec<ValidationError>> {
   ///       if *x == 45 {
-  ///         return Err(vec![(ConstraintViolation::CustomError, "\"45\" not allowed".to_string())]);
+  ///         return Err(vec![(CustomError, "\"45\" not allowed".to_string())]);
   ///       }
   ///      Ok(())
   ///     }
@@ -221,7 +219,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///  .build()
   ///  .unwrap();
   ///
-  /// let too_long_str = &"ab".repeat(201);;
+  /// let too_long_str = &"ab".repeat(201);
   ///
   /// assert_eq!(str_input.validate(None), Err(vec![ (ValueMissing, "Value missing".to_string()) ]));
   /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![ (TooShort, "Too short".to_string()) ]));

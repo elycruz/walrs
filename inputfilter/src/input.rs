@@ -12,7 +12,7 @@ pub type ValueMissingViolationCallback<T> =
 #[builder(pattern = "owned")]
 pub struct Input<'a, 'b, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
@@ -38,7 +38,7 @@ where
 
 impl<'a, 'b, T> Input<'a, 'b, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   pub fn new(name: Option<&'a str>) -> Self {
     Input {
@@ -52,7 +52,7 @@ where
   }
 }
 
-impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
+impl<'a, 'b, T: InputValue + ?Sized> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
   fn get_should_break_on_failure(&self) -> bool {
     self.break_on_failure
   }
@@ -82,13 +82,13 @@ impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
   }
 }
 
-impl<T: InputValue> Default for Input<'_, '_, T> {
+impl<T: InputValue + ?Sized> Default for Input<'_, '_, T> {
   fn default() -> Self {
     Self::new(None)
   }
 }
 
-impl<T: InputValue> Display for Input<'_, '_, T> {
+impl<T: InputValue + ?Sized> Display for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -105,13 +105,13 @@ impl<T: InputValue> Display for Input<'_, '_, T> {
   }
 }
 
-impl<T: InputValue> Debug for Input<'_, '_, T> {
+impl<T: InputValue + ?Sized> Debug for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
 }
 
-pub fn value_missing_msg<T: InputValue>(_: &Input<T>, _: Option<&T>) -> String {
+pub fn value_missing_msg<T: InputValue + ?Sized>(_: &Input<T>, _: Option<&T>) -> String {
   "Value is missing.".to_string()
 }
 
@@ -250,11 +250,6 @@ mod test {
 
     Ok(())
   }
-
-  // #[test]
-  // fn test_input_exotic_value_types() -> Result<(), Box<dyn Error>> {
-  //   todo!("Input control exotic `InputValue` test cases.")
-  // }
 
   #[test]
   fn test_thread_safety() -> Result<(), Box<dyn Error>> {
