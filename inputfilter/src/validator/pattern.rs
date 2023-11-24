@@ -155,6 +155,7 @@ pub fn pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
     &rules.pattern.to_string()
   )
 }
+
 #[cfg(test)]
 mod test {
   use std::borrow::Cow;

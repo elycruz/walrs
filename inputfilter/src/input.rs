@@ -2,6 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, InputValue, Validator, ViolationMessage};
+use crate::ValidationResult;
 
 pub type ValueMissingViolationCallback<T> =
   dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
@@ -29,7 +30,7 @@ where
   pub filters: Option<Vec<&'a Filter<Cow<'b, T>>>>,
 
   #[builder(default = "&value_missing_msg")]
-  pub value_missing: &'a (dyn Fn(&Input<'a, 'b, T>) -> ViolationMessage + Send + Sync),
+  pub value_missing: &'a (dyn Fn(&Input<'a, 'b, T>, Option<&T>) -> ViolationMessage + Send + Sync),
 
   // @todo Add support for `io_validators` (e.g., validators that return futures).
 }
@@ -63,7 +64,7 @@ impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
     self.name.map(move |s: &'a str| Cow::Borrowed(s))
   }
 
-  fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self) -> ViolationMessage + Send + Sync) {
+  fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self, Option<&T>) -> ViolationMessage + Send + Sync) {
     self.value_missing
   }
 
@@ -73,6 +74,10 @@ impl<'a, 'b, T: InputValue> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
 
   fn get_filters(&self) -> Option<&[&'a Filter<Cow<'b, T>>]> {
     self.filters.as_deref()
+  }
+
+  fn validate_custom(&self, _: &'b T) -> ValidationResult {
+    Ok(())
   }
 }
 
@@ -105,7 +110,7 @@ impl<T: InputValue> Debug for Input<'_, '_, T> {
   }
 }
 
-pub fn value_missing_msg<T: InputValue>(_: &Input<T>) -> String {
+pub fn value_missing_msg<T: InputValue>(_: &Input<T>, _: Option<&T>) -> String {
   "Value is missing.".to_string()
 }
 

@@ -13,17 +13,18 @@ pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
 
 #[derive(Builder, Clone)]
+#[builder(setter(strip_option))]
 pub struct NumberValidator<'a, T: NumberValue> {
-  #[builder(setter(into), default = "None")]
+  #[builder(default = "None")]
   pub min: Option<T>,
 
-  #[builder(setter(into), default = "None")]
+  #[builder(default = "None")]
   pub max: Option<T>,
 
-  #[builder(setter(into), default = "None")]
+  #[builder(default = "None")]
   pub step: Option<T>,
 
-  #[builder(setter(into), default = "None")]
+  #[builder(default = "None")]
   pub equal: Option<T>,
 
   #[builder(default = "&range_underflow_msg")]
