@@ -26,9 +26,10 @@ impl InputValue for bool {}
 
 impl InputValue for char {}
 impl InputValue for str {}
+
 impl InputValue for &str {}
 
-pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
+pub trait NumberValue: InputValue + Default + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
 impl NumberValue for i8 {}
 impl NumberValue for i16 {}
@@ -75,6 +76,8 @@ pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
 pub trait ValidateValue<T: InputValue + ?Sized> {
+  /// @todo Should accept `&T`, or `Cow<T>`, here, instead of `T` (will allow overall types
+  ///   to work with (seamlessly) with unsized (`?Sized`) types.
   fn validate(&self, value: T) -> ValidationResult;
 }
 
@@ -102,7 +105,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// ```rust
   /// use walrs_inputfilter::*;
   ///
-  /// let input = StrInputBuilder::default()
+  /// let input = StringInputBuilder::default()
   ///   .required(true)
   ///   .value_missing(&|_, _| "Value missing".to_string())
   ///   .min_length(3usize)
@@ -203,7 +206,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// assert_eq!(input.validate(Some(&95)), Ok(()));
   /// assert_eq!(input.validate(Some(&45)), Err(vec![(CustomError, "\"45\" not allowed".to_string())]));
   ///
-  /// let str_input = StrInputBuilder::default()
+  /// let str_input = StringInputBuilder::default()
   ///  .required(true)
   ///  .value_missing(&|_, _| "Value missing".to_string())
   ///  .min_length(3usize)
@@ -264,7 +267,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// ```rust
   /// use walrs_inputfilter::*;
   ///
-  /// let input = StrInputBuilder::default()
+  /// let input = StringInputBuilder::default()
   ///   .required(true)
   ///   .value_missing(&|_, _| "Value missing".to_string())
   ///   .validators(vec![&|x: &str| {
@@ -309,7 +312,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// use walrs_inputfilter::*;
   /// use std::borrow::Cow;
   ///
-  /// let input = StrInputBuilder::default()
+  /// let input = StringInputBuilder::default()
   ///   .required(true)
   ///   .value_missing(&|_, _| "Value missing".to_string())
   ///   .validators(vec![&|x: &str| {

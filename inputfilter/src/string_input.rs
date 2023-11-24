@@ -5,9 +5,9 @@ use regex::Regex;
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{ConstraintViolation, ValidationResult};
 
-pub type StrMissingViolationCallback = dyn Fn(&StrInput, Option<&str>) -> ViolationMessage + Send + Sync;
+pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
-pub fn pattern_mismatch_msg(rules: &StrInput, xs: Option<&str>) -> String {
+pub fn pattern_mismatch_msg(rules: &StringInput, xs: Option<&str>) -> String {
   format!(
     "`{}` does not match pattern `{}`",
     &xs.as_ref().unwrap(),
@@ -15,7 +15,7 @@ pub fn pattern_mismatch_msg(rules: &StrInput, xs: Option<&str>) -> String {
   )
 }
 
-pub fn too_short_msg(rules: &StrInput, xs: Option<&str>) -> String {
+pub fn too_short_msg(rules: &StringInput, xs: Option<&str>) -> String {
   format!(
     "Value length `{:}` is less than allowed minimum `{:}`.",
     &xs.as_ref().unwrap().len(),
@@ -23,7 +23,7 @@ pub fn too_short_msg(rules: &StrInput, xs: Option<&str>) -> String {
   )
 }
 
-pub fn too_long_msg(rules: &StrInput, xs: Option<&str>) -> String {
+pub fn too_long_msg(rules: &StringInput, xs: Option<&str>) -> String {
   format!(
     "Value length `{:}` is greater than allowed maximum `{:}`.",
     &xs.as_ref().unwrap().len(),
@@ -31,7 +31,7 @@ pub fn too_long_msg(rules: &StrInput, xs: Option<&str>) -> String {
   )
 }
 
-pub fn str_not_equal_msg(rules: &StrInput, _: Option<&str>) -> String {
+pub fn str_not_equal_msg(rules: &StringInput, _: Option<&str>) -> String {
   format!(
     "Value is not equal to {}.",
     &rules.equal.as_deref().unwrap_or("")
@@ -40,7 +40,7 @@ pub fn str_not_equal_msg(rules: &StrInput, _: Option<&str>) -> String {
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
-pub struct StrInput<'a, 'b> {
+pub struct StringInput<'a, 'b> {
   #[builder(default = "true")]
   pub break_on_failure: bool,
 
@@ -87,9 +87,9 @@ pub struct StrInput<'a, 'b> {
   pub value_missing: &'a StrMissingViolationCallback,
 }
 
-impl<'a, 'b> StrInput<'a, 'b> {
+impl<'a, 'b> StringInput<'a, 'b> {
   pub fn new(name: Option<&'a str>) -> Self {
-    StrInput {
+    StringInput {
       break_on_failure: false,
       name,
       min_length: None,
@@ -108,7 +108,7 @@ impl<'a, 'b> StrInput<'a, 'b> {
   }
 }
 
-impl<'a, 'b> InputConstraints<'a, 'b, str> for StrInput<'a, 'b> {
+impl<'a, 'b> InputConstraints<'a, 'b, str> for StringInput<'a, 'b> {
   fn get_should_break_on_failure(&self) -> bool {
     self.break_on_failure
   }
@@ -186,13 +186,13 @@ impl<'a, 'b> InputConstraints<'a, 'b, str> for StrInput<'a, 'b> {
   }
 }
 
-impl Default for StrInput<'_, '_> {
+impl Default for StringInput<'_, '_> {
   fn default() -> Self {
     Self::new(None)
   }
 }
 
-impl Display for StrInput<'_, '_> {
+impl Display for StringInput<'_, '_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -213,13 +213,13 @@ impl Display for StrInput<'_, '_> {
   }
 }
 
-impl Debug for StrInput<'_, '_> {
+impl Debug for StringInput<'_, '_> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
 }
 
-pub fn str_missing_msg(_: &StrInput, _: Option<&str>) -> String {
+pub fn str_missing_msg(_: &StringInput, _: Option<&str>) -> String {
   "Value is missing.".to_string()
 }
 
@@ -301,15 +301,15 @@ mod test {
       },
     };
 
-    let less_than_1990_input = StrInputBuilder::default()
+    let less_than_1990_input = StringInputBuilder::default()
       .validators(vec![&less_than_1990])
       .build()?;
 
-    let yyyy_mm_dd_input = StrInputBuilder::default()
+    let yyyy_mm_dd_input = StringInputBuilder::default()
       .validators(vec![&ymd_check])
       .build()?;
 
-    let yyyy_mm_dd_input2 = StrInputBuilder::default()
+    let yyyy_mm_dd_input2 = StringInputBuilder::default()
       .validators(vec![&pattern_validator])
       .build()?;
 
@@ -354,11 +354,11 @@ mod test {
 
   #[test]
   fn test_thread_safety() -> Result<(), Box<dyn Error>> {
-    let less_than_1990_input = StrInputBuilder::default()
+    let less_than_1990_input = StringInputBuilder::default()
       .validators(vec![&less_than_1990])
       .build()?;
 
-    let ymd_input = StrInputBuilder::default()
+    let ymd_input = StringInputBuilder::default()
       .validators(vec![&ymd_check])
       .build()?;
 
@@ -423,12 +423,12 @@ mod test {
       Ok(())
     };
 
-    let less_than_1990_input = StrInputBuilder::default()
+    let less_than_1990_input = StringInputBuilder::default()
       .validators(vec![&less_than_1990])
       .filters(vec![&to_last_date_of_month])
       .build()?;
 
-    let ymd_input = StrInputBuilder::default()
+    let ymd_input = StringInputBuilder::default()
       .validators(vec![&ymd_check])
       .build()?;
 
@@ -478,7 +478,7 @@ mod test {
 
   #[test]
   fn test_validate_and_filter() {
-    let input = StrInputBuilder::default()
+    let input = StringInputBuilder::default()
       .name("hello")
       .required(true)
       .validators(vec![&less_than_1990])
@@ -509,7 +509,7 @@ mod test {
       }
     };
 
-    let _input = StrInputBuilder::default()
+    let _input = StringInputBuilder::default()
       .name("hello")
       .validators(vec![&callback1])
       .build()
@@ -518,7 +518,7 @@ mod test {
 
   #[test]
   fn test_display() {
-    let input = StrInputBuilder::default()
+    let input = StringInputBuilder::default()
       .name("hello")
       .validators(vec![&less_than_1990])
       .build()
