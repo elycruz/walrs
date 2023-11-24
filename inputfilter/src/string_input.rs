@@ -134,43 +134,55 @@ impl<'a, 'b> InputConstraints<'a, 'b, str> for StrInput<'a, 'b> {
   }
 
   fn validate_custom(&self, value: &'b str) -> ValidationResult {
+    let mut errs = vec![];
+
     if let Some(min_length) = self.min_length {
       if value.len() < min_length {
-        return Err(vec![(
+        errs.push((
           ConstraintViolation::TooShort,
           (self.too_short)(self, Some(value)),
-        )]);
+        ));
+
+        if self.break_on_failure { return Err(errs); }
       }
     }
 
     if let Some(max_length) = self.max_length {
       if value.len() > max_length {
-        return Err(vec![(
+        errs.push((
           ConstraintViolation::TooLong,
           (self.too_long)(self, Some(value)),
-        )]);
+        ));
+
+        if self.break_on_failure { return Err(errs); }
       }
     }
 
     if let Some(pattern) = &self.pattern {
       if !pattern.is_match(value) {
-        return Err(vec![(
+        errs.push((
           ConstraintViolation::PatternMismatch,
-          (&self.pattern_mismatch)(self, Some(value)),
-        )]);
+          (&self.
+            pattern_mismatch)(self, Some(value)),
+        ));
+
+        if self.break_on_failure { return Err(errs); }
       }
     }
 
     if let Some(equal) = &self.equal {
       if value != *equal {
-        return Err(vec![(
+        errs.push((
           ConstraintViolation::NotEqual,
           (&self.not_equal)(self, Some(value)),
-        )]);
+        ));
+
+        if self.break_on_failure { return Err(errs); }
       }
     }
 
-    Ok(())
+    if errs.is_empty() { Ok(()) }
+    else { Err(errs) }
   }
 }
 

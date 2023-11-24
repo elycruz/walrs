@@ -7,6 +7,7 @@ use crate::ValidationResult;
 pub type ValueMissingViolationCallback<T> =
   dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
 
+/// Deprecated - Use `StrInput`, and or `NumInput` instead.
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned")]
 pub struct Input<'a, 'b, T>

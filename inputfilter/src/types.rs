@@ -155,12 +155,11 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   }
 
   /// Validates value against any own `validate_custom` implementation and any set validators -
-  /// Runs `validate_custom(...)`, first and then (if it is `Ok(())`) runs
-  /// `validate_with_validators(...)` method.
+  /// E.g., runs `validate_custom(...)`, then, if it is `Ok`, `validate_with_validators(...)` method.
   ///
   /// Additionally, note, `break_on_failure` is only guaranteed to be respected for the
-  ///   the validators list;  E.g., It is not guaranteed for `validate_custom()` call (as this is
-  ///  implementing struct specific).
+  ///   the validators list, and input filters defined in the library;  E.g., It is not guaranteed for
+  /// `validate_custom()` call in external libraries (e.g., this is left to implementing struct authors).
   ///
   /// ```rust
   /// use walrs_inputfilter::*;
@@ -172,6 +171,10 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///   step_mismatch_msg
   /// };
   /// use walrs_inputfilter::pattern::PatternValidator;
+  /// use walrs_inputfilter::types::ConstraintViolation::{
+  ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
+  ///   RangeOverflow, RangeUnderflow, StepMismatch
+  /// };
   ///
   /// let num_validator = NumberValidatorBuilder::<isize>::default()
   ///  .min(-100isize)
@@ -183,7 +186,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// let input = InputBuilder::<isize>::default()
   ///   .validators(vec![
   ///     &num_validator,
-  ///     // Pretend "not allowed" num.
+  ///     // Pretend "not allowed" case.
   ///     &|x: &isize| -> Result<(), Vec<ValidationError>> {
   ///       if *x == 45 {
   ///         return Err(vec![(ConstraintViolation::CustomError, "\"45\" not allowed".to_string())]);
@@ -194,12 +197,13 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///   .build()
   ///   .unwrap();
   ///
-  /// assert_eq!(input.validate1(Some(&-101)), Err(vec![range_underflow_msg(&num_validator, -101)]));
-  /// assert_eq!(input.validate1(Some(&101)), Err(vec![range_overflow_msg(&num_validator, 101)]));
-  /// assert_eq!(input.validate1(Some(&100)), Ok(()));
-  /// assert_eq!(input.validate1(Some(&-99)), Err(vec![step_mismatch_msg(&num_validator, -99)]));
-  /// assert_eq!(input.validate1(Some(&95)), Ok(()));
-  /// assert_eq!(input.validate1(Some(&45)), Err(vec!["\"45\" not allowed".to_string()]));
+  /// assert_eq!(input.validate(None), Ok(()));
+  /// assert_eq!(input.validate(Some(&-101)), Err(vec![(RangeUnderflow, range_underflow_msg(&num_validator, -101))]));
+  /// assert_eq!(input.validate(Some(&101)), Err(vec![(RangeOverflow, range_overflow_msg(&num_validator, 101))]));
+  /// assert_eq!(input.validate(Some(&100)), Ok(()));
+  /// assert_eq!(input.validate(Some(&-99)), Err(vec![(StepMismatch, step_mismatch_msg(&num_validator, -99))]));
+  /// assert_eq!(input.validate(Some(&95)), Ok(()));
+  /// assert_eq!(input.validate(Some(&45)), Err(vec![(CustomError, "\"45\" not allowed".to_string())]));
   ///
   /// let str_input = StrInputBuilder::default()
   ///  .required(true)
@@ -207,10 +211,10 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///  .min_length(3usize)
   ///  .too_short(&|_, _| "Too short".to_string())
   ///  .max_length(200usize) // Default violation message callback used here.
-  ///   // Naive email pattern validator (naive for example).
+  ///   // Naive email pattern validator (naive for this example).
   ///  .validators(vec![&|x: &str| {
   ///     if !x.contains('@') {
-  ///       return Err(vec![(ConstraintViolation::TypeMismatch, "Invalid email".to_string())]);
+  ///       return Err(vec![(TypeMismatch, "Invalid email".to_string())]);
   ///     }
   ///     Ok(())
   ///   }])
@@ -219,11 +223,11 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   ///
   /// let too_long_str = &"ab".repeat(201);;
   ///
-  /// assert_eq!(str_input.validate1(None), Err(vec!["Value missing".to_string()]));
-  /// assert_eq!(str_input.validate1(Some(&"ab")), Err(vec!["Too short".to_string()]));
-  /// assert_eq!(str_input.validate1(Some(&too_long_str)), Err(vec![too_long_msg(&str_input, Some(&too_long_str))]));
-  /// assert_eq!(str_input.validate1(Some(&"abc")), Err(vec!["Invalid email".to_string()]));
-  /// assert_eq!(str_input.validate1(Some(&"abc@def")), Ok(()));
+  /// assert_eq!(str_input.validate(None), Err(vec![ (ValueMissing, "Value missing".to_string()) ]));
+  /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![ (TooShort, "Too short".to_string()) ]));
+  /// assert_eq!(str_input.validate(Some(&too_long_str)), Err(vec![ (TooLong, too_long_msg(&str_input, Some(&too_long_str))) ]));
+  /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
+  /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
   /// ```
   fn validate(&self, value: Option<&'call_ctx T>) -> ValidationResult {
     match value {
@@ -238,8 +242,21 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
         }
       }
       // Else if value is populated validate it
-      Some(v) => self.validate_custom(v)
-        .and_then(|_| self.validate_with_validators(v, self.get_validators())),
+      Some(v) => match self.validate_custom(v) {
+        Ok(_) => self.validate_with_validators(v, self.get_validators()),
+        Err(messages1) => if self.get_should_break_on_failure() {
+          Err(messages1)
+        } else {
+          match self.validate_with_validators(v, self.get_validators()) {
+            Ok(_) => Ok(()),
+            Err(mut messages2) => {
+              let mut agg = messages1;
+              agg.append(messages2.as_mut());
+              Err(agg)
+            }
+          }
+        }
+      },
     }
   }
 
