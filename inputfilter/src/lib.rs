@@ -1,5 +1,6 @@
 #![feature(fn_traits)]
 #![feature(unboxed_closures)]
+#![feature(associated_type_defaults)]
 
 #[macro_use]
 extern crate derive_builder;
@@ -9,6 +10,7 @@ pub mod validator;
 pub mod input;
 pub mod filter;
 pub mod string_input;
+pub mod number_input;
 
 pub use types::*;
 pub use validator::*;

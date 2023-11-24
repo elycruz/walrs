@@ -29,7 +29,7 @@ impl InputValue for str {}
 
 impl InputValue for &str {}
 
-pub trait NumberValue: InputValue + Default + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
+pub trait NumberValue: Default + InputValue + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
 impl NumberValue for i8 {}
 impl NumberValue for i16 {}
@@ -91,13 +91,17 @@ pub trait ToAttributesList {
   }
 }
 
-pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize + ?Sized>: Display + Debug + 'a {
+pub trait InputConstraints<'a, 'call_ctx: 'a, T>: Display + Debug + 'a
+  where T: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize + ?Sized {
+  type ValidatorT = &'call_ctx T;
+  type FilterT = Cow<'call_ctx, T>;
+
   fn get_should_break_on_failure(&self) -> bool;
   fn get_required(&self) -> bool;
   fn get_name(&self) -> Option<Cow<'a, str>>;
   fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self, Option<&T>) -> ViolationMessage + Send + Sync);
-  fn get_validators(&self) -> Option<&[&'a Validator<&'call_ctx T>]>;
-  fn get_filters(&self) -> Option<&[&'a Filter<Cow<'call_ctx, T>>]>;
+  fn get_validators(&self) -> Option<&[&'a Validator<Self::ValidatorT>]>;
+  fn get_filters(&self) -> Option<&[&'a Filter<Self::FilterT>]>;
 
   /// Validates value using implementing structs own custom validation logic (e.g., using it's own "custom" properties etc.).
   /// Note: Gets called in `InputConstraints::validate` method, before any set validators are run.
@@ -122,10 +126,10 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// assert_eq!(input.validate1(Some(&too_long_str)), Err(vec!["Too long".to_string()]));
   /// assert_eq!(input.validate1(None), Err(vec!["Value missing".to_string()]));
   /// ```
-  fn validate_custom(&self, value: &'call_ctx T) -> Result<(), Vec<ValidationError>>;
+  fn validate_custom(&self, value: Self::ValidatorT) -> Result<(), Vec<ValidationError>>;
 
   /// Validates value against contained validators.
-  fn validate_with_validators(&self, value: &'call_ctx T, validators: Option<&[&'a Validator<&'call_ctx T>]>) -> Result<(), Vec<ValidationError>> {
+  fn validate_with_validators(&self, value: Self::ValidatorT, validators: Option<&[&'a Validator<Self::ValidatorT>]>) -> Result<(), Vec<ValidationError>> {
     validators.map(|vs| {
 
       // If not break on failure then capture all validation errors.
@@ -230,7 +234,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
   /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
   /// ```
-  fn validate(&self, value: Option<&'call_ctx T>) -> ValidationResult {
+  fn validate(&self, value: Option<Self::ValidatorT>) -> ValidationResult {
     match value {
       None => {
         if self.get_required() {
@@ -286,7 +290,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// assert_eq!(input.validate1(Some(&"ab")), Err(vec!["Too short".to_string()]));
   /// assert_eq!(input.validate1(None), Err(vec!["Value missing".to_string()]));
   /// ```
-  fn validate1(&self, value: Option<&'call_ctx T>) -> Result<(), Vec<ViolationMessage>> {
+  fn validate1(&self, value: Option<Self::ValidatorT>) -> Result<(), Vec<ViolationMessage>> {
     match self.validate(value) {
       Err(messages) =>
         Err(messages.into_iter().map(|(_, message)| message).collect()),
@@ -294,14 +298,14 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
     }
   }
 
-  fn filter(&self, value: Option<Cow<'call_ctx, T>>) -> Option<Cow<'call_ctx, T>> {
+  fn filter(&self, value: Option<Self::FilterT>) -> Option<Self::FilterT> {
     match self.get_filters() {
       None => value,
       Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
     }
   }
 
-  fn validate_and_filter(&self, x: Option<&'call_ctx T>) -> Result<Option<Cow<'call_ctx, T>>, Vec<ValidationError>> {
+  fn validate_and_filter(&self, x: Option<Self::ValidatorT>) -> Result<Option<Self::FilterT>, Vec<ValidationError>> {
     self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
   }
 
@@ -335,7 +339,7 @@ pub trait InputConstraints<'a, 'call_ctx: 'a, T: ToOwned + Debug + Display + Par
   /// assert_eq!(input.validate_and_filter1(Some(&"Abba")), Ok(Some("Abba".to_lowercase().into())));
   /// assert_eq!(input.validate_and_filter1(None), Err(vec!["Value missing".to_string()]));
   /// ```
-  fn validate_and_filter1(&self, x: Option<&'call_ctx T>) -> Result<Option<Cow<'call_ctx, T>>, Vec<ViolationMessage>> {
+  fn validate_and_filter1(&self, x: Option<Self::ValidatorT>) -> Result<Option<Self::FilterT>, Vec<ViolationMessage>> {
     match self.validate_and_filter(x) {
       Err(messages) =>
         Err(messages.into_iter().map(|(_, message)| message).collect()),
