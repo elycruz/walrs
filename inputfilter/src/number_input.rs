@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, NumberValue, ValidationError, ValidationResult};
+use crate::{ConstraintViolation, NumberValue, ValidationError};
 
 pub type NumMissingViolationCallback<T: NumberValue> = dyn Fn(&NumberInput<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
@@ -120,7 +120,7 @@ impl<'a, T> NumberInput<'a, T>
   }
 }
 
-impl<'a, 'b: 'a, T> InputConstraints<'a, 'b, T> for NumberInput<'a, T>
+impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T> for NumberInput<'a, T>
 where T: NumberValue
 {
   fn get_should_break_on_failure(&self) -> bool {

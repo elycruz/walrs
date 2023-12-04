@@ -5,7 +5,7 @@
 Controls here should:
 
 - not be stateful - In the sense of 'changing' state;  E.g., should not hold on to/mutate values.
-- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc. (note we can support arbitrary structures (later) via derive macros).
+- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc. (note we can support arbitrary structures (later) via derive macros, etc.).
 
 ## Inspiration
 

@@ -58,9 +58,6 @@ pub enum ConstraintViolation {
   TooLong,
   TooShort,
   NotEqual,
-
-  /// Used to convey an expected string format (not necessarily a `Pattern` format;
-  ///  E.g., invalid email hostname in email pattern, etc.).
   TypeMismatch,
   ValueMissing,
 }
@@ -75,13 +72,13 @@ pub type Filter<T> = dyn Fn(Option<T>) -> Option<T> + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub trait ValidateValue<T: InputValue + ?Sized> {
+pub trait ValidateValue<T: InputValue> {
   /// @todo Should accept `&T`, or `Cow<T>`, here, instead of `T` (will allow overall types
   ///   to work with (seamlessly) with unsized (`?Sized`) types.
   fn validate(&self, value: T) -> ValidationResult;
 }
 
-pub trait FilterValue<T: InputValue + ?Sized> {
+pub trait FilterValue<T: InputValue> {
   fn filter(&self, value: Option<Cow<T>>) -> Option<Cow<T>>;
 }
 
@@ -91,10 +88,8 @@ pub trait ToAttributesList {
   }
 }
 
-pub trait InputConstraints<'a, 'call_ctx: 'a, T>: Display + Debug + 'a
-  where T: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize + ?Sized {
-  type ValidatorT = &'call_ctx T;
-  type FilterT = Cow<'call_ctx, T>;
+pub trait InputConstraints<'a, 'call_ctx, T: 'call_ctx>: Display + Debug
+  where T: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize {
 
   fn get_should_break_on_failure(&self) -> bool;
   fn get_required(&self) -> bool;
