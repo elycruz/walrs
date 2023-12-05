@@ -63,6 +63,9 @@ pub struct StringInput<'a, 'b> {
     pub required: bool,
 
     #[builder(default = "None")]
+    pub default_value: Option<String>,
+
+    #[builder(default = "None")]
     pub validators: Option<Vec<&'a Validator<&'b str>>>,
 
     #[builder(default = "None")]
@@ -94,6 +97,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             pattern: None,
             equal: None,
             required: false,
+            default_value: None,
             validators: None,
             filters: None,
             too_short: &(too_long_msg),
@@ -298,12 +302,19 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     }
 
     fn filter(&self, value: Option<Cow<'b, str>>) -> Option<Cow<'b, str>> {
+        let v = match value {
+            None => self.default_value.clone().map(|x| x.into()),
+            Some(x) => Some(x)
+        };
+
         match self.filters.as_deref() {
-            None => value,
-            Some(fs) => fs.iter().fold(value, |agg, f| f(agg)),
+            None => v,
+            Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
         }
     }
 
+    // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
+    //      since we really don't want to use filtered values without them being valid/etc.)
     fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ValidationErrTuple>> {
         self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
     }
