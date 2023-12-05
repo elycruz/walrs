@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, ValidationResult};
+use crate::{ConstraintViolation, ValidationErrTuple, ValidationResult};
 
 pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
@@ -106,34 +106,8 @@ impl<'a, 'b> StringInput<'a, 'b> {
       value_missing: &str_missing_msg,
     }
   }
-}
 
-impl<'a, 'b> InputConstraints<'a, 'b, str> for StringInput<'a, 'b> {
-  fn get_should_break_on_failure(&self) -> bool {
-    self.break_on_failure
-  }
-
-  fn get_required(&self) -> bool {
-    self.required
-  }
-
-  fn get_name(&self) -> Option<Cow<'a, str>> {
-    self.name.map(move |s: &'a str| Cow::Borrowed(s))
-  }
-
-  fn get_value_missing_handler(&self) -> &'a StrMissingViolationCallback {
-    self.value_missing
-  }
-
-  fn get_validators(&self) -> Option<&[&'a Validator<&'b str>]> {
-    self.validators.as_deref()
-  }
-
-  fn get_filters(&self) -> Option<&[&'a Filter<Cow<'b, str>>]> {
-    self.filters.as_deref()
-  }
-
-  fn validate_custom(&self, value: &'b str) -> ValidationResult {
+  fn _validate_against_self(&self, value: &'b str) -> ValidationResult {
     let mut errs = vec![];
 
     if let Some(min_length) = self.min_length {
@@ -163,7 +137,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, str> for StringInput<'a, 'b> {
         errs.push((
           ConstraintViolation::PatternMismatch,
           (&self.
-            pattern_mismatch)(self, Some(value)),
+              pattern_mismatch)(self, Some(value)),
         ));
 
         if self.break_on_failure { return Err(errs); }
@@ -183,6 +157,28 @@ impl<'a, 'b> InputConstraints<'a, 'b, str> for StringInput<'a, 'b> {
 
     if errs.is_empty() { Ok(()) }
     else { Err(errs) }
+  }
+}
+
+impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a, 'b> {
+  fn validate(&self, value: Option<&'b str>) -> Result<(), Vec<ValidationErrTuple>> {
+    todo!()
+  }
+
+  fn validate1(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
+    todo!()
+  }
+
+  fn filter(&self, value: Cow<'b, str>) -> Cow<'b, str> {
+    todo!()
+  }
+
+  fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ValidationErrTuple>> {
+    Ok(x.into())
+  }
+
+  fn validate_and_filter1(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationMessage>> {
+    todo!()
   }
 }
 

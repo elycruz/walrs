@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, InputValue, Validator, ViolationMessage};
-use crate::ValidationResult;
+use crate::{ValidationErrTuple, ValidationResult};
 
 pub type ValueMissingViolationCallback<T> =
   dyn Fn(&Input<T>) -> ViolationMessage + Send + Sync;
@@ -50,35 +50,31 @@ where
       value_missing: &value_missing_msg,
     }
   }
-}
-
-impl<'a, 'b, T: InputValue + ?Sized> InputConstraints<'a, 'b, T> for Input<'a, 'b, T> {
-  fn get_should_break_on_failure(&self) -> bool {
-    self.break_on_failure
-  }
-
-  fn get_required(&self) -> bool {
-    self.required
-  }
-
-  fn get_name(&self) -> Option<Cow<'a, str>> {
-    self.name.map(move |s: &'a str| Cow::Borrowed(s))
-  }
-
-  fn get_value_missing_handler(&self) -> &'a (dyn Fn(&Self, Option<&T>) -> ViolationMessage + Send + Sync) {
-    self.value_missing
-  }
-
-  fn get_validators(&self) -> Option<&[&'a Validator<&'b T>]> {
-    self.validators.as_deref()
-  }
-
-  fn get_filters(&self) -> Option<&[&'a Filter<Cow<'b, T>>]> {
-    self.filters.as_deref()
-  }
 
   fn validate_custom(&self, _: &'b T) -> ValidationResult {
     Ok(())
+  }
+}
+
+impl<'a, 'b, T: InputValue + ?Sized, FT> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T> {
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
+    todo!()
+  }
+
+  fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+    todo!()
+  }
+
+  fn filter(&self, value: FT) -> FT {
+    todo!()
+  }
+
+  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<FT>, Vec<ValidationErrTuple>> {
+    todo!()
+  }
+
+  fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
+    todo!()
   }
 }
 
@@ -210,7 +206,7 @@ mod test {
     }
 
     // `Rem` (Remainder) trait check
-    match even_from_0_to_100_input.validate(Some(&3)) {
+    match even_from_0_to_100_input.validate(Some(3)) {
       Err(errs) => errs.iter().for_each(|v_err| {
         assert_eq!(v_err.0, ConstraintViolation::StepMismatch);
         assert_eq!(v_err.1, step_mismatch_msg(&even_0_to_100, 3));
@@ -282,7 +278,7 @@ mod test {
 
     let handle =
       thread::spawn(
-        move || match usize_input_instance.validate(Some(&101)) {
+        move || match usize_input_instance.validate(Some(101)) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), unsized_less_than_100_msg(101));
           }
@@ -366,7 +362,7 @@ mod test {
 
     thread::scope(|scope| {
       scope.spawn(
-        || match usize_input_instance.validate(Some(&101)) {
+        || match usize_input_instance.validate(Some(101)) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), &unsized_less_than_100_msg(101));
           }
@@ -375,7 +371,7 @@ mod test {
       );
 
       scope.spawn(
-        || match usize_input_instance.validate_and_filter(Some(&99)) {
+        || match usize_input_instance.validate_and_filter(Some(99)) {
           Err(err) => panic!("Expected `Ok(Some({:#?})`;  Received `Err({:#?})`",
                         Cow::<usize>::Owned(99 * 2), err),
           Ok(Some(x)) => assert_eq!(x, Cow::<usize>::Owned(99 * 2)),
@@ -384,7 +380,7 @@ mod test {
       );
 
       scope.spawn(
-        || match usize_input2_instance.validate(Some(&101)) {
+        || match usize_input2_instance.validate(Some(101)) {
           Err(x) => {
             assert_eq!(x[0].1.as_str(), &range_overflow_msg(&unsized_one_to_one_hundred, 101));
           }
@@ -393,7 +389,7 @@ mod test {
       );
 
       scope.spawn(
-        || match usize_input2_instance.validate_and_filter(Some(&99)) {
+        || match usize_input2_instance.validate_and_filter(Some(99)) {
           Err(err) => panic!("Expected `Ok(Some({:#?})`;  Received `Err({:#?})`",
                         Cow::<usize>::Owned(99 * 2), err),
           Ok(Some(x)) => assert_eq!(x, Cow::<usize>::Owned(99 * 2)),
@@ -430,8 +426,8 @@ mod test {
       .build()
       .unwrap();
 
-    assert_eq!(input.validate_and_filter(Some(&101)), Err(vec![(RangeOverflow, unsized_less_than_100_msg(101))]));
-    assert_eq!(input.validate_and_filter(Some(&99)), Ok(Some(Cow::Borrowed(&(99 * 2)))));
+    assert_eq!(input.validate_and_filter(Some(101)), Err(vec![(RangeOverflow, unsized_less_than_100_msg(101))]));
+    assert_eq!(input.validate_and_filter(Some(99)), Ok(Some(Cow::Borrowed(&(99 * 2)))));
   }
 
   #[test]
