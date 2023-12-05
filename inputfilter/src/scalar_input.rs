@@ -110,7 +110,7 @@ impl<'a, T> NumberInput<'a, T>
             if value < min {
                 errs.push((
                     ConstraintViolation::RangeUnderflow,
-                    (&self.range_underflow)(self, Some(value)),
+                    (self.range_underflow)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -122,7 +122,7 @@ impl<'a, T> NumberInput<'a, T>
             if value > max {
                 errs.push((
                     ConstraintViolation::TooLong,
-                    (&self.range_overflow)(self, Some(value)),
+                    (self.range_overflow)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -134,7 +134,7 @@ impl<'a, T> NumberInput<'a, T>
             if value != equal {
                 errs.push((
                     ConstraintViolation::NotEqual,
-                    (&self.not_equal)(self, Some(value)),
+                    (self.not_equal)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -183,7 +183,7 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
                 if self.required {
                     Err(vec![(
                         ConstraintViolation::ValueMissing,
-                        (&self.value_missing)(self),
+                        (self.value_missing)(self),
                     )])
                 } else {
                     Ok(())
@@ -219,7 +219,7 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
 
     fn filter(&self, value: Option<T>) -> Option<T> {
         let v = match value {
-            None => self.default_value.map(|x| x.into()),
+            None => self.default_value.map(|x| x),
             Some(x) => Some(x)
         };
 
@@ -246,7 +246,7 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
 
 impl<'a, T: ScalarValue> WithName<'a> for NumberInput<'a, T> {
     fn get_name(&self) -> Option<Cow<'a, str>> {
-        self.name.map(|xs| Cow::Borrowed(xs))
+        self.name.map(Cow::Borrowed)
     }
 }
 

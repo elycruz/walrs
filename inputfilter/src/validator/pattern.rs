@@ -88,19 +88,19 @@ impl FnOnce<(&String, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
   extern "rust-call" fn call_once(self, args: (&String, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 
 impl FnMut<(&String, )> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&String, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 
 impl Fn<(&String, )> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&String, )) -> Self::Output {
-    self.validate(&args.0)
+    self.validate(args.0)
   }
 }
 

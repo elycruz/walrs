@@ -57,23 +57,23 @@ where
 }
 
 impl<'a, 'b, T: InputValue, FT: 'b> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T> {
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
+  fn validate(&self, _value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
     todo!()
   }
 
-  fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+  fn validate1(&self, _value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
     todo!()
   }
 
-  fn filter(&self, value: Option<FT>) -> Option<FT> {
+  fn filter(&self, _value: Option<FT>) -> Option<FT> {
     todo!()
   }
 
-  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<FT>, Vec<ValidationErrTuple>> {
+  fn validate_and_filter(&self, _x: Option<T>) -> Result<Option<FT>, Vec<ValidationErrTuple>> {
     todo!()
   }
 
-  fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
+  fn validate_and_filter1(&self, _x: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
     todo!()
   }
 }

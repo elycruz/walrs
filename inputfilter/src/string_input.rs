@@ -34,7 +34,7 @@ pub fn too_long_msg(rules: &StringInput, xs: Option<&str>) -> String {
 pub fn str_not_equal_msg(rules: &StringInput, _: Option<&str>) -> String {
     format!(
         "Value is not equal to {}.",
-        &rules.equal.as_deref().unwrap_or("")
+        &rules.equal.unwrap_or("")
     )
 }
 
@@ -137,7 +137,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if !pattern.is_match(value) {
                 errs.push((
                     ConstraintViolation::PatternMismatch,
-                    (&self.
+                    (self.
                         pattern_mismatch)(self, Some(value)),
                 ));
 
@@ -149,7 +149,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if value != *equal {
                 errs.push((
                     ConstraintViolation::NotEqual,
-                    (&self.not_equal)(self, Some(value)),
+                    (self.not_equal)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -192,7 +192,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
 
 impl<'a, 'b> WithName<'a> for StringInput<'a, 'b> {
     fn get_name(&self) -> Option<Cow<'a, str>> {
-        self.name.map(|xs| Cow::Borrowed(xs))
+        self.name.map(Cow::Borrowed)
     }
 }
 
@@ -242,7 +242,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
                 if self.required {
                     Err(vec![(
                         ConstraintViolation::ValueMissing,
-                        (&self.value_missing)(self),
+                        (self.value_missing)(self),
                     )])
                 } else {
                     Ok(())
@@ -316,7 +316,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
     //      since we really don't want to use filtered values without them being valid/etc.)
     fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ValidationErrTuple>> {
-        self.validate(x).map(|_| self.filter(x.map(|_x| Cow::Borrowed(_x))))
+        self.validate(x).map(|_| self.filter(x.map(Cow::Borrowed)))
     }
 
     /// Special case of `validate_and_filter` where the error type enums are ignored (in `Err(...)`) result,
