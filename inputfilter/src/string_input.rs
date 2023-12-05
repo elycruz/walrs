@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, ValidationErrTuple, ValidationResult, WithName};
+use crate::{ConstraintViolation, ValidationErrTuple, ValidationResult, value_missing_msg, ValueMissingCallback, WithName};
 
 pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
@@ -83,8 +83,8 @@ pub struct StringInput<'a, 'b> {
     #[builder(default = "&str_not_equal_msg")]
     pub not_equal: &'a StrMissingViolationCallback,
 
-    #[builder(default = "&str_missing_msg")]
-    pub value_missing: &'a StrMissingViolationCallback,
+    #[builder(default = "&value_missing_msg")]
+    pub value_missing: &'a ValueMissingCallback,
 }
 
 impl<'a, 'b> StringInput<'a, 'b> {
@@ -104,7 +104,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             too_long: &(too_long_msg),
             pattern_mismatch: &(pattern_mismatch_msg),
             not_equal: &(str_not_equal_msg),
-            value_missing: &str_missing_msg,
+            value_missing: &value_missing_msg,
         }
     }
 
@@ -159,7 +159,6 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
-    /// Validates value against contained validators.
     fn _validate_against_validators(&self, value: &'b str, validators: Option<&[&'a Validator<&'b str>]>) -> Result<(), Vec<ValidationErrTuple>> {
         validators.map(|vs| {
 
@@ -243,7 +242,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
                 if self.required {
                     Err(vec![(
                         ConstraintViolation::ValueMissing,
-                        (&self.value_missing)(self, None),
+                        (&self.value_missing)(self),
                     )])
                 } else {
                     Ok(())
@@ -295,6 +294,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// ```
     fn validate1(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
         match self.validate(value) {
+            // If errors, extract messages and return them
             Err(messages) =>
                 Err(messages.into_iter().map(|(_, message)| message).collect()),
             Ok(_) => Ok(()),

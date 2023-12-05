@@ -2,11 +2,11 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, NumberValue, ValidationErrTuple};
+use crate::{ConstraintViolation, ScalarValue, ValidationErrTuple, value_missing_msg, ValueMissingCallback, WithName};
 
 pub type NumMissingViolationCallback<T> = dyn Fn(&NumberInput<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
-pub fn range_underflow_msg<T: NumberValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
+pub fn range_underflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
     format!(
         "`{:}` is less than minimum `{:}`.",
         x.unwrap(),
@@ -14,7 +14,7 @@ pub fn range_underflow_msg<T: NumberValue>(rules: &NumberInput<T>, x: Option<T>)
     )
 }
 
-pub fn range_overflow_msg<T: NumberValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
+pub fn range_overflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
     format!(
         "`{:}` is greater than maximum `{:}`.",
         x.unwrap(),
@@ -22,18 +22,7 @@ pub fn range_overflow_msg<T: NumberValue>(rules: &NumberInput<T>, x: Option<T>) 
     )
 }
 
-pub fn step_mismatch_msg<T: NumberValue>(
-    rules: &NumberInput<T>,
-    x: Option<T>,
-) -> String {
-    format!(
-        "`{:}` is not divisible by `{:}`.",
-        x.unwrap(),
-        &rules.step.unwrap()
-    )
-}
-
-pub fn num_not_equal_msg<T: NumberValue>(
+pub fn num_not_equal_msg<T: ScalarValue>(
     rules: &NumberInput<T>,
     x: Option<T>,
 ) -> String {
@@ -44,13 +33,13 @@ pub fn num_not_equal_msg<T: NumberValue>(
     )
 }
 
-pub fn num_missing_msg<T: NumberValue>(_: &NumberInput<T>, _: Option<T>) -> String {
+pub fn num_missing_msg<T: ScalarValue>(_: &NumberInput<T>, _: Option<T>) -> String {
     "Value is missing.".to_string()
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct NumberInput<'a, T: NumberValue> {
+pub struct NumberInput<'a, T: ScalarValue> {
     #[builder(default = "true")]
     pub break_on_failure: bool,
 
@@ -65,18 +54,16 @@ pub struct NumberInput<'a, T: NumberValue> {
     pub max: Option<T>,
 
     #[builder(default = "None")]
-    pub step: Option<T>,
-
-    #[builder(default = "None")]
     pub equal: Option<T>,
 
     #[builder(default = "false")]
     pub required: bool,
 
     #[builder(default = "None")]
-    pub validators: Option<Vec<&'a Validator<T>>>,
+    pub default_value: Option<T>,
 
-    // @todo Add support for `io_validators` (e.g., validators that return futures).
+    #[builder(default = "None")]
+    pub validators: Option<Vec<&'a Validator<T>>>,
 
     #[builder(default = "None")]
     pub filters: Option<Vec<&'a Filter<Option<T>>>>,
@@ -87,18 +74,15 @@ pub struct NumberInput<'a, T: NumberValue> {
     #[builder(default = "&range_overflow_msg")]
     pub range_overflow: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
 
-    #[builder(default = "&step_mismatch_msg")]
-    pub step_mismatch: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
-
     #[builder(default = "&num_not_equal_msg")]
     pub not_equal: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
 
-    #[builder(default = "&num_missing_msg")]
-    pub value_missing: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
+    #[builder(default = "&value_missing_msg")]
+    pub value_missing: &'a ValueMissingCallback,
 }
 
 impl<'a, T> NumberInput<'a, T>
-    where T: NumberValue
+    where T: ScalarValue
 {
     pub fn new(name: Option<&'a str>) -> Self {
         NumberInput {
@@ -108,17 +92,17 @@ impl<'a, T> NumberInput<'a, T>
             max: None,
             equal: None,
             required: false,
+            default_value: None,
             validators: None,
             filters: None,
             range_underflow: &(range_underflow_msg),
             range_overflow: &(range_overflow_msg),
             not_equal: &(num_not_equal_msg),
-            value_missing: &num_missing_msg,
-            step: None,
-            step_mismatch: &(step_mismatch_msg),
+            value_missing: &value_missing_msg,
         }
     }
-    fn validate_custom(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+
+    fn _validate_against_self(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
         let mut errs = vec![];
 
         // Test lower bound
@@ -157,61 +141,126 @@ impl<'a, T> NumberInput<'a, T>
             }
         }
 
-        // Test Step
-        if let Some(step) = self.step {
-            if step != Default::default() && value % step != Default::default() {
-                errs.push((
-                    ConstraintViolation::StepMismatch,
-                    (&self.step_mismatch)(self, Some(value))
-                ));
-
-                if self.break_on_failure { return Err(errs); }
-            }
-        }
-
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
+    fn _validate_against_validators(&self, value: T, validators: Option<&[&'a Validator<T>]>) -> Result<(), Vec<ValidationErrTuple>> {
+        validators.map(|vs| {
+
+            // If not break on failure then capture all validation errors.
+            if !self.break_on_failure {
+                return vs.iter().fold(
+                    Vec::<ValidationErrTuple>::new(),
+                    |mut agg, f| match (f)(value) {
+                        Err(mut message_tuples) => {
+                            agg.append(message_tuples.as_mut());
+                            agg
+                        }
+                        _ => agg,
+                    });
+            }
+
+            // Else break on, and capture, first failure.
+            let mut agg = Vec::<ValidationErrTuple>::new();
+            for f in vs.iter() {
+                if let Err(mut message_tuples) = (f)(value) {
+                    agg.append(message_tuples.as_mut());
+                    break;
+                }
+            }
+            agg
+        })
+            .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
+            .map_or(Ok(()), Err)
+    }
 }
 
 impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
-    where T: NumberValue
-{
-    fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
-        todo!()
-    }
-
-    fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-        todo!()
-    }
-
-    fn filter(&self, value: Option<T>) -> Option<T> {
-        match self.filters.as_deref() {
-            None => value,
-            Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
+    where T: ScalarValue + Copy {
+    fn validate(&self, value: Option<T>) ->  Result<(), Vec<ValidationErrTuple>> {
+        match value {
+            None => {
+                if self.required {
+                    Err(vec![(
+                        ConstraintViolation::ValueMissing,
+                        (&self.value_missing)(self),
+                    )])
+                } else {
+                    Ok(())
+                }
+            }
+            // Else if value is populated validate it
+            Some(v) => match self._validate_against_self(v) {
+                Ok(_) => self._validate_against_validators(v, self.validators.as_deref()),
+                Err(messages1) => if self.break_on_failure {
+                    Err(messages1)
+                } else {
+                    match self._validate_against_validators(v, self.validators.as_deref()) {
+                        Ok(_) => Ok(()),
+                        Err(mut messages2) => {
+                            let mut agg = messages1;
+                            agg.append(messages2.as_mut());
+                            Err(agg)
+                        }
+                    }
+                }
+            },
         }
     }
 
+    fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+        match self.validate(value) {
+            // If errors, extract messages and return them
+            Err(messages) =>
+                Err(messages.into_iter().map(|(_, message)| message).collect()),
+            Ok(_) => Ok(()),
+        }
+    }
+
+    fn filter(&self, value: Option<T>) -> Option<T> {
+        let v = match value {
+            None => self.default_value.map(|x| x.into()),
+            Some(x) => Some(x)
+        };
+
+        match self.filters.as_deref() {
+            None => v,
+            Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
+        }
+    }
+
+    // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
+    //      since we really don't want to use filtered values without them being valid/etc.)
     fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ValidationErrTuple>> {
         self.validate(x).map(|_| self.filter(x))
     }
 
     fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
-        todo!()
+        match self.validate_and_filter(x) {
+            Err(messages) =>
+                Err(messages.into_iter().map(|(_, message)| message).collect()),
+            Ok(filtered) => Ok(filtered),
+        }
     }
 }
 
-impl<T: NumberValue> Default for NumberInput<'_, T> {
+impl<'a, T: ScalarValue> WithName<'a> for NumberInput<'a, T> {
+    fn get_name(&self) -> Option<Cow<'a, str>> {
+        self.name.map(|xs| Cow::Borrowed(xs))
+    }
+}
+
+impl<T: ScalarValue> Default for NumberInput<'_, T> {
     fn default() -> Self {
         Self::new(None)
     }
 }
 
-impl<T: NumberValue> Display for NumberInput<'_, T> {
+impl<T: ScalarValue> Display for NumberInput<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StrInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
+            "ScalarInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
             self.name.unwrap_or("None"),
             self.required,
             self
@@ -228,7 +277,7 @@ impl<T: NumberValue> Display for NumberInput<'_, T> {
     }
 }
 
-impl<T: NumberValue> Debug for NumberInput<'_, T> {
+impl<T: ScalarValue> Debug for NumberInput<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self)
     }

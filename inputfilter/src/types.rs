@@ -29,7 +29,30 @@ impl InputValue for str {}
 
 impl InputValue for &str {}
 
-pub trait NumberValue: InputValue + Default + Copy + Add + Sub + Mul + Div + Rem<Output = Self> {}
+pub trait ScalarValue: InputValue + Default + Copy {}
+
+impl ScalarValue for i8 {}
+impl ScalarValue for i16 {}
+impl ScalarValue for i32 {}
+impl ScalarValue for i64 {}
+impl ScalarValue for i128 {}
+impl ScalarValue for isize {}
+
+impl ScalarValue for u8 {}
+impl ScalarValue for u16 {}
+impl ScalarValue for u32 {}
+impl ScalarValue for u64 {}
+impl ScalarValue for u128 {}
+impl ScalarValue for usize {}
+
+impl ScalarValue for f32 {}
+impl ScalarValue for f64 {}
+
+impl ScalarValue for bool {}
+
+impl ScalarValue for char {}
+
+pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
 impl NumberValue for i8 {}
 impl NumberValue for i16 {}
