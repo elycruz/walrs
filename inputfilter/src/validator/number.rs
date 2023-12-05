@@ -36,7 +36,7 @@ pub struct NumberValidator<'a, T: NumberValue> {
   #[builder(default = "&step_mismatch_msg")]
   pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
-  #[builder(default = "&not_equal_msg")]
+  #[builder(default = "&num_not_equal_msg")]
   pub not_equal: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 }
 
@@ -97,7 +97,7 @@ where
       range_underflow: &range_underflow_msg,
       range_overflow: &range_overflow_msg,
       step_mismatch: &step_mismatch_msg,
-      not_equal: &not_equal_msg,
+      not_equal: &num_not_equal_msg,
     }
   }
 }
@@ -135,10 +135,6 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
 
     if let Some(step) = self.step {
       attrs.push(("step".to_string(), to_json_value(step).unwrap()));
-    }
-
-    if let Some(equal) = self.equal {
-      attrs.push(("pattern".to_string(), to_json_value(equal).unwrap()));
     }
 
     if attrs.is_empty() {
@@ -242,7 +238,7 @@ pub fn step_mismatch_msg<T: NumberValue>(
   )
 }
 
-pub fn not_equal_msg<T: NumberValue>(
+pub fn num_not_equal_msg<T: NumberValue>(
   rules: &NumberValidator<T>,
   x: T,
 ) -> String {
@@ -299,7 +295,7 @@ mod test {
                  step_mismatch_msg(&instance, test_value));
 
       assert_eq!((instance.not_equal)(&instance, test_value),
-                 not_equal_msg(&instance, test_value));
+                 num_not_equal_msg(&instance, test_value));
     }
 
     Ok(())
@@ -377,7 +373,7 @@ mod test {
         Err(_enum) => {
           let err_msg_tuple = match _enum {
             StepMismatch => (StepMismatch, step_mismatch_msg(&validator, value)),
-            NotEqual => (NotEqual, not_equal_msg(&validator, value)),
+            NotEqual => (NotEqual, num_not_equal_msg(&validator, value)),
             RangeUnderflow => (RangeUnderflow, range_underflow_msg(&validator, value)),
             RangeOverflow => (RangeOverflow, range_overflow_msg(&validator, value)),
             _ => panic!("Unknown enum variant encountered")
