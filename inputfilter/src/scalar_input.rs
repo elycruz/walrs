@@ -219,7 +219,7 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
 
     fn filter(&self, value: Option<T>) -> Option<T> {
         let v = match value {
-            None => self.default_value.map(|x| x),
+            None => self.default_value,
             Some(x) => Some(x)
         };
 

@@ -77,12 +77,12 @@ mod test {
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
     let instance = EqualityValidatorBuilder::<&str>::default()
-      .rhs_value("foo".into())
+      .rhs_value("foo")
       .build()?;
 
     assert_eq!(instance.rhs_value, "foo");
 
-    assert_eq!((&instance.not_equal_msg)(&instance, "foo"),
+    assert_eq!((instance.not_equal_msg)(&instance, "foo"),
                not_equal_msg(&instance, "foo"),
     "Default 'not_equal_msg' fn should return expected value");
 
@@ -104,14 +104,14 @@ mod test {
 
       if should_be_ok {
         assert!(validator.validate(lhs_value).is_ok());
-        assert!((&validator)(lhs_value).is_ok());
+        assert!(validator(lhs_value).is_ok());
       } else {
         assert_eq!(
           validator.validate(lhs_value),
           Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
         );
         assert_eq!(
-          (&validator)(lhs_value),
+          validator(lhs_value),
           Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
         );
       }

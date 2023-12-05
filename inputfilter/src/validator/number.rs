@@ -289,16 +289,16 @@ mod test {
       // ----
       let test_value = 99;
 
-      assert_eq!((&instance.range_overflow)(&instance, test_value),
+      assert_eq!((instance.range_overflow)(&instance, test_value),
                  range_overflow_msg(&instance, test_value));
 
-      assert_eq!((&instance.range_underflow)(&instance, test_value),
+      assert_eq!((instance.range_underflow)(&instance, test_value),
                  range_underflow_msg(&instance, test_value));
 
-      assert_eq!((&instance.step_mismatch)(&instance, test_value),
+      assert_eq!((instance.step_mismatch)(&instance, test_value),
                  step_mismatch_msg(&instance, test_value));
 
-      assert_eq!((&instance.not_equal)(&instance, test_value),
+      assert_eq!((instance.not_equal)(&instance, test_value),
                  not_equal_msg(&instance, test_value));
     }
 

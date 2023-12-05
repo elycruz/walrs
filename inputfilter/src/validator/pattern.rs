@@ -133,10 +133,10 @@ mod test {
     let _rx = Regex::new(r"^\w{2,55}$")?;
 
     fn on_custom_pattern_mismatch(_: &PatternValidator, _: &str) -> String {
-      return "custom pattern mismatch err message".into()
+      "custom pattern mismatch err message".into()
     }
 
-    for (name, instance, passingValue, failingValue, err_callback) in [
+    for (name, instance, passingValue, failingValue, _err_callback) in [
       ("Default", PatternValidatorBuilder::default()
           .pattern(Cow::Owned(_rx.clone()))
           .build()?, "abc", "!@#)(*", &pattern_mismatch_msg),

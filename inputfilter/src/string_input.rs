@@ -493,7 +493,7 @@ mod test {
 
         // Mismatch check
         let value = "1000-99-999";
-        match yyyy_mm_dd_input.validate(Some(&value)) {
+        match yyyy_mm_dd_input.validate(Some(value)) {
             Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
             Err(tuples) => {
                 assert_eq!(tuples[0].0, PatternMismatch);
@@ -509,14 +509,14 @@ mod test {
 
         // Valid check 2
         let value = "1000-99-99";
-        match yyyy_mm_dd_input.validate(Some(&value)) {
+        match yyyy_mm_dd_input.validate(Some(value)) {
             Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
             Ok(()) => (),
         }
 
         // Valid check
         let value = "1000-99-99";
-        match yyyy_mm_dd_input2.validate(Some(&value)) {
+        match yyyy_mm_dd_input2.validate(Some(value)) {
             Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
             Ok(()) => (),
         }
@@ -550,7 +550,7 @@ mod test {
                 },
             );
 
-        let handle2 = thread::spawn(move || match str_input_instance.validate(Some(&"")) {
+        let handle2 = thread::spawn(move || match str_input_instance.validate(Some("")) {
             Err(x) => {
                 assert_eq!(
                     x[0].1.as_str(),
@@ -631,7 +631,7 @@ mod test {
                 },
             );
 
-            scope.spawn(|| match ymd_check_input_instance.validate(Some(&"")) {
+            scope.spawn(|| match ymd_check_input_instance.validate(Some("")) {
                 Err(x) => {
                     assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
                 }
@@ -639,7 +639,7 @@ mod test {
             });
 
             scope.spawn(|| {
-                if let Err(_err_tuple) = ymd_check_input_instance.validate(Some(&"2013-08-31")) {
+                if let Err(_err_tuple) = ymd_check_input_instance.validate(Some("2013-08-31")) {
                     panic!("Expected `Ok(());  Received Err(...)`")
                 }
             });
