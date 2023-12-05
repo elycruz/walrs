@@ -166,7 +166,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if !self.break_on_failure {
                 return vs.iter().fold(
                     Vec::<ValidationErrTuple>::new(),
-                    |mut agg, f| match (f)(value) {
+                    |mut agg, f| match f(value) {
                         Err(mut message_tuples) => {
                             agg.append(message_tuples.as_mut());
                             agg
@@ -178,7 +178,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             // Else break on, and capture, first failure.
             let mut agg = Vec::<ValidationErrTuple>::new();
             for f in vs.iter() {
-                if let Err(mut message_tuples) = (f)(value) {
+                if let Err(mut message_tuples) = f(value) {
                     agg.append(message_tuples.as_mut());
                     break;
                 }

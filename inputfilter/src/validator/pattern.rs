@@ -136,7 +136,7 @@ mod test {
       "custom pattern mismatch err message".into()
     }
 
-    for (name, instance, passingValue, failingValue, _err_callback) in [
+    for (name, instance, passing_value, failing_value, _err_callback) in [
       ("Default", PatternValidatorBuilder::default()
           .pattern(Cow::Owned(_rx.clone()))
           .build()?, "abc", "!@#)(*", &pattern_mismatch_msg),
@@ -154,15 +154,15 @@ mod test {
       println!("{}", name);
 
       // Test as an `Fn*` trait
-      assert_eq!((&instance)(passingValue), Ok(()));
-      assert_eq!((&instance)(failingValue), Err(vec![
-        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      assert_eq!((&instance)(passing_value), Ok(()));
+      assert_eq!((&instance)(failing_value), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failing_value))
       ]));
 
       // Test `validate` method directly
-      assert_eq!(instance.validate(passingValue), Ok(()));
-      assert_eq!(instance.validate(failingValue), Err(vec![
-        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failingValue))
+      assert_eq!(instance.validate(passing_value), Ok(()));
+      assert_eq!(instance.validate(failing_value), Err(vec![
+        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failing_value))
       ]));
     }
 

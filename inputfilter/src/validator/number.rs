@@ -85,7 +85,7 @@ where
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
 
-    f.map(|_f| (_f)(self, value)).unwrap()
+    f.map(|_f| _f(self, value)).unwrap()
   }
 
   pub fn new() -> Self {
@@ -260,7 +260,7 @@ mod test {
   fn test_construction() -> Result<(), Box<dyn Error>> {
     // Assert all property states for difference construction scenarios
     // ----
-    for (testName, instance, min, max, step, equal) in [
+    for (test_name, instance, min, max, step, equal) in [
       ("Default", NumberValidatorBuilder::<usize>::default()
           .build()?, None, None, None, None),
       ("With Range", NumberValidatorBuilder::<usize>::default()
@@ -274,7 +274,7 @@ mod test {
            .step(5)
            .build()?, None, None, Some(5), None),
     ] {
-      println!("\"{}\" test {:}", testName, &instance);
+      println!("\"{}\" test {:}", test_name, &instance);
 
       assert_eq!(instance.min, min);
       assert_eq!(instance.max, max);

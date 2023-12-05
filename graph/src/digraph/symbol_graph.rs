@@ -733,7 +733,7 @@ mod test {
     let mut reader = BufReader::new(f);
 
     // Create graph
-    let dg: DisymGraph = (&mut reader).into();
+    let _: DisymGraph = (&mut reader).into();
 
     // println!("{:?}", dg);
 

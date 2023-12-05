@@ -986,7 +986,7 @@ impl From<AclData> for Acl {
 
 impl<'a> From<&'a mut File> for Acl {
   fn from(file: &mut File) -> Self {
-    (AclData::from(file)).into()
+    AclData::from(file).into()
   }
 }
 
