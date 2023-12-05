@@ -22,7 +22,7 @@ pub fn range_overflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) 
     )
 }
 
-pub fn num_not_equal_msg<T: ScalarValue>(
+pub fn scalar_not_equal_msg<T: ScalarValue>(
     rules: &NumberInput<T>,
     x: Option<T>,
 ) -> String {
@@ -31,10 +31,6 @@ pub fn num_not_equal_msg<T: ScalarValue>(
         x.unwrap(),
         &rules.equal.unwrap()
     )
-}
-
-pub fn num_missing_msg<T: ScalarValue>(_: &NumberInput<T>, _: Option<T>) -> String {
-    "Value is missing.".to_string()
 }
 
 #[derive(Builder, Clone)]
@@ -74,7 +70,7 @@ pub struct NumberInput<'a, T: ScalarValue> {
     #[builder(default = "&range_overflow_msg")]
     pub range_overflow: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
 
-    #[builder(default = "&num_not_equal_msg")]
+    #[builder(default = "&scalar_not_equal_msg")]
     pub not_equal: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
 
     #[builder(default = "&value_missing_msg")]
@@ -97,7 +93,7 @@ impl<'a, T> NumberInput<'a, T>
             filters: None,
             range_underflow: &(range_underflow_msg),
             range_overflow: &(range_overflow_msg),
-            not_equal: &(num_not_equal_msg),
+            not_equal: &(scalar_not_equal_msg),
             value_missing: &value_missing_msg,
         }
     }

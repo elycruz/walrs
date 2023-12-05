@@ -214,7 +214,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let str_input = StringInputBuilder::default()
     ///  .required(true)
-    ///  .value_missing(&|_, _| "Value missing".to_string())
+    ///  .value_missing(&|_| "Value missing".to_string())
     ///  .min_length(3usize)
     ///  .too_short(&|_, _| "Too short".to_string())
     ///  .max_length(200usize) // Default violation message callback used here.
@@ -275,7 +275,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|_, _| "Value missing".to_string())
+    ///   .value_missing(&|_| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
@@ -328,7 +328,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|_, _| "Value missing".to_string())
+    ///   .value_missing(&|_| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
@@ -389,10 +389,6 @@ impl Debug for StringInput<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self)
     }
-}
-
-pub fn str_missing_msg(_: &StringInput, _: Option<&str>) -> String {
-    "Value is missing.".to_string()
 }
 
 #[cfg(test)]
