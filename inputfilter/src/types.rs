@@ -72,10 +72,8 @@ pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub type ValueMissingCallback<RulesStruct> = dyn Fn(RulesStruct) -> ViolationMessage + Send + Sync;
-
 pub trait WithName<'a> {
-  fn get_name() -> Option<Cow<'a, str>>;
+  fn get_name(&self) -> Option<Cow<'a, str>>;
 }
 
 pub trait ValidateValue<T: InputValue> {
@@ -86,22 +84,24 @@ pub trait FilterValue<T: InputValue> {
   fn filter(&self, value: T) -> T;
 }
 
-pub trait ToAttributesList {
-  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
-    None
-  }
-}
+pub type ValueMissingCallback = dyn Fn(&dyn WithName) -> ViolationMessage + Send + Sync;
 
 pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
-  where T: InputValue + ?Sized {
+  where T: InputValue {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>>;
 
   fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
 
-  fn filter(&self, value: FT) -> FT;
+  fn filter(&self, value: Option<FT>) -> Option<FT>;
 
   fn validate_and_filter(&self, x: Option<T>) -> Result<Option<FT>, Vec<ValidationErrTuple>>;
 
   fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
+}
+
+pub trait ToAttributesList {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    None
+  }
 }

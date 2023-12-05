@@ -12,7 +12,7 @@ pub type ValueMissingViolationCallback<T> =
 #[builder(pattern = "owned")]
 pub struct Input<'a, 'b, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   #[builder(default = "true")]
   pub break_on_failure: bool,
@@ -38,7 +38,7 @@ where
 
 impl<'a, 'b, T> Input<'a, 'b, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   pub fn new(name: Option<&'a str>) -> Self {
     Input {
@@ -56,7 +56,7 @@ where
   }
 }
 
-impl<'a, 'b, T: InputValue + ?Sized, FT> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T> {
+impl<'a, 'b, T: InputValue, FT: 'b> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T> {
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
     todo!()
   }
@@ -65,7 +65,7 @@ impl<'a, 'b, T: InputValue + ?Sized, FT> InputConstraints<'a, 'b, T, FT> for Inp
     todo!()
   }
 
-  fn filter(&self, value: FT) -> FT {
+  fn filter(&self, value: Option<FT>) -> Option<FT> {
     todo!()
   }
 
@@ -78,13 +78,13 @@ impl<'a, 'b, T: InputValue + ?Sized, FT> InputConstraints<'a, 'b, T, FT> for Inp
   }
 }
 
-impl<T: InputValue + ?Sized> Default for Input<'_, '_, T> {
+impl<T: InputValue> Default for Input<'_, '_, T> {
   fn default() -> Self {
     Self::new(None)
   }
 }
 
-impl<T: InputValue + ?Sized> Display for Input<'_, '_, T> {
+impl<T: InputValue> Display for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -101,13 +101,13 @@ impl<T: InputValue + ?Sized> Display for Input<'_, '_, T> {
   }
 }
 
-impl<T: InputValue + ?Sized> Debug for Input<'_, '_, T> {
+impl<T: InputValue> Debug for Input<'_, '_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
 }
 
-pub fn value_missing_msg<T: InputValue + ?Sized>(_: &Input<T>, _: Option<&T>) -> String {
+pub fn value_missing_msg<T: InputValue>(_: &Input<T>, _: Option<&T>) -> String {
   "Value is missing.".to_string()
 }
 

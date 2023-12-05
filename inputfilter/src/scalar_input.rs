@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{ConstraintViolation, NumberValue, ValidationErrTuple};
 
-pub type NumMissingViolationCallback<T: NumberValue> = dyn Fn(&NumberInput<T>, Option<T>) -> ViolationMessage + Send + Sync;
+pub type NumMissingViolationCallback<T> = dyn Fn(&NumberInput<T>, Option<T>) -> ViolationMessage + Send + Sync;
 
 pub fn range_underflow_msg<T: NumberValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
     format!(
@@ -79,7 +79,7 @@ pub struct NumberInput<'a, T: NumberValue> {
     // @todo Add support for `io_validators` (e.g., validators that return futures).
 
     #[builder(default = "None")]
-    pub filters: Option<Vec<&'a Filter<T>>>,
+    pub filters: Option<Vec<&'a Filter<Option<T>>>>,
 
     #[builder(default = "&range_underflow_msg")]
     pub range_underflow: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
@@ -185,8 +185,11 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
         todo!()
     }
 
-    fn filter(&self, value: T) -> T {
-        todo!()
+    fn filter(&self, value: Option<T>) -> Option<T> {
+        match self.filters.as_deref() {
+            None => value,
+            Some(fs) => fs.iter().fold(value, |agg, f| (f)(agg)),
+        }
     }
 
     fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ValidationErrTuple>> {
