@@ -4,9 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{ConstraintViolation, ScalarValue, ValidationErrTuple, value_missing_msg, ValueMissingCallback, WithName};
 
-pub type NumMissingViolationCallback<T> = dyn Fn(&NumberInput<T>, Option<T>) -> ViolationMessage + Send + Sync;
-
-pub fn range_underflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
+pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: Option<T>) -> String {
     format!(
         "`{:}` is less than minimum `{:}`.",
         x.unwrap(),
@@ -14,7 +12,7 @@ pub fn range_underflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>)
     )
 }
 
-pub fn range_overflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) -> String {
+pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: Option<T>) -> String {
     format!(
         "`{:}` is greater than maximum `{:}`.",
         x.unwrap(),
@@ -23,7 +21,7 @@ pub fn range_overflow_msg<T: ScalarValue>(rules: &NumberInput<T>, x: Option<T>) 
 }
 
 pub fn scalar_not_equal_msg<T: ScalarValue>(
-    rules: &NumberInput<T>,
+    rules: &ScalarInput<T>,
     x: Option<T>,
 ) -> String {
     format!(
@@ -35,7 +33,7 @@ pub fn scalar_not_equal_msg<T: ScalarValue>(
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct NumberInput<'a, T: ScalarValue> {
+pub struct ScalarInput<'a, T: ScalarValue> {
     #[builder(default = "true")]
     pub break_on_failure: bool,
 
@@ -65,23 +63,23 @@ pub struct NumberInput<'a, T: ScalarValue> {
     pub filters: Option<Vec<&'a Filter<Option<T>>>>,
 
     #[builder(default = "&range_underflow_msg")]
-    pub range_underflow: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
+    pub range_underflow: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
 
     #[builder(default = "&range_overflow_msg")]
-    pub range_overflow: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
+    pub range_overflow: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
 
     #[builder(default = "&scalar_not_equal_msg")]
-    pub not_equal: &'a (dyn Fn(&NumberInput<'a, T>, Option<T>) -> String + Send + Sync),
+    pub not_equal: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
 
     #[builder(default = "&value_missing_msg")]
     pub value_missing: &'a ValueMissingCallback,
 }
 
-impl<'a, T> NumberInput<'a, T>
+impl<'a, T> ScalarInput<'a, T>
     where T: ScalarValue
 {
     pub fn new(name: Option<&'a str>) -> Self {
-        NumberInput {
+        ScalarInput {
             break_on_failure: false,
             name,
             min: None,
@@ -171,7 +169,7 @@ impl<'a, T> NumberInput<'a, T>
     }
 }
 
-impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
+impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
     where T: ScalarValue + Copy {
     fn validate(&self, value: Option<T>) ->  Result<(), Vec<ValidationErrTuple>> {
         match value {
@@ -240,19 +238,19 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for NumberInput<'a, T>
     }
 }
 
-impl<'a, T: ScalarValue> WithName<'a> for NumberInput<'a, T> {
+impl<'a, T: ScalarValue> WithName<'a> for ScalarInput<'a, T> {
     fn get_name(&self) -> Option<Cow<'a, str>> {
         self.name.map(Cow::Borrowed)
     }
 }
 
-impl<T: ScalarValue> Default for NumberInput<'_, T> {
+impl<T: ScalarValue> Default for ScalarInput<'_, T> {
     fn default() -> Self {
         Self::new(None)
     }
 }
 
-impl<T: ScalarValue> Display for NumberInput<'_, T> {
+impl<T: ScalarValue> Display for ScalarInput<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
@@ -273,7 +271,7 @@ impl<T: ScalarValue> Display for NumberInput<'_, T> {
     }
 }
 
-impl<T: ScalarValue> Debug for NumberInput<'_, T> {
+impl<T: ScalarValue> Debug for ScalarInput<'_, T> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self)
     }
