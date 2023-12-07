@@ -482,9 +482,8 @@ mod test {
             .build()?;
 
         // Missing value check
-        match less_than_1990_input.validate(None) {
-            Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-            Ok(()) => (),
+        if let Err(errs) = less_than_1990_input.validate(None) {
+            panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         // Mismatch check
@@ -498,23 +497,20 @@ mod test {
         }
 
         // Valid check
-        match yyyy_mm_dd_input.validate(None) {
-            Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-            Ok(()) => (),
+        if let Err(errs) = yyyy_mm_dd_input.validate(None) {
+            panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         // Valid check 2
         let value = "1000-99-99";
-        match yyyy_mm_dd_input.validate(Some(value)) {
-            Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-            Ok(()) => (),
+        if let Err(errs) = yyyy_mm_dd_input.validate(Some(value)) {
+            panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         // Valid check
         let value = "1000-99-99";
-        match yyyy_mm_dd_input2.validate(Some(value)) {
-            Err(errs) => panic!("Expected Ok(());  Received Err({:#?})", &errs),
-            Ok(()) => (),
+        if let Err(errs) = yyyy_mm_dd_input2.validate(Some(value)) {
+            panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         Ok(())
