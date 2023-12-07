@@ -159,8 +159,8 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
-    fn _validate_against_validators(&self, value: &'b str, validators: Option<&[&'a Validator<&'b str>]>) -> Result<(), Vec<ValidationErrTuple>> {
-        validators.map(|vs| {
+    fn _validate_against_validators(&self, value: &'b str) -> Result<(), Vec<ValidationErrTuple>> {
+        self.validators.as_deref().map(|vs| {
 
             // If not break on failure then capture all validation errors.
             if !self.break_on_failure {
@@ -250,11 +250,11 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
             }
             // Else if value is populated validate it
             Some(v) => match self._validate_against_self(v) {
-                Ok(_) => self._validate_against_validators(v, self.validators.as_deref()),
+                Ok(_) => self._validate_against_validators(v),
                 Err(messages1) => if self.break_on_failure {
                     Err(messages1)
                 } else {
-                    match self._validate_against_validators(v, self.validators.as_deref()) {
+                    match self._validate_against_validators(v) {
                         Ok(_) => Ok(()),
                         Err(mut messages2) => {
                             let mut agg = messages1;

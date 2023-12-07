@@ -138,8 +138,8 @@ impl<'a, T> ScalarInput<'a, T>
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
-    fn _validate_against_validators(&self, value: T, validators: Option<&[&'a Validator<T>]>) -> Result<(), Vec<ValidationErrTuple>> {
-        validators.map(|vs| {
+    fn _validate_against_validators(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+        self.validators.as_deref().map(|vs| {
 
             // If not break on failure then capture all validation errors.
             if !self.break_on_failure {
@@ -170,8 +170,8 @@ impl<'a, T> ScalarInput<'a, T>
 }
 
 impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
-    where T: ScalarValue + Copy {
-    fn validate(&self, value: Option<T>) ->  Result<(), Vec<ValidationErrTuple>> {
+    where T: ScalarValue {
+  fn validate(&self, value: Option<T>) ->  Result<(), Vec<ValidationErrTuple>> {
         match value {
             None => {
                 if self.required {
@@ -185,11 +185,11 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
             }
             // Else if value is populated validate it
             Some(v) => match self._validate_against_self(v) {
-                Ok(_) => self._validate_against_validators(v, self.validators.as_deref()),
+                Ok(_) => self._validate_against_validators(v),
                 Err(messages1) => if self.break_on_failure {
                     Err(messages1)
                 } else {
-                    match self._validate_against_validators(v, self.validators.as_deref()) {
+                    match self._validate_against_validators(v) {
                         Ok(_) => Ok(()),
                         Err(mut messages2) => {
                             let mut agg = messages1;

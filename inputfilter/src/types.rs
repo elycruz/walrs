@@ -109,7 +109,7 @@ pub trait FilterValue<T: InputValue> {
 
 pub type ValueMissingCallback = dyn Fn(&dyn WithName) -> ViolationMessage + Send + Sync;
 
-pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
+pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug + WithName<'a>
   where T: InputValue {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>>;
