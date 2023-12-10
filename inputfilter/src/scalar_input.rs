@@ -2,280 +2,466 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, ScalarValue, ValidationErrTuple, value_missing_msg, ValueMissingCallback, WithName};
+use crate::{
+  value_missing_msg, ConstraintViolation, ScalarValue, ValidationErrTuple, ValueMissingCallback,
+  WithName,
+};
 
-pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: Option<T>) -> String {
-    format!(
-        "`{:}` is less than minimum `{:}`.",
-        x.unwrap(),
-        &rules.min.unwrap()
-    )
+pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
+  format!(
+    "`{:}` is less than minimum `{:}`.",
+    x,
+    &rules.min.unwrap()
+  )
 }
 
-pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: Option<T>) -> String {
-    format!(
-        "`{:}` is greater than maximum `{:}`.",
-        x.unwrap(),
-        &rules.max.unwrap()
-    )
+pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
+  format!(
+    "`{:}` is greater than maximum `{:}`.",
+    x,
+    &rules.max.unwrap()
+  )
 }
 
-pub fn scalar_not_equal_msg<T: ScalarValue>(
-    rules: &ScalarInput<T>,
-    x: Option<T>,
-) -> String {
-    format!(
-        "`{:}` is not equal to `{:}`.",
-        x.unwrap(),
-        &rules.equal.unwrap()
-    )
+pub fn scalar_not_equal_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
+  format!(
+    "`{:}` is not equal to `{:}`.",
+    x,
+    &rules.equal.unwrap()
+  )
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct ScalarInput<'a, T: ScalarValue> {
-    #[builder(default = "true")]
-    pub break_on_failure: bool,
+  #[builder(default = "true")]
+  pub break_on_failure: bool,
 
-    /// @todo This should be an `Option<Cow<'a, str>>`, for compatibility.
-    #[builder(setter(into), default = "None")]
-    pub name: Option<&'a str>,
+  #[builder(setter(into), default = "None")]
+  pub name: Option<&'a str>,
 
-    #[builder(default = "None")]
-    pub min: Option<T>,
+  #[builder(default = "None")]
+  pub min: Option<T>,
 
-    #[builder(default = "None")]
-    pub max: Option<T>,
+  #[builder(default = "None")]
+  pub max: Option<T>,
 
-    #[builder(default = "None")]
-    pub equal: Option<T>,
+  #[builder(default = "None")]
+  pub equal: Option<T>,
 
-    #[builder(default = "false")]
-    pub required: bool,
+  #[builder(default = "false")]
+  pub required: bool,
 
-    #[builder(default = "None")]
-    pub default_value: Option<T>,
+  #[builder(default = "None")]
+  pub default_value: Option<T>,
 
-    #[builder(default = "None")]
-    pub validators: Option<Vec<&'a Validator<T>>>,
+  #[builder(default = "None")]
+  pub validators: Option<Vec<&'a Validator<T>>>,
 
-    #[builder(default = "None")]
-    pub filters: Option<Vec<&'a Filter<Option<T>>>>,
+  #[builder(default = "None")]
+  pub filters: Option<Vec<&'a Filter<Option<T>>>>,
 
-    #[builder(default = "&range_underflow_msg")]
-    pub range_underflow: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
+  #[builder(default = "&range_underflow_msg")]
+  pub range_underflow: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
-    #[builder(default = "&range_overflow_msg")]
-    pub range_overflow: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
+  #[builder(default = "&range_overflow_msg")]
+  pub range_overflow: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
-    #[builder(default = "&scalar_not_equal_msg")]
-    pub not_equal: &'a (dyn Fn(&ScalarInput<'a, T>, Option<T>) -> String + Send + Sync),
+  #[builder(default = "&scalar_not_equal_msg")]
+  pub not_equal: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
-    #[builder(default = "&value_missing_msg")]
-    pub value_missing: &'a ValueMissingCallback,
+  #[builder(default = "&value_missing_msg")]
+  pub value_missing: &'a ValueMissingCallback,
 }
 
 impl<'a, T> ScalarInput<'a, T>
-    where T: ScalarValue
+where
+  T: ScalarValue,
 {
-    pub fn new(name: Option<&'a str>) -> Self {
-        ScalarInput {
-            break_on_failure: false,
-            name,
-            min: None,
-            max: None,
-            equal: None,
-            required: false,
-            default_value: None,
-            validators: None,
-            filters: None,
-            range_underflow: &(range_underflow_msg),
-            range_overflow: &(range_overflow_msg),
-            not_equal: &(scalar_not_equal_msg),
-            value_missing: &value_missing_msg,
+  /// Returns a new instance containing defaults.
+  pub fn new(name: Option<&'a str>) -> Self {
+    ScalarInput {
+      break_on_failure: false,
+      name,
+      min: None,
+      max: None,
+      equal: None,
+      required: false,
+      default_value: None,
+      validators: None,
+      filters: None,
+      range_underflow: &(range_underflow_msg),
+      range_overflow: &(range_overflow_msg),
+      not_equal: &(scalar_not_equal_msg),
+      value_missing: &value_missing_msg,
+    }
+  }
+
+  pub fn fmap(&self, f: impl FnOnce(&Self) -> Self) -> Self {
+    f(self)
+  }
+
+  fn _run_own_validators_on(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+    let mut errs = vec![];
+
+    // Test lower bound
+    if let Some(min) = self.min {
+      if value < min {
+        errs.push((
+          ConstraintViolation::RangeUnderflow,
+          (self.range_underflow)(self, value),
+        ));
+
+        if self.break_on_failure {
+          return Err(errs);
         }
+      }
     }
 
-    fn _validate_against_self(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
-        let mut errs = vec![];
+    // Test upper bound
+    if let Some(max) = self.max {
+      if value > max {
+        errs.push((
+          ConstraintViolation::RangeOverflow,
+          (self.range_overflow)(self, value),
+        ));
 
-        // Test lower bound
-        if let Some(min) = self.min {
-            if value < min {
-                errs.push((
-                    ConstraintViolation::RangeUnderflow,
-                    (self.range_underflow)(self, Some(value)),
-                ));
-
-                if self.break_on_failure { return Err(errs); }
-            }
+        if self.break_on_failure {
+          return Err(errs);
         }
-
-        // Test upper bound
-        if let Some(max) = self.max {
-            if value > max {
-                errs.push((
-                    ConstraintViolation::TooLong,
-                    (self.range_overflow)(self, Some(value)),
-                ));
-
-                if self.break_on_failure { return Err(errs); }
-            }
-        }
-
-        // Test equality
-        if let Some(equal) = self.equal {
-            if value != equal {
-                errs.push((
-                    ConstraintViolation::NotEqual,
-                    (self.not_equal)(self, Some(value)),
-                ));
-
-                if self.break_on_failure { return Err(errs); }
-            }
-        }
-
-        if errs.is_empty() { Ok(()) } else { Err(errs) }
+      }
     }
 
-    fn _validate_against_validators(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
-        self.validators.as_deref().map(|vs| {
+    // Test equality
+    if let Some(equal) = self.equal {
+      if value != equal {
+        errs.push((
+          ConstraintViolation::NotEqual,
+          (self.not_equal)(self, value),
+        ));
 
-            // If not break on failure then capture all validation errors.
-            if !self.break_on_failure {
-                return vs.iter().fold(
-                    Vec::<ValidationErrTuple>::new(),
-                    |mut agg, f| match f(value) {
-                        Err(mut message_tuples) => {
-                            agg.append(message_tuples.as_mut());
-                            agg
-                        }
-                        _ => agg,
-                    });
-            }
+        if self.break_on_failure {
+          return Err(errs);
+        }
+      }
+    }
 
-            // Else break on, and capture, first failure.
-            let mut agg = Vec::<ValidationErrTuple>::new();
-            for f in vs.iter() {
-                if let Err(mut message_tuples) = f(value) {
-                    agg.append(message_tuples.as_mut());
-                    break;
+    if errs.is_empty() {
+      Ok(())
+    } else {
+      Err(errs)
+    }
+  }
+
+  fn _run_validators_on(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+    self
+      .validators
+      .as_deref()
+      .map(|vs| {
+        // If not break on failure then capture all validation errors.
+        if !self.break_on_failure {
+          return vs
+            .iter()
+            .fold(Vec::<ValidationErrTuple>::new(), |mut agg, f| {
+              match f(value) {
+                Err(mut message_tuples) => {
+                  agg.append(message_tuples.as_mut());
+                  agg
                 }
-            }
-            agg
-        })
-            .and_then(|messages| if messages.is_empty() { None } else { Some(messages) })
-            .map_or(Ok(()), Err)
-    }
+                _ => agg,
+              }
+            });
+        }
+
+        // Else break on, and capture, first failure.
+        let mut agg = Vec::<ValidationErrTuple>::new();
+        for f in vs.iter() {
+          if let Err(mut message_tuples) = f(value) {
+            agg.append(message_tuples.as_mut());
+            break;
+          }
+        }
+        agg
+      })
+      .and_then(|messages| {
+        if messages.is_empty() {
+          None
+        } else {
+          Some(messages)
+        }
+      })
+      .map_or(Ok(()), Err)
+  }
 }
 
 impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
-    where T: ScalarValue {
-  fn validate(&self, value: Option<T>) ->  Result<(), Vec<ValidationErrTuple>> {
-        match value {
-            None => {
-                if self.required {
-                    Err(vec![(
-                        ConstraintViolation::ValueMissing,
-                        (self.value_missing)(self),
-                    )])
-                } else {
-                    Ok(())
-                }
+where
+  T: ScalarValue,
+{
+  /// Validates given value against contained constraints.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   ScalarInput, InputConstraints, ConstraintViolation, ScalarInputBuilder,
+  ///   range_underflow_msg, range_overflow_msg,
+  ///   ScalarValue
+  /// };
+  /// use walrs_inputfilter::equal::not_equal_msg;
+  ///
+  /// ```
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
+    match value {
+      None => {
+        if self.required {
+          Err(vec![(
+            ConstraintViolation::ValueMissing,
+            (self.value_missing)(self),
+          )])
+        } else {
+          Ok(())
+        }
+      }
+      // Else if value is populated validate it
+      Some(v) =>
+        match self._run_own_validators_on(v) {
+          Ok(_) => self._run_validators_on(v),
+          Err(messages1) =>
+            if self.break_on_failure {
+              Err(messages1)
+            } else if let Err(mut messages2) = self._run_validators_on(v) {
+              let mut agg = messages1;
+              agg.append(messages2.as_mut());
+              Err(agg)
+            } else {
+              Err(messages1)
             }
-            // Else if value is populated validate it
-            Some(v) => match self._validate_against_self(v) {
-                Ok(_) => self._validate_against_validators(v),
-                Err(messages1) => if self.break_on_failure {
-                    Err(messages1)
-                } else {
-                    match self._validate_against_validators(v) {
-                        Ok(_) => Ok(()),
-                        Err(mut messages2) => {
-                            let mut agg = messages1;
-                            agg.append(messages2.as_mut());
-                            Err(agg)
-                        }
-                    }
-                }
-            },
         }
     }
+  }
 
-    fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-        match self.validate(value) {
-            // If errors, extract messages and return them
-            Err(messages) =>
-                Err(messages.into_iter().map(|(_, message)| message).collect()),
-            Ok(_) => Ok(()),
-        }
+  fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate(value) {
+      // If errors, extract messages and return them
+      Err(messages) => Err(messages.into_iter().map(|(_, message)| message).collect()),
+      Ok(_) => Ok(()),
     }
+  }
 
-    fn filter(&self, value: Option<T>) -> Option<T> {
-        let v = match value {
-            None => self.default_value,
-            Some(x) => Some(x)
-        };
+  fn filter(&self, value: Option<T>) -> Option<T> {
+    let v = match value {
+      None => self.default_value,
+      Some(x) => Some(x),
+    };
 
-        match self.filters.as_deref() {
-            None => v,
-            Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
-        }
+    match self.filters.as_deref() {
+      None => v,
+      Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
     }
+  }
 
-    // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
-    //      since we really don't want to use filtered values without them being valid/etc.)
-    fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ValidationErrTuple>> {
-        self.validate(x).map(|_| self.filter(x))
-    }
+  // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
+  //      since we really don't want to use filtered values without them being valid/etc.)
+  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ValidationErrTuple>> {
+    self.validate(x).map(|_| self.filter(x))
+  }
 
-    fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
-        match self.validate_and_filter(x) {
-            Err(messages) =>
-                Err(messages.into_iter().map(|(_, message)| message).collect()),
-            Ok(filtered) => Ok(filtered),
-        }
+  fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
+    match self.validate_and_filter(x) {
+      Err(messages) => Err(messages.into_iter().map(|(_, message)| message).collect()),
+      Ok(filtered) => Ok(filtered),
     }
+  }
 }
 
 impl<'a, T: ScalarValue> WithName<'a> for ScalarInput<'a, T> {
-    fn get_name(&self) -> Option<Cow<'a, str>> {
-        self.name.map(Cow::Borrowed)
-    }
+  fn get_name(&self) -> Option<Cow<'a, str>> {
+    self.name.map(Cow::Borrowed)
+  }
 }
 
 impl<T: ScalarValue> Default for ScalarInput<'_, T> {
-    fn default() -> Self {
-        Self::new(None)
-    }
+  fn default() -> Self {
+    Self::new(None)
+  }
 }
 
 impl<T: ScalarValue> Display for ScalarInput<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "ScalarInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
-            self.name.unwrap_or("None"),
-            self.required,
-            self
-                .validators
-                .as_deref()
-                .map(|vs| format!("Some([Validator; {}])", vs.len()))
-                .unwrap_or("None".to_string()),
-            self
-                .filters
-                .as_deref()
-                .map(|fs| format!("Some([Filter; {}])", fs.len()))
-                .unwrap_or("None".to_string()),
-        )
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(
+      f,
+      "ScalarInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
+      self.name.unwrap_or("None"),
+      self.required,
+      self
+        .validators
+        .as_deref()
+        .map(|vs| format!("Some([Validator; {}])", vs.len()))
+        .unwrap_or("None".to_string()),
+      self
+        .filters
+        .as_deref()
+        .map(|fs| format!("Some([Filter; {}])", fs.len()))
+        .unwrap_or("None".to_string()),
+    )
+  }
 }
 
 impl<T: ScalarValue> Debug for ScalarInput<'_, T> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", &self)
-    }
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    write!(f, "{}", &self)
+  }
 }
 
 #[cfg(test)]
-mod test {}
+mod test {
+  use super::*;
+  use crate::{ConstraintViolation, InputConstraints};
+
+  #[test]
+  fn test_validate() {
+    // Ensure each logic case in method is sound, and that method is callable for each scalar type:
+    // 1) Test method logic
+    // ----
+    let validate_is_even = |x: usize| if x % 2 != 0 {
+      Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
+    } else {
+      Ok(())
+    };
+
+    let usize_input_default = ScalarInputBuilder::<usize>::default()
+      .build()
+      .unwrap();
+
+    let usize_not_required = ScalarInputBuilder::<usize>::default()
+      .min(1)
+      .max(10)
+      .validators(vec![&validate_is_even])
+      .build()
+      .unwrap();
+
+    let usize_required = usize_not_required.fmap(|input| {
+      let mut new_input = input.clone();
+      new_input.required = true;
+      new_input
+    });
+
+    let usize_no_break_on_failure = usize_required.fmap(|input| {
+      let mut new_input = input.clone();
+      // new_input.validators.push(&|x: usize| if x % 2 != 0 {
+      //   Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
+      // } else {
+      //   Ok(())
+      // });
+      new_input.break_on_failure = true;
+      new_input
+    });
+
+    let test_cases = vec![
+      ("Default, with no value", &usize_input_default, None, Ok(())),
+      ("Default, with value", &usize_input_default, Some(1), Ok(())),
+
+      // Not required
+      // ----
+      ("1-10, Even, no value", &usize_not_required, None, Ok(())),
+      ("1-10, Even, with valid value", &usize_not_required, Some(2), Ok(())),
+      ("1-10, Even, with valid value (2)", &usize_not_required, Some(10), Ok(())),
+      ("1-10, Even, with invalid value", &usize_not_required, Some(0), Err(vec![
+        (ConstraintViolation::RangeUnderflow,
+         range_underflow_msg(&usize_not_required, 0))
+      ])),
+      ("1-10, Even, with invalid value(2)", &usize_not_required, Some(11), Err(vec![
+        (ConstraintViolation::RangeOverflow,
+         range_overflow_msg(&usize_not_required, 11)),
+      ])),
+      ("1-10, Even, with invalid value (3)", &usize_not_required, Some(7), Err(vec![
+        (ConstraintViolation::CustomError,
+         "Must be even".to_string()),
+      ])),
+      ("1-10, Even, with value value", &usize_not_required, Some(8), Ok(())),
+
+      // Required
+      // ----
+      ("1-10, Even, required, no value", &usize_required, None, Err(vec![
+        (ConstraintViolation::ValueMissing,
+         value_missing_msg(&usize_required)),
+      ])),
+      ("1-10, Even, required, with valid value", &usize_required, Some(2), Ok(())),
+      ("1-10, Even, required, with valid value (2)", &usize_required, Some(10), Ok(())),
+      ("1-10, Even, required, with invalid value", &usize_required, Some(0), Err(vec![
+        (ConstraintViolation::RangeUnderflow,
+         range_underflow_msg(&usize_required, 0)),
+      ])),
+      ("1-10, Even, required, with invalid value(2)", &usize_required, Some(11), Err(vec![
+        (ConstraintViolation::RangeOverflow,
+         range_overflow_msg(&usize_required, 11)),
+      ])),
+      ("1-10, Even, required, with invalid value (3)", &usize_required, Some(7), Err(vec![
+        (ConstraintViolation::CustomError,
+         "Must be even".to_string()),
+      ])),
+      ("1-10, Even, required, with value value", &usize_required, Some(8), Ok(())),
+      // ("1-10, Even, 'break-on-failure: true' false", &usize_no_break_on_failure, Some(7), Err(vec![
+      //   (ConstraintViolation::CustomError,
+      //    "Must be even".to_string()),
+      // ])),
+    ];
+
+    for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
+      println!("Case {}: {}", i + 1, test_name);
+
+      assert_eq!(input.validate(subj), expected);
+    }
+
+    // Test basic usage with other types
+    // ----
+    // Validates `f64`, and `f32` types
+    let f64_input_required = ScalarInputBuilder::<f64>::default()
+      .required(true)
+      .min(1.0)
+      .max(10.0)
+      .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
+        Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
+      } else {
+        Ok(())
+      }])
+      .build()
+      .unwrap();
+
+    assert_eq!(f64_input_required.validate(None), Err(vec![
+      (ConstraintViolation::ValueMissing,
+       value_missing_msg(&f64_input_required)),
+    ]));
+    assert_eq!(f64_input_required.validate(Some(2.0)), Ok(()));
+    assert_eq!(f64_input_required.validate(Some(11.0)), Err(vec![
+      (ConstraintViolation::RangeOverflow,
+       range_overflow_msg(&f64_input_required, 11.0)),
+    ]));
+
+    // Test `char` type usage
+    let char_input = ScalarInputBuilder::<char>::default()
+      .min('a')
+      .max('f')
+      .build()
+      .unwrap();
+
+    assert_eq!(char_input.validate(None), Ok(()));
+    assert_eq!(char_input.validate(Some('a')), Ok(()));
+    assert_eq!(char_input.validate(Some('f')), Ok(()));
+    assert_eq!(char_input.validate(Some('g')), Err(vec![
+      (ConstraintViolation::RangeOverflow,
+       "`g` is greater than maximum `f`.".to_string()),
+    ]));
+
+    // Test `equal` field usage
+    let char_input_equal = ScalarInputBuilder::<char>::default()
+      .equal('a')
+      .build()
+      .unwrap();
+
+    assert_eq!(char_input_equal.validate(None), Ok(()));
+    assert_eq!(char_input_equal.validate(Some('b')), Err(vec![
+      (ConstraintViolation::NotEqual,
+       "`b` is not equal to `a`.".to_string()),
+    ]));
+  }
+}
