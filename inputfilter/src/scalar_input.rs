@@ -255,8 +255,6 @@ where
     }
   }
 
-  // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
-  //      since we really don't want to use filtered values without them being valid/etc.)
   fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
     self.validate(x).map(|_| self.filter(x))
   }

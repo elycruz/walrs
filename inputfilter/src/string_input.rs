@@ -313,8 +313,6 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
         }
     }
 
-    // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
-    //      since we really don't want to use filtered values without them being valid/etc.)
     fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationTuple>> {
         self.validate(x).map(|_| self.filter(x.map(Cow::Borrowed)))
     }
