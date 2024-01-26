@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{
-  value_missing_msg, ConstraintViolation, ScalarValue, ValidationErrTuple, ValueMissingCallback,
+  value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback,
   WithName,
 };
 
@@ -97,18 +97,14 @@ where
     }
   }
 
-  pub fn fmap(&self, f: impl FnOnce(&Self) -> Self) -> Self {
-    f(self)
-  }
-
-  fn _run_own_validators_on(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+  fn _run_own_validators_on(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
     let mut errs = vec![];
 
     // Test lower bound
     if let Some(min) = self.min {
       if value < min {
         errs.push((
-          ConstraintViolation::RangeUnderflow,
+          ViolationEnum::RangeUnderflow,
           (self.range_underflow)(self, value),
         ));
 
@@ -122,7 +118,7 @@ where
     if let Some(max) = self.max {
       if value > max {
         errs.push((
-          ConstraintViolation::RangeOverflow,
+          ViolationEnum::RangeOverflow,
           (self.range_overflow)(self, value),
         ));
 
@@ -136,7 +132,7 @@ where
     if let Some(equal) = self.equal {
       if value != equal {
         errs.push((
-          ConstraintViolation::NotEqual,
+          ViolationEnum::NotEqual,
           (self.not_equal)(self, value),
         ));
 
@@ -153,7 +149,7 @@ where
     }
   }
 
-  fn _run_validators_on(&self, value: T) -> Result<(), Vec<ValidationErrTuple>> {
+  fn _run_validators_on(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
     self
       .validators
       .as_deref()
@@ -162,7 +158,7 @@ where
         if !self.break_on_failure {
           return vs
             .iter()
-            .fold(Vec::<ValidationErrTuple>::new(), |mut agg, f| {
+            .fold(Vec::<ViolationTuple>::new(), |mut agg, f| {
               match f(value) {
                 Err(mut message_tuples) => {
                   agg.append(message_tuples.as_mut());
@@ -174,7 +170,7 @@ where
         }
 
         // Else break on, and capture, first failure.
-        let mut agg = Vec::<ValidationErrTuple>::new();
+        let mut agg = Vec::<ViolationTuple>::new();
         for f in vs.iter() {
           if let Err(mut message_tuples) = f(value) {
             agg.append(message_tuples.as_mut());
@@ -202,19 +198,19 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   ScalarInput, InputConstraints, ConstraintViolation, ScalarInputBuilder,
+  ///   ScalarInput, InputConstraints, ViolationEnum, ScalarInputBuilder,
   ///   range_underflow_msg, range_overflow_msg,
   ///   ScalarValue
   /// };
   /// use walrs_inputfilter::equal::not_equal_msg;
   ///
   /// ```
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>> {
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>> {
     match value {
       None => {
         if self.required {
           Err(vec![(
-            ConstraintViolation::ValueMissing,
+            ViolationEnum::ValueMissing,
             (self.value_missing)(self),
           )])
         } else {
@@ -261,7 +257,7 @@ where
 
   // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
   //      since we really don't want to use filtered values without them being valid/etc.)
-  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ValidationErrTuple>> {
+  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
     self.validate(x).map(|_| self.filter(x))
   }
 
@@ -315,7 +311,7 @@ impl<T: ScalarValue> Debug for ScalarInput<'_, T> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::{ConstraintViolation, InputConstraints};
+  use crate::{ViolationEnum, InputConstraints};
 
   #[test]
   fn test_validate() {
@@ -323,7 +319,7 @@ mod test {
     // 1) Test method logic
     // ----
     let validate_is_even = |x: usize| if x % 2 != 0 {
-      Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
+      Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
     } else {
       Ok(())
     };
@@ -339,14 +335,14 @@ mod test {
       .build()
       .unwrap();
 
-    let usize_required = usize_not_required.fmap(|input| {
-      let mut new_input = input.clone();
-      new_input.required = true;
-      new_input
-    });
+    let usize_required = (|| -> ScalarInput<usize> {
+        let mut new_input = usize_not_required.clone();
+        new_input.required = true;
+        new_input
+    })();
 
-    let usize_no_break_on_failure = usize_required.fmap(|input| {
-      let mut new_input = input.clone();
+    let _usize_no_break_on_failure = (|| -> ScalarInput<usize> {
+      let mut new_input = usize_required.clone();
       // new_input.validators.push(&|x: usize| if x % 2 != 0 {
       //   Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
       // } else {
@@ -354,7 +350,7 @@ mod test {
       // });
       new_input.break_on_failure = true;
       new_input
-    });
+    })();
 
     let test_cases = vec![
       ("Default, with no value", &usize_input_default, None, Ok(())),
@@ -366,15 +362,15 @@ mod test {
       ("1-10, Even, with valid value", &usize_not_required, Some(2), Ok(())),
       ("1-10, Even, with valid value (2)", &usize_not_required, Some(10), Ok(())),
       ("1-10, Even, with invalid value", &usize_not_required, Some(0), Err(vec![
-        (ConstraintViolation::RangeUnderflow,
+        (ViolationEnum::RangeUnderflow,
          range_underflow_msg(&usize_not_required, 0))
       ])),
       ("1-10, Even, with invalid value(2)", &usize_not_required, Some(11), Err(vec![
-        (ConstraintViolation::RangeOverflow,
+        (ViolationEnum::RangeOverflow,
          range_overflow_msg(&usize_not_required, 11)),
       ])),
       ("1-10, Even, with invalid value (3)", &usize_not_required, Some(7), Err(vec![
-        (ConstraintViolation::CustomError,
+        (ViolationEnum::CustomError,
          "Must be even".to_string()),
       ])),
       ("1-10, Even, with value value", &usize_not_required, Some(8), Ok(())),
@@ -382,21 +378,21 @@ mod test {
       // Required
       // ----
       ("1-10, Even, required, no value", &usize_required, None, Err(vec![
-        (ConstraintViolation::ValueMissing,
+        (ViolationEnum::ValueMissing,
          value_missing_msg(&usize_required)),
       ])),
       ("1-10, Even, required, with valid value", &usize_required, Some(2), Ok(())),
       ("1-10, Even, required, with valid value (2)", &usize_required, Some(10), Ok(())),
       ("1-10, Even, required, with invalid value", &usize_required, Some(0), Err(vec![
-        (ConstraintViolation::RangeUnderflow,
+        (ViolationEnum::RangeUnderflow,
          range_underflow_msg(&usize_required, 0)),
       ])),
       ("1-10, Even, required, with invalid value(2)", &usize_required, Some(11), Err(vec![
-        (ConstraintViolation::RangeOverflow,
+        (ViolationEnum::RangeOverflow,
          range_overflow_msg(&usize_required, 11)),
       ])),
       ("1-10, Even, required, with invalid value (3)", &usize_required, Some(7), Err(vec![
-        (ConstraintViolation::CustomError,
+        (ViolationEnum::CustomError,
          "Must be even".to_string()),
       ])),
       ("1-10, Even, required, with value value", &usize_required, Some(8), Ok(())),
@@ -420,7 +416,7 @@ mod test {
       .min(1.0)
       .max(10.0)
       .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
-        Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
+        Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
       } else {
         Ok(())
       }])
@@ -428,12 +424,12 @@ mod test {
       .unwrap();
 
     assert_eq!(f64_input_required.validate(None), Err(vec![
-      (ConstraintViolation::ValueMissing,
+      (ViolationEnum::ValueMissing,
        value_missing_msg(&f64_input_required)),
     ]));
     assert_eq!(f64_input_required.validate(Some(2.0)), Ok(()));
     assert_eq!(f64_input_required.validate(Some(11.0)), Err(vec![
-      (ConstraintViolation::RangeOverflow,
+      (ViolationEnum::RangeOverflow,
        range_overflow_msg(&f64_input_required, 11.0)),
     ]));
 
@@ -448,7 +444,7 @@ mod test {
     assert_eq!(char_input.validate(Some('a')), Ok(()));
     assert_eq!(char_input.validate(Some('f')), Ok(()));
     assert_eq!(char_input.validate(Some('g')), Err(vec![
-      (ConstraintViolation::RangeOverflow,
+      (ViolationEnum::RangeOverflow,
        "`g` is greater than maximum `f`.".to_string()),
     ]));
 
@@ -460,7 +456,7 @@ mod test {
 
     assert_eq!(char_input_equal.validate(None), Ok(()));
     assert_eq!(char_input_equal.validate(Some('b')), Err(vec![
-      (ConstraintViolation::NotEqual,
+      (ViolationEnum::NotEqual,
        "`b` is not equal to `a`.".to_string()),
     ]));
   }

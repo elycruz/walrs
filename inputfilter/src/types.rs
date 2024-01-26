@@ -72,7 +72,7 @@ impl NumberValue for f32 {}
 impl NumberValue for f64 {}
 
 #[derive(PartialEq, Debug, Clone, Copy)]
-pub enum ConstraintViolation {
+pub enum ViolationEnum {
   CustomError,
   PatternMismatch,
   RangeOverflow,
@@ -87,9 +87,9 @@ pub enum ConstraintViolation {
 
 pub type ViolationMessage = String;
 
-pub type ValidationErrTuple = (ConstraintViolation, ViolationMessage);
+pub type ViolationTuple = (ViolationEnum, ViolationMessage);
 
-pub type ValidationResult = Result<(), Vec<ValidationErrTuple>>;
+pub type ValidationResult = Result<(), Vec<ViolationTuple>>;
 
 pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
 
@@ -112,13 +112,13 @@ pub type ValueMissingCallback = dyn Fn(&dyn WithName) -> ViolationMessage + Send
 pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug + WithName<'a>
   where T: InputValue {
 
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ValidationErrTuple>>;
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
 
   fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
 
   fn filter(&self, value: Option<FT>) -> Option<FT>;
 
-  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<FT>, Vec<ValidationErrTuple>>;
+  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 
   fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
 }

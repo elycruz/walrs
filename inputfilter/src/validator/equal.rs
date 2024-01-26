@@ -1,6 +1,6 @@
 use std::fmt::Display;
 use crate::ToAttributesList;
-use crate::types::ConstraintViolation;
+use crate::types::ViolationEnum;
 use crate::types::{InputValue, ValidateValue, ValidationResult};
 
 #[derive(Builder, Clone)]
@@ -20,7 +20,7 @@ impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
     if x == self.rhs_value {
       Ok(())
     } else {
-      Err(vec![(ConstraintViolation::NotEqual, (self.not_equal_msg)(self, x))])
+      Err(vec![(ViolationEnum::NotEqual, (self.not_equal_msg)(self, x))])
     }
   }
 }
@@ -71,7 +71,7 @@ pub fn not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) 
 #[cfg(test)]
 mod test {
   use std::error::Error;
-  use crate::ConstraintViolation::NotEqual;
+  use crate::ViolationEnum::NotEqual;
   use super::*;
 
   #[test]

@@ -1,8 +1,8 @@
 use std::fmt::{Display, Formatter};
 use crate::ToAttributesList;
 use crate::types::{
-  ConstraintViolation,
-  ConstraintViolation::{
+  ViolationEnum,
+  ViolationEnum::{
     NotEqual, RangeOverflow, RangeUnderflow, StepMismatch,
   }, NumberValue, ValidateValue, ValidationResult,
 };
@@ -44,7 +44,7 @@ impl<'a, T> NumberValidator<'a, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ConstraintViolation> {
+  fn _validate_integer(&self, v: T) -> Option<ViolationEnum> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -76,7 +76,7 @@ where
     None
   }
 
-  fn _get_violation_msg(&self, violation: ConstraintViolation, value: T) -> String {
+  fn _get_violation_msg(&self, violation: ViolationEnum, value: T) -> String {
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
@@ -253,7 +253,7 @@ pub fn num_not_equal_msg<T: NumberValue>(
 mod test {
 
   use std::error::Error;
-  use crate::ConstraintViolation::NotEqual;
+  use crate::ViolationEnum::NotEqual;
   use super::*;
 
   #[test]

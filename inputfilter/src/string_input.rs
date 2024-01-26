@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ConstraintViolation, ValidationErrTuple, ValidationResult, value_missing_msg, ValueMissingCallback, WithName};
+use crate::{ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback, WithName};
 
 pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
@@ -114,7 +114,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if let Some(min_length) = self.min_length {
             if value.len() < min_length {
                 errs.push((
-                    ConstraintViolation::TooShort,
+                    ViolationEnum::TooShort,
                     (self.too_short)(self, Some(value)),
                 ));
 
@@ -125,7 +125,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if let Some(max_length) = self.max_length {
             if value.len() > max_length {
                 errs.push((
-                    ConstraintViolation::TooLong,
+                    ViolationEnum::TooLong,
                     (self.too_long)(self, Some(value)),
                 ));
 
@@ -136,7 +136,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if let Some(pattern) = &self.pattern {
             if !pattern.is_match(value) {
                 errs.push((
-                    ConstraintViolation::PatternMismatch,
+                    ViolationEnum::PatternMismatch,
                     (self.
                         pattern_mismatch)(self, Some(value)),
                 ));
@@ -148,7 +148,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if let Some(equal) = &self.equal {
             if value != *equal {
                 errs.push((
-                    ConstraintViolation::NotEqual,
+                    ViolationEnum::NotEqual,
                     (self.not_equal)(self, Some(value)),
                 ));
 
@@ -159,13 +159,13 @@ impl<'a, 'b> StringInput<'a, 'b> {
         if errs.is_empty() { Ok(()) } else { Err(errs) }
     }
 
-    fn _validate_against_validators(&self, value: &'b str) -> Result<(), Vec<ValidationErrTuple>> {
+    fn _validate_against_validators(&self, value: &'b str) -> Result<(), Vec<ViolationTuple>> {
         self.validators.as_deref().map(|vs| {
 
             // If not break on failure then capture all validation errors.
             if !self.break_on_failure {
                 return vs.iter().fold(
-                    Vec::<ValidationErrTuple>::new(),
+                    Vec::<ViolationTuple>::new(),
                     |mut agg, f| match f(value) {
                         Err(mut message_tuples) => {
                             agg.append(message_tuples.as_mut());
@@ -176,7 +176,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             }
 
             // Else break on, and capture, first failure.
-            let mut agg = Vec::<ValidationErrTuple>::new();
+            let mut agg = Vec::<ViolationTuple>::new();
             for f in vs.iter() {
                 if let Err(mut message_tuples) = f(value) {
                     agg.append(message_tuples.as_mut());
@@ -207,7 +207,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// ```rust
     /// use walrs_inputfilter::*;
     /// use walrs_inputfilter::pattern::PatternValidator;
-    /// use walrs_inputfilter::types::ConstraintViolation::{
+    /// use walrs_inputfilter::types::ViolationEnum::{
     ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
     ///   RangeOverflow, RangeUnderflow, StepMismatch
     /// };
@@ -236,12 +236,12 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
     /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
     /// ```
-    fn validate(&self, value: Option<&'b str>) ->  Result<(), Vec<ValidationErrTuple>> {
+    fn validate(&self, value: Option<&'b str>) ->  Result<(), Vec<ViolationTuple>> {
         match value {
             None => {
                 if self.required {
                     Err(vec![(
-                        ConstraintViolation::ValueMissing,
+                        ViolationEnum::ValueMissing,
                         (self.value_missing)(self),
                     )])
                 } else {
@@ -279,7 +279,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
-    ///         ConstraintViolation::TooShort,
+    ///         ViolationEnum::TooShort,
     ///        "Too short".to_string(),
     ///       )]);
     ///     }
@@ -315,7 +315,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
 
     // @todo consolidate these (`validate_and_filter*`), into just `filter*` (
     //      since we really don't want to use filtered values without them being valid/etc.)
-    fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ValidationErrTuple>> {
+    fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationTuple>> {
         self.validate(x).map(|_| self.filter(x.map(Cow::Borrowed)))
     }
 
@@ -332,7 +332,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
-    ///         ConstraintViolation::TooShort,
+    ///         ViolationEnum::TooShort,
     ///        "Too short".to_string(),
     ///       )]);
     ///     }
@@ -395,8 +395,8 @@ impl Debug for StringInput<'_, '_> {
 mod test {
     use super::*;
     use crate::types::{
-        ConstraintViolation,
-        ConstraintViolation::{PatternMismatch, RangeOverflow},
+        ViolationEnum,
+        ViolationEnum::{PatternMismatch, RangeOverflow},
         InputConstraints, ValidationResult,
     };
     use crate::validator::pattern::PatternValidator;
@@ -667,7 +667,7 @@ mod test {
                 Ok(())
             } else {
                 Err(vec![(
-                    ConstraintViolation::TypeMismatch,
+                    ViolationEnum::TypeMismatch,
                     "Error".to_string(),
                 )])
             }

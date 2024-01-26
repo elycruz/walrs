@@ -3,7 +3,7 @@ use std::fmt::Display;
 use regex::Regex;
 use crate::ToAttributesList;
 
-use crate::types::ConstraintViolation::PatternMismatch;
+use crate::types::ViolationEnum::PatternMismatch;
 use crate::types::{ValidationResult, ValidateValue};
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
@@ -124,7 +124,7 @@ mod test {
   use std::error::Error;
   use regex::Regex;
   use crate::{ValidateValue};
-  use crate::ConstraintViolation::PatternMismatch;
+  use crate::ViolationEnum::PatternMismatch;
 
   use super::*;
 
