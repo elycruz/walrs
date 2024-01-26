@@ -108,7 +108,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
         }
     }
 
-    fn _validate_against_self(&self, value: &'b str) -> ValidationResult {
+    fn _validate_against_own_constraints(&self, value: &'b str) -> ValidationResult {
         let mut errs = vec![];
 
         if let Some(min_length) = self.min_length {
@@ -197,12 +197,8 @@ impl<'a, 'b> WithName<'a> for StringInput<'a, 'b> {
 }
 
 impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a, 'b> {
-    /// Validates value against any own `validate_custom` implementation and any set validators -
-    /// E.g., runs `validate_custom(...)`, then, if it is `Ok`, `validate_against_validators(...)` method.
-    ///
-    /// Additionally, note, `break_on_failure` is only guaranteed to be respected for the
-    ///   the validators list, and input filters defined in the library;  E.g., It is not guaranteed for
-    /// `validate_custom()` call in external libraries (e.g., this is left to implementing struct authors).
+    /// Validates value against contained constraints and validators, and returns a result of unit and/or a Vec of
+    /// Violation tuples.
     ///
     /// ```rust
     /// use walrs_inputfilter::*;
@@ -230,13 +226,13 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let too_long_str = &"ab".repeat(201);
     ///
-    /// assert_eq!(str_input.validate(None), Err(vec![ (ValueMissing, "Value missing".to_string()) ]));
-    /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![ (TooShort, "Too short".to_string()) ]));
-    /// assert_eq!(str_input.validate(Some(&too_long_str)), Err(vec![ (TooLong, too_long_msg(&str_input, Some(&too_long_str))) ]));
-    /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
-    /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
+    /// assert_eq!(str_input.validate_detailed(None), Err(vec![ (ValueMissing, "Value missing".to_string()) ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&"ab")), Err(vec![ (TooShort, "Too short".to_string()) ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&too_long_str)), Err(vec![ (TooLong, too_long_msg(&str_input, Some(&too_long_str))) ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&"abc@def")), Ok(()));
     /// ```
-    fn validate(&self, value: Option<&'b str>) ->  Result<(), Vec<ViolationTuple>> {
+    fn validate_detailed(&self, value: Option<&'b str>) ->  Result<(), Vec<ViolationTuple>> {
         match value {
             None => {
                 if self.required {
@@ -249,7 +245,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
                 }
             }
             // Else if value is populated validate it
-            Some(v) => match self._validate_against_self(v) {
+            Some(v) => match self._validate_against_own_constraints(v) {
                 Ok(_) => self._validate_against_validators(v),
                 Err(messages1) => if self.break_on_failure {
                     Err(messages1)
@@ -267,8 +263,8 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
         }
     }
 
-    /// Special case of `validate` where the error type enums are ignored (in `Err(...)`) result,
-    /// and only the error messages are returned.
+    /// Special case of `validate_detailed` where the error type enums are ignored [in `Err(...)`] result,
+    /// and only the violation messages are returned.
     ///
     /// ```rust
     /// use walrs_inputfilter::*;
@@ -289,11 +285,11 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///   .unwrap()
     /// ;
     ///
-    /// assert_eq!(input.validate1(Some(&"ab")), Err(vec!["Too short".to_string()]));
-    /// assert_eq!(input.validate1(None), Err(vec!["Value missing".to_string()]));
+    /// assert_eq!(input.validate(Some(&"ab")), Err(vec!["Too short".to_string()]));
+    /// assert_eq!(input.validate(None), Err(vec!["Value missing".to_string()]));
     /// ```
-    fn validate1(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
-        match self.validate(value) {
+    fn validate(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
+        match self.validate_detailed(value) {
             // If errors, extract messages and return them
             Err(messages) =>
                 Err(messages.into_iter().map(|(_, message)| message).collect()),
@@ -313,8 +309,8 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
         }
     }
 
-    fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationTuple>> {
-        self.validate(x).map(|_| self.filter(x.map(Cow::Borrowed)))
+    fn validate_and_filter_detailed(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationTuple>> {
+        self.validate_detailed(x).map(|_| self.filter(x.map(Cow::Borrowed)))
     }
 
     /// Special case of `validate_and_filter` where the error type enums are ignored (in `Err(...)`) result,
@@ -343,12 +339,12 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///   .unwrap()
     /// ;
     ///
-    /// assert_eq!(input.validate_and_filter1(Some(&"ab")), Err(vec!["Too short".to_string()]));
-    /// assert_eq!(input.validate_and_filter1(Some(&"Abba")), Ok(Some("Abba".to_lowercase().into())));
-    /// assert_eq!(input.validate_and_filter1(None), Err(vec!["Value missing".to_string()]));
+    /// assert_eq!(input.validate_and_filter(Some(&"ab")), Err(vec!["Too short".to_string()]));
+    /// assert_eq!(input.validate_and_filter(Some(&"Abba")), Ok(Some("Abba".to_lowercase().into())));
+    /// assert_eq!(input.validate_and_filter(None), Err(vec!["Value missing".to_string()]));
     /// ```
-    fn validate_and_filter1(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationMessage>> {
-        match self.validate_and_filter(x) {
+    fn validate_and_filter(&self, x: Option<&'b str>) -> Result<Option<Cow<'b, str>>, Vec<ViolationMessage>> {
+        match self.validate_and_filter_detailed(x) {
             Err(messages) =>
                 Err(messages.into_iter().map(|(_, message)| message).collect()),
             Ok(filtered) => Ok(filtered),
@@ -486,7 +482,7 @@ mod test {
 
         // Mismatch check
         let value = "1000-99-999";
-        match yyyy_mm_dd_input.validate(Some(value)) {
+        match yyyy_mm_dd_input.validate_detailed(Some(value)) {
             Ok(_) => panic!("Expected Err(...);  Received Ok(())"),
             Err(tuples) => {
                 assert_eq!(tuples[0].0, PatternMismatch);
@@ -495,19 +491,19 @@ mod test {
         }
 
         // Valid check
-        if let Err(errs) = yyyy_mm_dd_input.validate(None) {
+        if let Err(errs) = yyyy_mm_dd_input.validate_detailed(None) {
             panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         // Valid check 2
         let value = "1000-99-99";
-        if let Err(errs) = yyyy_mm_dd_input.validate(Some(value)) {
+        if let Err(errs) = yyyy_mm_dd_input.validate_detailed(Some(value)) {
             panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
         // Valid check
         let value = "1000-99-99";
-        if let Err(errs) = yyyy_mm_dd_input2.validate(Some(value)) {
+        if let Err(errs) = yyyy_mm_dd_input2.validate_detailed(Some(value)) {
             panic!("Expected Ok(());  Received Err({:#?})", &errs);
         }
 
@@ -532,7 +528,7 @@ mod test {
 
         let handle =
             thread::spawn(
-                move || match less_than_input_instance.validate(Some("2023-12-31")) {
+                move || match less_than_input_instance.validate_detailed(Some("2023-12-31")) {
                     Err(x) => {
                         assert_eq!(x[0].1.as_str(), less_than_1990_msg("2023-12-31"));
                     }
@@ -540,7 +536,7 @@ mod test {
                 },
             );
 
-        let handle2 = thread::spawn(move || match str_input_instance.validate(Some("")) {
+        let handle2 = thread::spawn(move || match str_input_instance.validate_detailed(Some("")) {
             Err(x) => {
                 assert_eq!(
                     x[0].1.as_str(),
@@ -601,7 +597,7 @@ mod test {
 
         thread::scope(|scope| {
             scope.spawn(
-                || match less_than_input_instance.validate(Some("2023-12-31")) {
+                || match less_than_input_instance.validate_detailed(Some("2023-12-31")) {
                     Err(x) => {
                         assert_eq!(x[0].1.as_str(), &less_than_1990_msg("2023-12-31"));
                     }
@@ -610,7 +606,7 @@ mod test {
             );
 
             scope.spawn(
-                || match less_than_input_instance.validate_and_filter(Some("1989-01-01")) {
+                || match less_than_input_instance.validate_and_filter_detailed(Some("1989-01-01")) {
                     Err(err) => panic!(
                         "Expected `Ok(Some({:#?})`;  Received `Err({:#?})`",
                         Cow::<str>::Owned("1989-01-31".to_string()),
@@ -621,7 +617,7 @@ mod test {
                 },
             );
 
-            scope.spawn(|| match ymd_check_input_instance.validate(Some("")) {
+            scope.spawn(|| match ymd_check_input_instance.validate_detailed(Some("")) {
                 Err(x) => {
                     assert_eq!(x[0].1.as_str(), ymd_mismatch_msg("", ymd_rx.as_str()));
                 }
@@ -639,7 +635,7 @@ mod test {
     }
 
     #[test]
-    fn test_validate_and_filter() {
+    fn test_validate_and_filter_detailed() {
         let input = StringInputBuilder::default()
             .name("hello")
             .required(true)
@@ -649,11 +645,11 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            input.validate_and_filter(Some("2023-12-31")),
+            input.validate_and_filter_detailed(Some("2023-12-31")),
             Err(vec![(RangeOverflow, less_than_1990_msg("2023-12-31"))])
         );
         assert_eq!(
-            input.validate_and_filter(Some("1989-01-01")),
+            input.validate_and_filter_detailed(Some("1989-01-01")),
             Ok(Some(Cow::Owned("1989-01-31".to_string())))
         );
     }

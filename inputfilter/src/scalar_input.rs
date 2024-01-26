@@ -194,7 +194,7 @@ impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
 where
   T: ScalarValue,
 {
-  /// Validates given value against contained constraints.
+  /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples.
   ///
   /// ```rust
   /// use walrs_inputfilter::{
@@ -205,7 +205,7 @@ where
   /// use walrs_inputfilter::equal::not_equal_msg;
   ///
   /// ```
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>> {
+  fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>> {
     match value {
       None => {
         if self.required {
@@ -235,14 +235,17 @@ where
     }
   }
 
-  fn validate1(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate(value) {
+  /// Validates given value against contained constraints, and returns a result of unit, and/or, a Vec of
+  /// Violation messages.
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate_detailed(value) {
       // If errors, extract messages and return them
       Err(messages) => Err(messages.into_iter().map(|(_, message)| message).collect()),
       Ok(_) => Ok(()),
     }
   }
 
+  /// Filters value against contained filters.
   fn filter(&self, value: Option<T>) -> Option<T> {
     let v = match value {
       None => self.default_value,
@@ -255,15 +258,18 @@ where
     }
   }
 
-  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
-    self.validate(x).map(|_| self.filter(x))
-  }
-
-  fn validate_and_filter1(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
-    match self.validate_and_filter(x) {
+  /// Validates, and filters, given value against contained rules, validators, and filters, respectively.
+  fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
+    match self.validate_and_filter_detailed(x) {
       Err(messages) => Err(messages.into_iter().map(|(_, message)| message).collect()),
       Ok(filtered) => Ok(filtered),
     }
+  }
+
+  /// Validates, and filters, given value against contained rules, validators, and filters, respectively and
+  /// returns a result of filtered value or a Vec of Violation tuples.
+  fn validate_and_filter_detailed(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
+    self.validate_detailed(x).map(|_| self.filter(x))
   }
 }
 
@@ -312,7 +318,7 @@ mod test {
   use crate::{ViolationEnum, InputConstraints};
 
   #[test]
-  fn test_validate() {
+  fn test_validate_detailed() {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
     // 1) Test method logic
     // ----
@@ -403,7 +409,7 @@ mod test {
     for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
       println!("Case {}: {}", i + 1, test_name);
 
-      assert_eq!(input.validate(subj), expected);
+      assert_eq!(input.validate_detailed(subj), expected);
     }
 
     // Test basic usage with other types
@@ -421,12 +427,12 @@ mod test {
       .build()
       .unwrap();
 
-    assert_eq!(f64_input_required.validate(None), Err(vec![
+    assert_eq!(f64_input_required.validate_detailed(None), Err(vec![
       (ViolationEnum::ValueMissing,
        value_missing_msg(&f64_input_required)),
     ]));
-    assert_eq!(f64_input_required.validate(Some(2.0)), Ok(()));
-    assert_eq!(f64_input_required.validate(Some(11.0)), Err(vec![
+    assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
+    assert_eq!(f64_input_required.validate_detailed(Some(11.0)), Err(vec![
       (ViolationEnum::RangeOverflow,
        range_overflow_msg(&f64_input_required, 11.0)),
     ]));
@@ -438,10 +444,10 @@ mod test {
       .build()
       .unwrap();
 
-    assert_eq!(char_input.validate(None), Ok(()));
-    assert_eq!(char_input.validate(Some('a')), Ok(()));
-    assert_eq!(char_input.validate(Some('f')), Ok(()));
-    assert_eq!(char_input.validate(Some('g')), Err(vec![
+    assert_eq!(char_input.validate_detailed(None), Ok(()));
+    assert_eq!(char_input.validate_detailed(Some('a')), Ok(()));
+    assert_eq!(char_input.validate_detailed(Some('f')), Ok(()));
+    assert_eq!(char_input.validate_detailed(Some('g')), Err(vec![
       (ViolationEnum::RangeOverflow,
        "`g` is greater than maximum `f`.".to_string()),
     ]));
@@ -452,8 +458,8 @@ mod test {
       .build()
       .unwrap();
 
-    assert_eq!(char_input_equal.validate(None), Ok(()));
-    assert_eq!(char_input_equal.validate(Some('b')), Err(vec![
+    assert_eq!(char_input_equal.validate_detailed(None), Ok(()));
+    assert_eq!(char_input_equal.validate_detailed(Some('b')), Err(vec![
       (ViolationEnum::NotEqual,
        "`b` is not equal to `a`.".to_string()),
     ]));
