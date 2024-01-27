@@ -31,13 +31,6 @@ pub fn too_long_msg(rules: &StringInput, xs: Option<&str>) -> String {
     )
 }
 
-pub fn str_not_equal_msg(rules: &StringInput, _: Option<&str>) -> String {
-    format!(
-        "Value is not equal to {}.",
-        &rules.equal.unwrap_or("")
-    )
-}
-
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
 pub struct StringInput<'a, 'b> {
@@ -55,9 +48,6 @@ pub struct StringInput<'a, 'b> {
 
     #[builder(default = "None")]
     pub pattern: Option<Regex>,
-
-    #[builder(default = "None")]
-    pub equal: Option<&'b str>,
 
     #[builder(default = "false")]
     pub required: bool,
@@ -77,9 +67,6 @@ pub struct StringInput<'a, 'b> {
     #[builder(default = "&pattern_mismatch_msg")]
     pub pattern_mismatch: &'a StrMissingViolationCallback,
 
-    #[builder(default = "&str_not_equal_msg")]
-    pub not_equal: &'a StrMissingViolationCallback,
-
     #[builder(default = "&value_missing_msg")]
     pub value_missing: &'a ValueMissingCallback,
 }
@@ -92,14 +79,12 @@ impl<'a, 'b> StringInput<'a, 'b> {
             min_length: None,
             max_length: None,
             pattern: None,
-            equal: None,
             required: false,
             validators: None,
             filters: None,
             too_short: &(too_long_msg),
             too_long: &(too_long_msg),
             pattern_mismatch: &(pattern_mismatch_msg),
-            not_equal: &(str_not_equal_msg),
             value_missing: &value_missing_msg,
         }
     }
@@ -135,17 +120,6 @@ impl<'a, 'b> StringInput<'a, 'b> {
                     ViolationEnum::PatternMismatch,
                     (self.
                         pattern_mismatch)(self, Some(value)),
-                ));
-
-                if self.break_on_failure { return Err(errs); }
-            }
-        }
-
-        if let Some(equal) = &self.equal {
-            if value != *equal {
-                errs.push((
-                    ViolationEnum::NotEqual,
-                    (self.not_equal)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }

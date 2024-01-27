@@ -23,14 +23,6 @@ pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> Strin
   )
 }
 
-pub fn scalar_not_equal_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
-  format!(
-    "`{:}` is not equal to `{:}`.",
-    x,
-    &rules.equal.unwrap()
-  )
-}
-
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct ScalarInput<'a, T: ScalarValue> {
@@ -45,9 +37,6 @@ pub struct ScalarInput<'a, T: ScalarValue> {
 
   #[builder(default = "None")]
   pub max: Option<T>,
-
-  #[builder(default = "None")]
-  pub equal: Option<T>,
 
   #[builder(default = "false")]
   pub required: bool,
@@ -64,9 +53,6 @@ pub struct ScalarInput<'a, T: ScalarValue> {
   #[builder(default = "&range_overflow_msg")]
   pub range_overflow: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
-  #[builder(default = "&scalar_not_equal_msg")]
-  pub not_equal: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
-
   #[builder(default = "&value_missing_msg")]
   pub value_missing: &'a ValueMissingCallback,
 }
@@ -82,13 +68,11 @@ where
       name,
       min: None,
       max: None,
-      equal: None,
       required: false,
       validators: None,
       filters: None,
       range_underflow: &(range_underflow_msg),
       range_overflow: &(range_overflow_msg),
-      not_equal: &(scalar_not_equal_msg),
       value_missing: &value_missing_msg,
     }
   }
@@ -116,20 +100,6 @@ where
         errs.push((
           ViolationEnum::RangeOverflow,
           (self.range_overflow)(self, value),
-        ));
-
-        if self.break_on_failure {
-          return Err(errs);
-        }
-      }
-    }
-
-    // Test equality
-    if let Some(equal) = self.equal {
-      if value != equal {
-        errs.push((
-          ViolationEnum::NotEqual,
-          (self.not_equal)(self, value),
         ));
 
         if self.break_on_failure {
@@ -198,7 +168,6 @@ where
   ///   range_underflow_msg, range_overflow_msg,
   ///   ScalarValue
   /// };
-  /// use walrs_inputfilter::equal::not_equal_msg;
   ///
   /// ```
   fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>> {
@@ -441,18 +410,6 @@ mod test {
     assert_eq!(char_input.validate_detailed(Some('g')), Err(vec![
       (ViolationEnum::RangeOverflow,
        "`g` is greater than maximum `f`.".to_string()),
-    ]));
-
-    // Test `equal` field usage
-    let char_input_equal = ScalarInputBuilder::<char>::default()
-      .equal('a')
-      .build()
-      .unwrap();
-
-    assert_eq!(char_input_equal.validate_detailed(None), Ok(()));
-    assert_eq!(char_input_equal.validate_detailed(Some('b')), Err(vec![
-      (ViolationEnum::NotEqual,
-       "`b` is not equal to `a`.".to_string()),
     ]));
   }
 }
