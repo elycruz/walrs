@@ -53,9 +53,6 @@ pub struct ScalarInput<'a, T: ScalarValue> {
   pub required: bool,
 
   #[builder(default = "None")]
-  pub default_value: Option<T>,
-
-  #[builder(default = "None")]
   pub validators: Option<Vec<&'a Validator<T>>>,
 
   #[builder(default = "None")]
@@ -87,7 +84,6 @@ where
       max: None,
       equal: None,
       required: false,
-      default_value: None,
       validators: None,
       filters: None,
       range_underflow: &(range_underflow_msg),
@@ -247,14 +243,9 @@ where
 
   /// Filters value against contained filters.
   fn filter(&self, value: Option<T>) -> Option<T> {
-    let v = match value {
-      None => self.default_value,
-      Some(x) => Some(x),
-    };
-
     match self.filters.as_deref() {
-      None => v,
-      Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
+      None => value,
+      Some(fs) => fs.iter().fold(value, |agg, f| f(agg)),
     }
   }
 
@@ -414,7 +405,7 @@ mod test {
 
     // Test basic usage with other types
     // ----
-    // Validates `f64`, and `f32` types
+    // Validates `f64`, and `f32` usage
     let f64_input_required = ScalarInputBuilder::<f64>::default()
       .required(true)
       .min(1.0)
@@ -437,7 +428,7 @@ mod test {
        range_overflow_msg(&f64_input_required, 11.0)),
     ]));
 
-    // Test `char` type usage
+    // Test `char` usage
     let char_input = ScalarInputBuilder::<char>::default()
       .min('a')
       .max('f')

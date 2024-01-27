@@ -63,9 +63,6 @@ pub struct StringInput<'a, 'b> {
     pub required: bool,
 
     #[builder(default = "None")]
-    pub default_value: Option<String>,
-
-    #[builder(default = "None")]
     pub validators: Option<Vec<&'a Validator<&'b str>>>,
 
     #[builder(default = "None")]
@@ -97,7 +94,6 @@ impl<'a, 'b> StringInput<'a, 'b> {
             pattern: None,
             equal: None,
             required: false,
-            default_value: None,
             validators: None,
             filters: None,
             too_short: &(too_long_msg),
@@ -263,8 +259,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
         }
     }
 
-    /// Special case of `validate_detailed` where the error type enums are ignored [in `Err(...)`] result,
-    /// and only the violation messages are returned.
+    /// Same as `validate_detailed` only the violation messages are returned.
     ///
     /// ```rust
     /// use walrs_inputfilter::*;
@@ -298,14 +293,10 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     }
 
     fn filter(&self, value: Option<Cow<'b, str>>) -> Option<Cow<'b, str>> {
-        let v = match value {
-            None => self.default_value.clone().map(|x| x.into()),
-            Some(x) => Some(x)
-        };
-
         match self.filters.as_deref() {
-            None => v,
-            Some(fs) => fs.iter().fold(v, |agg, f| f(agg)),
+            None => value,
+            Some(fs) =>
+                fs.iter().fold(value, |agg, f| f(agg)),
         }
     }
 
