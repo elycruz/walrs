@@ -17,6 +17,6 @@ pub use filter::*;
 pub use scalar_input::*;
 pub use string_input::*;
 
-pub fn value_missing_msg(_: &dyn WithName) -> String {
+pub fn value_missing_msg() -> String {
     "Value missing".to_string()
 }

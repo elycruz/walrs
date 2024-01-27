@@ -4,7 +4,6 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{
   value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback,
-  WithName,
 };
 
 pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
@@ -28,9 +27,6 @@ pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> Strin
 pub struct ScalarInput<'a, T: ScalarValue> {
   #[builder(default = "true")]
   pub break_on_failure: bool,
-
-  #[builder(setter(into), default = "None")]
-  pub name: Option<&'a str>,
 
   #[builder(default = "None")]
   pub min: Option<T>,
@@ -62,10 +58,9 @@ where
   T: ScalarValue,
 {
   /// Returns a new instance containing defaults.
-  pub fn new(name: Option<&'a str>) -> Self {
+  pub fn new() -> Self {
     ScalarInput {
       break_on_failure: false,
-      name,
       min: None,
       max: None,
       required: false,
@@ -176,7 +171,7 @@ where
         if self.required {
           Err(vec![(
             ViolationEnum::ValueMissing,
-            (self.value_missing)(self),
+            (self.value_missing)(),
           )])
         } else {
           Ok(())
@@ -233,15 +228,9 @@ where
   }
 }
 
-impl<'a, T: ScalarValue> WithName<'a> for ScalarInput<'a, T> {
-  fn get_name(&self) -> Option<Cow<'a, str>> {
-    self.name.map(Cow::Borrowed)
-  }
-}
-
 impl<T: ScalarValue> Default for ScalarInput<'_, T> {
   fn default() -> Self {
-    Self::new(None)
+    Self::new()
   }
 }
 
@@ -249,8 +238,7 @@ impl<T: ScalarValue> Display for ScalarInput<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "ScalarInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
-      self.name.unwrap_or("None"),
+      "ScalarInput {{ required: {}, validators: {}, filters: {} }}",
       self.required,
       self
         .validators
@@ -343,7 +331,7 @@ mod test {
       // ----
       ("1-10, Even, required, no value", &usize_required, None, Err(vec![
         (ViolationEnum::ValueMissing,
-         value_missing_msg(&usize_required)),
+         value_missing_msg()),
       ])),
       ("1-10, Even, required, with valid value", &usize_required, Some(2), Ok(())),
       ("1-10, Even, required, with valid value (2)", &usize_required, Some(10), Ok(())),
@@ -389,7 +377,7 @@ mod test {
 
     assert_eq!(f64_input_required.validate_detailed(None), Err(vec![
       (ViolationEnum::ValueMissing,
-       value_missing_msg(&f64_input_required)),
+       value_missing_msg()),
     ]));
     assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
     assert_eq!(f64_input_required.validate_detailed(Some(11.0)), Err(vec![

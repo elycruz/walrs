@@ -83,3 +83,7 @@ pub trait FormControl<'a, 'b, Value: 'b, Constraints: 'a>
     })
   }
 }
+
+pub trait WithName<'a> {
+  fn get_name(&self) -> Option<Cow<'a, str>>;
+}

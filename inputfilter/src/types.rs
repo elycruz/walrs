@@ -95,10 +95,6 @@ pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub trait WithName<'a> {
-  fn get_name(&self) -> Option<Cow<'a, str>>;
-}
-
 pub trait ValidateValue<T: InputValue> {
   fn validate(&self, value: T) -> ValidationResult;
 }
@@ -107,9 +103,9 @@ pub trait FilterValue<T: InputValue> {
   fn filter(&self, value: T) -> T;
 }
 
-pub type ValueMissingCallback = dyn Fn(&dyn WithName) -> ViolationMessage + Send + Sync;
+pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
-pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug + WithName<'a>
+pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
   where T: InputValue {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;

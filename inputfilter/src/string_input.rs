@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback, WithName};
+use crate::{ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback};
 
 pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
@@ -37,9 +37,6 @@ pub struct StringInput<'a, 'b> {
     #[builder(default = "true")]
     pub break_on_failure: bool,
 
-    #[builder(setter(into), default = "None")]
-    pub name: Option<&'a str>,
-
     #[builder(default = "None")]
     pub min_length: Option<usize>,
 
@@ -72,10 +69,9 @@ pub struct StringInput<'a, 'b> {
 }
 
 impl<'a, 'b> StringInput<'a, 'b> {
-    pub fn new(name: Option<&'a str>) -> Self {
+    pub fn new() -> Self {
         StringInput {
             break_on_failure: false,
-            name,
             min_length: None,
             max_length: None,
             pattern: None,
@@ -160,12 +156,6 @@ impl<'a, 'b> StringInput<'a, 'b> {
     }
 }
 
-impl<'a, 'b> WithName<'a> for StringInput<'a, 'b> {
-    fn get_name(&self) -> Option<Cow<'a, str>> {
-        self.name.map(Cow::Borrowed)
-    }
-}
-
 impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a, 'b> {
     /// Validates value against contained constraints and validators, and returns a result of unit and/or a Vec of
     /// Violation tuples.
@@ -180,7 +170,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let str_input = StringInputBuilder::default()
     ///  .required(true)
-    ///  .value_missing(&|_| "Value missing".to_string())
+    ///  .value_missing(&|| "Value missing".to_string())
     ///  .min_length(3usize)
     ///  .too_short(&|_, _| "Too short".to_string())
     ///  .max_length(200usize) // Default violation message callback used here.
@@ -208,7 +198,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
                 if self.required {
                     Err(vec![(
                         ViolationEnum::ValueMissing,
-                        (self.value_missing)(self),
+                        (self.value_missing)(),
                     )])
                 } else {
                     Ok(())
@@ -240,7 +230,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|_| "Value missing".to_string())
+    ///   .value_missing(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
@@ -287,7 +277,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|_| "Value missing".to_string())
+    ///   .value_missing(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
@@ -319,7 +309,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
 
 impl Default for StringInput<'_, '_> {
     fn default() -> Self {
-        Self::new(None)
+        Self::new()
     }
 }
 
@@ -327,8 +317,7 @@ impl Display for StringInput<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StrInput {{ name: {}, required: {}, validators: {}, filters: {} }}",
-            self.name.unwrap_or("None"),
+            "StrInput {{ required: {}, validators: {}, filters: {} }}",
             self.required,
             self
                 .validators
@@ -602,7 +591,6 @@ mod test {
     #[test]
     fn test_validate_and_filter_detailed() {
         let input = StringInputBuilder::default()
-            .name("hello")
             .required(true)
             .validators(vec![&less_than_1990])
             .filters(vec![&to_last_date_of_month])
@@ -633,7 +621,6 @@ mod test {
         };
 
         let _input = StringInputBuilder::default()
-            .name("hello")
             .validators(vec![&callback1])
             .build()
             .unwrap();
@@ -642,14 +629,13 @@ mod test {
     #[test]
     fn test_display() {
         let input = StringInputBuilder::default()
-            .name("hello")
             .validators(vec![&less_than_1990])
             .build()
             .unwrap();
 
         assert_eq!(
             input.to_string(),
-            "StrInput { name: hello, required: false, validators: Some([Validator; 1]), filters: None }"
+            "StrInput { required: false, validators: Some([Validator; 1]), filters: None }"
         );
     }
 }
