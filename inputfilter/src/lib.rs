@@ -6,11 +6,11 @@
 extern crate derive_builder;
 
 pub mod traits;
-pub mod validator;
-pub mod filter;
+pub mod validators;
+pub mod filters;
 pub mod constraints;
 
 pub use traits::*;
-pub use validator::*;
-pub use filter::*;
+pub use validators::*;
+pub use filters::*;
 pub use constraints::*;

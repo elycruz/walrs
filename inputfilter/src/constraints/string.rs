@@ -348,7 +348,7 @@ mod test {
         ViolationEnum::{PatternMismatch, RangeOverflow},
         InputConstraints, ValidationResult,
     };
-    use crate::validator::pattern::PatternValidator;
+    use crate::validators::pattern::PatternValidator;
     use regex::Regex;
     use std::{borrow::Cow, error::Error, sync::Arc, thread};
 

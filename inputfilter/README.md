@@ -1,14 +1,20 @@
 # wal_inputfilter
 
-A set of `Input` validation structs used to validate primitive values as they pertain to web applications.
+A set of input validation structs used to validate primitive values as they pertain to web applications.
 
 ## Members
 
-- `Input` - Rule struct to add validators, and/or 'filters' to.
-- `validators/`
-  - `NumberValidator`
-  - `PatternValidator`
-  - `EqualityValidator`
+- `constraints` - Contains constraint structs.
+  - `ScalarConstraint` - Validates scalar values.
+  - `StringConstraint` - Validates string/string slice values.
+- `validators`
+  - `NumberValidator` - Validates numeric values.
+  - `PatternValidator` - Validates values against a regular expression.
+  - `EqualityValidator` - Validates values against a stored right-hand-side value.
+- `filters`
+  - `SlugFilter` - Filters value to valid "slug" values.
+  - `StripTagsFilter` - Filters values against a regular expression.
+  - `XmlEntitiesFilter` - Filters values against a stored right-hand-side
 
 ## Usage:
 

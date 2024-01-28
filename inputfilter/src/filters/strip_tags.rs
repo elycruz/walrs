@@ -7,10 +7,10 @@ static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 /// Sanitizes incoming HTML using the [Ammonia](https://docs.rs/ammonia/1.0.0/ammonia/) crate.
 ///
 /// ```rust
-/// use walrs_inputfilter::filter::StripTags;
+/// use walrs_inputfilter::filters::StripTagsFilter;
 /// use std::borrow::Cow;
 ///
-/// let filter = StripTags::new();
+/// let filter = StripTagsFilter::new();
 ///
 /// for (i, (incoming_src, expected_src)) in [
 ///   ("", ""),
@@ -31,15 +31,15 @@ static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 ///  }
 /// ```
 ///
-pub struct StripTags<'a> {
+pub struct StripTagsFilter<'a> {
   /// Ammonia builder used to sanitize incoming HTML.
   ///
   /// If `None`, a default builder is used when `filter`/instance is called.
   pub ammonia: Option<ammonia::Builder<'a>>,
 }
 
-impl<'a> StripTags<'a> {
-  /// Constructs a new `StripTags` instance.
+impl<'a> StripTagsFilter<'a> {
+  /// Constructs a new `StripTagsFilter` instance.
   pub fn new() -> Self {
     Self {
       ammonia: None,
@@ -53,10 +53,10 @@ impl<'a> StripTags<'a> {
   /// use std::borrow::Cow;
   /// use std::sync::OnceLock;
   /// use ammonia::Builder as AmmoniaBuilder;
-  /// use walrs_inputfilter::filter::StripTags;
+  /// use walrs_inputfilter::filters::StripTagsFilter;
   ///
   /// // Using default settings:
-  /// let filter = StripTags::new();
+  /// let filter = StripTagsFilter::new();
   ///
   /// let subject = r#"<p>Hello</p><script>alert('hello');</script>
   ///        <style>p { font-weight: bold; }</style>"#;
@@ -77,7 +77,7 @@ impl<'a> StripTags<'a> {
   ///   // Remove 'style' tag from "tags-blacklist"
   ///   .rm_clean_content_tags(&additional_allowed_tags);
   ///
-  /// let filter = StripTags {
+  /// let filter = StripTagsFilter {
   ///   ammonia: Some(sanitizer)
   /// };
   ///
@@ -110,13 +110,13 @@ impl<'a> StripTags<'a> {
   }
 }
 
-impl<'a> Default for StripTags<'a> {
+impl<'a> Default for StripTagsFilter<'a> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for StripTags<'a> {
+impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for StripTagsFilter<'a> {
   type Output = Cow<'b, str>;
 
   extern "rust-call" fn call_once(self, args: (Cow<'b, str>, )) -> Self::Output {
@@ -124,13 +124,13 @@ impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for StripTags<'a> {
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'b, str>, )> for StripTags<'a> {
+impl<'a, 'b> FnMut<(Cow<'b, str>, )> for StripTagsFilter<'a> {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>, )) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'b, str>, )> for StripTags<'a> {
+impl<'a, 'b> Fn<(Cow<'b, str>, )> for StripTagsFilter<'a> {
   extern "rust-call" fn call(&self, args: (Cow<'b, str>, )) -> Self::Output {
     self.filter(args.0)
   }
@@ -142,15 +142,15 @@ mod test {
 
   #[test]
   fn test_construction() {
-    let _ = StripTags::new();
-    let _ = StripTags {
+    let _ = StripTagsFilter::new();
+    let _ = StripTagsFilter {
       ammonia: Some(ammonia::Builder::default()),
     };
   }
 
   #[test]
   fn test_filter() {
-    let filter = StripTags::new();
+    let filter = StripTagsFilter::new();
 
     for (i, (incoming_src, expected_src)) in [
       ("", ""),
