@@ -5,7 +5,7 @@ use crate::{
   Filter, InputConstraints, Validator, ViolationMessage
 };
 
-pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
+pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
     "`{:}` is less than minimum `{:}`.",
     x,
@@ -13,7 +13,7 @@ pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> Stri
   )
 }
 
-pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {
+pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
     x,
@@ -23,7 +23,7 @@ pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> Strin
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct ScalarInput<'a, T: ScalarValue> {
+pub struct ScalarConstraints<'a, T: ScalarValue> {
   #[builder(default = "true")]
   pub break_on_failure: bool,
 
@@ -43,22 +43,22 @@ pub struct ScalarInput<'a, T: ScalarValue> {
   pub filters: Option<Vec<&'a Filter<Option<T>>>>,
 
   #[builder(default = "&range_underflow_msg")]
-  pub range_underflow_msg: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
+  pub range_underflow_msg: &'a (dyn Fn(&ScalarConstraints<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&range_overflow_msg")]
-  pub range_overflow_msg: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
+  pub range_overflow_msg: &'a (dyn Fn(&ScalarConstraints<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&value_missing_msg")]
   pub value_missing_msg: &'a ValueMissingCallback,
 }
 
-impl<'a, T> ScalarInput<'a, T>
+impl<'a, T> ScalarConstraints<'a, T>
 where
   T: ScalarValue,
 {
   /// Returns a new instance containing defaults.
   pub fn new() -> Self {
-    ScalarInput {
+    ScalarConstraints {
       break_on_failure: false,
       min: None,
       max: None,
@@ -150,7 +150,7 @@ where
   }
 }
 
-impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarInput<'a, T>
+impl<'a, 'b, T: 'b> InputConstraints<'a, 'b, T, T> for ScalarConstraints<'a, T>
 where
   T: ScalarValue,
 {
@@ -158,7 +158,7 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   ScalarInput, InputConstraints, ViolationEnum, ScalarInputBuilder,
+  ///   ScalarConstraints, InputConstraints, ViolationEnum, ScalarConstraintsBuilder,
   ///   range_underflow_msg, range_overflow_msg,
   ///   ScalarValue
   /// };
@@ -227,17 +227,17 @@ where
   }
 }
 
-impl<T: ScalarValue> Default for ScalarInput<'_, T> {
+impl<T: ScalarValue> Default for ScalarConstraints<'_, T> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<T: ScalarValue> Display for ScalarInput<'_, T> {
+impl<T: ScalarValue> Display for ScalarConstraints<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "ScalarInput {{ required: {}, validators: {}, filters: {} }}",
+      "ScalarConstraints {{ required: {}, validators: {}, filters: {} }}",
       self.required,
       self
         .validators
@@ -253,7 +253,7 @@ impl<T: ScalarValue> Display for ScalarInput<'_, T> {
   }
 }
 
-impl<T: ScalarValue> Debug for ScalarInput<'_, T> {
+impl<T: ScalarValue> Debug for ScalarConstraints<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
@@ -275,24 +275,24 @@ mod test {
       Ok(())
     };
 
-    let usize_input_default = ScalarInputBuilder::<usize>::default()
+    let usize_input_default = ScalarConstraintsBuilder::<usize>::default()
       .build()
       .unwrap();
 
-    let usize_not_required = ScalarInputBuilder::<usize>::default()
+    let usize_not_required = ScalarConstraintsBuilder::<usize>::default()
       .min(1)
       .max(10)
       .validators(vec![&validate_is_even])
       .build()
       .unwrap();
 
-    let usize_required = (|| -> ScalarInput<usize> {
+    let usize_required = (|| -> ScalarConstraints<usize> {
         let mut new_input = usize_not_required.clone();
         new_input.required = true;
         new_input
     })();
 
-    let _usize_no_break_on_failure = (|| -> ScalarInput<usize> {
+    let _usize_no_break_on_failure = (|| -> ScalarConstraints<usize> {
       let mut new_input = usize_required.clone();
       // new_input.validators.push(&|x: usize| if x % 2 != 0 {
       //   Err(vec![(ConstraintViolation::CustomError, "Must be even".to_string())])
@@ -362,7 +362,7 @@ mod test {
     // Test basic usage with other types
     // ----
     // Validates `f64`, and `f32` usage
-    let f64_input_required = ScalarInputBuilder::<f64>::default()
+    let f64_input_required = ScalarConstraintsBuilder::<f64>::default()
       .required(true)
       .min(1.0)
       .max(10.0)
@@ -385,7 +385,7 @@ mod test {
     ]));
 
     // Test `char` usage
-    let char_input = ScalarInputBuilder::<char>::default()
+    let char_input = ScalarConstraintsBuilder::<char>::default()
       .min('a')
       .max('f')
       .build()

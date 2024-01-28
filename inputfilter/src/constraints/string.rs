@@ -7,9 +7,9 @@ use crate::{
     Filter, InputConstraints, Validator, ViolationMessage
 };
 
-pub type StringInputViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
+pub type StringConstraintsViolationCallback = dyn Fn(&StringConstraints, Option<&str>) -> ViolationMessage + Send + Sync;
 
-pub fn pattern_mismatch_msg(rules: &StringInput, xs: Option<&str>) -> String {
+pub fn pattern_mismatch_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
         "`{}` does not match pattern `{}`",
         &xs.as_ref().unwrap(),
@@ -17,7 +17,7 @@ pub fn pattern_mismatch_msg(rules: &StringInput, xs: Option<&str>) -> String {
     )
 }
 
-pub fn too_short_msg(rules: &StringInput, xs: Option<&str>) -> String {
+pub fn too_short_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
         "Value length `{:}` is less than allowed minimum `{:}`.",
         &xs.as_ref().unwrap().len(),
@@ -25,7 +25,7 @@ pub fn too_short_msg(rules: &StringInput, xs: Option<&str>) -> String {
     )
 }
 
-pub fn too_long_msg(rules: &StringInput, xs: Option<&str>) -> String {
+pub fn too_long_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
         "Value length `{:}` is greater than allowed maximum `{:}`.",
         &xs.as_ref().unwrap().len(),
@@ -35,7 +35,7 @@ pub fn too_long_msg(rules: &StringInput, xs: Option<&str>) -> String {
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
-pub struct StringInput<'a, 'b> {
+pub struct StringConstraints<'a, 'b> {
     #[builder(default = "true")]
     pub break_on_failure: bool,
 
@@ -58,21 +58,21 @@ pub struct StringInput<'a, 'b> {
     pub filters: Option<Vec<&'a Filter<Option<Cow<'b, str>>>>>,
 
     #[builder(default = "&too_short_msg")]
-    pub too_short_msg: &'a StringInputViolationCallback,
+    pub too_short_msg: &'a StringConstraintsViolationCallback,
 
     #[builder(default = "&too_long_msg")]
-    pub too_long_msg: &'a StringInputViolationCallback,
+    pub too_long_msg: &'a StringConstraintsViolationCallback,
 
     #[builder(default = "&pattern_mismatch_msg")]
-    pub pattern_mismatch_msg: &'a StringInputViolationCallback,
+    pub pattern_mismatch_msg: &'a StringConstraintsViolationCallback,
 
     #[builder(default = "&value_missing_msg")]
     pub value_missing_msg: &'a ValueMissingCallback,
 }
 
-impl<'a, 'b> StringInput<'a, 'b> {
+impl<'a, 'b> StringConstraints<'a, 'b> {
     pub fn new() -> Self {
-        StringInput {
+        StringConstraints {
             break_on_failure: false,
             min_length: None,
             max_length: None,
@@ -157,7 +157,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
     }
 }
 
-impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a, 'b> {
+impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstraints<'a, 'b> {
     /// Validates value against contained constraints and validators, and returns a result of unit and/or a Vec of
     /// Violation tuples.
     ///
@@ -169,7 +169,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///   RangeOverflow, RangeUnderflow, StepMismatch
     /// };
     ///
-    /// let str_input = StringInputBuilder::default()
+    /// let str_input = StringConstraintsBuilder::default()
     ///  .required(true)
     ///  .value_missing_msg(&|| "Value missing".to_string())
     ///  .min_length(3usize)
@@ -229,7 +229,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// ```rust
     /// use walrs_inputfilter::*;
     ///
-    /// let input = StringInputBuilder::default()
+    /// let input = StringConstraintsBuilder::default()
     ///   .required(true)
     ///   .value_missing_msg(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
@@ -276,7 +276,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// use walrs_inputfilter::*;
     /// use std::borrow::Cow;
     ///
-    /// let input = StringInputBuilder::default()
+    /// let input = StringConstraintsBuilder::default()
     ///   .required(true)
     ///   .value_missing_msg(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
@@ -308,17 +308,17 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     }
 }
 
-impl Default for StringInput<'_, '_> {
+impl Default for StringConstraints<'_, '_> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl Display for StringInput<'_, '_> {
+impl Display for StringConstraints<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StrInput {{ required: {}, validators: {}, filters: {} }}",
+            "StringConstraints {{ required: {}, validators: {}, filters: {} }}",
             self.required,
             self
                 .validators
@@ -334,7 +334,7 @@ impl Display for StringInput<'_, '_> {
     }
 }
 
-impl Debug for StringInput<'_, '_> {
+impl Debug for StringConstraints<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", &self)
     }
@@ -418,15 +418,15 @@ mod test {
             },
         };
 
-        let less_than_1990_input = StringInputBuilder::default()
+        let less_than_1990_input = StringConstraintsBuilder::default()
             .validators(vec![&less_than_1990])
             .build()?;
 
-        let yyyy_mm_dd_input = StringInputBuilder::default()
+        let yyyy_mm_dd_input = StringConstraintsBuilder::default()
             .validators(vec![&ymd_check])
             .build()?;
 
-        let yyyy_mm_dd_input2 = StringInputBuilder::default()
+        let yyyy_mm_dd_input2 = StringConstraintsBuilder::default()
             .validators(vec![&pattern_validator])
             .build()?;
 
@@ -467,11 +467,11 @@ mod test {
 
     #[test]
     fn test_thread_safety() -> Result<(), Box<dyn Error>> {
-        let less_than_1990_input = StringInputBuilder::default()
+        let less_than_1990_input = StringConstraintsBuilder::default()
             .validators(vec![&less_than_1990])
             .build()?;
 
-        let ymd_input = StringInputBuilder::default()
+        let ymd_input = StringConstraintsBuilder::default()
             .validators(vec![&ymd_check])
             .build()?;
 
@@ -519,7 +519,7 @@ mod test {
         Ok(())
     }
 
-    /// Example showing shared references in `StrInput`, and user-land, controls.
+    /// Example showing shared references in `StringConstraints`, and user-land, controls.
     #[test]
     fn test_thread_safety_with_scoped_threads_and_closures() -> Result<(), Box<dyn Error>> {
         let ymd_rx = Arc::new(Regex::new(r"^\d{1,4}-\d{1,2}-\d{1,2}$").unwrap());
@@ -536,12 +536,12 @@ mod test {
             Ok(())
         };
 
-        let less_than_1990_input = StringInputBuilder::default()
+        let less_than_1990_input = StringConstraintsBuilder::default()
             .validators(vec![&less_than_1990])
             .filters(vec![&to_last_date_of_month])
             .build()?;
 
-        let ymd_input = StringInputBuilder::default()
+        let ymd_input = StringConstraintsBuilder::default()
             .validators(vec![&ymd_check])
             .build()?;
 
@@ -591,7 +591,7 @@ mod test {
 
     #[test]
     fn test_validate_and_filter_detailed() {
-        let input = StringInputBuilder::default()
+        let input = StringConstraintsBuilder::default()
             .required(true)
             .validators(vec![&less_than_1990])
             .filters(vec![&to_last_date_of_month])
@@ -621,7 +621,7 @@ mod test {
             }
         };
 
-        let _input = StringInputBuilder::default()
+        let _input = StringConstraintsBuilder::default()
             .validators(vec![&callback1])
             .build()
             .unwrap();
@@ -629,14 +629,14 @@ mod test {
 
     #[test]
     fn test_display() {
-        let input = StringInputBuilder::default()
+        let input = StringConstraintsBuilder::default()
             .validators(vec![&less_than_1990])
             .build()
             .unwrap();
 
         assert_eq!(
             input.to_string(),
-            "StrInput { required: false, validators: Some([Validator; 1]), filters: None }"
+            "StringConstraints { required: false, validators: Some([Validator; 1]), filters: None }"
         );
     }
 }

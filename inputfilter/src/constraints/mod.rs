@@ -1,9 +1,9 @@
-pub mod scalar_input;
-pub mod string_input;
+pub mod scalar;
+pub mod string;
 pub mod traits;
 
-pub use scalar_input::*;
-pub use string_input::*;
+pub use scalar::*;
+pub use string::*;
 pub use traits::*;
 
 pub fn value_missing_msg() -> String {

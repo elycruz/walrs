@@ -5,7 +5,7 @@
 Controls here should:
 
 - not be stateful - In the sense of 'changing' state;  E.g., should not hold on to/mutate values.
-- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc. (note we can support arbitrary structures (later) via derive macros, etc.).
+- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc., to limit implementation complexity (note we can support arbitrary structures (later) via derive macros, etc.).
 
 ## Inspiration
 
@@ -19,10 +19,10 @@ Original inspiration comes from:
 
 Due to the above, in this library, we'll require less Validator, and Filter, structs since type coercion is handled for us.
 
-## Where and how would we use `Input` controls
+## Where and how would we use `*Input`/`*Constraint` controls
 
-- In action handlers where we might need to instantiate a validator, or optionally, retrieve a globally instantiated/stored one.
-- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust built-in facilities for working with command line flags might be more appropriate (possibly less memory overhead, et al.?)).
+- In action handlers where we might need to instantiate a constraints object, or optionally, retrieve a globally instantiated/stored one.
+- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust's built-in facilities for working with command line flags might be more appropriate (possibly less memory overhead, et al.?)).
 
 ## Questions
 

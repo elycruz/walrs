@@ -74,7 +74,7 @@ impl NumberValue for f64 {}
 /// These additionally provide a runtime opportunity to override
 /// returned violation message(s), via returned validation result `Err` tuples, and the ability to provide the
 /// violation type from "constraint" structures that perform validation against their own constraint props.;  E.g.,
-/// `StringInput` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
+/// `StringConstraints` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
 ///
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ViolationEnum {
