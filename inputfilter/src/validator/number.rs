@@ -1,10 +1,11 @@
 use std::fmt::{Display, Formatter};
 use crate::ToAttributesList;
+use crate::traits::ValidateValue;
 use crate::types::{
   ViolationEnum,
   ViolationEnum::{
     NotEqual, RangeOverflow, RangeUnderflow, StepMismatch,
-  }, NumberValue, ValidateValue, ValidationResult,
+  }, NumberValue, ValidationResult,
 };
 
 use serde_json::value::to_value as to_json_value;

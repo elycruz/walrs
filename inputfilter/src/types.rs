@@ -1,5 +1,4 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
-use std::borrow::Cow;
 use std::fmt::{Debug, Display};
 use serde::Serialize;
 
@@ -71,6 +70,14 @@ impl NumberValue for usize {}
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
 
+/// Violation Enum types represent the possible violation types that may be returned, along with error messages,
+/// from any given "validation" operation.
+///
+/// These additionally provide a runtime opportunity to override
+/// returned violation message(s), via returned validation result `Err` tuples, and the ability to provide the
+/// violation type from "constraint" structures that perform validation against their own constraint props.;  E.g.,
+/// `StringInput` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
+///
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ViolationEnum {
   CustomError,
@@ -85,31 +92,29 @@ pub enum ViolationEnum {
   ValueMissing,
 }
 
+/// A validation violation message.
 pub type ViolationMessage = String;
 
+/// A validation violation tuple.
 pub type ViolationTuple = (ViolationEnum, ViolationMessage);
 
+/// Returned from validators, and Input Constraint struct `*_detailed` validation methods.
 pub type ValidationResult = Result<(), Vec<ViolationTuple>>;
 
 pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub trait ValidateValue<T: InputValue> {
-  fn validate(&self, value: T) -> ValidationResult;
-}
-
-pub trait FilterValue<T: InputValue> {
-  fn filter(&self, value: T) -> T;
-}
-
+/// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
 pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
   where T: InputValue {
 
+  // @todo - Move this to `ValidateValue` trait.
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
 
+  // @todo - Move this to `ValidateValue` trait.
   fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
 
   fn filter(&self, value: Option<FT>) -> Option<FT>;

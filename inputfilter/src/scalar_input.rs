@@ -44,13 +44,13 @@ pub struct ScalarInput<'a, T: ScalarValue> {
   pub filters: Option<Vec<&'a Filter<Option<T>>>>,
 
   #[builder(default = "&range_underflow_msg")]
-  pub range_underflow: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
+  pub range_underflow_msg: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&range_overflow_msg")]
-  pub range_overflow: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
+  pub range_overflow_msg: &'a (dyn Fn(&ScalarInput<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&value_missing_msg")]
-  pub value_missing: &'a ValueMissingCallback,
+  pub value_missing_msg: &'a ValueMissingCallback,
 }
 
 impl<'a, T> ScalarInput<'a, T>
@@ -66,9 +66,9 @@ where
       required: false,
       validators: None,
       filters: None,
-      range_underflow: &(range_underflow_msg),
-      range_overflow: &(range_overflow_msg),
-      value_missing: &value_missing_msg,
+      range_underflow_msg: &(range_underflow_msg),
+      range_overflow_msg: &(range_overflow_msg),
+      value_missing_msg: &(value_missing_msg),
     }
   }
 
@@ -80,7 +80,7 @@ where
       if value < min {
         errs.push((
           ViolationEnum::RangeUnderflow,
-          (self.range_underflow)(self, value),
+          (self.range_underflow_msg)(self, value),
         ));
 
         if self.break_on_failure {
@@ -94,7 +94,7 @@ where
       if value > max {
         errs.push((
           ViolationEnum::RangeOverflow,
-          (self.range_overflow)(self, value),
+          (self.range_overflow_msg)(self, value),
         ));
 
         if self.break_on_failure {
@@ -171,7 +171,7 @@ where
         if self.required {
           Err(vec![(
             ViolationEnum::ValueMissing,
-            (self.value_missing)(),
+            (self.value_missing_msg)(),
           )])
         } else {
           Ok(())

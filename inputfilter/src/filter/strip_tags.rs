@@ -87,6 +87,14 @@ impl<'a> StripTags<'a> {
   ///   ),
   ///   "<style>p { font-weight: bold; }</style>"
   /// );
+  ///
+  /// // Can also be called as an function trait (has `FN*` traits implemented).
+  /// assert_eq!(filter(
+  ///     "<script>alert('hello');</script><style>p { font-weight: bold; }</style>".into()
+  ///   ),
+  ///   "<style>p { font-weight: bold; }</style>"
+  /// );
+  ///
   /// ```
   ///
   pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {

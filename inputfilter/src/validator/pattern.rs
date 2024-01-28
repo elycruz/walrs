@@ -2,9 +2,10 @@ use std::borrow::Cow;
 use std::fmt::Display;
 use regex::Regex;
 use crate::ToAttributesList;
+use crate::traits::ValidateValue;
 
 use crate::types::ViolationEnum::PatternMismatch;
-use crate::types::{ValidationResult, ValidateValue};
+use crate::types::{ValidationResult};
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
@@ -123,7 +124,7 @@ mod test {
   use std::borrow::Cow;
   use std::error::Error;
   use regex::Regex;
-  use crate::{ValidateValue};
+  use crate::traits::{ValidateValue};
   use crate::ViolationEnum::PatternMismatch;
 
   use super::*;

@@ -5,7 +5,7 @@ use regex::Regex;
 use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback};
 
-pub type StrMissingViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
+pub type StringInputViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
 pub fn pattern_mismatch_msg(rules: &StringInput, xs: Option<&str>) -> String {
     format!(
@@ -56,16 +56,16 @@ pub struct StringInput<'a, 'b> {
     pub filters: Option<Vec<&'a Filter<Option<Cow<'b, str>>>>>,
 
     #[builder(default = "&too_short_msg")]
-    pub too_short: &'a StrMissingViolationCallback,
+    pub too_short_msg: &'a StringInputViolationCallback,
 
     #[builder(default = "&too_long_msg")]
-    pub too_long: &'a StrMissingViolationCallback,
+    pub too_long_msg: &'a StringInputViolationCallback,
 
     #[builder(default = "&pattern_mismatch_msg")]
-    pub pattern_mismatch: &'a StrMissingViolationCallback,
+    pub pattern_mismatch_msg: &'a StringInputViolationCallback,
 
     #[builder(default = "&value_missing_msg")]
-    pub value_missing: &'a ValueMissingCallback,
+    pub value_missing_msg: &'a ValueMissingCallback,
 }
 
 impl<'a, 'b> StringInput<'a, 'b> {
@@ -78,10 +78,10 @@ impl<'a, 'b> StringInput<'a, 'b> {
             required: false,
             validators: None,
             filters: None,
-            too_short: &(too_long_msg),
-            too_long: &(too_long_msg),
-            pattern_mismatch: &(pattern_mismatch_msg),
-            value_missing: &value_missing_msg,
+            too_short_msg: &(too_long_msg),
+            too_long_msg: &(too_long_msg),
+            pattern_mismatch_msg: &(pattern_mismatch_msg),
+            value_missing_msg: &value_missing_msg,
         }
     }
 
@@ -92,7 +92,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if value.len() < min_length {
                 errs.push((
                     ViolationEnum::TooShort,
-                    (self.too_short)(self, Some(value)),
+                    (self.too_short_msg)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -103,7 +103,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if value.len() > max_length {
                 errs.push((
                     ViolationEnum::TooLong,
-                    (self.too_long)(self, Some(value)),
+                    (self.too_long_msg)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -114,8 +114,7 @@ impl<'a, 'b> StringInput<'a, 'b> {
             if !pattern.is_match(value) {
                 errs.push((
                     ViolationEnum::PatternMismatch,
-                    (self.
-                        pattern_mismatch)(self, Some(value)),
+                    (self.pattern_mismatch_msg)(self, Some(value)),
                 ));
 
                 if self.break_on_failure { return Err(errs); }
@@ -170,9 +169,9 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let str_input = StringInputBuilder::default()
     ///  .required(true)
-    ///  .value_missing(&|| "Value missing".to_string())
+    ///  .value_missing_msg(&|| "Value missing".to_string())
     ///  .min_length(3usize)
-    ///  .too_short(&|_, _| "Too short".to_string())
+    ///  .too_short_msg(&|_, _| "Too short".to_string())
     ///  .max_length(200usize) // Default violation message callback used here.
     ///   // Naive email pattern validator (naive for this example).
     ///  .validators(vec![&|x: &str| {
@@ -198,7 +197,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
                 if self.required {
                     Err(vec![(
                         ViolationEnum::ValueMissing,
-                        (self.value_missing)(),
+                        (self.value_missing_msg)(),
                     )])
                 } else {
                     Ok(())
@@ -230,7 +229,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|| "Value missing".to_string())
+    ///   .value_missing_msg(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
@@ -277,7 +276,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     ///
     /// let input = StringInputBuilder::default()
     ///   .required(true)
-    ///   .value_missing(&|| "Value missing".to_string())
+    ///   .value_missing_msg(&|| "Value missing".to_string())
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
