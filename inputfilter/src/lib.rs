@@ -5,18 +5,12 @@
 #[macro_use]
 extern crate derive_builder;
 
-pub mod types;
+pub mod traits;
 pub mod validator;
 pub mod filter;
-pub mod scalar_input;
-pub mod string_input;
+pub mod constraints;
 
-pub use types::*;
+pub use traits::*;
 pub use validator::*;
 pub use filter::*;
-pub use scalar_input::*;
-pub use string_input::*;
-
-pub fn value_missing_msg() -> String {
-    "Value missing".to_string()
-}
+pub use constraints::*;

@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use crate::ToAttributesList;
-use crate::traits::ValidateValue;
-use crate::types::{
+use crate::ValidateValue;
+use crate::traits::{
   ViolationEnum,
   ViolationEnum::{
     NotEqual, RangeOverflow, RangeUnderflow, StepMismatch,
@@ -28,13 +28,13 @@ pub struct NumberValidator<'a, T: NumberValue> {
   #[builder(default = "None")]
   pub equal: Option<T>,
 
-  #[builder(default = "&range_underflow_msg")]
+  #[builder(default = "&num_range_underflow_msg")]
   pub range_underflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
-  #[builder(default = "&range_overflow_msg")]
+  #[builder(default = "&num_range_overflow_msg")]
   pub range_overflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
-  #[builder(default = "&step_mismatch_msg")]
+  #[builder(default = "&num_step_mismatch_msg")]
   pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
   #[builder(default = "&num_not_equal_msg")]
@@ -95,9 +95,9 @@ where
       max: None,
       step: None,
       equal: None,
-      range_underflow: &range_underflow_msg,
-      range_overflow: &range_overflow_msg,
-      step_mismatch: &step_mismatch_msg,
+      range_underflow: &num_range_underflow_msg,
+      range_overflow: &num_range_overflow_msg,
+      step_mismatch: &num_step_mismatch_msg,
       not_equal: &num_not_equal_msg,
     }
   }
@@ -206,7 +206,7 @@ impl<T: NumberValue> Display for NumberValidator<'_, T> {
   }
 }
 
-pub fn range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
+pub fn num_range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 where
   T: NumberValue,
 {
@@ -217,7 +217,7 @@ where
   )
 }
 
-pub fn range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
+pub fn num_range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
 where
   T: NumberValue,
 {
@@ -228,7 +228,7 @@ where
   )
 }
 
-pub fn step_mismatch_msg<T: NumberValue>(
+pub fn num_step_mismatch_msg<T: NumberValue>(
   rules: &NumberValidator<T>,
   x: T,
 ) -> String {
@@ -287,13 +287,13 @@ mod test {
       let test_value = 99;
 
       assert_eq!((instance.range_overflow)(&instance, test_value),
-                 range_overflow_msg(&instance, test_value));
+                 num_range_overflow_msg(&instance, test_value));
 
       assert_eq!((instance.range_underflow)(&instance, test_value),
-                 range_underflow_msg(&instance, test_value));
+                 num_range_underflow_msg(&instance, test_value));
 
       assert_eq!((instance.step_mismatch)(&instance, test_value),
-                 step_mismatch_msg(&instance, test_value));
+                 num_step_mismatch_msg(&instance, test_value));
 
       assert_eq!((instance.not_equal)(&instance, test_value),
                  num_not_equal_msg(&instance, test_value));
@@ -373,10 +373,10 @@ mod test {
         },
         Err(_enum) => {
           let err_msg_tuple = match _enum {
-            StepMismatch => (StepMismatch, step_mismatch_msg(&validator, value)),
+            StepMismatch => (StepMismatch, num_step_mismatch_msg(&validator, value)),
             NotEqual => (NotEqual, num_not_equal_msg(&validator, value)),
-            RangeUnderflow => (RangeUnderflow, range_underflow_msg(&validator, value)),
-            RangeOverflow => (RangeOverflow, range_overflow_msg(&validator, value)),
+            RangeUnderflow => (RangeUnderflow, num_range_underflow_msg(&validator, value)),
+            RangeOverflow => (RangeOverflow, num_range_overflow_msg(&validator, value)),
             _ => panic!("Unknown enum variant encountered")
           };
 

@@ -1,8 +1,8 @@
 use std::fmt::Display;
 use crate::ToAttributesList;
-use crate::traits::ValidateValue;
-use crate::types::ViolationEnum;
-use crate::types::{InputValue, ValidationResult};
+use crate::ValidateValue;
+use crate::traits::ViolationEnum;
+use crate::traits::{InputValue, ValidationResult};
 
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
@@ -10,7 +10,7 @@ pub struct EqualityValidator<'a, T>
 {
   pub rhs_value: T,
 
-  #[builder(default = "&not_equal_msg")]
+  #[builder(default = "&equal_vldr_not_equal_msg")]
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 
@@ -63,7 +63,7 @@ impl<T: InputValue + Clone> Fn<(T, )> for EqualityValidator<'_, T> {
   }
 }
 
-pub fn not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) -> String
+pub fn equal_vldr_not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) -> String
   where T: InputValue,
 {
   format!("Value must equal {}", value)
@@ -84,8 +84,8 @@ mod test {
     assert_eq!(instance.rhs_value, "foo");
 
     assert_eq!((instance.not_equal_msg)(&instance, "foo"),
-               not_equal_msg(&instance, "foo"),
-    "Default 'not_equal_msg' fn should return expected value");
+               equal_vldr_not_equal_msg(&instance, "foo"),
+    "Default 'equal_vldr_not_equal_msg' fn should return expected value");
 
     Ok(())
   }
@@ -100,7 +100,7 @@ mod test {
     ] {
       let validator = EqualityValidatorBuilder::<&str>::default()
         .rhs_value(rhs_value)
-        .not_equal_msg(&not_equal_msg)
+        .not_equal_msg(&equal_vldr_not_equal_msg)
         .build()?;
 
       if should_be_ok {
@@ -109,11 +109,11 @@ mod test {
       } else {
         assert_eq!(
           validator.validate(lhs_value),
-          Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
+          Err(vec![(NotEqual, equal_vldr_not_equal_msg(&validator, lhs_value))])
         );
         assert_eq!(
           validator(lhs_value),
-          Err(vec![(NotEqual, not_equal_msg(&validator, lhs_value))])
+          Err(vec![(NotEqual, equal_vldr_not_equal_msg(&validator, lhs_value))])
         );
       }
     }

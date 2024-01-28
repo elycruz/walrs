@@ -2,8 +2,10 @@ use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
-use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
-use crate::{ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback};
+use crate::{
+    ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback,
+    Filter, InputConstraints, Validator, ViolationMessage
+};
 
 pub type StringInputViolationCallback = dyn Fn(&StringInput, Option<&str>) -> ViolationMessage + Send + Sync;
 
@@ -162,7 +164,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringInput<'a,
     /// ```rust
     /// use walrs_inputfilter::*;
     /// use walrs_inputfilter::pattern::PatternValidator;
-    /// use walrs_inputfilter::types::ViolationEnum::{
+    /// use walrs_inputfilter::traits::ViolationEnum::{
     ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
     ///   RangeOverflow, RangeUnderflow, StepMismatch
     /// };
@@ -341,7 +343,7 @@ impl Debug for StringInput<'_, '_> {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::types::{
+    use crate::{
         ViolationEnum,
         ViolationEnum::{PatternMismatch, RangeOverflow},
         InputConstraints, ValidationResult,

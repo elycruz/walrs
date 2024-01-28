@@ -1,9 +1,8 @@
-use std::borrow::Cow;
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::types::{Filter, InputConstraints, Validator, ViolationMessage};
 use crate::{
   value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback,
+  Filter, InputConstraints, Validator, ViolationMessage
 };
 
 pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarInput<T>, x: T) -> String {

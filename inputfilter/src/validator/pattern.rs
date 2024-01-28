@@ -1,11 +1,10 @@
 use std::borrow::Cow;
 use std::fmt::Display;
 use regex::Regex;
-use crate::ToAttributesList;
-use crate::traits::ValidateValue;
+use crate::{ToAttributesList, ValidateValue};
 
-use crate::types::ViolationEnum::PatternMismatch;
-use crate::types::{ValidationResult};
+use crate::ViolationEnum::PatternMismatch;
+use crate::traits::{ValidationResult};
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
@@ -13,7 +12,7 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,
 
-  #[builder(default = "&pattern_mismatch_msg")]
+  #[builder(default = "&pattern_vldr_pattern_mismatch_msg")]
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
@@ -111,7 +110,7 @@ impl Display for PatternValidator<'_> {
   }
 }
 
-pub fn pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
+pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
   format!(
     "`{:}` does not match pattern `{:}`.",
     xs,
@@ -124,7 +123,7 @@ mod test {
   use std::borrow::Cow;
   use std::error::Error;
   use regex::Regex;
-  use crate::traits::{ValidateValue};
+  use crate::{ValidateValue};
   use crate::ViolationEnum::PatternMismatch;
 
   use super::*;
@@ -140,7 +139,7 @@ mod test {
     for (name, instance, passing_value, failing_value, _err_callback) in [
       ("Default", PatternValidatorBuilder::default()
           .pattern(Cow::Owned(_rx.clone()))
-          .build()?, "abc", "!@#)(*", &pattern_mismatch_msg),
+          .build()?, "abc", "!@#)(*", &pattern_vldr_pattern_mismatch_msg),
       ("Custom ", PatternValidatorBuilder::default()
           .pattern(Cow::Owned(_rx.clone()))
           .pattern_mismatch(&on_custom_pattern_mismatch)
