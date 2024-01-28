@@ -5,8 +5,8 @@ A set of input validation structs used to validate primitive values as they pert
 ## Members
 
 - `constraints` - Contains constraint structs.
-  - `ScalarConstraint` - Validates scalar values.
-  - `StringConstraint` - Validates string/string slice values.
+  - `ScalarConstraints` - Validates scalar values.
+  - `StringConstraints` - Validates string/string slice values.
 - `validators`
   - `NumberValidator` - Validates numeric values.
   - `PatternValidator` - Validates values against a regular expression.
