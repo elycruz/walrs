@@ -364,8 +364,10 @@ impl<T: ScalarValue> Display for ScalarConstraints<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "ScalarConstraints {{ break_on_failure: {}, required: {}, validators: {}, filters: {} }}",
+      "ScalarConstraints {{ break_on_failure: {}, min: {}, max: {}, required: {}, validators: {}, filters: {} }}",
       self.break_on_failure,
+      self.min.map_or("None".to_string(), |x| x.to_string()),
+      self.max.map_or("None".to_string(), |x| x.to_string()),
       self.required,
       self
         .validators

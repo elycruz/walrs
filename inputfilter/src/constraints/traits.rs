@@ -11,10 +11,8 @@ pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
     where T: InputValue {
 
-    // @todo - Move this to `ValidateValue` trait.
     fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
 
-    // @todo - Move this to `ValidateValue` trait.
     fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
 
     fn filter(&self, value: Option<FT>) -> Option<FT>;

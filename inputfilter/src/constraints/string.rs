@@ -36,7 +36,7 @@ pub fn too_long_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
 pub struct StringConstraints<'a, 'b> {
-    #[builder(default = "true")]
+    #[builder(default = "false")]
     pub break_on_failure: bool,
 
     #[builder(default = "None")]
@@ -188,8 +188,14 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
     /// let too_long_str = &"ab".repeat(201);
     ///
     /// assert_eq!(str_input.validate_detailed(None), Err(vec![ (ValueMissing, "Value missing".to_string()) ]));
-    /// assert_eq!(str_input.validate_detailed(Some(&"ab")), Err(vec![ (TooShort, "Too short".to_string()) ]));
-    /// assert_eq!(str_input.validate_detailed(Some(&too_long_str)), Err(vec![ (TooLong, too_long_msg(&str_input, Some(&too_long_str))) ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&"ab")), Err(vec![
+    ///     (TooShort, "Too short".to_string()),
+    ///     (TypeMismatch, "Invalid email".to_string()),
+    /// ]));
+    /// assert_eq!(str_input.validate_detailed(Some(&too_long_str)), Err(vec![
+    ///     (TooLong, too_long_msg(&str_input, Some(&too_long_str))),
+    ///     (TypeMismatch, "Invalid email".to_string()),
+    /// ]));
     /// assert_eq!(str_input.validate_detailed(Some(&"abc")), Err(vec![ (TypeMismatch, "Invalid email".to_string()) ]));
     /// assert_eq!(str_input.validate_detailed(Some(&"abc@def")), Ok(()));
     /// ```
@@ -228,25 +234,41 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
     ///
     /// ```rust
     /// use walrs_inputfilter::*;
+    /// use walrs_inputfilter::pattern::PatternValidator;
+    /// use walrs_inputfilter::traits::ViolationEnum::{
+    ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
+    ///   RangeOverflow, RangeUnderflow, StepMismatch
+    /// };
     ///
-    /// let input = StringConstraintsBuilder::default()
-    ///   .required(true)
-    ///   .value_missing_msg(&|| "Value missing".to_string())
-    ///   .validators(vec![&|x: &str| {
-    ///     if x.len() < 3 {
-    ///       return Err(vec![(
-    ///         ViolationEnum::TooShort,
-    ///        "Too short".to_string(),
-    ///       )]);
+    /// let str_input = StringConstraintsBuilder::default()
+    ///  .required(true)
+    ///  .value_missing_msg(&|| "Value missing".to_string())
+    ///  .min_length(3usize)
+    ///  .too_short_msg(&|_, _| "Too short".to_string())
+    ///  .max_length(200usize) // Default violation message callback used here.
+    ///   // Naive email pattern validator (naive for this example).
+    ///  .validators(vec![&|x: &str| {
+    ///     if !x.contains('@') {
+    ///       return Err(vec![(TypeMismatch, "Invalid email".to_string())]);
     ///     }
     ///     Ok(())
     ///   }])
-    ///   .build()
-    ///   .unwrap()
-    /// ;
+    ///  .build()
+    ///  .unwrap();
     ///
-    /// assert_eq!(input.validate(Some(&"ab")), Err(vec!["Too short".to_string()]));
-    /// assert_eq!(input.validate(None), Err(vec!["Value missing".to_string()]));
+    /// let too_long_str = &"ab".repeat(201);
+    ///
+    /// assert_eq!(str_input.validate(None), Err(vec![ "Value missing".to_string() ]));
+    /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![
+    ///     "Too short".to_string(),
+    ///      "Invalid email".to_string(),
+    /// ]));
+    /// assert_eq!(str_input.validate(Some(&too_long_str)), Err(vec![
+    ///     too_long_msg(&str_input, Some(&too_long_str)),
+    ///     "Invalid email".to_string(),
+    /// ]));
+    /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ "Invalid email".to_string() ]));
+    /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
     /// ```
     fn validate(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
         match self.validate_detailed(value) {
@@ -318,7 +340,11 @@ impl Display for StringConstraints<'_, '_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "StringConstraints {{ required: {}, validators: {}, filters: {} }}",
+            "StringConstraints {{ break_on_failure: {}, min_length: {}, max_length: {}, pattern: {}, required: {}, validators: {}, filters: {} }}",
+            self.break_on_failure,
+            self.min_length.map_or("None".to_string(), |x| x.to_string()),
+            self.max_length.map_or("None".to_string(), |x| x.to_string()),
+            self.pattern.as_ref().map_or("None".to_string(), |rx| rx.to_string()),
             self.required,
             self
                 .validators
@@ -636,7 +662,7 @@ mod test {
 
         assert_eq!(
             input.to_string(),
-            "StringConstraints { required: false, validators: Some([Validator; 1]), filters: None }"
+            "StringConstraints { break_on_failure: false, min_length: None, max_length: None, pattern: None, required: false, validators: Some([Validator; 1]), filters: None }",
         );
     }
 }
