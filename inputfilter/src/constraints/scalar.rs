@@ -57,6 +57,27 @@ where
   T: ScalarValue,
 {
   /// Returns a new instance containing defaults.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///     ScalarConstraints,
+  ///     range_underflow_msg,
+  ///     range_overflow_msg,
+  ///     value_missing_msg
+  /// };
+  ///
+  /// let constraints = ScalarConstraints::new();
+  ///
+  /// assert_eq!(constraints.break_on_failure, false);
+  /// assert_eq!(constraints.min, None);
+  /// assert_eq!(constraints.max, None);
+  /// assert_eq!(constraints.required, false);
+  /// assert_eq!(constraints.validators, None);
+  /// assert_eq!(constraints.filters, None);
+  /// assert_eq!(constraints.range_underflow_msg, &range_underflow_msg);
+  /// assert_eq!(constraints.range_overflow_msg, &range_overflow_msg);
+  /// assert_eq!(constraints.value_missing_msg, &value_missing_msg);
+  /// ```
   pub fn new() -> Self {
     ScalarConstraints {
       break_on_failure: false,
@@ -158,7 +179,8 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   ScalarConstraints, InputConstraints, ViolationEnum, ScalarConstraintsBuilder,
+  ///   ScalarConstraints, InputConstraints, ViolationEnum,
+  ///   ScalarConstraintsBuilder,
   ///   range_underflow_msg, range_overflow_msg,
   ///   ScalarValue
   /// };
