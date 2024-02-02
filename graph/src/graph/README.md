@@ -52,7 +52,7 @@ Example graph data for graph that uses strings as it's vertices:
 
 #### Plain text example
 
-Format: `symbol [,symbol]` - First `symbol` inherits from adjacent symbols (Backward Directed Graph representation etc.).
+Format: `symbol [,symbol]` - First `symbol` inherits from adjacent symbols (Backward Directed Graph representation) etc.
 
 `roles.txt`
 

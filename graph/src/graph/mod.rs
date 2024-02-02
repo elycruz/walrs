@@ -8,3 +8,4 @@ pub use shared_utils::*;
 pub use single_source_dfs::*;
 pub use symbol_graph::*;
 pub use graph::*;
+pub use traits::*;

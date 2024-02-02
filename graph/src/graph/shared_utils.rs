@@ -2,7 +2,7 @@ use std::io::{BufRead, BufReader};
 
 /// Extracts vertex, and, edge counts from top (first two lines) of text file containing
 /// vertices, and their edges;  E.g.,
-/// **note:** annotations are only for example here - only numbers are allowed in the file
+/// **note:** annotations are only for example here - only numbers are allowed in the file;
 ///  control errors out on 'parse error' otherwise..
 ///
 /// ```text
@@ -29,7 +29,7 @@ pub fn extract_vert_and_edge_counts_from_bufreader<R: std::io::Read>(
   reader
     .read_line(&mut s)
     .expect(&format!("Unable to read \"edge count\" line  from buffer"));
-  let edges_count: usize = s.trim().parse::<usize>().unwrap();
+  let edges_count = s.trim().parse::<usize>().unwrap();
 
   Ok((vertices_count, edges_count))
 }

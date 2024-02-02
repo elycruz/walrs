@@ -6,7 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json;
 
 use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::symbol_graph::DisymGraph;
+use walrs_graph::digraph::symbol_digraph::DisymGraph;
 
 pub type Role = String;
 pub type Resource = String;

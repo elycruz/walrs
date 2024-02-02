@@ -2,15 +2,28 @@ use crate::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
 use std::fmt::Debug;
 use std::io::{BufRead, BufReader, Lines};
 
+/// A basic index graph that tracks edges on vertex indices in adjacency lists.
 #[derive(Debug)]
 pub struct Graph {
+  // @todo - Should be `Vec<Option<Vec<usize>>>`, more memory efficient.
   _adj_lists: Vec<Vec<usize>>,
   _edge_count: usize,
+  // @todo - Error message for invalid vertex should be customizable.
 }
 
 impl Graph {
-  /// Returns a new graph initialized with `vert_count` number of empty adjacency
-  /// lists (one for each expected vertex).
+  /// Returns a new graph containing given `vert_count` number of vertex slots.
+  ///
+  /// ```rust
+  /// use walrs_graph::Graph;
+  ///
+  /// for vert_count in 0..3 {
+  ///   let g = Graph::new(vert_count);
+  ///
+  ///   assert_eq!(g.vert_count(), vert_count);
+  ///   assert_eq!(g.edge_count(), 0);
+  /// }
+  /// ```
   pub fn new(vert_count: usize) -> Self {
     Graph {
       _adj_lists: vec![Vec::new(); vert_count],
@@ -18,7 +31,7 @@ impl Graph {
     }
   }
 
-  /// Returns vertex count
+  /// Returns vertex count.
   pub fn vert_count(&self) -> usize {
     self._adj_lists.len()
   }
@@ -191,7 +204,7 @@ pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
 impl<R: std::io::Read> From<&mut BufReader<R>> for Graph {
   fn from(reader: &mut BufReader<R>) -> Self {
     let vert_count = match extract_vert_and_edge_counts_from_bufreader(reader) {
-      Ok((vc, _)) => vc,
+      Ok((v_count, _)) => v_count,
       Err(err) => panic!("{:?}", err),
     };
 

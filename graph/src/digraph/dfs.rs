@@ -73,7 +73,7 @@ impl DigraphDFSShape for DigraphDFS {
 
 #[cfg(test)]
 mod test {
-  use crate::digraph::symbol_graph::DisymGraph;
+  use crate::digraph::symbol_digraph::DisymGraph;
   use crate::math::triangular_num;
 
   use super::*;
