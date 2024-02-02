@@ -21,7 +21,7 @@ pub fn get_dash_filter_regex() -> &'static Regex {
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use walrs_inputfilter::filter::slug::to_slug;
+/// use walrs_inputfilter::filters::slug::to_slug;
 ///
 /// assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
 /// ```
@@ -33,7 +33,7 @@ pub fn to_slug(xs: Cow<str>) -> Cow<str> {
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use walrs_inputfilter::filter::slug::to_pretty_slug;
+/// use walrs_inputfilter::filters::slug::to_pretty_slug;
 ///
 /// assert_eq!(to_pretty_slug(Cow::Borrowed("%$Hello@#$@#!(World$$")), "hello-world");
 /// ```
@@ -98,13 +98,13 @@ impl<'a> FnOnce<(Cow<'a, str>, )> for SlugFilter {
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'a, str>, )> for SlugFilter {
+impl<'a> Fn<(Cow<'a, str>, )> for SlugFilter {
   extern "rust-call" fn call(&self, args: (Cow<'a, str>, )) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'a, str>, )> for SlugFilter {
+impl<'a> FnMut<(Cow<'a, str>, )> for SlugFilter {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>, )) -> Self::Output {
     self.filter(args.0)
   }
@@ -117,32 +117,28 @@ mod test {
 
   #[test]
   fn test_to_slug_standalone_method() {
-    for (cow_str, expected) in vec![
-      (Cow::Borrowed("Hello World"), "hello-world"),
+    for (cow_str, expected) in [(Cow::Borrowed("Hello World"), "hello-world"),
       (Cow::Borrowed("#$@#$Hello World$@#$"), "hello-world"),
-      (Cow::Borrowed("$Hello'\"@$World$"), "hello----world"),
-    ] {
+      (Cow::Borrowed("$Hello'\"@$World$"), "hello----world")] {
       assert_eq!(to_slug(cow_str), expected);
     }
   }
 
   #[test]
   fn test_to_pretty_slug_standalone_method() {
-    for (cow_str, expected) in vec![
-      (Cow::Borrowed("Hello World"), "hello-world"),
+    for (cow_str, expected) in [(Cow::Borrowed("Hello World"), "hello-world"),
       (Cow::Borrowed("$Hello World$"), "hello-world"),
-      (Cow::Borrowed("$Hello'\"@$World$"), "hello-world"),
-    ] {
+      (Cow::Borrowed("$Hello'\"@$World$"), "hello-world")] {
       assert_eq!(to_pretty_slug(cow_str), expected);
     }
   }
 
   #[test]
   fn test_slug_filter_constructor() {
-    for x in vec![0, 1, 2] {
+    for x in [0, 1, 2] {
       let instance = SlugFilter::new(x, false);
       assert_eq!(instance.max_length, x);
-      assert_eq!(instance.allow_duplicate_dashes, false);
+      assert!(!instance.allow_duplicate_dashes);
     }
   }
 
@@ -150,7 +146,7 @@ mod test {
   fn test_slug_filter_builder() {
     let instance = SlugFilterBuilder::default().build().unwrap();
     assert_eq!(instance.max_length, 200);
-    assert_eq!(instance.allow_duplicate_dashes, true);
+    assert!(instance.allow_duplicate_dashes);
   }
 
   #[test]

@@ -6,7 +6,7 @@ use serde_derive::{Deserialize, Serialize};
 use serde_json;
 
 use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::symbol_graph::DisymGraph;
+use walrs_graph::digraph::symbol_digraph::DisymGraph;
 
 pub type Role = String;
 pub type Resource = String;
@@ -986,7 +986,7 @@ impl From<AclData> for Acl {
 
 impl<'a> From<&'a mut File> for Acl {
   fn from(file: &mut File) -> Self {
-    (AclData::from(file)).into()
+    AclData::from(file).into()
   }
 }
 

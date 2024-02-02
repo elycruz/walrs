@@ -51,14 +51,17 @@ pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
         g.edge_count(),
         "both graphs should contain same edge count"
       );
+
       assert_eq!(
         g1.vert_count(),
         g.vert_count(),
         "both graphs should contain same vert count"
       );
+
       // @todo Test all contained edges, and/or, adjacency lists.
       // Print graph
       // println!("{:?}", &g);
+
       Ok(())
     }
     Err(err) => panic!("{:?}", err),

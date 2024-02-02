@@ -58,6 +58,8 @@ impl<T> SymbolGraph<T> where T: Symbol {
   pub fn new() -> Self {
     SymbolGraph {
       _vertices: Vec::new(),
+
+      // @todo Allow setting initial graph size.
       _graph: Graph::new(0),
     }
   }

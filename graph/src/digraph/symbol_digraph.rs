@@ -2,7 +2,9 @@ use std::io::{BufRead, BufReader};
 
 use crate::digraph::Digraph;
 
-/// `SymbolGraph` A Directed Acyclic Graph (B-DAG) data structure.
+/// `DisymGraph` A Directed Acyclic Graph (B-DAG) data structure.
+/// @todo Consider renaming struct to `SymbolDigraph`.
+///
 /// ```rust
 /// // @todo
 /// ```
@@ -208,7 +210,7 @@ impl Default for DisymGraph {
 /// `From` trait usage example.
 ///
 /// ```rust
-/// use walrs_graph::digraph::symbol_graph::DisymGraph;
+/// use walrs_graph::digraph::symbol_digraph::DisymGraph;
 /// use std::io::{BufRead, BufReader, Lines};
 /// use std::fs::File;
 ///
@@ -248,7 +250,7 @@ mod test {
   use std::fs::File;
   use std::io::BufReader;
 
-  use crate::digraph::symbol_graph::DisymGraph;
+  use crate::digraph::symbol_digraph::DisymGraph;
 
   #[test]
   fn test_new() -> Result<(), String> {
@@ -733,7 +735,7 @@ mod test {
     let mut reader = BufReader::new(f);
 
     // Create graph
-    let dg: DisymGraph = (&mut reader).into();
+    let _: DisymGraph = (&mut reader).into();
 
     // println!("{:?}", dg);
 
