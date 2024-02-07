@@ -12,9 +12,9 @@ A set of input validation structs used to validate primitive values as they pert
   - `PatternValidator` - Validates values against a regular expression.
   - `EqualityValidator` - Validates values against a stored right-hand-side value.
 - `filters`
-  - `SlugFilter` - Filters value to valid "slug" values.
-  - `StripTagsFilter` - Filters values against a regular expression.
-  - `XmlEntitiesFilter` - Filters values against a stored right-hand-side
+  - `SlugFilter` - Filters values to valid "slug" values.
+  - `StripTagsFilter` - Filters out HTML tags, and/or, attributes.
+  - `XmlEntitiesFilter` - Encodes XML entities.
 
 ## Usage:
 

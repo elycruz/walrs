@@ -12,7 +12,7 @@ pub trait NavigationItem<'a> {
   fn size(&mut self) -> isize;
 }
 
-#[derive(Default, Clone, Builder)]
+#[derive(Clone, Builder)]
 pub struct NavItem {
   pub active: bool,
   pub attributes: Option<Vec<(String, serde_json::Value)>>,
@@ -21,6 +21,7 @@ pub struct NavItem {
   pub items: Option<Vec<NavItem>>,
   pub label: Option<String>,
   pub order: u64,
+  pub parent: Option<Box<NavItem>>,
   pub privilege: Option<String>,
   pub resource: Option<String>,
   pub uri: Option<String>,
@@ -29,6 +30,35 @@ pub struct NavItem {
   _reevaluate_active_states: bool,
   _reevaluate_order: bool,
   _reevaluate_size: bool,
+}
+
+impl NavItem {
+  pub fn new() -> Self {
+    NavItem {
+      active: false,
+      attributes: None,
+      children_only: false,
+      fragment: None,
+      items: None,
+      label: None,
+      order: 0,
+      parent: None,
+      privilege: None,
+      resource: None,
+      uri: None,
+
+      _stored_size: 1,
+      _reevaluate_active_states: false,
+      _reevaluate_order: false,
+      _reevaluate_size: false,
+    }
+  }
+}
+
+impl Default for NavItem {
+  fn default() -> Self {
+    NavItem::new()
+  }
 }
 
 impl<'a> NavigationItem<'a> for NavItem {
@@ -73,5 +103,22 @@ impl<'a> NavigationItem<'a> for NavItem {
     }
     self._stored_size = size;
     size
+  }
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn test_nav_item() {
+    let mut nav = NavItem::default();
+    assert_eq!(nav.size(), 1);
+
+    let mut nav2 = NavItem::default();
+    nav2.add(NavItem::default());
+    nav2.add(NavItem::default());
+    nav.add(nav2);
+    assert_eq!(nav.size(), 4);
   }
 }

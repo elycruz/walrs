@@ -13,7 +13,7 @@ pub fn pattern_mismatch_msg(rules: &StringConstraints, xs: Option<&str>) -> Stri
     format!(
         "`{}` does not match pattern `{}`",
         &xs.as_ref().unwrap(),
-        rules.pattern.as_ref().unwrap()
+        rules.pattern.as_ref().unwrap().as_str()
     )
 }
 
