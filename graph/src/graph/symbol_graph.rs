@@ -231,7 +231,7 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
           if vs.is_empty() {
             return Err(format!(
-              "Malformed symbol graph buffer at buffer line {:}",
+              "Malformed symbol graph buffer at buffer line {:} - Expected \"non-empty\" line.",
               line_num
             ));
           }

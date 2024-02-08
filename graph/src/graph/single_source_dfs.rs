@@ -110,8 +110,8 @@ mod test {
     let mut reader = BufReader::new(f);
     let sg: SymbolGraph<GenericSymbol> = (&mut reader).try_into().unwrap();
     let _dfs = DFS::new(&sg.graph(), 3);
-    // println!("{:?}", &sg);
-    // println!("{:?}", &dfs.has_path_to(3));
+    println!("{:?}", &sg);
+    println!("{:?}", &_dfs.has_path_to(3));
 
     Ok(())
   }
