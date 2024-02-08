@@ -21,7 +21,7 @@ impl Digraph {
     }
   }
 
-  /// Returns vertex count
+  /// Returns vertex count.
   pub fn vert_count(&self) -> usize {
     self._adj_lists.len()
   }
@@ -172,6 +172,8 @@ impl Digraph {
     Ok(self)
   }
 }
+
+// @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.
 
 impl<R: std::io::Read> From<&mut BufReader<R>> for Digraph {
   ///  Creates a Digraph from a buffer reader representing a text file formatted as;  E.g.,

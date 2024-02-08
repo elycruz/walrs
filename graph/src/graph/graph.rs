@@ -201,6 +201,8 @@ pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
   format!("Vertex {:} is out of index range 0-{:}", v, max_v)
 }
 
+// @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.
+
 impl<R: std::io::Read> From<&mut BufReader<R>> for Graph {
   fn from(reader: &mut BufReader<R>) -> Self {
     let vert_count = match extract_vert_and_edge_counts_from_bufreader(reader) {

@@ -20,7 +20,7 @@
   - [x] `has_edge()`
   - [x] `remove_edge()`
   - [x] `validate_vertex()`
-  - [x] `digest_lines()`
+  - [x] `digest_lines()` - Should just be `try_from` for `BufReader<R>`, etc.
 
 - [ ] `DepthFirstSearch`
   - [ ] @todo
