@@ -24,6 +24,14 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 - In action handlers where we might need to instantiate a constraints object, or optionally, retrieve a globally instantiated/stored one.
 - In a terminal application where we might want to reuse the same functionality stored (though in this instance rust's built-in facilities for working with command line flags might be more appropriate (possibly less memory overhead, et al.?)).
 
+## Design:
+
+### Current:
+
+- `./constraints` - Structs with validation methods, validation properties, and filter methods used for validating/filtering given value(s).
+- `./filters` - Structs that implement `Fn` traits that transform incoming values.
+- [tentative] `./validators` - `Fn` structs that validate a given value against some inherent configuration.
+
 ## Questions
 
 ### General
