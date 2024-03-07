@@ -13,7 +13,20 @@ An experimental Web Application Library, for Rust - The project is in research a
 
 ### Notes:
 
-- Code coverage: `gcov`, until state of the art is known
+### Code coverage with `grcov`
+
+1. Install `llvm-tools`: `$ rustup component add llvm-tools-preview`
+2. Install grcov: `cargo install grcov`.
+2. Build library with instrumentation:
+```
+CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='.profraw/cargo-test-%p-%m.profraw' cargo test
+```
+3. Run grcov: 
+```bash
+grcov . --binary-path ./target/debug/deps/ -s . -t html --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/html
+```
+
+Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
 
 ## License:
 
