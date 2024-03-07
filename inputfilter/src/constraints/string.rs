@@ -158,6 +158,55 @@ impl<'a, 'b> StringConstraints<'a, 'b> {
 }
 
 impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstraints<'a, 'b> {
+    /// Same as `validate_detailed` only the violation messages are returned.
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::*;
+    /// use walrs_inputfilter::pattern::PatternValidator;
+    /// use walrs_inputfilter::traits::ViolationEnum::{
+    ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
+    ///   RangeOverflow, RangeUnderflow, StepMismatch
+    /// };
+    ///
+    /// let str_input = StringConstraintsBuilder::default()
+    ///  .required(true)
+    ///  .value_missing_msg(&|| "Value missing".to_string())
+    ///  .min_length(3usize)
+    ///  .too_short_msg(&|_, _| "Too short".to_string())
+    ///  .max_length(200usize) // Default violation message callback used here.
+    ///   // Naive email pattern validator (naive for this example).
+    ///  .validators(vec![&|x: &str| {
+    ///     if !x.contains('@') {
+    ///       return Err(vec![(TypeMismatch, "Invalid email".to_string())]);
+    ///     }
+    ///     Ok(())
+    ///   }])
+    ///  .build()
+    ///  .unwrap();
+    ///
+    /// let too_long_str = &"ab".repeat(201);
+    ///
+    /// assert_eq!(str_input.validate(None), Err(vec![ "Value missing".to_string() ]));
+    /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![
+    ///     "Too short".to_string(),
+    ///      "Invalid email".to_string(),
+    /// ]));
+    /// assert_eq!(str_input.validate(Some(&too_long_str)), Err(vec![
+    ///     too_long_msg(&str_input, Some(&too_long_str)),
+    ///     "Invalid email".to_string(),
+    /// ]));
+    /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ "Invalid email".to_string() ]));
+    /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
+    /// ```
+    fn validate(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
+        match self.validate_detailed(value) {
+            // If errors, extract messages and return them
+            Err(messages) =>
+                Err(messages.into_iter().map(|(_, message)| message).collect()),
+            Ok(_) => Ok(()),
+        }
+    }
+
     /// Validates value against contained constraints and validators, and returns a result of unit and/or a Vec of
     /// Violation tuples.
     ///
@@ -227,55 +276,6 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
                     }
                 }
             },
-        }
-    }
-
-    /// Same as `validate_detailed` only the violation messages are returned.
-    ///
-    /// ```rust
-    /// use walrs_inputfilter::*;
-    /// use walrs_inputfilter::pattern::PatternValidator;
-    /// use walrs_inputfilter::traits::ViolationEnum::{
-    ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
-    ///   RangeOverflow, RangeUnderflow, StepMismatch
-    /// };
-    ///
-    /// let str_input = StringConstraintsBuilder::default()
-    ///  .required(true)
-    ///  .value_missing_msg(&|| "Value missing".to_string())
-    ///  .min_length(3usize)
-    ///  .too_short_msg(&|_, _| "Too short".to_string())
-    ///  .max_length(200usize) // Default violation message callback used here.
-    ///   // Naive email pattern validator (naive for this example).
-    ///  .validators(vec![&|x: &str| {
-    ///     if !x.contains('@') {
-    ///       return Err(vec![(TypeMismatch, "Invalid email".to_string())]);
-    ///     }
-    ///     Ok(())
-    ///   }])
-    ///  .build()
-    ///  .unwrap();
-    ///
-    /// let too_long_str = &"ab".repeat(201);
-    ///
-    /// assert_eq!(str_input.validate(None), Err(vec![ "Value missing".to_string() ]));
-    /// assert_eq!(str_input.validate(Some(&"ab")), Err(vec![
-    ///     "Too short".to_string(),
-    ///      "Invalid email".to_string(),
-    /// ]));
-    /// assert_eq!(str_input.validate(Some(&too_long_str)), Err(vec![
-    ///     too_long_msg(&str_input, Some(&too_long_str)),
-    ///     "Invalid email".to_string(),
-    /// ]));
-    /// assert_eq!(str_input.validate(Some(&"abc")), Err(vec![ "Invalid email".to_string() ]));
-    /// assert_eq!(str_input.validate(Some(&"abc@def")), Ok(()));
-    /// ```
-    fn validate(&self, value: Option<&'b str>) -> Result<(), Vec<ViolationMessage>> {
-        match self.validate_detailed(value) {
-            // If errors, extract messages and return them
-            Err(messages) =>
-                Err(messages.into_iter().map(|(_, message)| message).collect()),
-            Ok(_) => Ok(()),
         }
     }
 

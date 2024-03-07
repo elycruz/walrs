@@ -19,7 +19,7 @@ An experimental Web Application Library, for Rust - The project is in research a
 2. Install grcov: `cargo install grcov`.
 2. Build library with instrumentation:
 ```
-CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='.profraw/cargo-test-%p-%m.profraw' cargo test
+CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='.profraw/cargo-test-%p-%m.profraw' cargo test -- --test-threads 16
 ```
 3. Run grcov: 
 ```bash

@@ -1,5 +1,5 @@
 // use std::borrow::Cow;
-use serde_json;
+// use serde_json;
 
 pub trait NavigationItem<'a> {
   // fn get_uri(&self) -> Option<Cow<'a, str>>;
@@ -78,7 +78,7 @@ impl<'a> NavigationItem<'a> for NavItem {
     self.size()
   }
 
-  fn remove(&mut self, pred: impl Fn(&'a NavItem) -> bool) -> Option<NavItem> {
+  fn remove(&mut self, _pred: impl Fn(&'a NavItem) -> bool) -> Option<NavItem> {
     self._reevaluate_size = true;
     // self.find(pred)d
     todo!()

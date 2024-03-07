@@ -3,7 +3,6 @@ use std::fs::File;
 use std::io::BufReader;
 
 use serde_derive::{Deserialize, Serialize};
-use serde_json;
 
 use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
 use walrs_graph::digraph::symbol_digraph::DisymGraph;
@@ -1230,7 +1229,7 @@ mod test_role_privilege_rules {
       rpr.get_privilege_rules(None),
       &rpr.for_all_roles,
       "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-      None as Option<&str>,
+      None,
       &rpr.for_all_roles
     );
   }

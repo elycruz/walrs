@@ -64,7 +64,6 @@ impl<T: InputValue + Clone> Fn<(T, )> for EqualityValidator<'_, T> {
 }
 
 pub fn equal_vldr_not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) -> String
-  where T: InputValue,
 {
   format!("Value must equal {}", value)
 }
