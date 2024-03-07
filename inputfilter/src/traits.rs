@@ -85,8 +85,7 @@ pub enum ViolationEnum {
   StepMismatch,
   TooLong,
   TooShort,
-  /// @deprecated
-  NotEqual,  // @todo Replace usages of this with `PatternMismatch`
+  NotEqual,
   TypeMismatch,
   ValueMissing,
 }
