@@ -631,4 +631,56 @@ mod test {
        "`g` is greater than maximum `f`.".to_string()),
     ]));
   }
+
+  #[test]
+  fn test_filter() -> Result<(), Box<dyn std::error::Error>> {
+    // Setup input constraints
+    // ----
+    // 1. With no filters.
+    let usize_input_default = ScalarConstraintsBuilder::<usize>::default().build()?;
+
+    // 2. With one filter.
+    let usize_input_twofold = ScalarConstraintsBuilder::<usize>::default()
+        .filters(vec![
+          &|x: Option<usize>| x.map(|_x| _x * 2usize),
+        ])
+        .build()?;
+
+    // 3. With two filters.
+    let usize_input_gte_four = ScalarConstraintsBuilder::<usize>::default()
+        .filters(vec![
+          &|x: Option<usize>| x.map(|_x| if _x < 4 { 4 } else { _x }),
+          &|x: Option<usize>| x.map(|_x| _x * 2usize),
+        ])
+        .build()?;
+
+    let test_cases = [
+      // No filters
+      (&usize_input_default, None, None),
+      (&usize_input_default, Some(100), Some(100)),
+
+      // With one filter
+      (&usize_input_twofold, None, None),
+      (&usize_input_twofold, Some(0), Some(0)),
+      (&usize_input_twofold, Some(2), Some(4)),
+      (&usize_input_twofold, Some(4), Some(8)),
+
+      // With multiple filters
+      (&usize_input_gte_four, None, None),
+      (&usize_input_gte_four, Some(0), Some(8)),
+      (&usize_input_gte_four, Some(2), Some(8)),
+      (&usize_input_gte_four, Some(4), Some(8)),
+      (&usize_input_gte_four, Some(6), Some(12)),
+    ];
+
+    // Run test cases
+    for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+      println!("Case {}: `(usize_input.filter)({:?}) == {:?}`", i + 1,
+               value.clone(), expected_rslt.clone()
+      );
+      assert_eq!(input.filter(value), expected_rslt);
+    }
+
+    Ok(())
+  }
 }
