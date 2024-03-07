@@ -392,7 +392,6 @@ impl<T: ScalarValue> Debug for ScalarConstraints<'_, T> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::{ViolationEnum, InputConstraints};
 
   #[test]
   fn test_validate_detailed() {
@@ -416,17 +415,17 @@ mod test {
       .build()
       .unwrap();
 
-    let usize_required = (|| -> ScalarConstraints<usize> {
+    let usize_required = {
         let mut new_input = usize_not_required.clone();
         new_input.required = true;
         new_input
-    })();
+    };
 
-    let usize_break_on_failure = (|| -> ScalarConstraints<usize> {
+    let usize_break_on_failure = {
       let mut new_input = usize_required.clone();
       new_input.break_on_failure = true;
       new_input
-    })();
+    };
 
     let test_cases = vec![
       ("Default, with no value", &usize_input_default, None, Ok(())),

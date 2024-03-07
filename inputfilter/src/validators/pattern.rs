@@ -120,11 +120,7 @@ pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> 
 
 #[cfg(test)]
 mod test {
-  use std::borrow::Cow;
   use std::error::Error;
-  use regex::Regex;
-  use crate::{ValidateValue};
-  use crate::ViolationEnum::PatternMismatch;
 
   use super::*;
 
@@ -156,13 +152,13 @@ mod test {
       // Test as an `Fn*` trait
       assert_eq!((&instance)(passing_value), Ok(()));
       assert_eq!((&instance)(failing_value), Err(vec![
-        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failing_value))
+        (PatternMismatch, instance.pattern_mismatch(&instance, failing_value))
       ]));
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
       assert_eq!(instance.validate(failing_value), Err(vec![
-        (PatternMismatch, (&instance.pattern_mismatch)(&instance, failing_value))
+        (PatternMismatch, instance.pattern_mismatch(&instance, failing_value))
       ]));
     }
 

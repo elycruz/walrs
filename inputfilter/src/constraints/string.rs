@@ -370,13 +370,10 @@ impl Debug for StringConstraints<'_, '_> {
 mod test {
     use super::*;
     use crate::{
-        ViolationEnum,
         ViolationEnum::{PatternMismatch, RangeOverflow},
-        InputConstraints, ValidationResult,
     };
     use crate::validators::pattern::PatternValidator;
-    use regex::Regex;
-    use std::{borrow::Cow, error::Error, sync::Arc, thread};
+    use std::{error::Error, sync::Arc, thread};
 
     // Tests setup types
     fn less_than_1990_msg(value: &str) -> String {

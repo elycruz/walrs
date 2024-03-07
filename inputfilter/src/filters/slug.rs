@@ -112,7 +112,7 @@ impl<'a> FnMut<(Cow<'a, str>, )> for SlugFilter {
 
 #[cfg(test)]
 mod test {
-  use std::{borrow::Cow, thread};
+  use std::{thread};
   use super::*;
 
   #[test]
