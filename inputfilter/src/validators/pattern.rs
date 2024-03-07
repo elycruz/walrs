@@ -152,13 +152,13 @@ mod test {
       // Test as an `Fn*` trait
       assert_eq!((&instance)(passing_value), Ok(()));
       assert_eq!((&instance)(failing_value), Err(vec![
-        (PatternMismatch, instance.pattern_mismatch(&instance, failing_value))
+        (PatternMismatch, (instance.pattern_mismatch)(&instance, failing_value))
       ]));
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
       assert_eq!(instance.validate(failing_value), Err(vec![
-        (PatternMismatch, instance.pattern_mismatch(&instance, failing_value))
+        (PatternMismatch, (instance.pattern_mismatch)(&instance, failing_value))
       ]));
     }
 

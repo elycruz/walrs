@@ -1229,7 +1229,7 @@ mod test_role_privilege_rules {
       rpr.get_privilege_rules(None),
       &rpr.for_all_roles,
       "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-      None,
+      None as Option<&Rule>,
       &rpr.for_all_roles
     );
   }
