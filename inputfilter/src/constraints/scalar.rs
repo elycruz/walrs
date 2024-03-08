@@ -370,6 +370,64 @@ where
 
   /// Validates, and filters, given value against contained rules, validators, and filters, respectively.
   /// If value doesn't pass validation, returns a Vec of Violation messages.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   ScalarConstraintsBuilder,
+  ///   ScalarConstraints,
+  ///   ViolationMessage,
+  ///   InputConstraints,
+  ///   ViolationEnum::CustomError,
+  /// };
+  ///
+  /// // Setup input constraints
+  /// let usize_input = ScalarConstraintsBuilder::<usize>::default()
+  ///   .min(1)
+  ///   .max(10)
+  ///   .required(true)
+  ///   .validators(vec![&|x: usize| if x % 2 != 0 {
+  ///     Err(vec![(CustomError, "Must be even".to_string())])
+  ///   } else {
+  ///     Ok(())
+  ///   }])
+  ///   .filters(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Stops validation on first validation error and returns `Err` result.
+  /// let usize_input_break_on_failure = {
+  ///   let mut new_input = usize_input.clone();
+  ///   new_input.break_on_failure = true;
+  ///   new_input
+  /// };
+  ///
+  /// let test_cases = vec![
+  ///   ("No value", &usize_input, None, Err(vec![ "Value missing".to_string() ])),
+  ///   ("With valid value", &usize_input, Some(4), Ok(Some(8))),
+  ///   ("With \"out of lower bounds\" value", &usize_input, Some(0), Err(vec![
+  ///     "`0` is less than minimum `1`.".to_string(),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value", &usize_input, Some(11), Err(vec![
+  ///     "`11` is greater than maximum `10`.".to_string(),
+  ///     "Must be even".to_string(),
+  ///   ])),
+  ///   ("With \"not Even\" value", &usize_input, Some(7), Err(vec![
+  ///     "Must be even".to_string(),
+  ///   ])),
+  ///   ("With \"not Even\" value, and 'break_on_failure: true'", &usize_input_break_on_failure,
+  ///     Some(7),
+  ///     Err(vec![
+  ///     "Must be even".to_string(),
+  ///     ])
+  ///   ),
+  /// ];
+  ///
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.validate_and_filter(value), expected_rslt);
+  /// }
+  /// ```
   fn validate_and_filter(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationMessage>> {
     match self.validate_and_filter_detailed(x) {
       Err(messages) => Err(messages.into_iter().map(|(_, message)| message).collect()),
@@ -379,6 +437,79 @@ where
 
   /// Validates, and filters, given value against contained rules, validators, and filters, respectively and
   /// returns a result of filtered value or a Vec of Violation tuples.
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   ScalarConstraintsBuilder,
+  ///   ScalarConstraints,
+  ///   InputConstraints,
+  ///   ValidationResult,
+  ///   ViolationMessage,
+  ///   ViolationEnum,
+  ///   ViolationEnum::{
+  ///     CustomError,
+  ///     RangeOverflow,
+  ///     RangeUnderflow,
+  ///     ValueMissing,
+  ///   },
+  /// };
+  ///
+  /// // Setup input constraints
+  /// let usize_input = ScalarConstraintsBuilder::<usize>::default()
+  ///   .min(1)
+  ///   .max(10)
+  ///   .required(true)
+  ///   .validators(vec![&|x: usize| if x % 2 != 0 {
+  ///     Err(vec![(CustomError, "Must be even".to_string())])
+  ///   } else {
+  ///     Ok(())
+  ///   }])
+  ///   .filters(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Stops validation on first validation error and returns `Err` result.
+  /// let usize_input_break_on_failure = {
+  ///   let mut new_input = usize_input.clone();
+  ///   new_input.break_on_failure = true;
+  ///   new_input
+  /// };
+  ///
+  /// type TestName = &'static str;
+  /// type ConstraintStruct = ScalarConstraints<'static, usize>;
+  /// type TestValue = Option<usize>;
+  /// type ExpectedResult = Result<Option<usize>, Vec<(ViolationEnum, ViolationMessage)>>;
+  ///
+  /// let test_cases: Vec<(TestName, &ConstraintStruct, TestValue, ExpectedResult)> = vec![
+  ///   ("No value", &usize_input, None, Err(vec![
+  ///     (ValueMissing, "Value missing".to_string())
+  ///   ])),
+  ///   ("With valid value", &usize_input,
+  ///     Some(4), Ok(Some(8))
+  ///   ),
+  ///   ("With \"out of lower bounds\" value", &usize_input, Some(0), Err(vec![
+  ///     (RangeUnderflow, "`0` is less than minimum `1`.".to_string()),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value", &usize_input, Some(11), Err(vec![
+  ///     (RangeOverflow, "`11` is greater than maximum `10`.".to_string()),
+  ///     (CustomError, "Must be even".to_string()),
+  ///   ])),
+  ///   ("With \"not Even\" value", &usize_input, Some(7), Err(vec![
+  ///     (CustomError, "Must be even".to_string()),
+  ///   ])),
+  ///   ("With \"not Even\" value, and 'break_on_failure: true'", &usize_input_break_on_failure,
+  ///     Some(7),
+  ///     Err(vec![
+  ///       (CustomError, "Must be even".to_string()),
+  ///     ])
+  ///   ),
+  /// ];
+  ///
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.validate_and_filter_detailed(value), expected_rslt);
+  /// }
+  /// ```
   fn validate_and_filter_detailed(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
     self.validate_detailed(x).map(|_| self.filter(x))
   }
