@@ -24,28 +24,30 @@ impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
         }
     }
 
+    fn validate(&self, value: Option<T>) -> Result<(), Vec<String>> {
+        self.constraints.as_deref().unwrap().validate(value)
+    }
+
     /// Filters value against contained filters.
     ///
     /// ```rust
     /// use walrs_inputfilter::{
     ///   Input,
-    ///   // InputBuilder,
-    ///   // InputConstraints2,
     ///   ScalarConstraintsBuilder,
     /// };
     ///
     /// // Setup input constraints
     /// let mut usize_input = Input::<usize, usize>::new();
     ///
-    ///   /*usize_input.constraints = Some(
-    ///     Box::new(ScalarConstraintsBuilder::<usize>::default()
-    ///       .min(0)
-    ///       .max(10)
-    ///       .build()
-    ///       .unwrap())
-    ///   );*/
+    /// usize_input.constraints = Some(
+    ///   Box::new(ScalarConstraintsBuilder::<usize>::default()
+    ///     .min(0)
+    ///     .max(10)
+    ///     .build()
+    ///     .unwrap())
+    /// );
     ///
-    ///   usize_input.filters = Some(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)]);
+    /// usize_input.filters = Some(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)]);
     ///
     /// let test_cases = [
     ///   (&usize_input, None, None),
@@ -68,11 +70,12 @@ impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
         }
     }
 }
+
 #[cfg(test)]
 mod test {
     use std::borrow::Cow;
     use std::error::Error;
-    use crate::{range_overflow_msg, ScalarConstraints, ScalarConstraintsBuilder, StringConstraintsBuilder};
+    use crate::{ScalarConstraintsBuilder, StringConstraintsBuilder};
     use crate::ViolationEnum::StepMismatch;
     use super::*;
 
@@ -97,19 +100,18 @@ mod test {
             .build()?
         ));
 
-        assert_eq!(float_percent.constraints.as_deref().unwrap().validate(Some(5)), Ok(()));
-        assert_eq!(float_percent.constraints.as_deref().unwrap().validate(Some(101)),
+        assert_eq!(float_percent.validate(Some(5)), Ok(()));
+        assert_eq!(float_percent.validate(Some(101)),
                    Err(vec![
                        // range_overflow_msg(
                        //     float_percent.constraints.as_deref().unwrap()
-                       //         .downcast_ref::<ScalarConstraints<usize>>().unwrap(), 
+                       //         .downcast_ref::<ScalarConstraints<usize>>().unwrap(),
                        //     101usize
-                       // ), 
+                       // ),
                        "`101` is greater than maximum `100`.".to_string(),
                        "101 is not divisible by 5".to_string()
-                   ])
-        );
-        assert_eq!(float_percent.constraints.as_deref().unwrap().validate(Some(26)),
+                   ]));
+        assert_eq!(float_percent.validate(Some(26)),
                    Err(vec!["26 is not divisible by 5".to_string()]));
 
         let mut str_input = Input::<&str, Cow<str>>::new();
@@ -118,12 +120,10 @@ mod test {
             .build()?
         ));
 
-        assert_eq!(str_input.constraints.as_deref().unwrap()
-                       .validate(Some("aeiou")),
+        assert_eq!(str_input.validate(Some("aeiou")),
                    Err(vec![
                        "Value length `5` is greater than allowed maximum `4`.".to_string(),
-                   ])
-        );
+                   ]));
 
         Ok(())
     }

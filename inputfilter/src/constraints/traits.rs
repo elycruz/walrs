@@ -15,6 +15,7 @@ pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
 
     fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
 
+    /// @todo Consider changing `value` type to just `FT` here - Makes method easier to use.
     fn filter(&self, value: Option<FT>) -> Option<FT>;
 
     fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
