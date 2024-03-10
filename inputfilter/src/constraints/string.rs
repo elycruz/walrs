@@ -29,7 +29,7 @@ pub fn too_long_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
         "Value length `{:}` is greater than allowed maximum `{:}`.",
         &xs.as_ref().unwrap().len(),
-        &rules.min_length.unwrap_or(0)
+        &rules.max_length.unwrap_or(0)
     )
 }
 
@@ -263,17 +263,14 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
             // Else if value is populated validate it
             Some(v) => match self._validate_against_own_constraints(v) {
                 Ok(_) => self._validate_against_validators(v),
-                Err(messages1) => if self.break_on_failure {
+                Err(messages1) =>  if self.break_on_failure {
                     Err(messages1)
+                } else if let Err(mut messages2) = self._validate_against_validators(v) {
+                    let mut agg = messages1;
+                    agg.append(messages2.as_mut());
+                    Err(agg)
                 } else {
-                    match self._validate_against_validators(v) {
-                        Ok(_) => Ok(()),
-                        Err(mut messages2) => {
-                            let mut agg = messages1;
-                            agg.append(messages2.as_mut());
-                            Err(agg)
-                        }
-                    }
+                    Err(messages1)
                 }
             },
         }

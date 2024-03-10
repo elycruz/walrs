@@ -9,8 +9,10 @@ pub mod traits;
 pub mod validators;
 pub mod filters;
 pub mod constraints;
+pub mod input;
 
 pub use traits::*;
 pub use validators::*;
 pub use filters::*;
 pub use constraints::*;
+pub use input::*;

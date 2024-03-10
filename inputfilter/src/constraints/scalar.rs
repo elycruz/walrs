@@ -1,9 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{
-  value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback,
-  Filter, InputConstraints, Validator, ViolationMessage
-};
+use crate::{value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback, Filter, InputConstraints, Validator, ViolationMessage};
 
 pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
@@ -35,6 +32,10 @@ pub struct ScalarConstraints<'a, T: ScalarValue> {
 
   #[builder(default = "false")]
   pub required: bool,
+
+  // @todo Add the field below to the implementation.
+  // #[builder(default = "false")]
+  // pub custom: Option<&'a Validator<T>>,
 
   #[builder(default = "None")]
   pub validators: Option<Vec<&'a Validator<T>>>,
@@ -814,4 +815,10 @@ mod test {
 
     Ok(())
   }
+
+  #[test]
+  fn test_validate_and_filter() -> Result<(), Box<dyn std::error::Error>> {
+    Ok(())
+  }
+
 }

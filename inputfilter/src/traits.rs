@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::fmt::{Debug, Display};
 use serde::Serialize;
@@ -24,8 +25,8 @@ impl InputValue for f64 {}
 impl InputValue for bool {}
 
 impl InputValue for char {}
-impl InputValue for str {}
 impl InputValue for &str {}
+impl InputValue for Cow<'_, str> {}
 
 pub trait ScalarValue: InputValue + Default + Copy {}
 
