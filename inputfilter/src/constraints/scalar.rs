@@ -2,6 +2,18 @@ use std::fmt::{Debug, Display, Formatter};
 
 use crate::{value_missing_msg, ViolationEnum, ScalarValue, ViolationTuple, ValueMissingCallback, Filter, InputConstraints, Validator, ViolationMessage};
 
+/// Returns generic range underflow message.
+///
+/// ```rust
+/// use walrs_inputfilter::{ScalarConstraintsBuilder, range_underflow_msg};
+///
+/// let input = ScalarConstraintsBuilder::<usize>::default()
+///   .min(1)
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(range_underflow_msg(&input, 0), "`0` is less than minimum `1`.");
+/// ```
 pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
     "`{:}` is less than minimum `{:}`.",
@@ -10,6 +22,18 @@ pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -
   )
 }
 
+/// Returns generic range overflow message.
+///
+/// ```rust
+/// use walrs_inputfilter::{ScalarConstraintsBuilder, range_overflow_msg};
+///
+/// let input = ScalarConstraintsBuilder::<usize>::default()
+///   .max(10)
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(range_overflow_msg(&input, 100), "`100` is greater than maximum `10`.");
+/// ```
 pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
     "`{:}` is greater than maximum `{:}`.",
