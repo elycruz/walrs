@@ -52,6 +52,9 @@ pub struct StringConstraints<'a, 'b> {
     pub required: bool,
 
     #[builder(default = "None")]
+    pub custom: Option<&'a Validator<&'b str>>,
+
+    #[builder(default = "None")]
     pub validators: Option<Vec<&'a Validator<&'b str>>>,
 
     #[builder(default = "None")]
@@ -78,6 +81,7 @@ impl<'a, 'b> StringConstraints<'a, 'b> {
             max_length: None,
             pattern: None,
             required: false,
+            custom: None,
             validators: None,
             filters: None,
             too_short_msg: &(too_long_msg),

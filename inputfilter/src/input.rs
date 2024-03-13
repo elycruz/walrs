@@ -1,14 +1,18 @@
-use crate::{Filter, InputConstraints, InputValue, ScalarValue, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
+use crate::{Filter, InputConstraints, InputValue, ScalarValue, Validator, ViolationEnum,
+            ViolationMessage, ViolationTuple};
 
 type ValueMissingCallback<T, FT> = dyn Fn(&Input<T, FT>) -> ViolationMessage + Send + Sync;
 
-fn value_missing_msg_getter<T, FT>(_: &Input<T, FT>) -> ViolationMessage {
+fn value_missing_msg_getter<T: InputValue, FT: From<T>>(_: &Input<T, FT>) -> ViolationMessage {
     "Value is missing".to_string()
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct Input<'a, 'b, T, FT> where T: InputValue + Into<FT> {
+pub struct Input<'a, 'b, T, FT>
+    where T: InputValue,
+          FT: From<T>
+{
     // #[builder(default = "None")]
     // pub name: Option<&'a str>,
     //
@@ -22,16 +26,16 @@ pub struct Input<'a, 'b, T, FT> where T: InputValue + Into<FT> {
     pub required: bool,
 
     #[builder(default = "None")]
-    pub validators: Option<Vec<&'a Validator<T>>>,
+    pub validators: Option<Vec<&'a Validator<&'b T>>>,
 
     #[builder(default = "None")]
     pub filters: Option<Vec<&'a Filter<Option<FT>>>>,
 
-    #[builder(default = "&value_missing_msg")]
-    pub value_missing_msg: &'a ValueMissingCallback<T, FT>,
+    #[builder(default = "&value_missing_msg_getter")]
+    pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)
 }
 
-impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
+impl<'a, 'b, T: InputValue, FT: From<T>> Input<'a, 'b, T, FT> {
     pub fn new() -> Self {
         Input {
             // name: None,
@@ -76,7 +80,7 @@ impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
         }
     }
 
-    fn _validate_against_validators(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
+    fn _validate_against_validators(&self, value: &'b T) -> Result<(), Vec<ViolationTuple>> {
         self
             .validators
             .as_deref()
@@ -99,7 +103,7 @@ impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
                     // ----
                     let mut agg = Vec::<ViolationTuple>::new();
                     for f in vs.iter() {
-                        if let Err(mut message_tuples) = f(value.to_owned()) {
+                        if let Err(mut message_tuples) = f(value) {
                             agg.append(message_tuples.as_mut());
                             break;
                         }
@@ -121,8 +125,8 @@ impl<'a, 'b, T: InputValue, FT> Input<'a, 'b, T, FT> {
 mod test {
     use std::borrow::Cow;
     use std::error::Error;
-    use crate::{ScalarConstraintsBuilder, StringConstraintsBuilder};
-    use crate::ViolationEnum::StepMismatch;
+    // use crate::{ScalarConstraintsBuilder, StringConstraintsBuilder};
+    // use crate::ViolationEnum::StepMismatch;
     use super::*;
 
     #[test]
@@ -132,7 +136,7 @@ mod test {
         let _ = Input::<usize, usize>::new();
         let _ = Input::<bool, bool>::new();
 
-        let mut float_percent = Input::<usize, usize>::new();
+        let _ = Input::<usize, usize>::new();
         // float_percent.constraints = Some(Box::new(ScalarConstraintsBuilder::<usize>::default()
         //     .min(0)
         //     .max(100)
@@ -160,7 +164,7 @@ mod test {
         // assert_eq!(float_percent.validate(Some(26)),
         //            Err(vec!["26 is not divisible by 5".to_string()]));
         //
-        let mut str_input = Input::<&str, Cow<str>>::new();
+        let _ = Input::<&str, Cow<str>>::new();
         // str_input.constraints = Some(Box::new(StringConstraintsBuilder::default()
         //     .max_length(4)
         //     .build()?
