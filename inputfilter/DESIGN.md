@@ -48,6 +48,17 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 
 Here we're going with `&T` for simplicity's sake.
 
+### Other
+
+- Do scalars, and `str`, implement:
+  - [x] Debug
+  - [x] Display
+  - [x] PartialOrd
+  - [x] PartialEq
+
+## TODOs
+
 - [ ] Add constraint `T: Into<FT>`
 - [ ] Change `validator*` methods to accept `&T`.
-- [ ] Do we need `Debug` and `Display` traits on `InputConstraints` type?
+- [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
+- [ ] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param.
