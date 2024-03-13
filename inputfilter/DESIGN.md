@@ -47,3 +47,7 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 | `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
 
 Here we're going with `&T` for simplicity's sake.
+
+- [ ] Add constraint `T: Into<FT>`
+- [ ] Change `validator*` methods to accept `&T`.
+- [ ] Do we need `Debug` and `Display` traits on `InputConstraints` type?

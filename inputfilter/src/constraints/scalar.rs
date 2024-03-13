@@ -57,9 +57,8 @@ pub struct ScalarConstraints<'a, T: ScalarValue> {
   #[builder(default = "false")]
   pub required: bool,
 
-  // @todo Add the field below to the implementation.
-  // #[builder(default = "false")]
-  // pub custom: Option<&'a Validator<T>>,
+  #[builder(default = "false")]
+  pub custom: Option<&'a Validator<T>>,
 
   #[builder(default = "None")]
   pub validators: Option<Vec<&'a Validator<T>>>,
@@ -106,6 +105,7 @@ where
       min: None,
       max: None,
       required: false,
+      custom: None,
       validators: None,
       filters: None,
       range_underflow_msg: &(range_underflow_msg),
@@ -138,6 +138,16 @@ where
           ViolationEnum::RangeOverflow,
           (self.range_overflow_msg)(self, value),
         ));
+
+        if self.break_on_failure {
+          return Err(errs);
+        }
+      }
+    }
+
+    if let Some(custom) = self.custom {
+      if let Err(mut custom_errs) = (custom)(value) {
+        errs.append(custom_errs.as_mut());
 
         if self.break_on_failure {
           return Err(errs);
