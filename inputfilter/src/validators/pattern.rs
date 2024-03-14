@@ -64,6 +64,7 @@ impl Fn<(&str, )> for PatternValidator<'_> {
   }
 }
 
+// @todo `Fn` traits implementation for `&&str` is not required.
 impl FnOnce<(&&str, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
@@ -84,6 +85,7 @@ impl Fn<(&&str, )> for PatternValidator<'_> {
   }
 }
 
+// @todo `Fn` traits implementation for `&String` is not required.
 impl FnOnce<(&String, )> for PatternValidator<'_> {
   type Output = ValidationResult;
 
