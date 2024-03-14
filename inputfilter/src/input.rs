@@ -2,17 +2,24 @@ use std::fmt::{Debug, Display, Formatter};
 use crate::{Filter, InputConstraints, InputValue,
             Validator, ViolationEnum, ViolationMessage, ViolationTuple};
 
-type ValueMissingCallback<T, FT> = dyn Fn(&Input<T, FT>) -> ViolationMessage + Send + Sync;
-
+/// Returns a generic message for "Value is missing" violation.
+///
+/// ```rust
+/// use walrs_inputfilter::{Input, value_missing_msg_getter};
+///
+/// let input = Input::<usize, usize>::new();
+///
+/// assert_eq!(value_missing_msg_getter(&input), "Value is missing".to_string());
+/// ```
 pub fn value_missing_msg_getter<T: InputValue, FT: From<T>>(_: &Input<T, FT>) -> ViolationMessage {
     "Value is missing".to_string()
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct Input<'a, 'b, T, FT>
+pub struct Input<'a, 'b, T, FilterT>
     where T: InputValue + 'b,
-          FT: 'b + From<T>,
+          FilterT: 'b + From<T>,
 {
     #[builder(default = "false")]
     pub break_on_failure: bool,
@@ -39,16 +46,16 @@ pub struct Input<'a, 'b, T, FT>
     pub validators: Option<Vec<&'a Validator<T>>>,
 
     #[builder(default = "None")]
-    pub filters: Option<Vec<&'a Filter<Option<FT>>>>,
+    pub filters: Option<Vec<&'a Filter<Option<FilterT>>>>,
 
     #[builder(default = "&range_underflow_msg_getter")]
-    pub range_underflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FT>, T) -> String + Send + Sync),
+    pub range_underflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>, T) -> String + Send + Sync),
 
     #[builder(default = "&range_overflow_msg_getter")]
-    pub range_overflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FT>, T) -> String + Send + Sync),
+    pub range_overflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>, T) -> String + Send + Sync),
 
     #[builder(default = "&value_missing_msg_getter")]
-    pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)
+    pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>) -> ViolationMessage + Send + Sync)
 }
 
 impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
@@ -551,24 +558,22 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Default for Input<'a, 'b, T, 
 
 impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Display for Input<'a, 'b, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(
-      f,
-      "Input {{ break_on_failure: {}, min: {}, max: {}, required: {}, validators: {}, filters: {} }}",
-      self.break_on_failure,
-      self.min.map_or("None".to_string(), |x| x.to_string()),
-      self.max.map_or("None".to_string(), |x| x.to_string()),
-      self.required,
-      self
-        .validators
-        .as_deref()
-        .map(|vs| format!("Some([Validator; {}])", vs.len()))
-        .unwrap_or("None".to_string()),
-      self
-        .filters
-        .as_deref()
-        .map(|fs| format!("Some([Filter; {}])", fs.len()))
-        .unwrap_or("None".to_string()),
-    )
+      f.debug_struct("Input")
+          .field("break_on_failure", &self.break_on_failure)
+          .field("min", &self.min)
+          .field("max", &self.max)
+          .field("required", &self.required)
+          .field("validators", &self
+              .validators
+              .as_deref()
+              .map(|vs| format!("Some([Validator; {}])", vs.len()))
+              .unwrap_or("None".to_string()))
+          .field("filters", &self
+              .filters
+              .as_deref()
+              .map(|fs| format!("Some([Filter; {}])", fs.len()))
+              .unwrap_or("None".to_string()))
+          .finish()
   }
 }
 
@@ -623,7 +628,6 @@ pub fn range_overflow_msg_getter<T: InputValue, FT: From<T>>(rules: &Input<T, FT
 mod test {
     use std::borrow::Cow;
     use std::error::Error;
-    use crate::{range_overflow_msg_getter, range_underflow_msg_getter, value_missing_msg_getter};
     // use crate::{InputBuilder, StringConstraintsBuilder};
     // use crate::ViolationEnum::StepMismatch;
     use super::*;
