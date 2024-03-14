@@ -1,5 +1,6 @@
+use std::cmp::Ordering;
 use std::ops::{Add, Div, Mul, Rem, Sub};
-use std::fmt::{Debug, Display};
+use std::fmt::{Debug, Display, Formatter};
 use serde::Serialize;
 
 pub trait InputValue: Copy + Default + Debug + Display + PartialEq + PartialOrd + Serialize {}
