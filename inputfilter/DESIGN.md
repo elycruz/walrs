@@ -59,6 +59,7 @@ Here we're going with `&T` for simplicity's sake.
 ## TODOs
 
 - [ ] Add constraint `T: Into<FT>`
-- [ ] Change `validator*` methods to accept `&T`.
+- [x] ~~Change `validator*` methods to accept `&T`.~~ - No longer required as we're only supporting 'Copy', and/or Scalar, types.
 - [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
-- [ ] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param.
+- [ ] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.
+
