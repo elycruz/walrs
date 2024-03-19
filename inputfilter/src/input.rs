@@ -632,6 +632,7 @@ pub fn range_overflow_msg_getter<T: InputValue, FT: From<T>>(rules: &Input<T, FT
 mod test {
     use std::borrow::Cow;
     use std::error::Error;
+    use std::collections::HashMap;
     // use crate::{InputBuilder, StringConstraintsBuilder};
     // use crate::ViolationEnum::StepMismatch;
     use super::*;
@@ -642,8 +643,12 @@ mod test {
         let _ = Input::<char, char>::new();
         let _ = Input::<usize, usize>::new();
         let _ = Input::<bool, bool>::new();
-
         let _ = Input::<usize, usize>::new();
+
+        // Hashmap
+        // ----
+        let _ = Input::<HashMap<String, String>, HashMap<String, String>>::new();
+
         // float_percent.constraints = Some(Box::new(InputBuilder::<usize, usize>::default()
         //     .min(0)
         //     .max(100)
