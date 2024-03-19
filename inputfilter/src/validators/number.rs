@@ -8,6 +8,8 @@ use crate::traits::{
   }, NumberValue, ValidationResult,
 };
 
+// @todo Validator should support `break_on_failure` feature.
+
 use serde_json::value::to_value as to_json_value;
 
 pub type NumberVldrViolationCallback<'a, T> =

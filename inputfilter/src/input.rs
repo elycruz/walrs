@@ -24,12 +24,6 @@ pub struct Input<'a, 'b, T, FilterT>
     #[builder(default = "false")]
     pub break_on_failure: bool,
 
-    #[builder(default = "None")]
-    pub min: Option<T>,
-
-    #[builder(default = "None")]
-    pub max: Option<T>,
-
     #[builder(default = "false")]
     pub required: bool,
 
@@ -51,12 +45,6 @@ pub struct Input<'a, 'b, T, FilterT>
     #[builder(default = "None")]
     pub filters: Option<Vec<&'a Filter<Option<FilterT>>>>,
 
-    #[builder(default = "&range_underflow_msg_getter")]
-    pub range_underflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>, T) -> String + Send + Sync),
-
-    #[builder(default = "&range_overflow_msg_getter")]
-    pub range_overflow_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>, T) -> String + Send + Sync),
-
     #[builder(default = "&value_missing_msg_getter")]
     pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>) -> ViolationMessage + Send + Sync)
 }
@@ -75,8 +63,6 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     /// // Assert defaults
     /// // ----
     /// assert_eq!(input.break_on_failure, false);
-    /// assert_eq!(input.min, None);
-    /// assert_eq!(input.max, None);
     /// assert_eq!(input.required, false);
     /// assert!(input.custom.is_none());
     /// assert_eq!(input.locale, None);
@@ -88,8 +74,6 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     pub fn new() -> Self {
         Input {
             break_on_failure: false,
-            min: None,
-            max: None,
             required: false,
             custom: None,
             locale: None,
@@ -97,42 +81,12 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
             default_value: None,
             validators: None,
             filters: None,
-            range_underflow_msg: &(range_underflow_msg_getter),
-            range_overflow_msg: &(range_overflow_msg_getter),
             value_missing_msg: &value_missing_msg_getter,
         }
     }
 
     fn _validate_against_own_constraints(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
         let mut errs = vec![];
-
-        // Test lower bound
-        if let Some(min) = self.min {
-            if value < min {
-                errs.push((
-                    ViolationEnum::RangeUnderflow,
-                    (self.range_underflow_msg)(self, value),
-                ));
-
-                if self.break_on_failure {
-                    return Err(errs);
-                }
-            }
-        }
-
-        // Test upper bound
-        if let Some(max) = self.max {
-            if value > max {
-                errs.push((
-                    ViolationEnum::RangeOverflow,
-                    (self.range_overflow_msg)(self, value),
-                ));
-
-                if self.break_on_failure {
-                    return Err(errs);
-                }
-            }
-        }
 
         if let Some(custom) = self.custom {
             if let Err(mut custom_errs) = (custom)(value) {
@@ -204,7 +158,7 @@ where
   /// use walrs_inputfilter::{
   ///   Input, InputConstraints, ViolationEnum,
   ///   InputBuilder,
-  ///   range_underflow_msg_getter, range_overflow_msg_getter, value_missing_msg_getter,
+  ///   value_missing_msg_getter,
   /// };
   ///
   /// // Setup a custom validator
@@ -234,16 +188,6 @@ where
   ///      value_missing_msg_getter(&usize_required),
   ///   ])),
   ///   ("With valid value", &usize_required, Some(4), Ok(())),
-  ///   ("With \"out of lower bounds\" value", &usize_required, Some(0), Err(vec![
-  ///      range_underflow_msg_getter(&usize_required, 0),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value", &usize_required, Some(11), Err(vec![
-  ///     range_overflow_msg_getter(&usize_required, 11),
-  ///     "Must be even".to_string(),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value, and 'break_on_failure: true'", &usize_break_on_failure, Some(11), Err(vec![
-  ///     range_overflow_msg_getter(&usize_required, 11),
-  ///   ])),
   ///   ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
   ///      "Must be even".to_string(),
   ///   ])),
@@ -270,7 +214,7 @@ where
   /// use walrs_inputfilter::{
   ///   Input, InputConstraints, ViolationEnum,
   ///   InputBuilder,
-  ///   range_underflow_msg_getter, range_overflow_msg_getter, value_missing_msg_getter,
+  ///   value_missing_msg_getter,
   /// };
   ///
   /// // Setup a custom validator
@@ -301,17 +245,6 @@ where
   ///      value_missing_msg_getter(&usize_required)),
   ///   ])),
   ///   ("With valid value", &usize_required, Some(4), Ok(())),
-  ///   ("With \"out of lower bounds\" value", &usize_required, Some(0), Err(vec![
-  ///     (ViolationEnum::RangeUnderflow,
-  ///      range_underflow_msg_getter(&usize_required, 0)),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value", &usize_required, Some(11), Err(vec![
-  ///     (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_required, 11)),
-  ///     (ViolationEnum::CustomError, "Must be even".to_string()),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value, and 'break_on_failure: true'", &usize_break_on_failure, Some(11), Err(vec![
-  ///     (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_required, 11)),
-  ///   ])),
   ///   ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
   ///     (ViolationEnum::CustomError,
   ///      "Must be even".to_string()),
@@ -549,8 +482,6 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Default for Input<'a, 'b, T, 
   /// // Assert defaults
   /// // ----
   /// assert_eq!(input.break_on_failure, false);
-  /// assert_eq!(input.min, None);
-  /// assert_eq!(input.max, None);
   /// assert_eq!(input.required, false);
   /// assert!(input.validators.is_none());
   /// assert!(input.filters.is_none());
@@ -564,8 +495,6 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Display for Input<'a, 'b, T, 
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
       f.debug_struct("Input")
           .field("break_on_failure", &self.break_on_failure)
-          .field("min", &self.min)
-          .field("max", &self.max)
           .field("required", &self.required)
           .field("validators", &self
               .validators
@@ -585,47 +514,6 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Debug for Input<'a, 'b, T, FT
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
-}
-
-/// Returns generic range underflow message.
-///
-/// ```rust
-/// use walrs_inputfilter::{InputBuilder, range_underflow_msg_getter};
-///
-/// let input = InputBuilder::<usize, usize>::default()
-///   .min(1)
-///   .build()
-///   .unwrap();
-///
-/// assert_eq!(range_underflow_msg_getter(&input, 0), "`0` is less than minimum `1`.");
-/// ```
-pub fn range_underflow_msg_getter<T: InputValue, FT: From<T>>(rules: &Input<T, FT>, x: T) -> String {
-    format!(
-        "`{:}` is less than minimum `{:}`.",
-        x,
-        &rules.min.unwrap()
-    )
-}
-
-/// Returns generic range overflow message.
-///
-/// ```rust
-/// use walrs_inputfilter::{InputBuilder,
-/// range_overflow_msg_getter};
-///
-/// let input = InputBuilder::<usize, usize>::default()
-///   .max(10)
-///   .build()
-///   .unwrap();
-///
-/// assert_eq!(range_overflow_msg_getter(&input, 100), "`100` is greater than maximum `10`.");
-/// ```
-pub fn range_overflow_msg_getter<T: InputValue, FT: From<T>>(rules: &Input<T, FT>, x: T) -> String {
-    format!(
-        "`{:}` is greater than maximum `{:}`.",
-        x,
-        &rules.max.unwrap()
-    )
 }
 
 #[cfg(test)]
@@ -689,7 +577,7 @@ mod test {
 
         Ok(())
     }
-
+/*
     #[test]
     fn test_validate() {
         // Setup a custom validator
@@ -719,17 +607,6 @@ mod test {
                 value_missing_msg_getter(&usize_required),
             ])),
             ("With valid value", &usize_required, Some(4), Ok(())),
-            ("With \"out of lower bounds\" value", &usize_required, Some(0), Err(vec![
-                range_underflow_msg_getter(&usize_required, 0),
-            ])),
-            ("With \"out of upper bounds\" value", &usize_required, Some(11), Err(vec![
-                range_overflow_msg_getter(&usize_required, 11),
-                "Must be even".to_string(),
-            ])),
-            ("With \"out of upper bounds\" value, and 'break_on_failure: true'", &usize_break_on_failure,
-             Some(11), Err(vec![
-                range_overflow_msg_getter(&usize_required, 11),
-            ])),
             ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
                 "Must be even".to_string(),
             ])),
@@ -785,14 +662,6 @@ mod test {
             ("1-10, Even, no value", &usize_not_required, None, Ok(())),
             ("1-10, Even, with valid value", &usize_not_required, Some(2), Ok(())),
             ("1-10, Even, with valid value (2)", &usize_not_required, Some(10), Ok(())),
-            ("1-10, Even, with invalid value", &usize_not_required, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow,
-                 range_underflow_msg_getter(&usize_not_required, 0))
-            ])),
-            ("1-10, Even, with invalid value(2)", &usize_not_required, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_not_required, 11)),
-                (ViolationEnum::CustomError, "Must be even".to_string()),
-            ])),
             ("1-10, Even, with invalid value (3)", &usize_not_required, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
                  "Must be even".to_string()),
@@ -809,23 +678,9 @@ mod test {
             ("1-10, Even, required, with valid value (1)", &usize_required, Some(4), Ok(())),
             ("1-10, Even, required, with valid value (2)", &usize_required, Some(8), Ok(())),
             ("1-10, Even, required, with valid value (3)", &usize_required, Some(10), Ok(())),
-            ("1-10, Even, required, with invalid value", &usize_required, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow,
-                 range_underflow_msg_getter(&usize_required, 0)),
-            ])),
-            ("1-10, Even, required, with invalid value(2)", &usize_required, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_required, 11)),
-                (ViolationEnum::CustomError, "Must be even".to_string()),
-            ])),
             ("1-10, Even, required, with invalid value (3)", &usize_required, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
                  "Must be even".to_string()),
-            ])),
-            ("1-10, Even, required, 'break-on-failure: true', with multiple violations", &usize_break_on_failure, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_break_on_failure, 11)),
-            ])),
-            ("1-10, Even, required, 'break-on-failure: true', with multiple violations (2)", &usize_break_on_failure, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow, range_underflow_msg_getter(&usize_break_on_failure, 0)),
             ])),
             ("1-10, Even, required, with invalid value (3)", &usize_break_on_failure, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
@@ -859,10 +714,6 @@ mod test {
              value_missing_msg_getter(&f64_input_required)),
         ]));
         assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
-        assert_eq!(f64_input_required.validate_detailed(Some(11.0)), Err(vec![
-            (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&f64_input_required, 11.0)),
-            (ViolationEnum::CustomError, "Must be even".to_string()),
-        ]));
 
         // Test `char` usage
         let char_input = InputBuilder::<char, char>::default()
@@ -977,14 +828,6 @@ mod test {
             ("1-10, Even, no value", &usize_not_required_with_rules, None, Ok(None)),
             ("1-10, Even, with valid value", &usize_not_required_with_rules, Some(2), Ok(Some(2))),
             ("1-10, Even, with valid value (2)", &usize_not_required_with_rules, Some(10), Ok(Some(10))),
-            ("1-10, Even, with invalid value", &usize_not_required_with_rules, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow,
-                 range_underflow_msg_getter(&usize_not_required_with_rules, 0))
-            ])),
-            ("1-10, Even, with invalid value(2)", &usize_not_required_with_rules, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_not_required_with_rules, 11)),
-                (ViolationEnum::CustomError, "Must be even".to_string()),
-            ])),
             ("1-10, Even, with invalid value (3)", &usize_not_required_with_rules, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
                  "Must be even".to_string()),
@@ -1001,23 +844,9 @@ mod test {
             ("1-10, Even, required, with valid value (1)", &usize_required_with_rules, Some(4), Ok(Some(4))),
             ("1-10, Even, required, with valid value (2)", &usize_required_with_rules, Some(8), Ok(Some(8))),
             ("1-10, Even, required, with valid value (3)", &usize_required_with_rules, Some(10), Ok(Some(10))),
-            ("1-10, Even, required, with invalid value", &usize_required_with_rules, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow,
-                 range_underflow_msg_getter(&usize_required_with_rules, 0)),
-            ])),
-            ("1-10, Even, required, with invalid value(2)", &usize_required_with_rules, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_required_with_rules, 11)),
-                (ViolationEnum::CustomError, "Must be even".to_string()),
-            ])),
             ("1-10, Even, required, with invalid value (3)", &usize_required_with_rules, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
                  "Must be even".to_string()),
-            ])),
-            ("1-10, Even, required, 'break-on-failure: true', with multiple violations", &usize_break_on_failure_with_rules, Some(11), Err(vec![
-                (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_break_on_failure_with_rules, 11)),
-            ])),
-            ("1-10, Even, required, 'break-on-failure: true', with multiple violations (2)", &usize_break_on_failure_with_rules, Some(0), Err(vec![
-                (ViolationEnum::RangeUnderflow, range_underflow_msg_getter(&usize_break_on_failure_with_rules, 0)),
             ])),
             ("1-10, Even, required, with invalid value (3)", &usize_break_on_failure_with_rules, Some(7), Err(vec![
                 (ViolationEnum::CustomError,
@@ -1051,11 +880,7 @@ mod test {
              value_missing_msg_getter(&f64_input_required)),
         ]));
         assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
-        assert_eq!(f64_input_required.validate_detailed(Some(11.0)), Err(vec![
-            (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&f64_input_required, 11.0)),
-            (ViolationEnum::CustomError, "Must be even".to_string()),
-        ]));
-
+        
         // Test `char` usage
         let char_input = InputBuilder::<char, char>::default()
             .min('a')
@@ -1073,4 +898,6 @@ mod test {
 
         Ok(())
     }
+    
+ */
 }

@@ -74,6 +74,8 @@ impl NumberValue for f64 {}
 /// violation type from "constraint" structures that perform validation against their own constraint props.;  E.g.,
 /// `StringConstraints` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
 ///
+/// @todo Consider attaching messages to enum variants (will require something like `unwrap`,
+///   and/or, `to_string()` to limit the `match` statement verbosity that it might add).
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ViolationEnum {
   CustomError,
