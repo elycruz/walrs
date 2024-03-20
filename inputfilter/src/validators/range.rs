@@ -112,7 +112,6 @@ impl<'a, T: ScalarValue> ValidateValue<T> for RangeValidator<'a, T> {
     }
 }
 
-
 impl<T: ScalarValue> FnMut<(T, )> for RangeValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
     self.validate(args.0)

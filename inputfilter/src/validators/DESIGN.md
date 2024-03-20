@@ -1,8 +1,10 @@
 # Validators
 
-## Desired APIs
+## Equality Validator
 
-### Number Validator
+Equality validator - Holds a 'rhs_value' and validates incoming value against the stored value.
+
+## Number Validator
 
 Can validate (signed, and unsigned) integer, and float values:
 
@@ -25,8 +27,12 @@ Can validate (signed, and unsigned) integer, and float values:
 
 ## Pattern Validator
 
-Can validate incoming value against stored regular expression.
+Validates a string (`&str`) against stored regular expression.
 
-## Equality Validator
+## Range Validator
 
-Equality validator - Holds a 'rhs_value' and validates incoming value against it.
+Validates a scalar value against a `min`, and/or a `max`.
+
+## LengthValidator
+
+Validates an item's length.
