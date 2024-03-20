@@ -14,10 +14,10 @@ pub struct RangeValidator<'a, T: ScalarValue> {
     #[builder(default = "None")]
     pub max: Option<T>,
 
-    #[builder(default = "&range_underflow_msg")]
+    #[builder(default = "&range_underflow_msg_getter")]
     pub range_underflow_msg: &'a (dyn Fn(&RangeValidator<'a, T>, T) -> String + Send + Sync),
 
-    #[builder(default = "&range_overflow_msg")]
+    #[builder(default = "&range_overflow_msg_getter")]
     pub range_overflow_msg: &'a (dyn Fn(&RangeValidator<'a, T>, T) -> String + Send + Sync),
 }
 
@@ -41,8 +41,8 @@ impl<'a, T: ScalarValue> RangeValidator<'a, T> {
             break_on_failure: false,
             min: None,
             max: None,
-            range_underflow_msg: &(range_underflow_msg),
-            range_overflow_msg: &(range_overflow_msg),
+            range_underflow_msg: &(range_underflow_msg_getter),
+            range_overflow_msg: &(range_overflow_msg_getter),
         }
     }
 }
@@ -55,7 +55,7 @@ impl<'a, T: ScalarValue> ValidateValue<T> for RangeValidator<'a, T> {
     /// use walrs_inputfilter::{
     ///   RangeValidator, ViolationEnum,
     ///   RangeValidatorBuilder,
-    ///   range_underflow_msg, range_overflow_msg,
+    ///   range_underflow_msg_getter, range_overflow_msg_getter,
     ///   ValidateValue,
     ///   ScalarValue
     /// };
@@ -72,19 +72,19 @@ impl<'a, T: ScalarValue> ValidateValue<T> for RangeValidator<'a, T> {
     ///   ("With valid value (2)", &usize_vldtr, 4, Ok(())),
     ///   ("With valid value (3)", &usize_vldtr, 10, Ok(())),
     ///   ("With \"out of lower bounds\" value", &usize_vldtr, 0, Err(vec![
-    ///     (ViolationEnum::RangeUnderflow, range_underflow_msg(&usize_vldtr, 0)),
+    ///     (ViolationEnum::RangeUnderflow, range_underflow_msg_getter(&usize_vldtr, 0)),
     ///   ])),
     ///   ("With \"out of upper bounds\" value", &usize_vldtr, 11, Err(vec![
-    ///     (ViolationEnum::RangeOverflow, range_overflow_msg(&usize_vldtr, 11)),
+    ///     (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_vldtr, 11)),
     ///   ])),
-    /// 
+    ///
     /// ];
     ///
     /// // Run test cases
     /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
     ///   println!("Case {}: {}", i + 1, test_name);
     ///   assert_eq!(usize_vldtr.validate(value), expected_rslt);
-    ///   assert_eq!usize_vldtr(value), expected_rslt);
+    ///   assert_eq!(usize_vldtr(value), expected_rslt);
     /// }
     /// ```
     fn validate(&self, value: T) -> ValidationResult {
@@ -136,16 +136,16 @@ impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
 /// Returns generic range underflow message.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RangeValidatorBuilder, range_underflow_msg};
+/// use walrs_inputfilter::{RangeValidatorBuilder, range_underflow_msg_getter};
 ///
 /// let input = RangeValidatorBuilder::<usize>::default()
 ///   .min(1)
 ///   .build()
 ///   .unwrap();
 ///
-/// assert_eq!(range_underflow_msg(&input, 0), "`0` is less than minimum `1`.");
+/// assert_eq!(range_underflow_msg_getter(&input, 0), "`0` is less than minimum `1`.");
 /// ```
-pub fn range_underflow_msg<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
+pub fn range_underflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
     format!(
         "`{:}` is less than minimum `{:}`.",
         x,
@@ -156,16 +156,16 @@ pub fn range_underflow_msg<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> S
 /// Returns generic range overflow message.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RangeValidatorBuilder, range_overflow_msg};
+/// use walrs_inputfilter::{RangeValidatorBuilder, range_overflow_msg_getter};
 ///
 /// let input = RangeValidatorBuilder::<usize>::default()
 ///   .max(10)
 ///   .build()
 ///   .unwrap();
 ///
-/// assert_eq!(range_overflow_msg(&input, 100), "`100` is greater than maximum `10`.");
+/// assert_eq!(range_overflow_msg_getter(&input, 100), "`100` is greater than maximum `10`.");
 /// ```
-pub fn range_overflow_msg<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
+pub fn range_overflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
     format!(
         "`{:}` is greater than maximum `{:}`.",
         x,
@@ -238,15 +238,15 @@ mod test {
             ("With valid value", &usize_required, 4, Ok(())),
             ("With valid value", &usize_required, 10, Ok(())),
             ("With \"out of lower bounds\" value", &usize_required, 0, Err(vec![
-                (RangeUnderflow, range_underflow_msg(&usize_required, 0)),
+                (RangeUnderflow, range_underflow_msg_getter(&usize_required, 0)),
             ])),
             ("With \"out of upper bounds\" value", &usize_required, 11, Err(vec![
-                (RangeOverflow, range_overflow_msg(&usize_required, 11)),
+                (RangeOverflow, range_overflow_msg_getter(&usize_required, 11)),
             ])),
             ("With \"out of upper bounds\" value, and 'break_on_failure: true'",
              &usize_break_on_failure, 11,
              Err(vec![
-                (RangeOverflow, range_overflow_msg(&usize_required, 11)),
+                (RangeOverflow, range_overflow_msg_getter(&usize_required, 11)),
             ])),
         ];
 

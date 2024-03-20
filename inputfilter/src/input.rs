@@ -86,23 +86,10 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     }
 
     fn _validate_against_own_constraints(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
-        let mut errs = vec![];
-
         if let Some(custom) = self.custom {
-            if let Err(mut custom_errs) = (custom)(value) {
-                errs.append(custom_errs.as_mut());
-
-                if self.break_on_failure {
-                    return Err(errs);
-                }
-            }
+            return (custom)(value);
         }
-
-        if errs.is_empty() {
-            Ok(())
-        } else {
-            Err(errs)
-        }
+        Ok(())
     }
 
     fn _validate_against_validators(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
@@ -170,8 +157,6 @@ where
   ///
   /// // Setup input constraints
   /// let usize_required = InputBuilder::<usize, usize>::default()
-  ///   .min(1)
-  ///   .max(10)
   ///   .required(true)
   ///   .validators(vec![&validate_is_even])
   ///   .build()
@@ -226,8 +211,6 @@ where
   ///
   /// // Setup input constraints
   /// let usize_required = InputBuilder::<usize, usize>::default()
-  ///   .min(1)
-  ///   .max(10)
   ///   .required(true)
   ///   .validators(vec![&validate_is_even])
   ///   .build()
@@ -333,13 +316,22 @@ where
   ///   InputConstraints,
   ///   ViolationEnum::CustomError,
   /// };
+  /// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow};
+  ///
+  /// let min_max_check = |x: usize| if x < 1 {
+  ///   Err(vec![(RangeUnderflow, format!("`{}` is less than minimum `1`.", x))])
+  /// } else if x > 10 {
+  ///   Err(vec![(RangeOverflow, format!("`{}` is greater than maximum `10`.", x))])
+  /// } else {
+  ///   Ok(())
+  /// };
   ///
   /// // Setup input constraints
   /// let usize_input = InputBuilder::<usize, usize>::default()
-  ///   .min(1)
-  ///   .max(10)
   ///   .required(true)
-  ///   .validators(vec![&|x: usize| if x % 2 != 0 {
+  ///   .validators(vec![
+  ///   &min_max_check,
+  ///   &|x: usize| if x % 2 != 0 {
   ///     Err(vec![(CustomError, "Must be even".to_string())])
   ///   } else {
   ///     Ok(())
@@ -407,12 +399,20 @@ where
   ///   },
   /// };
   ///
+  /// let min_max_check = |x: usize| if x < 1 {
+  ///   Err(vec![(RangeUnderflow, format!("`{}` is less than minimum `1`.", x))])
+  /// } else if x > 10 {
+  ///   Err(vec![(RangeOverflow, format!("`{}` is greater than maximum `10`.", x))])
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
   /// // Setup input constraints
   /// let usize_input = InputBuilder::<usize, usize>::default()
-  ///   .min(1)
-  ///   .max(10)
   ///   .required(true)
-  ///   .validators(vec![&|x: usize| if x % 2 != 0 {
+  ///   .validators(vec![
+  ///   &min_max_check,
+  ///   &|x: usize| if x % 2 != 0 {
   ///     Err(vec![(CustomError, "Must be even".to_string())])
   ///   } else {
   ///     Ok(())
@@ -535,7 +535,7 @@ mod test {
 
         // Hashmap
         // ----
-        let _ = Input::<HashMap<String, String>, HashMap<String, String>>::new();
+        // let _ = Input::<HashMap<String, String>, HashMap<String, String>>::new();
 
         // float_percent.constraints = Some(Box::new(InputBuilder::<usize, usize>::default()
         //     .min(0)
