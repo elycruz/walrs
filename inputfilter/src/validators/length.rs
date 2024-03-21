@@ -100,9 +100,9 @@ macro_rules! validate_type_with_len {
 /// Validates incoming value against contained constraints.
 ///
 /// ```rust
-/// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-/// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow};
-/// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder};
+/// use walrs_inputfilter::{len_not_equal_msg, len_too_long_msg, len_too_short_msg};
+/// use walrs_inputfilter::ViolationEnum::{NotEqual, RangeOverflow, RangeUnderflow, TooLong, TooShort};
+/// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateValue};
 ///
 /// let no_rules = LengthValidator::new();
 /// let len_one_to_ten = LengthValidatorBuilder::default()
@@ -122,17 +122,26 @@ macro_rules! validate_type_with_len {
 /// let test_cases = vec![
 ///   ("Default", &no_rules, "", Ok(())),
 ///   ("Value too short", &len_one_to_ten, "", Err(vec![
-///     (RangeUnderflow, len_too_short_msg(&len_one_to_ten, ""))
+///     (TooShort, len_too_short_msg(&len_one_to_ten, ""))
 ///   ])),
 ///   ("Value too long", &len_one_to_ten, too_long_str, Err(vec![
-///     (RangeOverflow, len_too_long_msg(&len_one_to_ten, too_long_str))
+///     (TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
 ///   ])),
 ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
 ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
 ///   ("Equals \"5\"", &len_equal_five, "aeiou" , Ok(())),
-///   ("Not equals \"5\"", &len_equal_five, "aeiouy", Ok(())),
-///   ("Not equals \"5\"", &len_equal_five, "o", Ok(()))
+///   ("Not equals \"5\"", &len_equal_five, "aeiouy", Err(vec![
+///     (NotEqual, len_not_equal_msg(&len_equal_five, "aeiouy"))
+///   ])),
+///   ("Not equals \"5\"", &len_equal_five, "o", Err(vec![
+///     (NotEqual, len_not_equal_msg(&len_equal_five, "o"))
+///   ]))
 /// ];
+///
+/// for (name, rules, value, expected) in test_cases {
+///  assert_eq!(rules.validate(value), expected, "{}", name);
+///  assert_eq!(rules(value), expected, "{}", name);
+/// }
 /// ```
 impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
     fn validate(&self, value: T) -> ValidationResult {
