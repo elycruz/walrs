@@ -13,7 +13,7 @@ mod test {
     let f = File::open(&file_path)?;
 
     // Create graph
-    let dg: Digraph = (&f).into();
+    let _: Digraph = (&f).into();
 
     // println!("{:?}", dg);
 
@@ -94,7 +94,7 @@ mod test {
     let f = File::open(&file_path)?;
 
     // Create graph
-    let dg: Digraph = BufReader::new(f).into();
+    let _: Digraph = BufReader::new(f).into();
 
     // println!("{:?}", dg);
 

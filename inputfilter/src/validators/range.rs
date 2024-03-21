@@ -146,7 +146,7 @@ impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
 /// ```
 pub fn range_underflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
     format!(
-        "`{:}` is less than minimum `{:}`.",
+        "`{}` is less than minimum `{}`.",
         x,
         &rules.min.unwrap()
     )
@@ -166,7 +166,7 @@ pub fn range_underflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: 
 /// ```
 pub fn range_overflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: T) -> String {
     format!(
-        "`{:}` is greater than maximum `{:}`.",
+        "`{}` is greater than maximum `{}`.",
         x,
         &rules.max.unwrap()
     )

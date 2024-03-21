@@ -6,7 +6,7 @@ use crate::traits::{InputValue, ValidationResult};
 
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
-  where T: InputValue + Clone
+  where T: InputValue + Display
 {
   pub rhs_value: T,
 
@@ -15,7 +15,7 @@ pub struct EqualityValidator<'a, T>
 }
 
 impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
-  where T: InputValue + Clone,
+  where T: InputValue + Display,
 {
   fn validate(&self, x: T) -> ValidationResult {
     if x == self.rhs_value {
@@ -27,14 +27,14 @@ impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
 }
 
 impl<T> Display for EqualityValidator<'_, T>
-  where T: InputValue + Clone,
+  where T: InputValue + Display,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(f, "EqualValidator {{rhs_value: {}}}", &self.rhs_value.to_string())
   }
 }
 
-impl<T: InputValue + Clone> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![(
       "pattern".to_string(),
@@ -43,7 +43,7 @@ impl<T: InputValue + Clone> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + Clone> FnOnce<(T, )> for EqualityValidator<'_, T> {
+impl<T: InputValue + Display> FnOnce<(T, )> for EqualityValidator<'_, T> {
   type Output = ValidationResult;
 
   extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
@@ -51,19 +51,19 @@ impl<T: InputValue + Clone> FnOnce<(T, )> for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + Clone> FnMut<(T, )> for EqualityValidator<'_, T> {
+impl<T: InputValue + Display> FnMut<(T, )> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + Clone> Fn<(T, )> for EqualityValidator<'_, T> {
+impl<T: InputValue + Display> Fn<(T, )> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-pub fn equal_vldr_not_equal_msg<T: InputValue + Clone>(_: &EqualityValidator<T>, value: T) -> String
+pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(_: &EqualityValidator<T>, value: T) -> String
 {
   format!("Value must equal {}", value)
 }

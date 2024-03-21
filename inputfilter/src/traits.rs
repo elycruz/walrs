@@ -2,7 +2,7 @@ use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::fmt::{Debug, Display};
 use serde::{Serialize};
 
-pub trait InputValue: Copy + Default + Debug + Display + PartialEq + PartialOrd + Serialize {}
+pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
@@ -25,7 +25,9 @@ impl InputValue for bool {}
 impl InputValue for char {}
 impl InputValue for &str {}
 
-pub trait ScalarValue: InputValue {}
+impl<T: InputValue> InputValue for &[T] {}
+
+pub trait ScalarValue: InputValue + Display {}
 
 impl ScalarValue for i8 {}
 impl ScalarValue for i16 {}

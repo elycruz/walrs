@@ -114,7 +114,7 @@ impl Display for PatternValidator<'_> {
 
 pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
   format!(
-    "`{:}` does not match pattern `{:}`.",
+    "`{}` does not match pattern `{}`.",
     xs,
     &rules.pattern.to_string()
   )

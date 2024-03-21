@@ -213,7 +213,7 @@ where
   T: NumberValue,
 {
   format!(
-    "`{:}` is less than minimum `{:}`.",
+    "`{}` is less than minimum `{}`.",
     x,
     &rules.min.as_ref().unwrap_or(&T::default())
   )
@@ -224,7 +224,7 @@ where
   T: NumberValue,
 {
   format!(
-    "`{:}` is greater than maximum `{:}`.",
+    "`{}` is greater than maximum `{}`.",
     x,
     &rules.max.as_ref().unwrap_or(&T::default())
   )
@@ -235,7 +235,7 @@ pub fn num_step_mismatch_msg<T: NumberValue>(
   x: T,
 ) -> String {
   format!(
-    "`{:}` is greater than maximum `{:}`.",
+    "`{}` is greater than maximum `{}`.",
     x,
     &rules.step.as_ref().unwrap_or(&T::default())
   )
@@ -246,7 +246,7 @@ pub fn num_not_equal_msg<T: NumberValue>(
   x: T,
 ) -> String {
   format!(
-    "`{:}` is not equal to `{:}`.",
+    "`{}` is not equal to `{}`.",
     x,
     &rules.equal.as_ref().unwrap_or(&T::default())
   )
@@ -277,7 +277,7 @@ mod test {
            .step(5)
            .build()?, None, None, Some(5), None),
     ] {
-      println!("\"{}\" test {:}", test_name, &instance);
+      println!("\"{}\" test {}", test_name, &instance);
 
       assert_eq!(instance.min, min);
       assert_eq!(instance.max, max);

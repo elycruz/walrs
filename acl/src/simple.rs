@@ -999,7 +999,7 @@ mod test_privilege_rules {
     assert_eq!(
       prs.by_privilege_id.is_some(),
       with_created_maps,
-      "Expected `prs.by_privilege_id.is_some()` to equal `{:}`",
+      "Expected `prs.by_privilege_id.is_some()` to equal `{}`",
       with_created_maps
     );
 
@@ -1150,7 +1150,7 @@ mod test_role_privilege_rules {
     assert_eq!(
       rprs.by_role_id.is_some(),
       with_child_maps,
-      "Expected `rprs.by_role_id.is_some()` to equal `{:}`",
+      "Expected `rprs.by_role_id.is_some()` to equal `{}`",
       with_child_maps
     );
   }
@@ -1477,13 +1477,13 @@ mod test_resource_role_rules {
             assert_eq!(
               ctrl.by_resource_id.get(*r),
               role_rules.as_ref(),
-              "resource \"{:}\" role rules not equal to expected",
+              "resource \"{}\" role rules not equal to expected",
               r
             );
             assert_eq!(
               ctrl.get_role_privilege_rules(Some(r)),
               role_rules.as_ref().unwrap(),
-              "resource \"{:}\" role rules not equal to expected",
+              "resource \"{}\" role rules not equal to expected",
               r
             );
           });
@@ -1752,7 +1752,7 @@ mod test_acl {
       assert_eq!(
         acl.is_allowed_any(roles, resources, privileges),
         expected,
-        "Expected `acl.is_allowed_any({:?}, {:?}, {:?}) == {:}`",
+        "Expected `acl.is_allowed_any({:?}, {:?}, {:?}) == {}`",
         roles,
         resources,
         privileges,
@@ -1862,7 +1862,7 @@ mod test_acl {
       assert_eq!(
         acl.is_allowed_any(roles, resources, privileges),
         false,
-        "Expected `acl.is_allowed_any({:?}, {:?}, {:?}) == {:}`",
+        "Expected `acl.is_allowed_any({:?}, {:?}, {:?}) == {}`",
         roles,
         resources,
         privileges,

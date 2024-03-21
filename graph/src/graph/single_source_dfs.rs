@@ -54,7 +54,7 @@ impl<'a> DFS<'a> {
   pub fn marked(&self, i: usize) -> bool {
     if i >= self._marked.len() {
       // @todo shouldn't 'panic!' here
-      panic!("{:} is out of range", i);
+      panic!("{} is out of range", i);
     }
     self._marked[i]
   }

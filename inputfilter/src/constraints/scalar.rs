@@ -524,7 +524,7 @@ where
 /// ```
 pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
-    "`{:}` is less than minimum `{:}`.",
+    "`{}` is less than minimum `{}`.",
     x,
     &rules.min.unwrap()
   )
@@ -544,7 +544,7 @@ pub fn range_underflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -
 /// ```
 pub fn range_overflow_msg<T: ScalarValue>(rules: &ScalarConstraints<T>, x: T) -> String {
   format!(
-    "`{:}` is greater than maximum `{:}`.",
+    "`{}` is greater than maximum `{}`.",
     x,
     &rules.max.unwrap()
   )

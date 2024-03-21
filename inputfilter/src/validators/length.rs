@@ -22,11 +22,14 @@ pub struct LengthValidator<'a, T>
     #[builder(default = "None")]
     pub equal: Option<usize>,
 
-    #[builder(default = "&str_len_too_short_msg")]
+    #[builder(default = "&len_too_short_msg")]
     pub too_short_msg: &'a LengthValidatorCallback<T>,
 
-    #[builder(default = "&str_len_too_long_msg")]
+    #[builder(default = "&len_too_long_msg")]
     pub too_long_msg: &'a LengthValidatorCallback<T>,
+
+    #[builder(default = "&len_not_equal_msg")]
+    pub not_equal_msg: &'a LengthValidatorCallback<T>,
 }
 
 impl<'a, T: WithLength> LengthValidator<'a, T> {
@@ -39,23 +42,17 @@ pub trait WithLength: InputValue {
     fn length(&self) -> Option<usize>;
 }
 
-// macro_rules! validate_type_that_derefs {
-//     ($type_:ty) => {
-//         impl<T: InputValue> WithLength for $type_
-//         where T: WithLength {
-//             fn length(&self) -> Option<usize> {
-//                 T::length(self)
-//             }
-//         }
-//     };
-// }
-//
-// validate_type_that_derefs!(&T);
-// validate_type_that_derefs!(Arc<T>);
-// validate_type_that_derefs!(Box<T>);
-// validate_type_that_derefs!(Rc<T>);
-// validate_type_that_derefs!(Ref<'_, T>);
-// validate_type_that_derefs!(RefMut<'_, T>);
+impl<'a> WithLength for &'a str {
+    fn length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
+
+impl<'a, T: InputValue> WithLength for &'a [T] {
+    fn length(&self) -> Option<usize> {
+        Some(self.len())
+    }
+}
 
 macro_rules! validate_type_with_chars {
     ($type_:ty) => {
@@ -68,7 +65,7 @@ macro_rules! validate_type_with_chars {
 }
 
 // validate_type_with_chars!(str);
-validate_type_with_chars!(&str);
+// validate_type_with_chars!(&str);
 // validate_type_with_chars!(String);
 
 macro_rules! validate_type_with_len {
@@ -84,6 +81,7 @@ macro_rules! validate_type_with_len {
     };
 }
 
+// validate_type_with_len!(&str);
 // validate_type_with_len!([T], T);
 // validate_type_with_len!(BTreeSet<T>, T);
 // validate_type_with_len!(BTreeMap<K, V>, K, V);
@@ -102,7 +100,7 @@ macro_rules! validate_type_with_len {
 /// Validates incoming value against contained constraints.
 ///
 /// ```rust
-/// use walrs_inputfilter::{str_len_too_long_msg, str_len_too_short_msg};
+/// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
 /// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow};
 /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder};
 ///
@@ -113,21 +111,28 @@ macro_rules! validate_type_with_len {
 ///   .build()
 ///   .unwrap();
 ///
+/// let len_equal_five = LengthValidatorBuilder::default()
+///   .equal(5)
+///   .build()
+///   .unwrap();
+///
 /// let too_long_str = "12345678901";
 /// let just_right_str = &too_long_str[1..];
 ///
 /// let test_cases = vec![
 ///   ("Default", &no_rules, "", Ok(())),
 ///   ("Value too short", &len_one_to_ten, "", Err(vec![
-///     (RangeUnderflow, str_len_too_short_msg(&len_one_to_ten, ""))
+///     (RangeUnderflow, len_too_short_msg(&len_one_to_ten, ""))
 ///   ])),
 ///   ("Value too long", &len_one_to_ten, too_long_str, Err(vec![
-///     (RangeOverflow, str_len_too_long_msg(&len_one_to_ten, too_long_str))
+///     (RangeOverflow, len_too_long_msg(&len_one_to_ten, too_long_str))
 ///   ])),
 ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
-///   ("Value just right", &len_one_to_ten, just_right_str , Ok(()))
+///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
+///   ("Equals \"5\"", &len_equal_five, "aeiou" , Ok(())),
+///   ("Not equals \"5\"", &len_equal_five, "aeiouy", Ok(())),
+///   ("Not equals \"5\"", &len_equal_five, "o", Ok(()))
 /// ];
-///
 /// ```
 impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
     fn validate(&self, value: T) -> ValidationResult {
@@ -155,6 +160,18 @@ impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
                     if self.break_on_failure { return Err(errs); }
                 }
             }
+
+            if let Some(equal) = self.equal {
+                if len != equal {
+                    errs.push((
+                        ViolationEnum::NotEqual,
+                        (self.not_equal_msg)(self, value)
+                    ));
+
+                    if self.break_on_failure { return Err(errs); }
+                }
+            }
+
             if errs.is_empty() { Ok(()) } else { Err(errs) }
         } else {
             Ok(())
@@ -164,7 +181,6 @@ impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
 
 impl<T: WithLength> FnOnce<(T, )> for LengthValidator<'_, T> {
     type Output = ValidationResult;
-
 
     extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
         self.validate(args.0)
@@ -189,18 +205,32 @@ impl<'a, T: WithLength> Default for LengthValidator<'a, T> {
     }
 }
 
-pub fn str_len_too_short_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
+pub fn len_too_short_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
     format!(
-        "Value length `{:}` is less than allowed minimum `{:}`.",
-        xs,
+        "Value length `{}` is less than allowed minimum `{}`.",
+        xs.length().unwrap_or(0),
         &rules.min_length.unwrap_or(0)
     )
 }
 
-pub fn str_len_too_long_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
+pub fn len_too_long_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
     format!(
-        "Value length `{:}` is greater than allowed maximum `{:}`.",
-        xs,
+        "Value length `{}` is greater than allowed maximum `{}`.",
+        xs.length().unwrap_or(0),
         &rules.max_length.unwrap_or(0)
     )
+}
+
+pub fn len_not_equal_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
+    format!(
+        "Length `{}` is not equal to length `{}`.",
+        xs.length().unwrap_or(0),
+        &rules.max_length.unwrap_or(0)
+    )
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_validate() {}
 }

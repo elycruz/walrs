@@ -19,7 +19,7 @@ pub fn pattern_mismatch_msg(rules: &StringConstraints, xs: Option<&str>) -> Stri
 
 pub fn too_short_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
-        "Value length `{:}` is less than allowed minimum `{:}`.",
+        "Value length `{}` is less than allowed minimum `{}`.",
         &xs.as_ref().unwrap().len(),
         &rules.min_length.unwrap_or(0)
     )
@@ -27,7 +27,7 @@ pub fn too_short_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
 
 pub fn too_long_msg(rules: &StringConstraints, xs: Option<&str>) -> String {
     format!(
-        "Value length `{:}` is greater than allowed maximum `{:}`.",
+        "Value length `{}` is greater than allowed maximum `{}`.",
         &xs.as_ref().unwrap().len(),
         &rules.max_length.unwrap_or(0)
     )
