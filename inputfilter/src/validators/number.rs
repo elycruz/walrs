@@ -4,7 +4,7 @@ use crate::ValidateValue;
 use crate::traits::{
   ViolationEnum,
   ViolationEnum::{
-    NotEqual, RangeOverflow, RangeUnderflow, StepMismatch,
+    RangeOverflow, RangeUnderflow, StepMismatch,
   }, NumberValue, ValidationResult,
 };
 
@@ -27,9 +27,6 @@ pub struct NumberValidator<'a, T: NumberValue> {
   #[builder(default = "None")]
   pub step: Option<T>,
 
-  #[builder(default = "None")]
-  pub equal: Option<T>,
-
   #[builder(default = "&num_range_underflow_msg")]
   pub range_underflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 
@@ -38,9 +35,6 @@ pub struct NumberValidator<'a, T: NumberValue> {
 
   #[builder(default = "&num_step_mismatch_msg")]
   pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
-
-  #[builder(default = "&num_not_equal_msg")]
-  pub not_equal: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 }
 
 impl<'a, T> NumberValidator<'a, T>
@@ -62,13 +56,6 @@ where
       }
     }
 
-    // Test Equal
-    if let Some(rhs) = self.equal {
-      if v != rhs {
-        return Some(NotEqual);
-      }
-    }
-
     // Test Step
     if let Some(step) = self.step {
       if step != Default::default() && v % step != Default::default() {
@@ -83,7 +70,6 @@ where
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
-      NotEqual => Some(&self.not_equal),
       StepMismatch => Some(&self.step_mismatch),
       _ => unreachable!("Unsupported Constraint Violation Enum matched"),
     };
@@ -96,11 +82,9 @@ where
       min: None,
       max: None,
       step: None,
-      equal: None,
       range_underflow: &num_range_underflow_msg,
       range_overflow: &num_range_overflow_msg,
       step_mismatch: &num_step_mismatch_msg,
-      not_equal: &num_not_equal_msg,
     }
   }
 }
@@ -199,11 +183,10 @@ where
 
 impl<T: NumberValue> Display for NumberValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "NumberValidator {{min: {}, max: {}, step: {}, equal: {}}}",
+    write!(f, "NumberValidator {{min: {}, max: {}, step: {}}}",
            &self.min.map(|x| x.to_string()).unwrap_or("None".to_string()),
            &self.max.map(|x| x.to_string()).unwrap_or("None".to_string()),
            &self.step.map(|x| x.to_string()).unwrap_or("None".to_string()),
-           &self.equal.map(|x| x.to_string()).unwrap_or("None".to_string()),
     )
   }
 }
@@ -241,48 +224,32 @@ pub fn num_step_mismatch_msg<T: NumberValue>(
   )
 }
 
-pub fn num_not_equal_msg<T: NumberValue>(
-  rules: &NumberValidator<T>,
-  x: T,
-) -> String {
-  format!(
-    "`{}` is not equal to `{}`.",
-    x,
-    &rules.equal.as_ref().unwrap_or(&T::default())
-  )
-}
-
 #[cfg(test)]
 mod test {
 
   use std::error::Error;
-  use crate::ViolationEnum::NotEqual;
   use super::*;
 
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
     // Assert all property states for difference construction scenarios
     // ----
-    for (test_name, instance, min, max, step, equal) in [
+    for (test_name, instance, min, max, step) in [
       ("Default", NumberValidatorBuilder::<usize>::default()
-          .build()?, None, None, None, None),
+          .build()?, None, None, None),
       ("With Range", NumberValidatorBuilder::<usize>::default()
            .min(0)
            .max(100)
-           .build()?, Some(0), Some(100), None, None),
-      ("With `equal`", NumberValidatorBuilder::<usize>::default()
-           .equal(101)
-           .build()?, None, None, None, Some(101)),
+           .build()?, Some(0), Some(100), None),
       ("With `step`", NumberValidatorBuilder::<usize>::default()
            .step(5)
-           .build()?, None, None, Some(5), None),
+           .build()?, None, None, Some(5)),
     ] {
       println!("\"{}\" test {}", test_name, &instance);
 
       assert_eq!(instance.min, min);
       assert_eq!(instance.max, max);
       assert_eq!(instance.step, step);
-      assert_eq!(instance.equal, equal);
 
       // Ensure default message callbacks are set
       // ----
@@ -296,9 +263,6 @@ mod test {
 
       assert_eq!((instance.step_mismatch)(&instance, test_value),
                  num_step_mismatch_msg(&instance, test_value));
-
-      assert_eq!((instance.not_equal)(&instance, test_value),
-                 num_not_equal_msg(&instance, test_value));
     }
 
     Ok(())
@@ -332,11 +296,6 @@ mod test {
        25,
        Ok(())),
       (NumberValidatorBuilder::<usize>::default()
-           .equal(99)
-           .build()?,
-       99,
-       Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
            .min(2)
            .build()?,
        1,
@@ -362,11 +321,6 @@ mod test {
            .build()?,
        26,
        Err(StepMismatch)),
-      (NumberValidatorBuilder::<usize>::default()
-           .equal(99)
-           .build()?,
-       101,
-       Err(NotEqual)),
     ] {
       match expected {
         Ok(_) => {
@@ -376,7 +330,6 @@ mod test {
         Err(_enum) => {
           let err_msg_tuple = match _enum {
             StepMismatch => (StepMismatch, num_step_mismatch_msg(&validator, value)),
-            NotEqual => (NotEqual, num_not_equal_msg(&validator, value)),
             RangeUnderflow => (RangeUnderflow, num_range_underflow_msg(&validator, value)),
             RangeOverflow => (RangeOverflow, num_range_overflow_msg(&validator, value)),
             _ => panic!("Unknown enum variant encountered")

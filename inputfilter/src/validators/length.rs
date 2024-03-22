@@ -19,17 +19,11 @@ pub struct LengthValidator<'a, T>
     #[builder(default = "None")]
     pub max_length: Option<usize>,
 
-    #[builder(default = "None")]
-    pub equal: Option<usize>,
-
     #[builder(default = "&len_too_short_msg")]
     pub too_short_msg: &'a LengthValidatorCallback<T>,
 
     #[builder(default = "&len_too_long_msg")]
     pub too_long_msg: &'a LengthValidatorCallback<T>,
-
-    #[builder(default = "&len_not_equal_msg")]
-    pub not_equal_msg: &'a LengthValidatorCallback<T>,
 }
 
 impl<'a, T: WithLength> LengthValidator<'a, T> {
@@ -100,19 +94,14 @@ macro_rules! validate_type_with_len {
 /// Validates incoming value against contained constraints.
 ///
 /// ```rust
-/// use walrs_inputfilter::{len_not_equal_msg, len_too_long_msg, len_too_short_msg};
-/// use walrs_inputfilter::ViolationEnum::{NotEqual, RangeOverflow, RangeUnderflow, TooLong, TooShort};
+/// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
+/// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow, TooLong, TooShort};
 /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateValue};
 ///
 /// let no_rules = LengthValidator::new();
 /// let len_one_to_ten = LengthValidatorBuilder::default()
 ///   .min_length(1)
 ///   .max_length(10)
-///   .build()
-///   .unwrap();
-///
-/// let len_equal_five = LengthValidatorBuilder::default()
-///   .equal(5)
 ///   .build()
 ///   .unwrap();
 ///
@@ -129,13 +118,6 @@ macro_rules! validate_type_with_len {
 ///   ])),
 ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
 ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
-///   ("Equals \"5\"", &len_equal_five, "aeiou" , Ok(())),
-///   ("Not equals \"5\"", &len_equal_five, "aeiouy", Err(vec![
-///     (NotEqual, len_not_equal_msg(&len_equal_five, "aeiouy"))
-///   ])),
-///   ("Not equals \"5\"", &len_equal_five, "o", Err(vec![
-///     (NotEqual, len_not_equal_msg(&len_equal_five, "o"))
-///   ]))
 /// ];
 ///
 /// for (name, rules, value, expected) in test_cases {
@@ -164,17 +146,6 @@ impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
                     errs.push((
                         ViolationEnum::TooLong,
                         (self.too_long_msg)(self, value),
-                    ));
-
-                    if self.break_on_failure { return Err(errs); }
-                }
-            }
-
-            if let Some(equal) = self.equal {
-                if len != equal {
-                    errs.push((
-                        ViolationEnum::NotEqual,
-                        (self.not_equal_msg)(self, value)
                     ));
 
                     if self.break_on_failure { return Err(errs); }
@@ -225,14 +196,6 @@ pub fn len_too_short_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> St
 pub fn len_too_long_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
     format!(
         "Value length `{}` is greater than allowed maximum `{}`.",
-        xs.length().unwrap_or(0),
-        &rules.max_length.unwrap_or(0)
-    )
-}
-
-pub fn len_not_equal_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
-    format!(
-        "Length `{}` is not equal to length `{}`.",
         xs.length().unwrap_or(0),
         &rules.max_length.unwrap_or(0)
     )
