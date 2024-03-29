@@ -1,6 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Filter, InputConstraints, InputValue,
-            Validator, ViolationEnum, ViolationMessage, ViolationTuple};
+use crate::{Filter, InputConstraints, InputConstraints2, InputValue, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -43,7 +42,7 @@ pub struct Input<'a, 'b, T, FilterT>
     pub validators: Option<Vec<&'a Validator<T>>>,
 
     #[builder(default = "None")]
-    pub filters: Option<Vec<&'a Filter<Option<FilterT>>>>,
+    pub filters: Option<Vec<&'a Filter<FilterT>>>,
 
     #[builder(default = "&value_missing_msg_getter")]
     pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>) -> ViolationMessage + Send + Sync)
@@ -133,7 +132,7 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     }
 }
 
-impl<'a, 'b, T: 'b, FT: 'b + From<T>> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T, FT>
+impl<'a, 'b, T: 'b, FT: 'b + From<T>> InputConstraints2<'a, 'b, T, FT> for Input<'a, 'b, T, FT>
 where
   T: InputValue,
 {
@@ -143,7 +142,7 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   Input, InputConstraints, ViolationEnum,
+  ///   Input, InputConstraints2, ViolationEnum,
   ///   InputBuilder,
   ///   value_missing_msg_getter,
   /// };
@@ -197,7 +196,7 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   Input, InputConstraints, ViolationEnum,
+  ///   Input, InputConstraints2, ViolationEnum,
   ///   InputBuilder,
   ///   value_missing_msg_getter,
   /// };
@@ -275,30 +274,29 @@ where
   /// ```rust
   /// use walrs_inputfilter::{
   ///   InputBuilder,
-  ///   InputConstraints,
+  ///   InputConstraints2,
   /// };
   ///
   /// // Setup input constraints
   /// let usize_input = InputBuilder::<usize, usize>::default()
-  ///   .filters(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)])
+  ///   .filters(vec![&|x: usize| x * 2usize])
   ///   .build()
   ///   .unwrap();
   ///
   /// let test_cases = [
-  ///   (&usize_input, None, None),
-  ///   (&usize_input, Some(0), Some(0)),
-  ///   (&usize_input, Some(2), Some(4)),
-  ///   (&usize_input, Some(4), Some(8)),
+  ///   (&usize_input, 0, 0),
+  ///   (&usize_input, 2, 4),
+  ///   (&usize_input, 4, 8),
   /// ];
   ///
   /// // Run test cases
   /// for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-  ///   println!("Case {}: `(usize_input.filter)({:?}) == {:?}`", i + 1, value.clone(), expected_rslt.clone());
+  ///   println!("Case {}: `(usize_input.filter)({:?}) == {:?}`", i + 1, value, expected_rslt);
   ///   assert_eq!(input.filter(value), expected_rslt);
   /// }
   /// ```
   ///
-  fn filter(&self, value: Option<FT>) -> Option<FT> {
+  fn filter(&self, value: FT) -> FT {
     match self.filters.as_deref() {
       None => value,
       Some(fs) => fs.iter().fold(value, |agg, f| f(agg)),
@@ -313,7 +311,7 @@ where
   ///   InputBuilder,
   ///   Input,
   ///   ViolationMessage,
-  ///   InputConstraints,
+  ///   InputConstraints2,
   ///   ViolationEnum::CustomError,
   /// };
   /// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow};
@@ -336,7 +334,7 @@ where
   ///   } else {
   ///     Ok(())
   ///   }])
-  ///   .filters(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)])
+  ///   .filters(vec![&|x: usize| x * 2usize])
   ///   .build()
   ///   .unwrap();
   ///
@@ -387,7 +385,7 @@ where
   /// use walrs_inputfilter::{
   ///   InputBuilder,
   ///   Input,
-  ///   InputConstraints,
+  ///   InputConstraints2,
   ///   ValidationResult,
   ///   ViolationMessage,
   ///   ViolationEnum,
@@ -417,7 +415,7 @@ where
   ///   } else {
   ///     Ok(())
   ///   }])
-  ///   .filters(vec![&|x: Option<usize>| x.map(|_x| _x * 2usize)])
+  ///   .filters(vec![&|x: usize| x * 2usize])
   ///   .build()
   ///   .unwrap();
   ///
@@ -465,7 +463,7 @@ where
   /// }
   /// ```
   fn validate_and_filter_detailed(&self, x: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>> {
-    self.validate_detailed(x).map(|_| self.filter(x.map(|_x| _x.into())))
+    self.validate_detailed(x).map(|_| x.map(|_x| self.filter(_x.into())))
   }
 }
 
@@ -520,7 +518,9 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Debug for Input<'a, 'b, T, FT
 mod test {
     use std::borrow::Cow;
     use std::error::Error;
-    use std::collections::HashMap;
+    use regex::Regex;
+    use crate::{LengthValidatorBuilder, PatternValidatorBuilder, range_overflow_msg_getter, RangeValidatorBuilder, SlugFilter, SlugFilterBuilder};
+    use crate::ViolationEnum::StepMismatch;
     // use crate::{InputBuilder, StringConstraintsBuilder};
     // use crate::ViolationEnum::StepMismatch;
     use super::*;
@@ -533,38 +533,53 @@ mod test {
         let _ = Input::<bool, bool>::new();
         let _ = Input::<usize, usize>::new();
 
-        // Hashmap
-        // ----
-        // let _ = Input::<HashMap<String, String>, HashMap<String, String>>::new();
+        let one_to_one_hundred = RangeValidatorBuilder::<usize>::default()
+            .min(0)
+            .max(100)
+            .build().unwrap();
 
-        // float_percent.constraints = Some(Box::new(InputBuilder::<usize, usize>::default()
-        //     .min(0)
-        //     .max(100)
-        //     .validators(vec![
-        //         &|x| if x != 0 && x % 5 != 0 {
-        //             Err(vec![(StepMismatch, format!("{} is not divisible by 5", x))])
-        //         } else {
-        //             Ok(())
-        //         },
-        //     ])
-        //     .build()?
-        // ));
-        //
-        // assert_eq!(float_percent.validate(Some(5)), Ok(()));
-        // assert_eq!(float_percent.validate(Some(101)),
-        //            Err(vec![
-        //                // range_overflow_msg_getter(
-        //                //     float_percent.constraints.as_deref().unwrap()
-        //                //         .downcast_ref::<Input<usize>>().unwrap(),
-        //                //     101usize
-        //                // ),
-        //                "`101` is greater than maximum `100`.".to_string(),
-        //                "101 is not divisible by 5".to_string(),
-        //            ]));
-        // assert_eq!(float_percent.validate(Some(26)),
-        //            Err(vec!["26 is not divisible by 5".to_string()]));
-        //
-        let _ = Input::<&str, Cow<str>>::new();
+        let percent = InputBuilder::<usize, usize>::default()
+            .validators(vec![
+                &|x| if x != 0 && x % 5 != 0 {
+                    Err(vec![(StepMismatch, format!("{} is not divisible by 5", x))])
+                } else {
+                    Ok(())
+                },
+                &one_to_one_hundred
+            ])
+            .build()
+            .unwrap();
+
+        assert_eq!(percent.validate(Some(5)), Ok(()));
+        assert_eq!(percent.validate(Some(101)),
+                   Err(vec![
+                       "101 is not divisible by 5".to_string(),
+                       range_overflow_msg_getter(&one_to_one_hundred, 101usize),
+                   ]));
+ 
+        assert_eq!(percent.validate(Some(26)),
+                   Err(vec!["26 is not divisible by 5".to_string()]));
+
+        let slug_range_validator = LengthValidatorBuilder::default()
+            .min_length(2)
+            .max_length(255)
+            .build()?;
+
+        let slug_pattern_validator = PatternValidatorBuilder::default()
+            .pattern(Cow::Owned(Regex::new(r"(?i)^[^\w\-]{2,200}$").unwrap()))
+            .build()?;
+        
+        let slug_filter = SlugFilter::new(200, false);
+
+        let _ = InputBuilder::<&str, Cow<str>>::default()
+            .validators(vec![
+                &slug_range_validator,
+                &slug_pattern_validator,
+            ])
+            .filters(vec![
+                &SlugFilterBuilder::default().build()?
+            ]);
+
         // str_input.constraints = Some(Box::new(StringConstraintsBuilder::default()
         //     .max_length(4)
         //     .build()?

@@ -22,3 +22,17 @@ pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
 
     fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }
+
+pub trait InputConstraints2<'a, 'b, T: 'b, FT: 'b>: Display + Debug
+    where T: InputValue {
+
+    fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
+
+    fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
+
+    fn filter(&self, value: FT) -> FT;
+
+    fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
+
+    fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
+}
