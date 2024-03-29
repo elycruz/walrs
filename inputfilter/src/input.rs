@@ -519,7 +519,15 @@ mod test {
     use std::borrow::Cow;
     use std::error::Error;
     use regex::Regex;
-    use crate::{LengthValidatorBuilder, PatternValidatorBuilder, range_overflow_msg_getter, RangeValidatorBuilder, SlugFilter, SlugFilterBuilder};
+    use crate::{
+        LengthValidatorBuilder,
+        PatternValidatorBuilder, 
+        range_overflow_msg_getter,
+        RangeValidatorBuilder,
+        SlugFilter,
+        SlugFilterBuilder,
+        InputConstraints2,
+    };
     use crate::ViolationEnum::StepMismatch;
     // use crate::{InputBuilder, StringConstraintsBuilder};
     // use crate::ViolationEnum::StepMismatch;
@@ -560,7 +568,7 @@ mod test {
         assert_eq!(percent.validate(Some(26)),
                    Err(vec!["26 is not divisible by 5".to_string()]));
 
-        let slug_range_validator = LengthValidatorBuilder::default()
+        let slug_length_validator = LengthValidatorBuilder::default()
             .min_length(2)
             .max_length(255)
             .build()?;
@@ -571,14 +579,20 @@ mod test {
         
         let slug_filter = SlugFilter::new(200, false);
 
-        let _ = InputBuilder::<&str, Cow<str>>::default()
+        let slug_input = InputBuilder::<&str, Cow<str>>::default()
             .validators(vec![
-                &slug_range_validator,
+                &slug_length_validator,
                 &slug_pattern_validator,
             ])
             .filters(vec![
-                &SlugFilterBuilder::default().build()?
-            ]);
+                &slug_filter
+            ])
+            .build()?;
+        
+        assert_eq!(slug_input.validate_and_filter(Some("a")), Err(vec![
+            (&slug_length_validator.too_short_msg)(&slug_length_validator, "a"),
+            (&slug_pattern_validator.pattern_mismatch)(&slug_pattern_validator, "a"),
+        ]));
 
         // str_input.constraints = Some(Box::new(StringConstraintsBuilder::default()
         //     .max_length(4)
