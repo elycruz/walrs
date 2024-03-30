@@ -4,6 +4,10 @@
 
 Equality validator - Holds a 'rhs_value' and validates incoming value against the stored value.
 
+## Length Validator
+
+Validates values that implement the `WithLength` trait (currently, string slices and `&[T]`).
+
 ## Number Validator
 
 Can validate (signed, and unsigned) integer, and float values:
@@ -32,7 +36,3 @@ Validates a string (`&str`) against stored regular expression.
 ## Range Validator
 
 Validates a scalar value against a `min`, and/or a `max`.
-
-## LengthValidator
-
-Validates an item's length.
