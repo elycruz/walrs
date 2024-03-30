@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Filter, InputConstraints, InputConstraints2, InputValue, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
+use crate::{Filter, InputConstraints, InputValue, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -132,7 +132,7 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     }
 }
 
-impl<'a, 'b, T: 'b, FT: 'b + From<T>> InputConstraints2<'a, 'b, T, FT> for Input<'a, 'b, T, FT>
+impl<'a, 'b, T: 'b, FT: 'b + From<T>> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T, FT>
 where
   T: InputValue,
 {
@@ -142,7 +142,9 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   Input, InputConstraints2, ViolationEnum,
+  ///   Input,
+  ///   InputConstraints,
+  ///   ViolationEnum,
   ///   InputBuilder,
   ///   value_missing_msg_getter,
   /// };
@@ -196,7 +198,9 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   Input, InputConstraints2, ViolationEnum,
+  ///   Input,
+  ///   InputConstraints,
+  ///   ViolationEnum,
   ///   InputBuilder,
   ///   value_missing_msg_getter,
   /// };
@@ -274,7 +278,7 @@ where
   /// ```rust
   /// use walrs_inputfilter::{
   ///   InputBuilder,
-  ///   InputConstraints2,
+  ///   InputConstraints,
   /// };
   ///
   /// // Setup input constraints
@@ -311,7 +315,7 @@ where
   ///   InputBuilder,
   ///   Input,
   ///   ViolationMessage,
-  ///   InputConstraints2,
+  ///   InputConstraints,
   ///   ViolationEnum::CustomError,
   /// };
   /// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow};
@@ -385,7 +389,7 @@ where
   /// use walrs_inputfilter::{
   ///   InputBuilder,
   ///   Input,
-  ///   InputConstraints2,
+  ///   InputConstraints,
   ///   ValidationResult,
   ///   ViolationMessage,
   ///   ViolationEnum,
@@ -525,7 +529,7 @@ mod test {
         range_overflow_msg_getter,
         RangeValidatorBuilder,
         SlugFilter,
-        InputConstraints2,
+        InputConstraints,
     };
     use crate::ViolationEnum::StepMismatch;
     // use crate::{InputBuilder, StringConstraintsBuilder};
