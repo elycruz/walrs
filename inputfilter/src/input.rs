@@ -541,7 +541,7 @@ mod test {
         let _ = Input::<usize, usize>::new();
 
         let one_to_one_hundred = RangeValidatorBuilder::<usize>::default()
-            .min(0)
+            .min(1)
             .max(100)
             .build().unwrap();
 
@@ -606,7 +606,7 @@ mod test {
         };
 
         let one_to_ten = RangeValidatorBuilder::<usize>::default()
-            .min(0)
+            .min(1)
             .max(10)
             .build().unwrap();
 
@@ -647,7 +647,7 @@ mod test {
             Ok(())
         };
 
-        let one_to_ten = RangeValidatorBuilder::<usize>::default()
+        let zero_to_ten = RangeValidatorBuilder::<usize>::default()
             .min(0)
             .max(10)
             .build().unwrap();
@@ -657,7 +657,7 @@ mod test {
             .unwrap();
 
         let usize_not_required = InputBuilder::<usize, usize>::default()
-            .validators(vec![&validate_is_even, &one_to_ten])
+            .validators(vec![&validate_is_even, &zero_to_ten])
             .build()
             .unwrap();
 
@@ -716,7 +716,7 @@ mod test {
 
         // Test basic usage with other types
         // ----
-        let one_to_ten = RangeValidatorBuilder::<f64>::default()
+        let zero_to_ten = RangeValidatorBuilder::<f64>::default()
             .min(0.0)
             .max(10.0)
             .build().unwrap();
@@ -725,7 +725,7 @@ mod test {
         let f64_input_required = InputBuilder::<f64, f64>::default()
             .required(true)
             .validators(vec![
-                &one_to_ten,
+                &zero_to_ten,
                 &|x: f64| if x % 2.0 != 0.0 {
                     Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
                 } else {
@@ -809,7 +809,7 @@ mod test {
         Ok(())
     }
 
-    /*#[test]
+    #[test]
     fn test_validate_and_filter_detailed() -> Result<(), Box<dyn Error>> {
         // Ensure each logic case in method is sound, and that method is callable for each scalar type:
         // 1) Test method logic
@@ -820,14 +820,20 @@ mod test {
             Ok(())
         };
 
+        let one_to_ten = RangeValidatorBuilder::<usize>::default()
+            .min(1)
+            .max(10)
+            .build().unwrap();
+
         let usize_input_default = InputBuilder::<usize, usize>::default()
             .build()
             .unwrap();
 
         let usize_not_required_with_rules = InputBuilder::<usize, usize>::default()
-            .min(1)
-            .max(10)
-            .validators(vec![&validate_is_even])
+            .validators(vec![
+                &one_to_ten,
+                &validate_is_even,
+            ])
             .build()
             .unwrap();
 
@@ -888,16 +894,22 @@ mod test {
 
         // Test basic usage with other types
         // ----
+
+        let one_to_ten = RangeValidatorBuilder::<f64>::default()
+            .min(1.0)
+            .max(10.0)
+            .build().unwrap();
+
         // Validates `f64`, and `f32` usage
         let f64_input_required = InputBuilder::<f64, f64>::default()
             .required(true)
-            .min(1.0)
-            .max(10.0)
-            .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
-                Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
-            } else {
-                Ok(())
-            }])
+            .validators(vec![
+                &one_to_ten,
+                &|x: f64| if x % 2.0 != 0.0 {
+                    Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
+                } else {
+                    Ok(())
+                }])
             .build()
             .unwrap();
 
@@ -907,10 +919,14 @@ mod test {
         ]));
         assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
 
-        // Test `char` usage
-        let char_input = InputBuilder::<char, char>::default()
+        let a_to_f = RangeValidatorBuilder::<char>::default()
             .min('a')
             .max('f')
+            .build().unwrap();
+
+        // Test `char` usage
+        let char_input = InputBuilder::<char, char>::default()
+            .validators(vec![&a_to_f])
             .build()
             .unwrap();
 
@@ -923,5 +939,5 @@ mod test {
         ]));
 
         Ok(())
-    }*/
+    }
 }
