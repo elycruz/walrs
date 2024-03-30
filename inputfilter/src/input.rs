@@ -589,8 +589,8 @@ mod test {
             .build()?;
 
         assert_eq!(slug_input.validate_and_filter(Some("a")), Err(vec![
-            (&slug_length_validator.too_short_msg)(&slug_length_validator, "a"),
-            (&slug_pattern_validator.pattern_mismatch)(&slug_pattern_validator, "a"),
+            (slug_length_validator.too_short_msg)(&slug_length_validator, "a"),
+            (slug_pattern_validator.pattern_mismatch)(&slug_pattern_validator, "a"),
         ]));
 
         Ok(())

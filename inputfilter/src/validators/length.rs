@@ -1,7 +1,3 @@
-use std::cell::{Ref, RefMut};
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
-use std::rc::Rc;
-use std::sync::Arc;
 use crate::{InputValue, ValidateValue, ValidationResult, ViolationEnum, ViolationMessage};
 
 pub type LengthValidatorCallback<T> = dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;

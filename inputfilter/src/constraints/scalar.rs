@@ -626,11 +626,11 @@ mod test {
       .build()
       .unwrap();
 
-    let usize_break_on_failure = (|| {
+    let usize_break_on_failure = {
        let mut new_input = usize_required.clone();
        new_input.break_on_failure = true;
        new_input
-    })();
+    };
 
     let test_cases = [
       ("No value", &usize_required, None, Err(vec![

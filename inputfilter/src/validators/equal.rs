@@ -38,7 +38,7 @@ impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![(
       "pattern".to_string(),
-      serde_json::to_value(self.rhs_value.clone()).unwrap(),
+      serde_json::to_value(self.rhs_value).unwrap(),
     )])
   }
 }
