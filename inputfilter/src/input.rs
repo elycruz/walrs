@@ -521,11 +521,10 @@ mod test {
     use regex::Regex;
     use crate::{
         LengthValidatorBuilder,
-        PatternValidatorBuilder, 
+        PatternValidatorBuilder,
         range_overflow_msg_getter,
         RangeValidatorBuilder,
         SlugFilter,
-        SlugFilterBuilder,
         InputConstraints2,
     };
     use crate::ViolationEnum::StepMismatch;
@@ -564,7 +563,7 @@ mod test {
                        "101 is not divisible by 5".to_string(),
                        range_overflow_msg_getter(&one_to_one_hundred, 101usize),
                    ]));
- 
+
         assert_eq!(percent.validate(Some(26)),
                    Err(vec!["26 is not divisible by 5".to_string()]));
 
@@ -576,7 +575,7 @@ mod test {
         let slug_pattern_validator = PatternValidatorBuilder::default()
             .pattern(Cow::Owned(Regex::new(r"(?i)^[^\w\-]{2,200}$").unwrap()))
             .build()?;
-        
+
         let slug_filter = SlugFilter::new(200, false);
 
         let slug_input = InputBuilder::<&str, Cow<str>>::default()
@@ -588,25 +587,15 @@ mod test {
                 &slug_filter
             ])
             .build()?;
-        
+
         assert_eq!(slug_input.validate_and_filter(Some("a")), Err(vec![
             (&slug_length_validator.too_short_msg)(&slug_length_validator, "a"),
             (&slug_pattern_validator.pattern_mismatch)(&slug_pattern_validator, "a"),
         ]));
 
-        // str_input.constraints = Some(Box::new(StringConstraintsBuilder::default()
-        //     .max_length(4)
-        //     .build()?
-        // ));
-        //
-        // assert_eq!(str_input.validate(Some("aeiou")),
-        //            Err(vec![
-        //                "Value length `5` is greater than allowed maximum `4`.".to_string(),
-        //            ]));
-
         Ok(())
     }
-/*
+
     #[test]
     fn test_validate() {
         // Setup a custom validator
@@ -616,20 +605,19 @@ mod test {
             Ok(())
         };
 
+        let one_to_ten = RangeValidatorBuilder::<usize>::default()
+            .min(0)
+            .max(10)
+            .build().unwrap();
+
         // Setup input constraints
         let usize_required = InputBuilder::<usize, usize>::default()
-            .min(1)
-            .max(10)
             .required(true)
-            .validators(vec![&validate_is_even])
+            .validators(vec![
+                &one_to_ten,
+                &validate_is_even])
             .build()
             .unwrap();
-
-        let usize_break_on_failure = (|| {
-            let mut new_input = usize_required.clone();
-            new_input.break_on_failure = true;
-            new_input
-        })();
 
         let test_cases = [
             ("No value", &usize_required, None, Err(vec![
@@ -659,14 +647,18 @@ mod test {
             Ok(())
         };
 
+
+        let one_to_ten = RangeValidatorBuilder::<usize>::default()
+            .min(0)
+            .max(10)
+            .build().unwrap();
+
         let usize_input_default = InputBuilder::<usize, usize>::default()
             .build()
             .unwrap();
 
         let usize_not_required = InputBuilder::<usize, usize>::default()
-            .min(1)
-            .max(10)
-            .validators(vec![&validate_is_even])
+            .validators(vec![&validate_is_even, &one_to_ten])
             .build()
             .unwrap();
 
@@ -725,16 +717,23 @@ mod test {
 
         // Test basic usage with other types
         // ----
+
+
+        let one_to_ten = RangeValidatorBuilder::<f64>::default()
+            .min(0.0)
+            .max(10.0)
+            .build().unwrap();
+
         // Validates `f64`, and `f32` usage
         let f64_input_required = InputBuilder::<f64, f64>::default()
             .required(true)
-            .min(1.0)
-            .max(10.0)
-            .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
-                Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
-            } else {
-                Ok(())
-            }])
+            .validators(vec![
+                &one_to_ten,
+                &|x: f64| if x % 2.0 != 0.0 {
+                    Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
+                } else {
+                    Ok(())
+                }])
             .build()
             .unwrap();
 
@@ -744,10 +743,14 @@ mod test {
         ]));
         assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
 
-        // Test `char` usage
-        let char_input = InputBuilder::<char, char>::default()
+        let ay_to_eff = RangeValidatorBuilder::<char>::default()
             .min('a')
             .max('f')
+            .build().unwrap();
+
+        // Test `char` usage
+        let char_input = InputBuilder::<char, char>::default()
+            .validators(vec![&ay_to_eff])
             .build()
             .unwrap();
 
@@ -759,174 +762,174 @@ mod test {
              "`g` is greater than maximum `f`.".to_string()),
         ]));
     }
+    /*
+           #[test]
+           fn test_filter() -> Result<(), Box<dyn Error>> {
+               // Setup input constraints
+               // ----
+               // 1. With no filters.
+               let usize_input_default = InputBuilder::<usize, usize>::default().build()?;
 
-    #[test]
-    fn test_filter() -> Result<(), Box<dyn Error>> {
-        // Setup input constraints
-        // ----
-        // 1. With no filters.
-        let usize_input_default = InputBuilder::<usize, usize>::default().build()?;
+               // 2. With one filter.
+               let usize_input_twofold = InputBuilder::<usize, usize>::default()
+                   .filters(vec![
+                       &|x: Option<usize>| x.map(|_x| _x * 2usize),
+                   ])
+                   .build()?;
 
-        // 2. With one filter.
-        let usize_input_twofold = InputBuilder::<usize, usize>::default()
-            .filters(vec![
-                &|x: Option<usize>| x.map(|_x| _x * 2usize),
-            ])
-            .build()?;
+               // 3. With two filters.
+               let usize_input_gte_four = InputBuilder::<usize, usize>::default()
+                   .filters(vec![
+                       &|x: Option<usize>| x.map(|_x| if _x < 4 { 4 } else { _x }),
+                       &|x: Option<usize>| x.map(|_x| _x * 2usize),
+                   ])
+                   .build()?;
 
-        // 3. With two filters.
-        let usize_input_gte_four = InputBuilder::<usize, usize>::default()
-            .filters(vec![
-                &|x: Option<usize>| x.map(|_x| if _x < 4 { 4 } else { _x }),
-                &|x: Option<usize>| x.map(|_x| _x * 2usize),
-            ])
-            .build()?;
+               let test_cases = [
+                   // No filters
+                   (&usize_input_default, None, None),
+                   (&usize_input_default, Some(100), Some(100)),
 
-        let test_cases = [
-            // No filters
-            (&usize_input_default, None, None),
-            (&usize_input_default, Some(100), Some(100)),
+                   // With one filter
+                   (&usize_input_twofold, None, None),
+                   (&usize_input_twofold, Some(0), Some(0)),
+                   (&usize_input_twofold, Some(2), Some(4)),
+                   (&usize_input_twofold, Some(4), Some(8)),
 
-            // With one filter
-            (&usize_input_twofold, None, None),
-            (&usize_input_twofold, Some(0), Some(0)),
-            (&usize_input_twofold, Some(2), Some(4)),
-            (&usize_input_twofold, Some(4), Some(8)),
+                   // With multiple filters
+                   (&usize_input_gte_four, None, None),
+                   (&usize_input_gte_four, Some(0), Some(8)),
+                   (&usize_input_gte_four, Some(2), Some(8)),
+                   (&usize_input_gte_four, Some(4), Some(8)),
+                   (&usize_input_gte_four, Some(6), Some(12)),
+               ];
 
-            // With multiple filters
-            (&usize_input_gte_four, None, None),
-            (&usize_input_gte_four, Some(0), Some(8)),
-            (&usize_input_gte_four, Some(2), Some(8)),
-            (&usize_input_gte_four, Some(4), Some(8)),
-            (&usize_input_gte_four, Some(6), Some(12)),
-        ];
+               // Run test cases
+               for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+                   println!("Case {}: `(usize_input.filter)({:?}) == {:?}`", i + 1,
+                            value.clone(), expected_rslt.clone()
+                   );
+                   assert_eq!(input.filter(value), expected_rslt);
+               }
 
-        // Run test cases
-        for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-            println!("Case {}: `(usize_input.filter)({:?}) == {:?}`", i + 1,
-                     value.clone(), expected_rslt.clone()
-            );
-            assert_eq!(input.filter(value), expected_rslt);
-        }
+               Ok(())
+           }
 
-        Ok(())
-    }
+           #[test]
+           fn test_validate_and_filter_detailed() -> Result<(), Box<dyn Error>> {
+               // Ensure each logic case in method is sound, and that method is callable for each scalar type:
+               // 1) Test method logic
+               // ----
+               let validate_is_even = |x: usize| if x % 2 != 0 {
+                   Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
+               } else {
+                   Ok(())
+               };
 
-    #[test]
-    fn test_validate_and_filter_detailed() -> Result<(), Box<dyn Error>> {
-        // Ensure each logic case in method is sound, and that method is callable for each scalar type:
-        // 1) Test method logic
-        // ----
-        let validate_is_even = |x: usize| if x % 2 != 0 {
-            Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
-        } else {
-            Ok(())
-        };
+               let usize_input_default = InputBuilder::<usize, usize>::default()
+                   .build()
+                   .unwrap();
 
-        let usize_input_default = InputBuilder::<usize, usize>::default()
-            .build()
-            .unwrap();
+               let usize_not_required_with_rules = InputBuilder::<usize, usize>::default()
+                   .min(1)
+                   .max(10)
+                   .validators(vec![&validate_is_even])
+                   .build()
+                   .unwrap();
 
-        let usize_not_required_with_rules = InputBuilder::<usize, usize>::default()
-            .min(1)
-            .max(10)
-            .validators(vec![&validate_is_even])
-            .build()
-            .unwrap();
+               let usize_required_with_rules = {
+                   let mut new_input = usize_not_required_with_rules.clone();
+                   new_input.required = true;
+                   new_input
+               };
 
-        let usize_required_with_rules = {
-            let mut new_input = usize_not_required_with_rules.clone();
-            new_input.required = true;
-            new_input
-        };
+               let usize_break_on_failure_with_rules = {
+                   let mut new_input = usize_required_with_rules.clone();
+                   new_input.break_on_failure = true;
+                   new_input
+               };
 
-        let usize_break_on_failure_with_rules = {
-            let mut new_input = usize_required_with_rules.clone();
-            new_input.break_on_failure = true;
-            new_input
-        };
+               let test_cases = vec![
+                   // Default
+                   // ----
+                   ("Default, with no value", &usize_input_default, None, Ok(None)),
+                   ("Default, with value", &usize_input_default, Some(1), Ok(Some(1))),
 
-        let test_cases = vec![
-            // Default
-            // ----
-            ("Default, with no value", &usize_input_default, None, Ok(None)),
-            ("Default, with value", &usize_input_default, Some(1), Ok(Some(1))),
+                   // Not required
+                   // ----
+                   ("1-10, Even, no value", &usize_not_required_with_rules, None, Ok(None)),
+                   ("1-10, Even, with valid value", &usize_not_required_with_rules, Some(2), Ok(Some(2))),
+                   ("1-10, Even, with valid value (2)", &usize_not_required_with_rules, Some(10), Ok(Some(10))),
+                   ("1-10, Even, with invalid value (3)", &usize_not_required_with_rules, Some(7), Err(vec![
+                       (ViolationEnum::CustomError,
+                        "Must be even".to_string()),
+                   ])),
+                   ("1-10, Even, with valid value", &usize_not_required_with_rules, Some(8), Ok(Some(8))),
 
-            // Not required
-            // ----
-            ("1-10, Even, no value", &usize_not_required_with_rules, None, Ok(None)),
-            ("1-10, Even, with valid value", &usize_not_required_with_rules, Some(2), Ok(Some(2))),
-            ("1-10, Even, with valid value (2)", &usize_not_required_with_rules, Some(10), Ok(Some(10))),
-            ("1-10, Even, with invalid value (3)", &usize_not_required_with_rules, Some(7), Err(vec![
-                (ViolationEnum::CustomError,
-                 "Must be even".to_string()),
-            ])),
-            ("1-10, Even, with valid value", &usize_not_required_with_rules, Some(8), Ok(Some(8))),
+                   // Required
+                   // ----
+                   ("1-10, Even, required, no value", &usize_required_with_rules, None, Err(vec![
+                       (ViolationEnum::ValueMissing,
+                        value_missing_msg_getter(&usize_required_with_rules)),
+                   ])),
+                   ("1-10, Even, required, with valid value", &usize_required_with_rules, Some(2), Ok(Some(2))),
+                   ("1-10, Even, required, with valid value (1)", &usize_required_with_rules, Some(4), Ok(Some(4))),
+                   ("1-10, Even, required, with valid value (2)", &usize_required_with_rules, Some(8), Ok(Some(8))),
+                   ("1-10, Even, required, with valid value (3)", &usize_required_with_rules, Some(10), Ok(Some(10))),
+                   ("1-10, Even, required, with invalid value (3)", &usize_required_with_rules, Some(7), Err(vec![
+                       (ViolationEnum::CustomError,
+                        "Must be even".to_string()),
+                   ])),
+                   ("1-10, Even, required, with invalid value (3)", &usize_break_on_failure_with_rules, Some(7), Err(vec![
+                       (ViolationEnum::CustomError,
+                        "Must be even".to_string()),
+                   ])),
+               ];
 
-            // Required
-            // ----
-            ("1-10, Even, required, no value", &usize_required_with_rules, None, Err(vec![
-                (ViolationEnum::ValueMissing,
-                 value_missing_msg_getter(&usize_required_with_rules)),
-            ])),
-            ("1-10, Even, required, with valid value", &usize_required_with_rules, Some(2), Ok(Some(2))),
-            ("1-10, Even, required, with valid value (1)", &usize_required_with_rules, Some(4), Ok(Some(4))),
-            ("1-10, Even, required, with valid value (2)", &usize_required_with_rules, Some(8), Ok(Some(8))),
-            ("1-10, Even, required, with valid value (3)", &usize_required_with_rules, Some(10), Ok(Some(10))),
-            ("1-10, Even, required, with invalid value (3)", &usize_required_with_rules, Some(7), Err(vec![
-                (ViolationEnum::CustomError,
-                 "Must be even".to_string()),
-            ])),
-            ("1-10, Even, required, with invalid value (3)", &usize_break_on_failure_with_rules, Some(7), Err(vec![
-                (ViolationEnum::CustomError,
-                 "Must be even".to_string()),
-            ])),
-        ];
+               for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
+                   println!("Case {}: {}", i + 1, test_name);
 
-        for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
-            println!("Case {}: {}", i + 1, test_name);
+                   assert_eq!(input.validate_and_filter_detailed(subj), expected);
+               }
 
-            assert_eq!(input.validate_and_filter_detailed(subj), expected);
-        }
+               // Test basic usage with other types
+               // ----
+               // Validates `f64`, and `f32` usage
+               let f64_input_required = InputBuilder::<f64, f64>::default()
+                   .required(true)
+                   .min(1.0)
+                   .max(10.0)
+                   .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
+                       Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
+                   } else {
+                       Ok(())
+                   }])
+                   .build()
+                   .unwrap();
 
-        // Test basic usage with other types
-        // ----
-        // Validates `f64`, and `f32` usage
-        let f64_input_required = InputBuilder::<f64, f64>::default()
-            .required(true)
-            .min(1.0)
-            .max(10.0)
-            .validators(vec![&|x: f64| if x % 2.0 != 0.0 {
-                Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
-            } else {
-                Ok(())
-            }])
-            .build()
-            .unwrap();
+               assert_eq!(f64_input_required.validate_detailed(None), Err(vec![
+                   (ViolationEnum::ValueMissing,
+                    value_missing_msg_getter(&f64_input_required)),
+               ]));
+               assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
 
-        assert_eq!(f64_input_required.validate_detailed(None), Err(vec![
-            (ViolationEnum::ValueMissing,
-             value_missing_msg_getter(&f64_input_required)),
-        ]));
-        assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
-        
-        // Test `char` usage
-        let char_input = InputBuilder::<char, char>::default()
-            .min('a')
-            .max('f')
-            .build()
-            .unwrap();
+               // Test `char` usage
+               let char_input = InputBuilder::<char, char>::default()
+                   .min('a')
+                   .max('f')
+                   .build()
+                   .unwrap();
 
-        assert_eq!(char_input.validate_detailed(None), Ok(()));
-        assert_eq!(char_input.validate_detailed(Some('a')), Ok(()));
-        assert_eq!(char_input.validate_detailed(Some('f')), Ok(()));
-        assert_eq!(char_input.validate_detailed(Some('g')), Err(vec![
-            (ViolationEnum::RangeOverflow,
-             "`g` is greater than maximum `f`.".to_string()),
-        ]));
+               assert_eq!(char_input.validate_detailed(None), Ok(()));
+               assert_eq!(char_input.validate_detailed(Some('a')), Ok(()));
+               assert_eq!(char_input.validate_detailed(Some('f')), Ok(()));
+               assert_eq!(char_input.validate_detailed(Some('g')), Err(vec![
+                   (ViolationEnum::RangeOverflow,
+                    "`g` is greater than maximum `f`.".to_string()),
+               ]));
 
-        Ok(())
-    }
-    
- */
+               Ok(())
+           }
+
+        */
 }
