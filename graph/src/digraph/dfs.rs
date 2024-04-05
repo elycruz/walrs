@@ -11,7 +11,7 @@ pub trait DigraphDFSShape {
 /// Isolated "vertex marked" declaration (helps DRY up code a bit).
 pub fn vertex_marked(_marked: &Vec<bool>, i: usize) -> Result<bool, String> {
   if i >= _marked.len() {
-    return Err(format!("{:} is out of range", i));
+    return Err(format!("{} is out of range", i));
   }
   Ok(_marked[i])
 }

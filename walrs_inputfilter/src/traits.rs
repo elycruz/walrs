@@ -1,8 +1,8 @@
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::fmt::{Debug, Display};
-use serde::Serialize;
+use serde::{Serialize};
 
-pub trait InputValue: ToOwned + Debug + Display + PartialEq + PartialOrd + Serialize {}
+pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
@@ -22,12 +22,12 @@ impl InputValue for f32 {}
 impl InputValue for f64 {}
 
 impl InputValue for bool {}
-
 impl InputValue for char {}
-impl InputValue for str {}
 impl InputValue for &str {}
 
-pub trait ScalarValue: InputValue + Default + Copy {}
+impl<T: InputValue> InputValue for &[T] {}
+
+pub trait ScalarValue: InputValue + Display {}
 
 impl ScalarValue for i8 {}
 impl ScalarValue for i16 {}
@@ -76,6 +76,8 @@ impl NumberValue for f64 {}
 /// violation type from "constraint" structures that perform validation against their own constraint props.;  E.g.,
 /// `StringConstraints` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
 ///
+/// @todo Consider attaching messages to enum variants (will require something like `unwrap`,
+///   and/or, `to_string()` to limit the `match` statement verbosity that it might add).
 #[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ViolationEnum {
   CustomError,
@@ -104,4 +106,25 @@ pub trait ToAttributesList {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     None
   }
+}
+
+pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
+
+pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
+
+/// Violation message getter for `ValueMissing` Violation Enum type.
+pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
+
+pub trait InputConstraints<'a, 'b, T: 'b, FT: 'b>: Display + Debug
+  where T: InputValue {
+
+  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
+
+  fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
+
+  fn filter(&self, value: FT) -> FT;
+
+  fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
+
+  fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }

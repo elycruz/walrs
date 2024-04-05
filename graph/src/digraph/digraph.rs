@@ -113,7 +113,7 @@ impl Digraph {
     let len = self._adj_lists.len();
     if v >= len {
       return Err(format!(
-        "{:}",
+        "{}",
         invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 })
       ));
     }
@@ -318,7 +318,7 @@ mod test {
 
       // Print intro message for test.
       // println!(
-      //   "For {:?} with {:} vertices;  Expecting {:} edges",
+      //   "For {:?} with {} vertices;  Expecting {} edges",
       //   &g, graph_size, num_expected_edges
       // );
 
@@ -334,14 +334,14 @@ mod test {
           g.indegree(i)?,
           expected_indegree,
           "{}",
-          format!("`#.indegree({:})` should return {:}", i, expected_indegree)
+          format!("`#.indegree({})` should return {}", i, expected_indegree)
         );
         assert_eq!(
           g.outdegree(i)?,
           expected_outdegree,
           "{}",
           format!(
-            "`#.outdegree({:})` should return {:}",
+            "`#.outdegree({})` should return {}",
             i, expected_outdegree
           )
         );
@@ -400,19 +400,19 @@ mod test {
 
       // Print intro message for test.
       // println!(
-      //   "For {:?} with {:} vertices;  Expecting {:} edges",
+      //   "For {:?} with {} vertices;  Expecting {} edges",
       //   &g, graph_size, num_expected_edges
       // );
 
       // Test `degree` for each vertex
       for i in 0..graph_size {
         let expected_indegree = if i >= 1 { i } else { 0 };
-        // println!("`#.indegree({:})` should return {:}", i, expected_indegree);
+        // println!("`#.indegree({})` should return {}", i, expected_indegree);
         assert_eq!(
           g.indegree(i)?,
           expected_indegree,
           "{}",
-          format!("`#.indegree({:})` should return {:}", i, expected_indegree)
+          format!("`#.indegree({})` should return {}", i, expected_indegree)
         );
       }
 

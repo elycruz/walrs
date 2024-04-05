@@ -158,7 +158,7 @@ impl Graph {
     let len = self._adj_lists.len();
     if v >= len {
       return Err(format!(
-        "{:}",
+        "{}",
         invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 })
       ));
     }
@@ -198,7 +198,7 @@ impl Graph {
 
 /// Returns panic message for invalid vertices;  Exported for use in testing.
 pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
-  format!("Vertex {:} is out of index range 0-{:}", v, max_v)
+  format!("Vertex {} is out of index range 0-{}", v, max_v)
 }
 
 // @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.
@@ -409,19 +409,19 @@ mod test {
 
       // Print intro message for test.
       println!(
-        "For {:?} with {:} vertices;  Expecting {:} edges",
+        "For {:?} with {} vertices;  Expecting {} edges",
         &g, graph_size, num_expected_edges
       );
 
       // Test `degree` for each vertex
       for i in 0..graph_size {
         let expected_degree = if graph_size > 0 { graph_size - 1 } else { 0 };
-        // println!("`#.degree({:})` should return {:}", i, expected_degree);
+        // println!("`#.degree({})` should return {}", i, expected_degree);
         assert_eq!(
           g.degree(i).unwrap(),
           expected_degree,
           "{}",
-          format!("`#.degree({:})` should return {:}", i, expected_degree)
+          format!("`#.degree({})` should return {}", i, expected_degree)
         );
       }
 

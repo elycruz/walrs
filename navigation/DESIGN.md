@@ -13,6 +13,9 @@ General approach:
     - nav-item
 ```
 
+Component should:
+- not allow cycles (e.g., be acyclic).
+
 Questions:
 
 - How do we traverse the tree in this approach? Using DFS.

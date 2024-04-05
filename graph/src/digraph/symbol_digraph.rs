@@ -219,7 +219,7 @@ impl Default for DisymGraph {
 ///  // Get graph 'symbol' data
 ///  let f = match File::open(&file_path) {
 ///    Ok(f) => f,
-///    Err(err) => panic!("{:}", err)
+///    Err(err) => panic!("{}", err)
 ///  };
 ///
 ///  // Get mutable reader
@@ -315,7 +315,7 @@ mod test {
       dsg.add_edge(v, weights)?;
 
       // println!(
-      //   "for vowel \"{:}\" weights {:?};  indegree: {:};",
+      //   "for vowel \"{}\" weights {:?};  indegree: {};",
       //   v, weights, indegree
       // );
       assert_eq!(dsg.indegree(i)?, i, "invalid indegree");
@@ -338,7 +338,7 @@ mod test {
       dsg.add_edge(v, weights)?;
 
       // println!(
-      //   "for vowel \"{:}\" weights {:?};  outdegree: {:};",
+      //   "for vowel \"{}\" weights {:?};  outdegree: {};",
       //   v, weights, outdegree
       // );
       assert_eq!(dsg.outdegree(i)?, limit - i, "invalid indegree");
@@ -366,7 +366,7 @@ mod test {
           assert_eq!(
             adj_indices.len(),
             weights.len(),
-            "vertices adjacent to \"{:}\" have an invalid length",
+            "vertices adjacent to \"{}\" have an invalid length",
             v
           );
 
@@ -375,12 +375,12 @@ mod test {
             let name = dsg.name(*x).unwrap();
             assert!(
               weights.contains(&name.as_str()),
-              "vertices adjacent to \"{:}\" are invalid",
+              "vertices adjacent to \"{}\" are invalid",
               v
             );
           });
         }
-        None => panic!("Expected vertices adjacent to \"{:}\";  Received `None`", v),
+        None => panic!("Expected vertices adjacent to \"{}\";  Received `None`", v),
       };
     }
 
@@ -404,13 +404,13 @@ mod test {
     assert_eq!(
       dsg.contains(v1),
       true,
-      "graph should contain symbol \"{:}\"",
+      "graph should contain symbol \"{}\"",
       v1
     );
     assert_eq!(
       dsg.contains(v2),
       true,
-      "graph should contain symbol \"{:}\"",
+      "graph should contain symbol \"{}\"",
       v2
     );
   }
@@ -432,14 +432,14 @@ mod test {
     assert_eq!(
       dsg.index(v1).unwrap(),
       0,
-      "graph should contain vertex \"{:}\" at index {:}",
+      "graph should contain vertex \"{}\" at index {}",
       v1,
       0
     );
     assert_eq!(
       dsg.index(v2).unwrap(),
       1,
-      "graph should contain vertex \"{:}\" at index {:}",
+      "graph should contain vertex \"{}\" at index {}",
       v2,
       1
     );
@@ -488,14 +488,14 @@ mod test {
     assert_eq!(
       dsg.name(0).unwrap(),
       v1,
-      "index for vertex \"{:}\" should equal {:}",
+      "index for vertex \"{}\" should equal {}",
       v1,
       0
     );
     assert_eq!(
       dsg.name(1).unwrap(),
       v2,
-      "index for vertex \"{:}\" should equal {:}",
+      "index for vertex \"{}\" should equal {}",
       v2,
       1
     );
@@ -566,13 +566,13 @@ mod test {
     assert_eq!(
       dsg.has_vertex(v1),
       true,
-      "should contain vertex \"{:}\"",
+      "should contain vertex \"{}\"",
       v1
     );
     assert_eq!(
       dsg.has_vertex(v2),
       true,
-      "should contain vertex \"{:}\"",
+      "should contain vertex \"{}\"",
       v2
     );
     assert_eq!(
@@ -697,7 +697,7 @@ mod test {
       assert_eq!(
         dsg_reversed.outdegree(i),
         dsg.indegree(i),
-        "Reversed graph's `outdegree({:})` should equal original graph's `indegree({:})",
+        "Reversed graph's `outdegree({})` should equal original graph's `indegree({})",
         i,
         i
       );
@@ -706,7 +706,7 @@ mod test {
       assert_eq!(
         dsg_reversed.indegree(i),
         dsg.outdegree(i),
-        "Reversed graph's `indegree({:})` should equal original graph's `outdegree({:})",
+        "Reversed graph's `indegree({})` should equal original graph's `outdegree({})",
         i,
         i
       );

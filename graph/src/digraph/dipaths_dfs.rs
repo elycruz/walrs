@@ -106,8 +106,8 @@ mod test {
       } else {
         vec![]
       };
-      sym_graph.add_edge(v, &edges);
-      sym_graph_2.add_edge(v, &edges_2);
+      sym_graph.add_edge(v, &edges).expect("No panic");
+      sym_graph_2.add_edge(v, &edges_2).expect("No panic");
     }
 
     // Log graph

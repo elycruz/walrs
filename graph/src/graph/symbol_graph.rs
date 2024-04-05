@@ -231,7 +231,7 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
           if vs.is_empty() {
             return Err(format!(
-              "Malformed symbol graph buffer at buffer line {:} - Expected \"non-empty\" line.",
+              "Malformed symbol graph buffer at buffer line {} - Expected \"non-empty\" line.",
               line_num
             ));
           }
@@ -251,7 +251,7 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
         }
         Err(err) => {
           return Err(format!(
-            "Malformed symbol graph buffer at buffer line {:}: {:?}",
+            "Malformed symbol graph buffer at buffer line {}: {:?}",
             line_num, err
           ));
         }
@@ -304,7 +304,7 @@ mod test {
       // Assert `v` is in `_vertices`
       assert!(
         graph._vertices.contains(&v.to_string()),
-        "SymbolGraph should contain \"{:}\" in it's vertices list.",
+        "SymbolGraph should contain \"{}\" in it's vertices list.",
         &v_as_string
       );
     }
