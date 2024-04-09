@@ -16,9 +16,9 @@ pub fn value_missing_msg_getter<T: InputValue, FT: From<T>>(_: &Input<T, FT>) ->
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct Input<'a, 'b, T, FilterT>
-    where T: InputValue + 'b,
-          FilterT: 'b + From<T>,
+pub struct Input<'a, T, FilterT>
+    where T: InputValue,
+          FilterT: From<T>,
 {
     #[builder(default = "false")]
     pub break_on_failure: bool,
@@ -45,10 +45,10 @@ pub struct Input<'a, 'b, T, FilterT>
     pub filters: Option<Vec<&'a Filter<FilterT>>>,
 
     #[builder(default = "&value_missing_msg_getter")]
-    pub value_missing_msg: &'a (dyn Fn(&Input<'a, 'b, T, FilterT>) -> ViolationMessage + Send + Sync)
+    pub value_missing_msg: &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync)
 }
 
-impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
+impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
     /// Returns a new instance with all fields set defaults.
     ///
     /// ```rust
@@ -132,7 +132,7 @@ impl<'a, 'b,  T: InputValue + 'b, FT: 'b + From<T>> Input<'a, 'b, T, FT> {
     }
 }
 
-impl<'a, 'b, T: 'b, FT: 'b + From<T>> InputConstraints<'a, 'b, T, FT> for Input<'a, 'b, T, FT>
+impl<'a, T, FT: From<T>> InputConstraints<T, FT> for Input<'a, T, FT>
 where
   T: InputValue,
 {
@@ -431,7 +431,7 @@ where
   /// };
   ///
   /// type TestName = &'static str;
-  /// type ConstraintStruct<'a, 'b> = Input<'a, 'b, usize, usize>;
+  /// type ConstraintStruct<'a> = Input<'a, usize, usize>;
   /// type TestValue = Option<usize>;
   /// type ExpectedResult = Result<Option<usize>, Vec<(ViolationEnum, ViolationMessage)>>;
   ///
@@ -471,7 +471,7 @@ where
   }
 }
 
-impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Default for Input<'a, 'b, T, FT> {
+impl<'a, T: InputValue, FT: From<T>> Default for Input<'a, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -493,7 +493,7 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Default for Input<'a, 'b, T, 
   }
 }
 
-impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Display for Input<'a, 'b, T, FT> {
+impl<'a, T: InputValue, FT: From<T>> Display for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
       f.debug_struct("Input")
           .field("break_on_failure", &self.break_on_failure)
@@ -512,7 +512,7 @@ impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Display for Input<'a, 'b, T, 
   }
 }
 
-impl<'a, 'b, T: InputValue + 'b, FT: 'b + From<T>> Debug for Input<'a, 'b, T, FT> {
+impl<'a, T: InputValue, FT: From<T>> Debug for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
@@ -529,7 +529,6 @@ mod test {
         range_overflow_msg_getter,
         RangeValidatorBuilder,
         SlugFilter,
-        InputConstraints,
     };
     use crate::ViolationEnum::StepMismatch;
     // use crate::{InputBuilder, StringConstraintsBuilder};

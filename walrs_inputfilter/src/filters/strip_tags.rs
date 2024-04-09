@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
-use ammonia;
 
 static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 

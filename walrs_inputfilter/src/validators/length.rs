@@ -44,32 +44,32 @@ impl<'a, T: InputValue> WithLength for &'a [T] {
     }
 }
 
-macro_rules! validate_type_with_chars {
-    ($type_:ty) => {
-        impl WithLength for $type_ {
-            fn length(&self) -> Option<usize> {
-                Some(self.chars().count() as usize)
-            }
-        }
-    };
-}
+// macro_rules! validate_type_with_chars {
+//     ($type_:ty) => {
+//         impl WithLength for $type_ {
+//             fn length(&self) -> Option<usize> {
+//                 Some(self.chars().count() as usize)
+//             }
+//         }
+//     };
+// }
 
 // validate_type_with_chars!(str);
 // validate_type_with_chars!(&str);
 // validate_type_with_chars!(String);
 
-macro_rules! validate_type_with_len {
-    ($type_:ty) => {
-        validate_type_with_len!($type_,);
-    };
-    ($type_:ty, $($generic:ident),*$(,)*) => {
-        impl<$($generic),*> WithLength for $type_ {
-            fn length(&self) -> Option<usize> {
-                Some(self.len() as usize)
-            }
-        }
-    };
-}
+// macro_rules! validate_type_with_len {
+//     ($type_:ty) => {
+//         validate_type_with_len!($type_,);
+//     };
+//     ($type_:ty, $($generic:ident),*$(,)*) => {
+//         impl<$($generic),*> WithLength for $type_ {
+//             fn length(&self) -> Option<usize> {
+//                 Some(self.len() as usize)
+//             }
+//         }
+//     };
+// }
 
 // validate_type_with_len!(&str);
 // validate_type_with_len!([T], T);
