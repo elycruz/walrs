@@ -193,7 +193,11 @@ where
     }
   }
 
-  /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
+    fn validate_ref(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>> {
+       self.validate(value.copied())
+    }
+
+    /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///
   /// ```rust
@@ -273,7 +277,11 @@ where
     }
   }
 
-  /// Filters value against contained filters.
+    fn validate_ref_detailed(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>> {
+      self.validate_detailed(value.copied())
+    }
+
+    /// Filters value against contained filters.
   ///
   /// ```rust
   /// use walrs_inputfilter::{

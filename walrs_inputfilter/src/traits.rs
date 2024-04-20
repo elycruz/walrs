@@ -48,6 +48,8 @@ impl ScalarValue for f64 {}
 
 impl ScalarValue for bool {}
 impl ScalarValue for char {}
+impl ScalarValue for &str {}
+
 
 pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
@@ -119,8 +121,12 @@ pub trait InputConstraints<T, FT>: Display + Debug
   where T: InputValue {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
+  
+  fn validate_ref(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>>;
 
   fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
+  
+  fn validate_ref_detailed(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>>;
 
   fn filter(&self, value: FT) -> FT;
 
