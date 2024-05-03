@@ -118,7 +118,8 @@ pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
 pub trait InputConstraints<T, FT>: Display + Debug
-  where T: InputValue {
+  where T: InputValue,
+        FT: From<T> {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
   
