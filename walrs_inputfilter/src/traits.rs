@@ -122,12 +122,8 @@ pub trait InputConstraints<T, FT>: Display + Debug
         FT: From<T> {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
-  
-  fn validate_ref(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>>;
 
   fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
-  
-  fn validate_ref_detailed(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>>;
 
   fn filter(&self, value: FT) -> FT;
 

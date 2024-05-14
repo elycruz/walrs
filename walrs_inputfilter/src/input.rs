@@ -193,10 +193,6 @@ where
     }
   }
 
-    fn validate_ref(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>> {
-       self.validate(value.copied())
-    }
-
     /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///
@@ -276,10 +272,6 @@ where
         }
     }
   }
-
-    fn validate_ref_detailed(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>> {
-      self.validate_detailed(value.copied())
-    }
 
     /// Filters value against contained filters.
   ///
