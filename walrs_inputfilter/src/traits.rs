@@ -100,7 +100,10 @@ pub type ViolationMessage = String;
 /// A validation violation tuple.
 pub type ViolationTuple = (ViolationEnum, ViolationMessage);
 
-/// Returned from validators, and Input Constraint struct `*_detailed` validation methods.
+/// Validator run result.
+pub type ValidatorResult = Result<(), ViolationTuple>;
+
+ /// Input Constraint struct `*_detailed` validation methods result.
 pub type ValidationResult = Result<(), Vec<ViolationTuple>>;
 
 /// Allows serialization of properties that can be used for html form control contexts.
@@ -112,7 +115,12 @@ pub trait ToAttributesList {
 
 pub type Filter<T> = dyn Fn(T) -> T + Send + Sync;
 
-pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
+pub type Validator<T> = dyn Fn(T) -> ValidatorResult + Send + Sync;
+
+pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidatorResult {}
+
+impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F 
+  where F: Fn(&T) -> ValidatorResult {}
 
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;

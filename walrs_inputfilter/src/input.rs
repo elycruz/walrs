@@ -84,7 +84,7 @@ impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
         }
     }
 
-    fn _validate_against_own_constraints(&self, value: T) -> Result<(), Vec<ViolationTuple>> {
+    fn _validate_against_own_constraints(&self, value: T) -> Result<(), ViolationTuple> {
         if let Some(custom) = self.custom {
             return (custom)(value);
         }
@@ -102,8 +102,8 @@ impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
                         .iter()
                         .fold(Vec::<ViolationTuple>::new(), |mut agg, f| {
                             match f(value) {
-                                Err(mut message_tuples) => {
-                                    agg.append(message_tuples.as_mut());
+                                Err(violation_tuple) => {
+                                    agg.push(violation_tuple);
                                     agg
                                 }
                                 _ => agg,
@@ -114,8 +114,8 @@ impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
                     // ----
                     let mut agg = Vec::<ViolationTuple>::new();
                     for f in vs.iter() {
-                        if let Err(mut message_tuples) = f(value) {
-                            agg.append(message_tuples.as_mut());
+                        if let Err(violation_tuple) = f(value) {
+                            agg.push(violation_tuple);
                             break;
                         }
                     }
@@ -151,7 +151,7 @@ where
   ///
   /// // Setup a custom validator
   /// let validate_is_even = |x: usize| if x % 2 != 0 {
-  ///   Err(vec![(ViolationEnum::CustomError, "Must be even".to_string())])
+  ///   Err((ViolationEnum::CustomError, "Must be even".to_string()))
   /// } else {
   ///   Ok(())
   /// };
@@ -259,15 +259,14 @@ where
       Some(v) =>
         match self._validate_against_own_constraints(v) {
           Ok(_) => self._validate_against_validators(v),
-          Err(messages1) =>
+          Err(violation_tuple) =>
             if self.break_on_failure {
-              Err(messages1)
+              Err(vec![violation_tuple])
             } else if let Err(mut messages2) = self._validate_against_validators(v) {
-              let mut agg = messages1;
-              agg.append(messages2.as_mut());
-              Err(agg)
+              messages2.push(violation_tuple);
+              Err(messages2)
             } else {
-              Err(messages1)
+              Err(vec![violation_tuple])
             }
         }
     }
@@ -551,7 +550,7 @@ mod test {
         let percent = InputBuilder::<usize, usize>::default()
             .validators(vec![
                 &|x| if x != 0 && x % 5 != 0 {
-                    Err(vec![(StepMismatch, format!("{} is not divisible by 5", x))])
+                    Err((StepMismatch, format!("{} is not divisible by 5", x)))
                 } else {
                     Ok(())
                 },
