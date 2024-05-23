@@ -123,7 +123,7 @@ impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
 pub trait InputConstraints<T, FT>: Display + Debug
-  where T: InputValue,
+  where T: Copy,
         FT: From<T> {
 
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
@@ -136,3 +136,13 @@ pub trait InputConstraints<T, FT>: Display + Debug
 
   fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }
+
+/*
+@todo Consider separating methods for validation option types, and non-option types;  E.g.,
+
+// Validate unwrapped value
+fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>>;
+
+// Validate Option<T> value (handles `required`/not-required constraints, etc.).
+fn validate_opt(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
+*/

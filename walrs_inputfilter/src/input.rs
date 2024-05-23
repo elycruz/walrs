@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Filter, InputConstraints, InputValue, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
+use crate::{Filter, InputConstraints, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -10,14 +10,14 @@ use crate::{Filter, InputConstraints, InputValue, Validator, ViolationEnum, Viol
 ///
 /// assert_eq!(value_missing_msg_getter(&input), "Value is missing".to_string());
 /// ```
-pub fn value_missing_msg_getter<T: InputValue, FT: From<T>>(_: &Input<T, FT>) -> ViolationMessage {
+pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> ViolationMessage {
     "Value is missing".to_string()
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct Input<'a, T, FilterT>
-    where T: InputValue,
+    where T: Copy,
           FilterT: From<T>,
 {
     #[builder(default = "false")]
@@ -48,7 +48,7 @@ pub struct Input<'a, T, FilterT>
     pub value_missing_msg: &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync)
 }
 
-impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
+impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
     /// Returns a new instance with all fields set defaults.
     ///
     /// ```rust
@@ -134,7 +134,7 @@ impl<'a, T: InputValue, FT: From<T>> Input<'a, T, FT> {
 
 impl<'a, T, FT: From<T>> InputConstraints<T, FT> for Input<'a, T, FT>
 where
-  T: InputValue,
+  T: Copy,
 {
   /// Validates given value against contained constraints, and returns a result of unit, and/or, a Vec of
   /// Violation messages.
@@ -471,7 +471,7 @@ where
   }
 }
 
-impl<'a, T: InputValue, FT: From<T>> Default for Input<'a, T, FT> {
+impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -493,7 +493,7 @@ impl<'a, T: InputValue, FT: From<T>> Default for Input<'a, T, FT> {
   }
 }
 
-impl<'a, T: InputValue, FT: From<T>> Display for Input<'a, T, FT> {
+impl<'a, T: Copy, FT: From<T>> Display for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
       f.debug_struct("Input")
           .field("break_on_failure", &self.break_on_failure)
@@ -512,7 +512,7 @@ impl<'a, T: InputValue, FT: From<T>> Display for Input<'a, T, FT> {
   }
 }
 
-impl<'a, T: InputValue, FT: From<T>> Debug for Input<'a, T, FT> {
+impl<'a, T: Copy, FT: From<T>> Debug for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }
