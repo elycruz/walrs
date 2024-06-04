@@ -32,6 +32,12 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 - `./filters` - Structs that implement `Fn` traits that transform incoming values.
 - [tentative] `./validators` - `Fn` structs that validate a given value against some inherent configuration.
 
+### Multi trait implementations approach
+
+One Input struct with multiple implementations of the `InputConstraints` trait.
+
+The Input Constraints trait itself needs to accept the validator and filter types themselves.
+
 ## Questions
 
 ### General
