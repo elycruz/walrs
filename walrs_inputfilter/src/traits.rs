@@ -122,7 +122,7 @@ impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
-pub trait InputConstraints<T, FT>: Display + Debug
+pub trait InputConstraints<T, FT = T>: Display + Debug
   where T: Copy,
         FT: From<T> {
 
