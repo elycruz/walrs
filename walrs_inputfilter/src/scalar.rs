@@ -58,7 +58,9 @@ impl<'a, T> ScalarInput<'a, T>
     /// ```rust
     /// use walrs_inputfilter::{
     ///   ScalarInput, InputConstraints, ViolationEnum,
-    ///   range_overflow_msg, range_underflow_msg, scalar_missing_msg_getter,
+    ///   range_overflow_msg,
+    ///   range_underflow_msg, 
+    ///   scalar_missing_msg_getter,
     /// };
     ///
     /// let input = ScalarInput::<usize>::new();
@@ -235,6 +237,8 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///   ])),
     /// ];
     ///
+    /// println!("Doc tests for `validate`:");
+    ///
     /// // Run test cases
     /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
     ///   println!("Case {}: {}", i + 1, test_name);
@@ -304,6 +308,8 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///      "Must be even".to_string()),
     ///   ])),
     /// ];
+    ///
+    /// println!("Doc tests for `validate_detailed`:");
     ///
     /// // Run test cases
     /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
@@ -383,45 +389,47 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///   ScalarInputBuilder,
     ///   ScalarInput,
     ///   ViolationMessage,
+    ///   ViolationTuple,
     ///   InputConstraints,
     ///   ViolationEnum::CustomError,
+    ///   scalar_missing_msg_getter
     /// };
     ///
     /// // Setup input constraints
-    /// let usize_input = ScalarInputBuilder::<usize>::default()
+    /// let u64_input = ScalarInputBuilder::<u64>::default()
     ///   .min(1)
     ///   .max(10)
     ///   .required(true)
-    ///   .validators(vec![&|x: usize| if x % 2 != 0 {
+    ///   .validators(vec![&|x: u64| if x % 2 != 0 {
     ///     Err(vec![(CustomError, "Must be even".to_string())])
     ///   } else {
     ///     Ok(())
     ///   }])
-    ///   .filters(vec![&|x: usize| x| x * 2usize])
+    ///   .filters(vec![&|x: u64| x| x * 2u64])
     ///   .build()
     ///   .unwrap();
     ///
     /// // Stops validation on first validation error and returns `Err` result.
-    /// let usize_input_break_on_failure = {
-    ///   let mut new_input = usize_input.clone();
+    /// let u64_input_break_on_failure = {
+    ///   let mut new_input = u64_input.clone();
     ///   new_input.break_on_failure = true;
     ///   new_input
     /// };
     ///
-    /// let test_cases = vec![
-    ///   ("No value", &usize_input, None, Err(vec![ "Value missing".to_string() ])),
-    ///   ("With valid value", &usize_input, Some(4), Ok(Some(8))),
-    ///   ("With \"out of lower bounds\" value", &usize_input, Some(0), Err(vec![
+    /// let test_cases: Vec<(&str, &ScalarInput<u64>, Option<u64>, Result<Option<u64>, Vec<String>>)> = vec![
+    ///   ("No value", &u64_input, None, Err(vec![ scalar_missing_msg_getter(&u64_input) ])),
+    ///   ("With valid value", &u64_input, Some(4u64), Ok(Some(8u64))),
+    ///   ("With \"out of lower bounds\" value", &u64_input, Some(0), Err(vec![
     ///     "`0` is less than minimum `1`.".to_string(),
     ///   ])),
-    ///   ("With \"out of upper bounds\" value", &usize_input, Some(11), Err(vec![
+    ///   ("With \"out of upper bounds\" value", &u64_input, Some(11), Err(vec![
     ///     "`11` is greater than maximum `10`.".to_string(),
     ///     "Must be even".to_string(),
     ///   ])),
-    ///   ("With \"not Even\" value", &usize_input, Some(7), Err(vec![
+    ///   ("With \"not Even\" value", &u64_input, Some(7), Err(vec![
     ///     "Must be even".to_string(),
     ///   ])),
-    ///   ("With \"not Even\" value, and 'break_on_failure: true'", &usize_input_break_on_failure,
+    ///   ("With \"not Even\" value, and 'break_on_failure: true'", &u64_input_break_on_failure,
     ///     Some(7),
     ///     Err(vec![
     ///     "Must be even".to_string(),
@@ -429,9 +437,11 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///   ),
     /// ];
     ///
+    /// println!("Doc tests for `validate_and_filter`:");
+    ///
     /// // Run test cases
     /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-    ///   println!("Case {}: {}", i + 1, test_name);
+    ///   println!("Case {}: {} - For: {:?}", i + 1, test_name, value);
     ///   assert_eq!(input.validate_and_filter(value), expected_rslt);
     /// }
     /// ```
@@ -449,7 +459,6 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///   ScalarInputBuilder,
     ///   ScalarInput,
     ///   InputConstraints,
-    ///   ValidationResult,
     ///   ViolationMessage,
     ///   ViolationEnum,
     ///   ViolationEnum::{
@@ -458,6 +467,7 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///     RangeUnderflow,
     ///     ValueMissing,
     ///   },
+    ///   scalar_missing_msg_getter,
     /// };
     ///
     /// // Setup input constraints
@@ -488,7 +498,7 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///
     /// let test_cases: Vec<(TestName, &ConstraintStruct, TestValue, ExpectedResult)> = vec![
     ///   ("No value", &usize_input, None, Err(vec![
-    ///     (ValueMissing, "Value missing".to_string())
+    ///     (ValueMissing, scalar_missing_msg_getter(&usize_input))
     ///   ])),
     ///   ("With valid value", &usize_input,
     ///     Some(4), Ok(Some(8))
@@ -511,6 +521,8 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     ///   ),
     /// ];
     ///
+    /// println!("Doc tests for `validate_and_filter_detailed`:");
+    ///
     /// // Run test cases
     /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
     ///   println!("Case {}: {}", i + 1, test_name);
@@ -518,7 +530,7 @@ impl<'a, 'b, T> InputConstraints<T, T> for ScalarInput<'a, T>
     /// }
     /// ```
     fn validate_and_filter_detailed(&self, x: Option<T>) -> Result<Option<T>, Vec<ViolationTuple>> {
-        self.validate_detailed(x).map(|_| self.filter(x))
+        self.validate_detailed(x).map(|_| x.map(|_x| self.filter(_x)))
     }
 }
 
@@ -646,7 +658,7 @@ mod test {
 
         let test_cases = [
             ("No value", &usize_required, None, Err(vec![
-                scalar_missing_msg_getter(),
+                scalar_missing_msg_getter(&usize_required),
             ])),
             ("With valid value", &usize_required, Some(4), Ok(())),
             ("With \"out of lower bounds\" value", &usize_required, Some(0), Err(vec![
@@ -786,7 +798,7 @@ mod test {
 
         assert_eq!(f64_input_required.validate_detailed(None), Err(vec![
             (ViolationEnum::ValueMissing,
-             scalar_missing_msg_getter()),
+             scalar_missing_msg_getter(&f64_input_required)),
         ]));
         assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
         assert_eq!(f64_input_required.validate_detailed(Some(11.0)), Err(vec![
@@ -820,35 +832,32 @@ mod test {
         // 2. With one filter.
         let usize_input_twofold = ScalarInputBuilder::<usize>::default()
             .filters(vec![
-                &|x: Option<usize>| x.map(|_x| _x * 2usize),
+                &|x: usize| x * 2usize,
             ])
             .build()?;
 
         // 3. With two filters.
         let usize_input_gte_four = ScalarInputBuilder::<usize>::default()
             .filters(vec![
-                &|x: Option<usize>| x.map(|_x| if _x < 4 { 4 } else { _x }),
-                &|x: Option<usize>| x.map(|_x| _x * 2usize),
+                &|x: usize| if x < 4 { 4 } else { x },
+                &|x: usize| x * 2usize,
             ])
             .build()?;
 
         let test_cases = [
             // No filters
-            (&usize_input_default, None, None),
-            (&usize_input_default, Some(100), Some(100)),
+            (&usize_input_default, 100, 100),
 
             // With one filter
-            (&usize_input_twofold, None, None),
-            (&usize_input_twofold, Some(0), Some(0)),
-            (&usize_input_twofold, Some(2), Some(4)),
-            (&usize_input_twofold, Some(4), Some(8)),
+            (&usize_input_twofold, 0, 0),
+            (&usize_input_twofold, 2, 4),
+            (&usize_input_twofold, 4, 8),
 
             // With multiple filters
-            (&usize_input_gte_four, None, None),
-            (&usize_input_gte_four, Some(0), Some(8)),
-            (&usize_input_gte_four, Some(2), Some(8)),
-            (&usize_input_gte_four, Some(4), Some(8)),
-            (&usize_input_gte_four, Some(6), Some(12)),
+            (&usize_input_gte_four, 0, 8),
+            (&usize_input_gte_four, 2, 8),
+            (&usize_input_gte_four, 4, 8),
+            (&usize_input_gte_four, 6, 12),
         ];
 
         // Run test cases

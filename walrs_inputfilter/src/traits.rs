@@ -137,12 +137,39 @@ pub trait InputConstraints<T, FT = T>: Display + Debug
   fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }
 
-/*
-@todo Consider separating methods for validation option types, and non-option types;  E.g.,
+pub enum Violation {
+    CustomError(String),
+    PatternMismatch(String),
+    RangeOverflow(String),
+    RangeUnderflow(String),
+    StepMismatch(String),
+    TooLong(String),
+    TooShort(String),
+    NotEqual(String),
+    TypeMismatch(String),
+    ValueMissing(String),
+}
 
-// Validate unwrapped value
-fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>>;
+pub trait InputFilterForSized<T, FT = T>: Display + Debug
+  where T: Copy,
+        FT: From<T> {
+  fn validate(&self, value: T) -> Result<(), Vec<Violation>>;
 
-// Validate Option<T> value (handles `required`/not-required constraints, etc.).
-fn validate_opt(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
-*/
+  fn validate_option(&self, value: Option<T>) -> Result<(), Vec<Violation>>;
+
+  fn filter(&self, value: T) -> Result<Option<FT>, Vec<Violation>>;
+
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>>;
+}
+
+pub trait InputFilterForUnsized<T, FT = T>: Display + Debug
+  where T: ?Sized,
+        for<'x> FT: From<&'x T> {
+  fn validate(&self, value: &T) -> Result<(), Vec<ViolationMessage>>;
+
+  fn validate_option(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>>;
+
+  fn filter(&self, value: &T) ->Result<Option<FT>, Vec<ViolationMessage>>;
+
+  fn filter_option(&self, value: Option<&T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
+}
