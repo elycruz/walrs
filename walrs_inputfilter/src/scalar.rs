@@ -59,7 +59,7 @@ impl<'a, T> ScalarInput<'a, T>
     /// use walrs_inputfilter::{
     ///   ScalarInput, InputConstraints, ViolationEnum,
     ///   range_overflow_msg,
-    ///   range_underflow_msg, 
+    ///   range_underflow_msg,
     ///   scalar_missing_msg_getter,
     /// };
     ///

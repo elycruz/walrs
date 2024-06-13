@@ -45,7 +45,7 @@ pub struct Input<'a, T, FilterT>
     pub filters: Option<Vec<&'a Filter<FilterT>>>,
 
     #[builder(default = "&value_missing_msg_getter")]
-    pub value_missing_msg: &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync)
+    pub value_missing_msg_getter: &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync)
 }
 
 impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
@@ -80,7 +80,7 @@ impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
             default_value: None,
             validators: None,
             filters: None,
-            value_missing_msg: &value_missing_msg_getter,
+            value_missing_msg_getter: &value_missing_msg_getter,
         }
     }
 
@@ -135,6 +135,7 @@ impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
 impl<'a, T, FT: From<T>> InputConstraints<T, FT> for Input<'a, T, FT>
 where
   T: Copy,
+    FT: From<T>,
 {
   /// Validates given value against contained constraints, and returns a result of unit, and/or, a Vec of
   /// Violation messages.
@@ -249,7 +250,7 @@ where
         if self.required {
           Err(vec![(
             ViolationEnum::ValueMissing,
-            (self.value_missing_msg)(self),
+            (self.value_missing_msg_getter)(self),
           )])
         } else {
           Ok(())

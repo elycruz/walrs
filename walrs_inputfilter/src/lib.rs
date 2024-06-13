@@ -9,10 +9,10 @@ pub mod traits;
 pub mod validators;
 pub mod filters;
 pub mod input;
-pub mod scalar;
+pub mod ref_input;
 
 pub use traits::*;
 pub use validators::*;
 pub use filters::*;
 pub use input::*;
-pub use scalar::*;
+pub use ref_input::*;
