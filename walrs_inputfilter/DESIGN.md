@@ -69,3 +69,26 @@ Here we're going with `&T` for simplicity's sake.
 - [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
 - [ ] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.
 
+## Visited Designs
+
+### ViolationTuple
+
+```rust
+struct ViolationTuple (ViolationEnum, ViolationMessage);
+
+impl ToString for ViolationTuple {
+    fn to_string(&self) -> String {
+        self.1.to_string()
+    }
+}
+
+fn main () {
+  let violation_tuples = vec![
+      ViolationTuple(ViolationEnum::ValueMissing, "Value is missing".to_string()),
+      ViolationTuple(ViolationEnum::ValueMissing, "Value is missing".to_string())
+  ];
+  
+  let violation_strings: Vec<String> = violation_tuples.into();
+}
+
+```

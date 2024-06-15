@@ -194,7 +194,7 @@ where
     }
   }
 
-    /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
+  /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///
   /// ```rust

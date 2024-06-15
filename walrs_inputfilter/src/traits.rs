@@ -167,11 +167,11 @@ pub trait InputFilterForSized<T, FT = T>: Display + Debug
 pub trait InputFilterForUnsized<T, FT = T>: Display + Debug
   where T: ?Sized,
         for<'x> FT: From<&'x T> {
-  fn validate(&self, value: &T) -> Result<(), Vec<ViolationMessage>>;
-
+  fn validate(&self, value: &T) -> Result<(), Vec<ViolationTuple>>;
+    
   fn validate_option(&self, value: Option<&T>) -> Result<(), Vec<ViolationTuple>>;
 
-  fn filter(&self, value: &T) ->Result<Option<FT>, Vec<ViolationMessage>>;
+  fn filter(&self, value: &T) ->Result<Option<FT>, Vec<ViolationTuple>>;
 
   fn filter_option(&self, value: Option<&T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }
