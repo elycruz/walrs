@@ -1,5 +1,5 @@
 use std::fmt::{Debug, Display, Formatter};
-use crate::{Filter, InputConstraints, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
+use crate::{FilterValue, InputConstraints, Validator, ViolationEnum, ViolationMessage, ViolationTuple};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -42,7 +42,7 @@ pub struct Input<'a, T, FilterT>
     pub validators: Option<Vec<&'a Validator<T>>>,
 
     #[builder(default = "None")]
-    pub filters: Option<Vec<&'a Filter<FilterT>>>,
+    pub filters: Option<Vec<&'a FilterValue<FilterT>>>,
 
     #[builder(default = "&value_missing_msg_getter")]
     pub value_missing_msg_getter: &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync)

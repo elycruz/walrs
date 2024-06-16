@@ -17,6 +17,40 @@ pub struct EqualityValidator<'a, T>
 impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
   where T: InputValue + Display,
 {
+  /// Validates implicitly sized type against contained constraints, and returns a result
+  ///  of unit, and/or, a Vec of violation tuples.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   EqualityValidator, ViolationEnum,
+  ///   EqualityValidatorBuilder,
+  ///   equal_vldr_not_equal_msg,
+  ///   ValidateValue,
+  ///   InputValue
+  /// };
+  ///
+  /// let input = EqualityValidator::<&str>::builder()
+  ///   .rhs_value("foo")
+  ///   .not_equal_msg(&equal_vldr_not_equal_msg)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test `validate`, and `Fn*` trait
+  /// // ----
+  /// // Happy path
+  /// assert!(input.validate("foo").is_ok());
+  /// assert!(input("foo").is_ok());
+  ///
+  /// // Sad path
+  /// assert_eq!(
+  ///   input.validate("abc"),
+  ///   Err(vec![(ViolationEnum::NotEqual, "Value must equal abc".to_string())])
+  /// );
+  /// assert_eq!(
+  ///   input("abc"),
+  ///   Err(vec![(ViolationEnum::NotEqual, "Value must equal abc".to_string())])
+  /// );
+  /// ```
   fn validate(&self, x: T) -> ValidationResult {
     if x == self.rhs_value {
       Ok(())

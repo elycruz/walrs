@@ -1,4 +1,4 @@
-use crate::{Filter, Input, Validator, ValidatorForRef, ViolationMessage};
+use crate::{FilterValue, Input, Validator, ValidatorForRef, ViolationMessage};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -46,7 +46,7 @@ where
   pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
 
   #[builder(default = "None")]
-  pub filters: Option<Vec<&'a Filter<FT>>>,
+  pub filters: Option<Vec<&'a FilterValue<FT>>>,
 
   #[builder(default = "&ref_value_missing_msg_getter")]
   pub value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync),
