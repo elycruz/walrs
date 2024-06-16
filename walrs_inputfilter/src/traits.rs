@@ -121,7 +121,7 @@ pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidationResult {}
 impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F 
   where F: Fn(&T) -> ValidationResult {}
 
-pub type ValidatorForRef<T> = dyn Fn(&T) -> ValidationResult + Send + Sync;
+pub type ValidatorForRef<T> = dyn Fn(&T) -> ValidationResult2 + Send + Sync;
 
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
@@ -217,11 +217,11 @@ pub trait ValidateOption<T: Copy> {
 }
 
 pub trait ValidateRef<T: ?Sized> {
-  fn validate_ref(x: &T) -> ValidationResult2;
+  fn validate_ref(&self, x: &T) -> ValidationResult2;
 }
 
 pub trait ValidateRefOption<T: ?Sized> {
-  fn validate_ref_option(x: Option<&T>) -> ValidationResult2;
+  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
 }
 
 pub trait Filter<T> {

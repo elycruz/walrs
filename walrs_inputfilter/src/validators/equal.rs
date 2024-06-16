@@ -29,7 +29,7 @@ impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
   ///   InputValue
   /// };
   ///
-  /// let input = EqualityValidator::<&str>::builder()
+  /// let input = EqualityValidatorBuilder::<&str>::default()
   ///   .rhs_value("foo")
   ///   .not_equal_msg(&equal_vldr_not_equal_msg)
   ///   .build()
