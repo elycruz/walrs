@@ -242,6 +242,10 @@ where
   ///   &alnum_only
   /// ]);
   ///
+  /// let mut input_alnum_to_lower = RefInput::<str, Cow<str>>::default();
+  /// input_alnum_to_lower.filters = Some(vec![&|value: Cow<str>| value.to_lowercase().into()]);
+  /// input_alnum_to_lower.validators = Some(vec![&alnum_only]);
+  ///
   /// let value = "Hello, World!";
   ///
   /// assert_eq!(input.filter(value).unwrap(), Cow::Borrowed(value));

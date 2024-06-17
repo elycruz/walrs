@@ -104,9 +104,6 @@ impl ValidationErrType {
       // (ValidationErrType::Other(_), ValidationErrType::Other(err)) => {
       //     *self = ValidationErrType::Other(err);
       // }
-      _ => panic!(
-        "Cannot extend different types of ValidationErrType;  Only same types can be extended."
-      ),
     }
   }
 

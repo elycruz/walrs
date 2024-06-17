@@ -113,7 +113,6 @@ fn pass_through_validator<T: Copy>(_: T) -> Option<Violation> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use std::ops::Rem;
 
   // Returns `range_validator` error message.
   fn range_validator_error<T: InputValue>(min: T, max: T) -> Violation {
@@ -155,30 +154,17 @@ mod tests {
     "Value must be even".to_string()
   }
 
-  // Even validator.
-  fn even_validator<T>(value: T) -> Option<Violation>
-  where
-    T: InputValue + Rem + From<isize>,
-    <T as Rem>::Output: PartialEq<T>,
-  {
-    if value % 2.into() == T::default() {
-      None
-    } else {
-      Some(even_validator_error())
-    }
-  }
-
   fn run_validate_test_cases<T: InputValue>(
     input: &Input<T>,
     test_values: &[(T, Option<Vec<Violation>>)],
   ) {
-    for (i, (value, expected)) in test_values.iter().enumerate() {
-      println!("Case {}; `#.validate({:}) == {:?}`", i, value, expected);
+    for (i, (value, _expected)) in test_values.iter().enumerate() {
+      println!("Case {}; `#.validate({:}) == {:?}`", i, value, _expected);
       // Test validation result
       input.validate(*value).as_deref().map_or_else(
-        || assert!(matches!(None::<Vec<Violation>>, expected)),
+        || assert!(matches!(None::<Vec<Violation>>, _expected)),
         |vs| {
-          if let Some(rhs_vs) = expected.as_deref() {
+          if let Some(rhs_vs) = _expected.as_deref() {
             assert_eq!(vs, rhs_vs);
           } else {
             panic!("Expected None, got Some({:?})", vs);
