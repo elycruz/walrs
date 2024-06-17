@@ -1,6 +1,6 @@
 use serde::Serialize;
-use std::ops::{Add, Div, Mul, Rem, Sub};
 use std::fmt::{Debug, Display};
+use std::ops::{Add, Div, Mul, Rem, Sub};
 
 pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 

@@ -193,17 +193,14 @@ where
 {
   fn filter(&self, value: &'a T) -> Result<FT, ValidationErrType>;
 
-  fn filter_option(
-    &self,
-    value: Option<&'a T>,
-  ) -> Result<Option<FT>, ValidationErrType>;
+  fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, ValidationErrType>;
 }
 
 #[cfg(test)]
 mod test {
-  use std::collections::HashMap;
   use super::ViolationType::ValueMissing;
   use super::*;
+  use std::collections::HashMap;
 
   #[test]
   fn test_violation_to_string() {

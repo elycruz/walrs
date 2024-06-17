@@ -1,5 +1,8 @@
 use crate::ViolationType::ValueMissing;
-use crate::{FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption, ValidationErrType, ValidationRefValue, ValidationResult2, ValidatorForRef, Violation, ViolationMessage};
+use crate::{
+  FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption, ValidationErrType,
+  ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
+};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -265,19 +268,16 @@ where
   fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, ValidationErrType> {
     match value {
       Some(value) => self.filter(value).map(Some),
-      None =>
+      None => {
         if self.required {
-          Err(ValidationErrType::Element(vec![
-            Violation(
-              ValueMissing,
-              (self.value_missing_msg_getter)(self),
-            )
-          ]))
+          Err(ValidationErrType::Element(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )]))
         } else {
           Ok(self.get_default_value.and_then(|f| f()))
         }
+      }
     }
   }
-
 }
-
