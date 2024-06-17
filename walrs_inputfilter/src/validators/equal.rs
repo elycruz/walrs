@@ -1,12 +1,13 @@
-use std::fmt::Display;
-use crate::ToAttributesList;
-use crate::ValidateValue;
 use crate::traits::ViolationEnum;
 use crate::traits::{InputValue, ValidationResult};
+use crate::ToAttributesList;
+use crate::ValidateValue;
+use std::fmt::Display;
 
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
-  where T: InputValue + Display
+where
+  T: InputValue + Display,
 {
   pub rhs_value: T,
 
@@ -15,7 +16,8 @@ pub struct EqualityValidator<'a, T>
 }
 
 impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
-  where T: InputValue + Display,
+where
+  T: InputValue + Display,
 {
   /// Validates implicitly sized type against contained constraints, and returns a result
   ///  of unit, and/or, a Vec of violation tuples.
@@ -55,16 +57,24 @@ impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
     if x == self.rhs_value {
       Ok(())
     } else {
-      Err(vec![(ViolationEnum::NotEqual, (self.not_equal_msg)(self, x))])
+      Err(vec![(
+        ViolationEnum::NotEqual,
+        (self.not_equal_msg)(self, x),
+      )])
     }
   }
 }
 
 impl<T> Display for EqualityValidator<'_, T>
-  where T: InputValue + Display,
+where
+  T: InputValue + Display,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-    write!(f, "EqualValidator {{rhs_value: {}}}", &self.rhs_value.to_string())
+    write!(
+      f,
+      "EqualValidator {{rhs_value: {}}}",
+      &self.rhs_value.to_string()
+    )
   }
 }
 
@@ -77,36 +87,38 @@ impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + Display> FnOnce<(T, )> for EqualityValidator<'_, T> {
+impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidationResult;
 
-  extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + Display> FnMut<(T, )> for EqualityValidator<'_, T> {
-  extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
+impl<T: InputValue + Display> FnMut<(T,)> for EqualityValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + Display> Fn<(T, )> for EqualityValidator<'_, T> {
-  extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
+impl<T: InputValue + Display> Fn<(T,)> for EqualityValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(_: &EqualityValidator<T>, value: T) -> String
-{
+pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(
+  _: &EqualityValidator<T>,
+  value: T,
+) -> String {
   format!("Value must equal {}", value)
 }
 
 #[cfg(test)]
 mod test {
-  use std::error::Error;
-  use crate::ViolationEnum::NotEqual;
   use super::*;
+  use crate::ViolationEnum::NotEqual;
+  use std::error::Error;
 
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
@@ -116,9 +128,11 @@ mod test {
 
     assert_eq!(instance.rhs_value, "foo");
 
-    assert_eq!((instance.not_equal_msg)(&instance, "foo"),
-               equal_vldr_not_equal_msg(&instance, "foo"),
-    "Default 'equal_vldr_not_equal_msg' fn should return expected value");
+    assert_eq!(
+      (instance.not_equal_msg)(&instance, "foo"),
+      equal_vldr_not_equal_msg(&instance, "foo"),
+      "Default 'equal_vldr_not_equal_msg' fn should return expected value"
+    );
 
     Ok(())
   }
@@ -126,11 +140,9 @@ mod test {
   #[test]
   fn test_validate_and_fn_trait() -> Result<(), Box<dyn Error>> {
     // Test `validate`, and `Fn*` trait
-    for (lhs_value, rhs_value, should_be_ok) in [
-      ("foo", "foo", true),
-      ("", "abc", false),
-      ("", "", true),
-    ] {
+    for (lhs_value, rhs_value, should_be_ok) in
+      [("foo", "foo", true), ("", "abc", false), ("", "", true)]
+    {
       let validator = EqualityValidatorBuilder::<&str>::default()
         .rhs_value(rhs_value)
         .not_equal_msg(&equal_vldr_not_equal_msg)
@@ -142,11 +154,17 @@ mod test {
       } else {
         assert_eq!(
           validator.validate(lhs_value),
-          Err(vec![(NotEqual, equal_vldr_not_equal_msg(&validator, lhs_value))])
+          Err(vec![(
+            NotEqual,
+            equal_vldr_not_equal_msg(&validator, lhs_value)
+          )])
         );
         assert_eq!(
           validator(lhs_value),
-          Err(vec![(NotEqual, equal_vldr_not_equal_msg(&validator, lhs_value))])
+          Err(vec![(
+            NotEqual,
+            equal_vldr_not_equal_msg(&validator, lhs_value)
+          )])
         );
       }
     }

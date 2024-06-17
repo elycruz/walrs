@@ -1,8 +1,7 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, ValidateRef, ValidateRefOption, ValidationErrType,
-  ValidationResult2, ValidationRefValue,
-  ValidatorForRef, Violation, ViolationMessage,
+  FilterFn, ValidateRef, ValidateRefOption, ValidationErrType, ValidationRefValue,
+  ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
 };
 use std::fmt::{Debug, Display, Formatter};
 
@@ -104,8 +103,8 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
 
 impl<'a, 'b, T, FT> ValidateRef<T> for RefInput<'a, 'b, T, FT>
 where
-    T: ?Sized + 'b,
-    FT: From<&'b T>
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
 {
   fn validate_ref(&self, value: ValidationRefValue<T>) -> ValidationResult2 {
     match value {
@@ -136,8 +135,8 @@ where
                 if self.break_on_failure {
                   break;
                 }
-              },
-              _ => unreachable!("Only `ValidationErrType::Element` type currently supported.")
+              }
+              _ => unreachable!("Only `ValidationErrType::Element` type currently supported."),
             }
           }
 
@@ -149,7 +148,7 @@ where
           }
         })
       }
-      _ => unreachable!("Only `ValidationValue::Element` type currently supported.")
+      _ => unreachable!("Only `ValidationValue::Element` type currently supported."),
     }
   }
 }
@@ -157,7 +156,7 @@ where
 impl<'a, 'b, T, FT> ValidateRefOption<T> for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
-  FT: From<&'b T>
+  FT: From<&'b T>,
 {
   fn validate_ref_option(&self, value: Option<ValidationRefValue<T>>) -> ValidationResult2 {
     match value {

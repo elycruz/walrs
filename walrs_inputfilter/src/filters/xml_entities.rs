@@ -44,7 +44,7 @@ impl<'a> XmlEntitiesFilter<'a> {
         map.insert('\'', "&apos;");
         map.insert('&', "&amp;");
         map
-      })
+      }),
     }
   }
 
@@ -89,22 +89,22 @@ impl<'a> Default for XmlEntitiesFilter<'a> {
   }
 }
 
-impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for XmlEntitiesFilter<'a> {
+impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
   type Output = Cow<'b, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'b, str>, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl <'a, 'b> FnMut<(Cow<'b, str>, )> for XmlEntitiesFilter<'a> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>, )) -> Self::Output {
+impl<'a, 'b> FnMut<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl <'a, 'b> Fn<(Cow<'b, str>, )> for XmlEntitiesFilter<'a> {
-  extern "rust-call" fn call(&self, args: (Cow<'b, str>, )) -> Self::Output {
+impl<'a, 'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
+  extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
@@ -128,7 +128,10 @@ mod test {
       ("<", "&lt;"),
       (">", "&gt;"),
       ("&", "&amp;"),
-      ("<script>alert('hello');</script>", "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;"),
+      (
+        "<script>alert('hello');</script>",
+        "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;",
+      ),
     ] {
       assert_eq!(filter(incoming_src.into()), expected_src.to_string());
     }

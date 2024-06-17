@@ -1,12 +1,10 @@
-use std::fmt::{Display, Formatter};
+use crate::traits::{
+  NumberValue, ValidationResult, ViolationEnum,
+  ViolationEnum::{RangeOverflow, RangeUnderflow, StepMismatch},
+};
 use crate::ToAttributesList;
 use crate::ValidateValue;
-use crate::traits::{
-  ViolationEnum,
-  ViolationEnum::{
-    RangeOverflow, RangeUnderflow, StepMismatch,
-  }, NumberValue, ValidationResult,
-};
+use std::fmt::{Display, Formatter};
 
 // @todo Validator should support `break_on_failure` feature.
 
@@ -95,10 +93,7 @@ where
 {
   fn validate(&self, value: T) -> ValidationResult {
     if let Some(violation) = self._validate_integer(value) {
-      return Err(vec![(
-        violation,
-        self._get_violation_msg(violation, value),
-      )]);
+      return Err(vec![(violation, self._get_violation_msg(violation, value))]);
     }
 
     Ok(())
@@ -106,8 +101,8 @@ where
 }
 
 impl<T> ToAttributesList for NumberValidator<'_, T>
-  where
-    T: NumberValue,
+where
+  T: NumberValue,
 {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     let mut attrs = Vec::<(String, serde_json::Value)>::new();
@@ -132,14 +127,14 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
   }
 }
 
-impl<T: NumberValue> FnMut<(T, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
+impl<T: NumberValue> FnMut<(T,)> for NumberValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: NumberValue> Fn<(T, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
+impl<T: NumberValue> Fn<(T,)> for NumberValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
@@ -152,14 +147,14 @@ impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
   }
 }
 
-impl<T: NumberValue> FnMut<(&T, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call_mut(&mut self, args: (&T, )) -> Self::Output {
+impl<T: NumberValue> FnMut<(&T,)> for NumberValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
-impl<T: NumberValue> Fn<(&T, )> for NumberValidator<'_, T> {
-  extern "rust-call" fn call(&self, args: (&T, )) -> Self::Output {
+impl<T: NumberValue> Fn<(&T,)> for NumberValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
@@ -183,10 +178,21 @@ where
 
 impl<T: NumberValue> Display for NumberValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "NumberValidator {{min: {}, max: {}, step: {}}}",
-           &self.min.map(|x| x.to_string()).unwrap_or("None".to_string()),
-           &self.max.map(|x| x.to_string()).unwrap_or("None".to_string()),
-           &self.step.map(|x| x.to_string()).unwrap_or("None".to_string()),
+    write!(
+      f,
+      "NumberValidator {{min: {}, max: {}, step: {}}}",
+      &self
+        .min
+        .map(|x| x.to_string())
+        .unwrap_or("None".to_string()),
+      &self
+        .max
+        .map(|x| x.to_string())
+        .unwrap_or("None".to_string()),
+      &self
+        .step
+        .map(|x| x.to_string())
+        .unwrap_or("None".to_string()),
     )
   }
 }
@@ -213,10 +219,7 @@ where
   )
 }
 
-pub fn num_step_mismatch_msg<T: NumberValue>(
-  rules: &NumberValidator<T>,
-  x: T,
-) -> String {
+pub fn num_step_mismatch_msg<T: NumberValue>(rules: &NumberValidator<T>, x: T) -> String {
   format!(
     "`{}` is greater than maximum `{}`.",
     x,
@@ -227,23 +230,38 @@ pub fn num_step_mismatch_msg<T: NumberValue>(
 #[cfg(test)]
 mod test {
 
-  use std::error::Error;
   use super::*;
+  use std::error::Error;
 
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
     // Assert all property states for difference construction scenarios
     // ----
     for (test_name, instance, min, max, step) in [
-      ("Default", NumberValidatorBuilder::<usize>::default()
-          .build()?, None, None, None),
-      ("With Range", NumberValidatorBuilder::<usize>::default()
-           .min(0)
-           .max(100)
-           .build()?, Some(0), Some(100), None),
-      ("With `step`", NumberValidatorBuilder::<usize>::default()
-           .step(5)
-           .build()?, None, None, Some(5)),
+      (
+        "Default",
+        NumberValidatorBuilder::<usize>::default().build()?,
+        None,
+        None,
+        None,
+      ),
+      (
+        "With Range",
+        NumberValidatorBuilder::<usize>::default()
+          .min(0)
+          .max(100)
+          .build()?,
+        Some(0),
+        Some(100),
+        None,
+      ),
+      (
+        "With `step`",
+        NumberValidatorBuilder::<usize>::default().step(5).build()?,
+        None,
+        None,
+        Some(5),
+      ),
     ] {
       println!("\"{}\" test {}", test_name, &instance);
 
@@ -255,14 +273,20 @@ mod test {
       // ----
       let test_value = 99;
 
-      assert_eq!((instance.range_overflow)(&instance, test_value),
-                 num_range_overflow_msg(&instance, test_value));
+      assert_eq!(
+        (instance.range_overflow)(&instance, test_value),
+        num_range_overflow_msg(&instance, test_value)
+      );
 
-      assert_eq!((instance.range_underflow)(&instance, test_value),
-                 num_range_underflow_msg(&instance, test_value));
+      assert_eq!(
+        (instance.range_underflow)(&instance, test_value),
+        num_range_underflow_msg(&instance, test_value)
+      );
 
-      assert_eq!((instance.step_mismatch)(&instance, test_value),
-                 num_step_mismatch_msg(&instance, test_value));
+      assert_eq!(
+        (instance.step_mismatch)(&instance, test_value),
+        num_step_mismatch_msg(&instance, test_value)
+      );
     }
 
     Ok(())
@@ -273,76 +297,82 @@ mod test {
     // Test `validate`, and `Fn*` trait
     // ----
     for (validator, value, expected) in [
-      (NumberValidatorBuilder::<usize>::default().build()?, 99usize, Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
-           .min(0)
-           .build()?,
-       99,
-       Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
-           .max(100)
-           .build()?,
-       99,
-       Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
-           .min(0)
-           .max(100)
-           .build()?,
-       99,
-       Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
-           .step(5)
-           .build()?,
-       25,
-       Ok(())),
-      (NumberValidatorBuilder::<usize>::default()
-           .min(2)
-           .build()?,
-       1,
-       Err(RangeUnderflow)),
-      (NumberValidatorBuilder::<usize>::default()
-           .min(1)
-           .build()?,
-       0,
-       Err(RangeUnderflow)),
-      (NumberValidatorBuilder::<usize>::default()
-           .max(100)
-           .build()?,
-       101,
-       Err(RangeOverflow)),
-      (NumberValidatorBuilder::<usize>::default()
-           .min(1)
-           .max(100)
-           .build()?,
-       0,
-       Err(RangeUnderflow)),
-      (NumberValidatorBuilder::<usize>::default()
-           .step(5)
-           .build()?,
-       26,
-       Err(StepMismatch)),
+      (
+        NumberValidatorBuilder::<usize>::default().build()?,
+        99usize,
+        Ok(()),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default().min(0).build()?,
+        99,
+        Ok(()),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default()
+          .max(100)
+          .build()?,
+        99,
+        Ok(()),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default()
+          .min(0)
+          .max(100)
+          .build()?,
+        99,
+        Ok(()),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default().step(5).build()?,
+        25,
+        Ok(()),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default().min(2).build()?,
+        1,
+        Err(RangeUnderflow),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default().min(1).build()?,
+        0,
+        Err(RangeUnderflow),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default()
+          .max(100)
+          .build()?,
+        101,
+        Err(RangeOverflow),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default()
+          .min(1)
+          .max(100)
+          .build()?,
+        0,
+        Err(RangeUnderflow),
+      ),
+      (
+        NumberValidatorBuilder::<usize>::default().step(5).build()?,
+        26,
+        Err(StepMismatch),
+      ),
     ] {
       match expected {
         Ok(_) => {
           assert_eq!(validator.validate(value), Ok(()));
           assert_eq!(validator(value), Ok(()));
-        },
+        }
         Err(_enum) => {
           let err_msg_tuple = match _enum {
             StepMismatch => (StepMismatch, num_step_mismatch_msg(&validator, value)),
             RangeUnderflow => (RangeUnderflow, num_range_underflow_msg(&validator, value)),
             RangeOverflow => (RangeOverflow, num_range_overflow_msg(&validator, value)),
-            _ => panic!("Unknown enum variant encountered")
+            _ => panic!("Unknown enum variant encountered"),
           };
 
-          assert_eq!(
-            validator.validate(value),
-            Err(vec![err_msg_tuple.clone()])
-          );
-          assert_eq!(
-            validator(value),
-            Err(vec![err_msg_tuple])
-          );
+          assert_eq!(validator.validate(value), Err(vec![err_msg_tuple.clone()]));
+          assert_eq!(validator(value), Err(vec![err_msg_tuple]));
         }
       }
     }

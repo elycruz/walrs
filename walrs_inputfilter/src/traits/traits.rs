@@ -1,8 +1,11 @@
+use serde::Serialize;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ops::{Add, Deref, DerefMut, Div, Mul, Rem, Sub};
-use std::{fmt, fmt::{Debug, Display}};
-use serde::{Serialize};
+use std::{
+  fmt,
+  fmt::{Debug, Display},
+};
 
 pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 
@@ -51,7 +54,6 @@ impl ScalarValue for f64 {}
 impl ScalarValue for bool {}
 impl ScalarValue for char {}
 impl ScalarValue for &str {}
-
 
 pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
@@ -118,16 +120,16 @@ pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
 pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidationResult {}
 
-impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F 
-  where F: Fn(&T) -> ValidationResult {}
+impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F where F: Fn(&T) -> ValidationResult {}
 
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
 
 pub trait InputConstraints<T, FT = T>: Display + Debug
-  where T: Copy,
-        FT: From<T> {
-
+where
+  T: Copy,
+  FT: From<T>,
+{
   fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
 
   fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
@@ -136,5 +138,8 @@ pub trait InputConstraints<T, FT = T>: Display + Debug
 
   fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
 
-  fn validate_and_filter_detailed(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationTuple>>;
+  fn validate_and_filter_detailed(
+    &self,
+    value: Option<T>,
+  ) -> Result<Option<FT>, Vec<ViolationTuple>>;
 }

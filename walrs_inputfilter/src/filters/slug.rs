@@ -1,6 +1,6 @@
+use regex::Regex;
 use std::borrow::Cow;
 use std::sync::OnceLock;
-use regex::Regex;
 
 static SLUG_FILTER_REGEX: OnceLock<Regex> = OnceLock::new();
 static SLUG_FILTER_REGEX_STR: &str = r"(?i)[^\w\-]";
@@ -42,7 +42,8 @@ pub fn to_pretty_slug(xs: Cow<str>) -> Cow<str> {
 }
 
 fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
-  let rslt = pattern.replace_all(xs.as_ref(), "-")
+  let rslt = pattern
+    .replace_all(xs.as_ref(), "-")
     .to_lowercase()
     .trim_matches('-')
     .to_string();
@@ -55,7 +56,9 @@ fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a,
 }
 
 fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
-  if xs.is_empty() { return xs; }
+  if xs.is_empty() {
+    return xs;
+  }
 
   get_dash_filter_regex()
     .replace_all(&_to_slug(pattern, max_length, xs), "-")
@@ -90,45 +93,49 @@ impl SlugFilter {
   }
 }
 
-impl<'a> FnOnce<(Cow<'a, str>, )> for SlugFilter {
+impl<'a> FnOnce<(Cow<'a, str>,)> for SlugFilter {
   type Output = Cow<'a, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'a, str>, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'a, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a> Fn<(Cow<'a, str>, )> for SlugFilter {
-  extern "rust-call" fn call(&self, args: (Cow<'a, str>, )) -> Self::Output {
+impl<'a> Fn<(Cow<'a, str>,)> for SlugFilter {
+  extern "rust-call" fn call(&self, args: (Cow<'a, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a> FnMut<(Cow<'a, str>, )> for SlugFilter {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>, )) -> Self::Output {
+impl<'a> FnMut<(Cow<'a, str>,)> for SlugFilter {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
 #[cfg(test)]
 mod test {
-  use std::{thread};
   use super::*;
+  use std::thread;
 
   #[test]
   fn test_to_slug_standalone_method() {
-    for (cow_str, expected) in [(Cow::Borrowed("Hello World"), "hello-world"),
+    for (cow_str, expected) in [
+      (Cow::Borrowed("Hello World"), "hello-world"),
       (Cow::Borrowed("#$@#$Hello World$@#$"), "hello-world"),
-      (Cow::Borrowed("$Hello'\"@$World$"), "hello----world")] {
+      (Cow::Borrowed("$Hello'\"@$World$"), "hello----world"),
+    ] {
       assert_eq!(to_slug(cow_str), expected);
     }
   }
 
   #[test]
   fn test_to_pretty_slug_standalone_method() {
-    for (cow_str, expected) in [(Cow::Borrowed("Hello World"), "hello-world"),
+    for (cow_str, expected) in [
+      (Cow::Borrowed("Hello World"), "hello-world"),
       (Cow::Borrowed("$Hello World$"), "hello-world"),
-      (Cow::Borrowed("$Hello'\"@$World$"), "hello-world")] {
+      (Cow::Borrowed("$Hello'\"@$World$"), "hello-world"),
+    ] {
       assert_eq!(to_pretty_slug(cow_str), expected);
     }
   }
@@ -150,21 +157,30 @@ mod test {
   }
 
   #[test]
-  fn test_fn_trait_impls()  {
-    let slug_filter = SlugFilter { max_length: 200, allow_duplicate_dashes: true };
+  fn test_fn_trait_impls() {
+    let slug_filter = SlugFilter {
+      max_length: 200,
+      allow_duplicate_dashes: true,
+    };
 
     assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
     assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello---world");
-    assert_eq!(slug_filter(Cow::Borrowed("$@#$Hello   @World@#$@#$")), "hello----world");
+    assert_eq!(
+      slug_filter(Cow::Borrowed("$@#$Hello   @World@#$@#$")),
+      "hello----world"
+    );
   }
 
   #[test]
   fn test_standalone_methods_in_threaded_contexts() {
     thread::scope(|scope| {
-      scope.spawn(move ||{
+      scope.spawn(move || {
         assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
         assert_eq!(to_slug(Cow::Borrowed("Hello   World")), "hello---world");
-        assert_eq!(to_pretty_slug(Cow::Borrowed("$@#$Hello@#$@#$World@#$@#$")), "hello-world");
+        assert_eq!(
+          to_pretty_slug(Cow::Borrowed("$@#$Hello@#$@#$World@#$@#$")),
+          "hello-world"
+        );
       });
     });
   }
@@ -177,7 +193,7 @@ mod test {
       .unwrap();
 
     thread::scope(|scope| {
-      scope.spawn(move ||{
+      scope.spawn(move || {
         assert_eq!(slug_filter(Cow::Borrowed("Hello World")), "hello-world");
         assert_eq!(slug_filter(Cow::Borrowed("Hello   World")), "hello-world");
       });

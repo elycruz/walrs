@@ -40,9 +40,7 @@ pub struct StripTagsFilter<'a> {
 impl<'a> StripTagsFilter<'a> {
   /// Constructs a new `StripTagsFilter` instance.
   pub fn new() -> Self {
-    Self {
-      ammonia: None,
-    }
+    Self { ammonia: None }
   }
 
   /// Filters incoming HTML using the contained `ammonia::Builder` instance.
@@ -99,12 +97,12 @@ impl<'a> StripTagsFilter<'a> {
   pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
     match self.ammonia {
       None => Cow::Owned(
-        DEFAULT_AMMONIA_BUILDER.get_or_init(ammonia::Builder::default)
-          .clean(&input).to_string()
+        DEFAULT_AMMONIA_BUILDER
+          .get_or_init(ammonia::Builder::default)
+          .clean(&input)
+          .to_string(),
       ),
-      Some(ref sanitizer) => Cow::Owned(
-        sanitizer.clean(&input).to_string()
-      ),
+      Some(ref sanitizer) => Cow::Owned(sanitizer.clean(&input).to_string()),
     }
   }
 }
@@ -115,22 +113,22 @@ impl<'a> Default for StripTagsFilter<'a> {
   }
 }
 
-impl<'a, 'b> FnOnce<(Cow<'b, str>, )> for StripTagsFilter<'a> {
+impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'a> {
   type Output = Cow<'b, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'b, str>, )) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'b, str>, )> for StripTagsFilter<'a> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>, )) -> Self::Output {
+impl<'a, 'b> FnMut<(Cow<'b, str>,)> for StripTagsFilter<'a> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'b, str>, )> for StripTagsFilter<'a> {
-  extern "rust-call" fn call(&self, args: (Cow<'b, str>, )) -> Self::Output {
+impl<'a, 'b> Fn<(Cow<'b, str>,)> for StripTagsFilter<'a> {
+  extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
@@ -156,13 +154,20 @@ mod test {
       ("Socrates'", "Socrates'"),
       ("\"Hello\"", "\"Hello\""),
       ("Hello", "Hello"),
-      ("<script>alert(\"Hello World\");</script>", ""),        // Removes `script` tags, by default
-      ("<p>The quick brown fox</p><style>p { font-weight: bold; }</style>",
-       "<p>The quick brown fox</p>"),                          // Removes `style` tags, by default
-      ("<p>The quick brown fox", "<p>The quick brown fox</p>") // Fixes erroneous markup
+      ("<script>alert(\"Hello World\");</script>", ""), // Removes `script` tags, by default
+      (
+        "<p>The quick brown fox</p><style>p { font-weight: bold; }</style>",
+        "<p>The quick brown fox</p>",
+      ), // Removes `style` tags, by default
+      ("<p>The quick brown fox", "<p>The quick brown fox</p>"), // Fixes erroneous markup
     ]
-      .into_iter().enumerate() {
-      println!("Filter test {}: filter({}) == {}", i, incoming_src, expected_src);
+    .into_iter()
+    .enumerate()
+    {
+      println!(
+        "Filter test {}: filter({}) == {}",
+        i, incoming_src, expected_src
+      );
 
       let result = filter.filter(incoming_src.into());
 

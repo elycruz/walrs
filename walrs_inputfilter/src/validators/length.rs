@@ -1,47 +1,50 @@
 use crate::{InputValue, ValidateValue, ValidationResult, ViolationEnum, ViolationMessage};
 
-pub type LengthValidatorCallback<T> = dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;
+pub type LengthValidatorCallback<T> =
+  dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
 pub struct LengthValidator<'a, T>
-    where T: WithLength + 'static {
-    #[builder(default = "false")]
-    pub break_on_failure: bool,
+where
+  T: WithLength + 'static,
+{
+  #[builder(default = "false")]
+  pub break_on_failure: bool,
 
-    #[builder(default = "None")]
-    pub min_length: Option<usize>,
+  #[builder(default = "None")]
+  pub min_length: Option<usize>,
 
-    #[builder(default = "None")]
-    pub max_length: Option<usize>,
+  #[builder(default = "None")]
+  pub max_length: Option<usize>,
 
-    #[builder(default = "&len_too_short_msg")]
-    pub too_short_msg: &'a LengthValidatorCallback<T>,
+  #[builder(default = "&len_too_short_msg")]
+  pub too_short_msg: &'a LengthValidatorCallback<T>,
 
-    #[builder(default = "&len_too_long_msg")]
-    pub too_long_msg: &'a LengthValidatorCallback<T>,
+  #[builder(default = "&len_too_long_msg")]
+  pub too_long_msg: &'a LengthValidatorCallback<T>,
 }
 
 impl<'a, T: WithLength> LengthValidator<'a, T> {
-    pub fn new() -> Self {
-        LengthValidatorBuilder::default().build().unwrap()
-    }
+  pub fn new() -> Self {
+    LengthValidatorBuilder::default().build().unwrap()
+  }
 }
 
 pub trait WithLength: InputValue {
-    fn length(&self) -> Option<usize>;
+  fn length(&self) -> Option<usize>;
 }
 
 impl<'a> WithLength for &'a str {
-    fn length(&self) -> Option<usize> {
-        Some(self.len())
-    }
+  fn length(&self) -> Option<usize> {
+    Some(self.len())
+  }
 }
 
 impl<'a, T: InputValue> WithLength for &'a [T] {
-    fn length(&self) -> Option<usize> {
-        Some(self.len())
-    }
+  fn length(&self) -> Option<usize> {
+    Some(self.len())
+  }
 }
 
 // macro_rules! validate_type_with_chars {
@@ -122,83 +125,85 @@ impl<'a, T: InputValue> WithLength for &'a [T] {
 /// }
 /// ```
 impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
-    fn validate(&self, value: T) -> ValidationResult {
-        if let Some(len) = value.length() {
-            let mut errs = vec![];
+  fn validate(&self, value: T) -> ValidationResult {
+    if let Some(len) = value.length() {
+      let mut errs = vec![];
 
-            if let Some(min_length) = self.min_length {
-                if len < min_length {
-                    errs.push((
-                        ViolationEnum::TooShort,
-                        (self.too_short_msg)(self, value),
-                    ));
+      if let Some(min_length) = self.min_length {
+        if len < min_length {
+          errs.push((ViolationEnum::TooShort, (self.too_short_msg)(self, value)));
 
-                    if self.break_on_failure { return Err(errs); }
-                }
-            }
-
-            if let Some(max_length) = self.max_length {
-                if len > max_length {
-                    errs.push((
-                        ViolationEnum::TooLong,
-                        (self.too_long_msg)(self, value),
-                    ));
-
-                    if self.break_on_failure { return Err(errs); }
-                }
-            }
-
-            if errs.is_empty() { Ok(()) } else { Err(errs) }
-        } else {
-            Ok(())
+          if self.break_on_failure {
+            return Err(errs);
+          }
         }
+      }
+
+      if let Some(max_length) = self.max_length {
+        if len > max_length {
+          errs.push((ViolationEnum::TooLong, (self.too_long_msg)(self, value)));
+
+          if self.break_on_failure {
+            return Err(errs);
+          }
+        }
+      }
+
+      if errs.is_empty() {
+        Ok(())
+      } else {
+        Err(errs)
+      }
+    } else {
+      Ok(())
     }
+  }
 }
 
-impl<T: WithLength> FnOnce<(T, )> for LengthValidator<'_, T> {
-    type Output = ValidationResult;
+impl<T: WithLength> FnOnce<(T,)> for LengthValidator<'_, T> {
+  type Output = ValidationResult;
 
-    extern "rust-call" fn call_once(self, args: (T, )) -> Self::Output {
-        self.validate(args.0)
-    }
+  extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+    self.validate(args.0)
+  }
 }
 
-impl<T: WithLength> FnMut<(T, )> for LengthValidator<'_, T> {
-    extern "rust-call" fn call_mut(&mut self, args: (T, )) -> Self::Output {
-        self.validate(args.0)
-    }
+impl<T: WithLength> FnMut<(T,)> for LengthValidator<'_, T> {
+  extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+    self.validate(args.0)
+  }
 }
 
-impl<T: WithLength> Fn<(T, )> for LengthValidator<'_, T> {
-    extern "rust-call" fn call(&self, args: (T, )) -> Self::Output {
-        self.validate(args.0)
-    }
+impl<T: WithLength> Fn<(T,)> for LengthValidator<'_, T> {
+  extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+    self.validate(args.0)
+  }
 }
 
 impl<'a, T: WithLength> Default for LengthValidator<'a, T> {
-    fn default() -> Self {
-        LengthValidator::new()
-    }
+  fn default() -> Self {
+    LengthValidator::new()
+  }
 }
 
 pub fn len_too_short_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
-    format!(
-        "Value length `{}` is less than allowed minimum `{}`.",
-        xs.length().unwrap_or(0),
-        &rules.min_length.unwrap_or(0)
-    )
+  format!(
+    "Value length `{}` is less than allowed minimum `{}`.",
+    xs.length().unwrap_or(0),
+    &rules.min_length.unwrap_or(0)
+  )
 }
 
 pub fn len_too_long_msg<T: WithLength>(rules: &LengthValidator<T>, xs: T) -> String {
-    format!(
-        "Value length `{}` is greater than allowed maximum `{}`.",
-        xs.length().unwrap_or(0),
-        &rules.max_length.unwrap_or(0)
-    )
+  format!(
+    "Value length `{}` is greater than allowed maximum `{}`.",
+    xs.length().unwrap_or(0),
+    &rules.max_length.unwrap_or(0)
+  )
 }
 
 #[cfg(test)]
 mod test {
-    #[test]
-    fn test_validate() {}
+  #[test]
+  fn test_validate() {}
 }
