@@ -5,7 +5,7 @@ use std::fmt::{Debug, Display};
 pub type ValidatorForSized<T> = dyn Fn(T) -> ValidationResult2 + Send + Sync;
 pub type ValidatorForRef<T> = dyn Fn(&T) -> ValidationResult2 + Send + Sync;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub enum ViolationType {
   CustomError,
   PatternMismatch,
@@ -19,7 +19,7 @@ pub enum ViolationType {
   ValueMissing,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, PartialEq, Debug)]
 pub struct Violation(pub ViolationType, pub ViolationMessage);
 
 /// `Display` (and `ToString` (which we get for free)) impl for `Violation`.
@@ -77,7 +77,7 @@ impl std::ops::DerefMut for Violation {
 ///   }
 /// }
 /// ```
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ValidationErrType {
   // Struct(HashMap<Box<str>, ValidationErrType>),
   // Collection(HashMap<Box<str>, ValidationErrType>),
