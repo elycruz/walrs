@@ -1,7 +1,8 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterValue, Input, InputFilterForUnsized, ValidateRef, ValidateRefOption, ValidationResult2,
-  Validator, ValidatorForRef, Violation, ViolationMessage,
+  FilterFn, ValidateRef, ValidateRefOption, ValidationErrType,
+  ValidationResult2, ValidationRefValue,
+  ValidatorForRef, Violation, ViolationMessage,
 };
 use std::fmt::{Debug, Display, Formatter};
 
@@ -52,7 +53,7 @@ where
   pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
 
   #[builder(default = "None")]
-  pub filters: Option<Vec<&'a FilterValue<FT>>>,
+  pub filters: Option<Vec<&'a FilterFn<FT>>>,
 
   #[builder(default = "&ref_value_missing_msg_getter")]
   pub value_missing_msg_getter:
@@ -106,44 +107,50 @@ where
     T: ?Sized + 'b,
     FT: From<&'b T>
 {
-  fn validate_ref(&self, value: &T) -> ValidationResult2 {
-    let mut violations = Vec::new();
+  fn validate_ref(&self, value: ValidationRefValue<T>) -> ValidationResult2 {
+    match value {
+      ValidationRefValue::Element(value) => {
+        let mut violations = ValidationErrType::Element(vec![]);
 
-    // Validate custom
-    match (if let Some(custom) = self.custom {
-      (custom)(value)
-    } else {
-      Ok(())
-    }) {
-      Ok(()) => (),
-      Err(mut vs) => violations.append(vs.as_mut()),
-    }
+        // Validate custom
+        match if let Some(custom) = self.custom {
+          (custom)(value)
+        } else {
+          Ok(())
+        } {
+          Ok(()) => (),
+          Err(err_type) => violations.extend(err_type),
+        }
 
-    if !violations.is_empty() && self.break_on_failure {
-      return Err(violations);
-    }
+        if !violations.is_empty() && self.break_on_failure {
+          return Err(violations);
+        }
 
-    // Else validate against validators
-    self.validators.as_deref().map_or(Ok(()), |validators| {
-      for validator in validators {
-        match validator(value) {
-          Ok(()) => continue,
-          Err(mut vs) => {
-            violations.append(vs.as_mut());
-            if self.break_on_failure {
-              break;
+        // Else validate against validators
+        self.validators.as_deref().map_or(Ok(()), |validators| {
+          for validator in validators {
+            match validator(value) {
+              Ok(()) => continue,
+              Err(err_type) => {
+                violations.extend(err_type);
+                if self.break_on_failure {
+                  break;
+                }
+              },
+              _ => unreachable!("Only `ValidationErrType::Element` type currently supported.")
             }
           }
-        }
-      }
 
-      // Resolve return value
-      if violations.is_empty() {
-        Ok(())
-      } else {
-        Err(violations)
+          // Resolve return value
+          if violations.is_empty() {
+            Ok(())
+          } else {
+            Err(violations)
+          }
+        })
       }
-    })
+      _ => unreachable!("Only `ValidationValue::Element` type currently supported.")
+    }
   }
 }
 
@@ -152,15 +159,15 @@ where
   T: ?Sized + 'b,
   FT: From<&'b T>
 {
-  fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
+  fn validate_ref_option(&self, value: Option<ValidationRefValue<T>>) -> ValidationResult2 {
     match value {
-      Some(value) => self.validate_ref(value),
+      Some(v) => self.validate_ref(v),
       None => {
         if self.required {
-          Err(vec![Violation(
+          Err(ValidationErrType::Element(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )])
+          )]))
         } else {
           Ok(())
         }
@@ -172,29 +179,88 @@ where
 impl<'a, 'b, T, FT> Display for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
-  for<'x> FT: From<&'x T>,
+  FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    todo!()
+    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: {} }}",
+           self.break_on_failure,
+           self.required,
+           if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
+           self.locale,
+           self.name,
+           if let Some(default_value) = self.default_value.as_ref() { "Some(...)" } else { "None" },
+           if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
+           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() },
+           "&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)"
+    )
   }
 }
 
 impl<'a, 'b, T, FT> Debug for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
-  for<'x> FT: From<&'x T>,
+  FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    todo!()
+    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {:?}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: {} }}",
+           self.break_on_failure,
+           self.required,
+           if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
+           self.locale,
+           self.name,
+           if let Some(default_value) = self.default_value.as_ref() { "Some(...)" } else { "None" },
+           if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
+           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() },
+           "&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)"
+    )
   }
 }
-
-impl<'a, 'b, T, FT> InputFilterForUnsized<T, FT> for RefInput<'a, 'b, T, FT>
+/*
+impl<'a, 'b, T, FT> InputFilterForUnsized<'b, T, FT> for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
-  for<'x> FT: From<&'x T>,
+  FT: From<&'b T>,
 {
-  fn filter(&self, value: &T) -> Result<FT, Vec<Violation>> {
+  /// Validates, and filters, incoming value.
+  ///
+  /// ```rust
+  /// use std::borrow::Cow;
+  /// use walrs_inputfilter::{
+  ///     RefInput, ValidateRef, Filter,
+  ///     InputFilterForUnsized, RefInputBuilder, Violation,
+  ///     ViolationType::TypeMismatch, ValidationErrType,
+  ///     ViolationMessage, ValidationRefValue
+  /// };
+  ///
+  /// let mut input = RefInput::<str, Cow<str>>::default();
+  /// let mut input2 = RefInput::<str, String>::default();
+  /// let mut only_vowels = RefInput::<str, Cow<str>>::default();
+  /// let alnum_regex = regex::Regex::new(r"(?i)^[a-z\d]+$").unwrap();
+  ///
+  /// input2.filters = Some(vec![&|value: String| value.to_lowercase()]);
+  /// only_vowels.validators = Some(vec![
+  ///   &|value: &str| if alnum_regex.is_match(value) {
+  ///     Ok(())
+  ///   } else {
+  ///     Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]))
+  ///   }
+  /// ]);
+  ///
+  /// let value = "Hello, World!";
+  ///
+  /// assert_eq!(input.filter(ValidationRefValue::Element(value)).unwrap(), Cow::Borrowed(value));
+  /// assert_eq!(input2.filter(ValidationRefValue::Element(value)).unwrap(), value.to_lowercase());
+  ///
+  /// match only_vowels.filter(value) {
+  ///    Ok(_) => unreachable!("Should not be reachable"),
+  ///    Err(ValidationErrType::Element(violations)) => assert_eq!(
+  ///      format!("{:?}", violations),
+  ///      format!("{:?}", vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])
+  ///    ),
+  ///    _ => unreachable!("Should not be reachable")
+  /// }
+  /// ```
+  fn filter(&self, value: ValidationRefValue<T>) -> Result<FT, ValidationErrType> {
     ValidateRef::validate_ref(self, value)?;
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
@@ -203,15 +269,17 @@ where
     }))
   }
 
-  fn filter_option(&self, value: Option<&T>) -> Result<Option<FT>, Vec<Violation>> {
+  fn filter_option(&self, value: Option<ValidationRefValue<T>>) -> Result<Option<FT>, ValidationErrType> {
     match value {
       Some(value) => self.filter(value).map(Some),
       None => {
         if self.required {
-          Err(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )])
+          Err(ValidationErrType::Element(vec![
+            Violation(
+              ValueMissing,
+              (self.value_missing_msg_getter)(self),
+            )
+          ]))
         } else {
           Ok(None)
         }
@@ -219,3 +287,4 @@ where
     }
   }
 }
+*/
