@@ -113,9 +113,9 @@ pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
 
 pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
 
-pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidationResult {}
+pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidationResult + Send + Sync {}
 
-impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F where F: Fn(&T) -> ValidationResult {}
+impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F where F: Fn(&T) -> ValidationResult + Send + Sync {}
 
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;

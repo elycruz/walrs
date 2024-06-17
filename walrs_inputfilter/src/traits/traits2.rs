@@ -27,7 +27,7 @@ pub struct Violation(pub ViolationType, pub ViolationMessage);
 /// ```rust
 /// use walrs_inputfilter::{ViolationType::ValueMissing, Violation};
 ///
-/// let violation = Violation(ValueMissing, "Value missing".to_string());///
+/// let violation = Violation(ValueMissing, "Value missing".to_string());
 /// let displayed = format!("{}", violation);
 ///
 /// assert_eq!(&displayed, "Value missing");
@@ -135,20 +135,33 @@ pub enum ValidationRefValue<'b, T: ?Sized> {
   Element(&'b T),
 }
 
+/// Deref for Validation Ref Value.
+impl<'b, T: ?Sized> std::ops::Deref for ValidationRefValue<'b, T> {
+  type Target = T;
+
+  fn deref(&self) -> &Self::Target {
+    match self {
+      // ValidationRefValue::Struct(v) => v,
+      // ValidationRefValue::Collection(v) => v,
+      ValidationRefValue::Element(v) => *v,
+    }
+  }
+}
+
 pub trait Validate<T: Copy> {
-  fn validate(x: ValidationValue<T>) -> ValidationResult2;
+  fn validate(x: T) -> ValidationResult2;
 }
 
 pub trait ValidateOption<T: Copy> {
-  fn validate_option(x: Option<ValidationValue<T>>) -> ValidationResult2;
+  fn validate_option(x: Option<T>) -> ValidationResult2;
 }
 
 pub trait ValidateRef<T: ?Sized> {
-  fn validate_ref(&self, x: ValidationRefValue<T>) -> ValidationResult2;
+  fn validate_ref(&self, x: &T) -> ValidationResult2;
 }
 
 pub trait ValidateRefOption<T: ?Sized> {
-  fn validate_ref_option(&self, x: Option<ValidationRefValue<T>>) -> ValidationResult2;
+  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
 }
 
 pub trait Filter<T> {
@@ -173,16 +186,16 @@ where
 
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.
-pub trait InputFilterForUnsized<'b, T, FT>: Display + Debug
+pub trait InputFilterForUnsized<'a, T, FT>: Display + Debug
 where
-  T: ?Sized + 'b,
-  FT: From<&'b T>,
+  T: ?Sized + 'a,
+  FT: From<&'a T>,
 {
-  fn filter(&self, value: ValidationRefValue<'b, T>) -> Result<FT, ValidationErrType>;
+  fn filter(&self, value: &'a T) -> Result<FT, ValidationErrType>;
 
   fn filter_option(
     &self,
-    value: Option<ValidationRefValue<'b, T>>,
+    value: Option<&'a T>,
   ) -> Result<Option<FT>, ValidationErrType>;
 }
 
