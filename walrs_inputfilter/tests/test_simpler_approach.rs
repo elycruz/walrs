@@ -74,7 +74,7 @@ where
     let mut violations = vec![];
 
     // If we have a single/custom validator, run it
-    if let Some(violation) = self.custom.map(|f| f(value)).flatten() {
+    if let Some(violation) = self.custom.and_then(|f| f(value)) {
       violations.push(violation);
     }
 
@@ -191,9 +191,9 @@ mod tests {
   #[test]
   fn test_new_and_default() {
     fn validate_input<T: InputValue>(input: &Input<T>) {
-      assert_eq!(input.required, false);
-      assert!(matches!(input.custom, None));
-      assert!(matches!(input.validators, None));
+      assert!(!input.required);
+      assert!(input.custom.is_none());
+      assert!(input.validators.is_none());
     }
 
     [Input::<isize>::new(), Input::<isize>::default()]

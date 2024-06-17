@@ -1,6 +1,4 @@
 use crate::ViolationMessage;
-use std::collections::HashMap;
-use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display};
 
@@ -190,6 +188,7 @@ where
 
 #[cfg(test)]
 mod test {
+  use std::collections::HashMap;
   use super::ViolationType::ValueMissing;
   use super::*;
 

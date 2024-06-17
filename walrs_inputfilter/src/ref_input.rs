@@ -181,7 +181,7 @@ where
   FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: {} }}",
+    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync) }}",
            self.break_on_failure,
            self.required,
            if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
@@ -189,8 +189,7 @@ where
            self.name,
            if let Some(default_value) = self.default_value.as_ref() { "Some(...)" } else { "None" },
            if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
-           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() },
-           "&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)"
+           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
     )
   }
 }
@@ -201,7 +200,7 @@ where
   FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {:?}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: {} }}",
+    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {:?}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync) }}",
            self.break_on_failure,
            self.required,
            if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
@@ -209,8 +208,7 @@ where
            self.name,
            if let Some(default_value) = self.default_value.as_ref() { "Some(...)" } else { "None" },
            if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
-           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() },
-           "&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)"
+           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
     )
   }
 }
