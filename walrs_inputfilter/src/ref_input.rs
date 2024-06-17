@@ -182,7 +182,7 @@ where
            if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
            self.locale,
            self.name,
-           if let Some(_) = self.get_default_value.as_ref() { "Some(...)" } else { "None" },
+           if self.get_default_value.as_ref().is_some() { "Some(...)" } else { "None" },
            if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
            if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
     )
@@ -201,7 +201,7 @@ where
            if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
            self.locale,
            self.name,
-           if let Some(_) = self.get_default_value.as_ref() { "Some(...)" } else { "None" },
+           if self.get_default_value.as_ref().is_some() { "Some(...)" } else { "None" },
            if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
            if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
     )

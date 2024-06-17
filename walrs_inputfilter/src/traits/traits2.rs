@@ -75,7 +75,6 @@ impl std::ops::DerefMut for Violation {
 ///       println!("- {}", v);
 ///     }
 ///   }
-///   _ => unreachable!("Method should only return \"Element\" error type (in this case).")
 /// }
 /// ```
 #[derive(Debug)]
@@ -105,7 +104,7 @@ impl ValidationErrType {
       // (ValidationErrType::Other(_), ValidationErrType::Other(err)) => {
       //     *self = ValidationErrType::Other(err);
       // }
-      _ => unreachable!(
+      _ => panic!(
         "Cannot extend different types of ValidationErrType;  Only same types can be extended."
       ),
     }
@@ -143,7 +142,7 @@ impl<'b, T: ?Sized> std::ops::Deref for ValidationRefValue<'b, T> {
     match self {
       // ValidationRefValue::Struct(v) => v,
       // ValidationRefValue::Collection(v) => v,
-      ValidationRefValue::Element(v) => *v,
+      ValidationRefValue::Element(v) => v,
     }
   }
 }
