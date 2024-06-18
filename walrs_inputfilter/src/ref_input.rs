@@ -47,7 +47,7 @@ where
 
   /// Returns a default value for the "input is not required, but is empty" use case.
   #[builder(default = "None")]
-  pub get_default_value: Option<&'a dyn Fn() -> Option<FT>>,
+  pub get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
 
   #[builder(default = "None")]
   pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
