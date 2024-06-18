@@ -1,4 +1,4 @@
-use crate::{ToAttributesList, ValidateRefValue2, ValidateValue, ValidationErrType, ValidationResult2, Violation, ViolationType};
+use crate::{ToAttributesList, ValidateRefValue2, ValidationErrType, ValidationResult2, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
