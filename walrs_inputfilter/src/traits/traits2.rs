@@ -19,6 +19,7 @@ pub enum ViolationType {
   ValueMissing,
 }
 
+// @todo Implement `Error` for this struct.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violation(pub ViolationType, pub ViolationMessage);
 
@@ -77,6 +78,8 @@ impl std::ops::DerefMut for Violation {
 ///   }
 /// }
 /// ```
+/// 
+// @todo Implement `Error` for this struct, and/or use `thiserror`?.
 #[derive(Debug, PartialEq, Clone)]
 pub enum ValidationErrType {
   // Struct(HashMap<Box<str>, ValidationErrType>),
