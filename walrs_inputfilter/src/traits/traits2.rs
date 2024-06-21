@@ -2,8 +2,8 @@ use crate::ViolationMessage;
 use std::fmt;
 use std::fmt::{Debug, Display};
 
-pub type ValidatorForSized<T> = dyn Fn(T) -> ValidationResult2 + Send + Sync;
-pub type ValidatorForRef<T> = dyn Fn(&T) -> ValidationResult2 + Send + Sync;
+pub type ValidatorForSized<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;
+pub type ValidatorForRef<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ViolationType {
@@ -56,71 +56,7 @@ impl std::ops::DerefMut for Violation {
   }
 }
 
-/// Type for representing validation errors.
-///
-/// ```rust
-/// use walrs_inputfilter::{
-///   ValidationErrType,
-///   ViolationType::{ValueMissing},
-///   Violation
-/// };
-///
-/// fn returns_validation_err() -> ValidationErrType {
-///   ValidationErrType::Element(vec![Violation(ValueMissing, "Value missing".to_string())])
-/// }
-///
-/// match returns_validation_err() {
-///  ValidationErrType::Element(violations) => {
-///     println!("The following violations occurred:");
-///     for v in violations {
-///       println!("- {}", v);
-///     }
-///   }
-/// }
-/// ```
-/// 
-// @todo Implement `Error` for this struct, and/or use `thiserror`?.
-#[derive(Debug, PartialEq, Clone)]
-pub enum ValidationErrType {
-  // Struct(HashMap<Box<str>, ValidationErrType>),
-  // Collection(HashMap<Box<str>, ValidationErrType>),
-  Element(Vec<Violation>),
-  // Other(Box<dyn Error>),
-}
-
-impl ValidationErrType {
-  pub fn extend(&mut self, other: ValidationErrType) {
-    match (self, other) {
-      // (ValidationErrType::Struct(ref mut self_errs), ValidationErrType::Struct(other_errs)) => {
-      //     for (k, v) in other_errs {
-      //         self_errs.insert(k, v);
-      //     }
-      // },
-      // (ValidationErrType::Collection(ref mut self_errs), ValidationErrType::Collection(other_errs)) => {
-      //     for (k, v) in other_errs {
-      //         self_errs.insert(k, v);
-      //     }
-      // },
-      (ValidationErrType::Element(self_errs), ValidationErrType::Element(other_errs)) => {
-        self_errs.extend(other_errs);
-      }
-      // (ValidationErrType::Other(_), ValidationErrType::Other(err)) => {
-      //     *self = ValidationErrType::Other(err);
-      // }
-    }
-  }
-
-  pub fn is_empty(&self) -> bool {
-    match self {
-      // ValidationErrType::Struct(errs) => errs.is_empty(),
-      // ValidationErrType::Collection(errs) => errs.is_empty(),
-      ValidationErrType::Element(errs) => errs.is_empty(),
-      // ValidationErrType::Other(_) => false,
-    }
-  }
-}
-
-pub type ValidationResult2 = Result<(), ValidationErrType>;
+pub type ValidationResult2 = Result<(), Vec<Violation>>;
 
 pub enum ValidationValue<T: Copy> {
   Struct(T),
@@ -167,9 +103,6 @@ pub trait Filter<T> {
   fn filter(&self, x: T) -> T;
 }
 
-// pub type InputFilterResult<T, FT> = Result<FT, ValidationErrType>;
-// pub type InputFilterOptionResult<T, FT> = Result<Option<FT>, ValidationErrType>;
-
 /// A trait for performing validations, and filtering (transformations), all in one.
 pub trait InputFilterForSized<T, FT = T>: Display + Debug
 where
@@ -177,10 +110,10 @@ where
   FT: From<T>,
 {
   /// Validates, and filters, incoming value.
-  fn filter(&self, value: T) -> Result<FT, ValidationErrType>;
+  fn filter(&self, value: T) -> Result<FT, Vec<Violation>>;
 
   /// Validates, and filters, incoming value Option value.
-  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, ValidationErrType>;
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>>;
 }
 
 /// A trait for performing validations, and filtering (transformations), all in one,
@@ -190,16 +123,15 @@ where
   T: ?Sized + 'a,
   FT: From<&'a T>,
 {
-  fn filter(&self, value: &'a T) -> Result<FT, ValidationErrType>;
+  fn filter(&self, value: &'a T) -> Result<FT, Vec<Violation>>;
 
-  fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, ValidationErrType>;
+  fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<Violation>>;
 }
 
 #[cfg(test)]
 mod test {
   use super::ViolationType::ValueMissing;
   use super::*;
-  use std::collections::HashMap;
 
   #[test]
   fn test_violation_to_string() {
@@ -220,16 +152,5 @@ mod test {
   fn test_violation_display() {
     let v = Violation(ValueMissing, "value is missing.".to_string());
     assert_eq!(format!("{:}", v), "value is missing.");
-  }
-
-  #[test]
-  fn test_validation_err_type() {
-    let mut struct_errs = HashMap::<Box<str>, ValidationErrType>::new();
-    struct_errs.insert("hello".into(), ValidationErrType::Element(vec![]));
-
-    // let _ = ValidationErrType::Struct(struct_errs);
-    // let _ = ValidationErrType::Collection(HashMap::new());
-    let _ = ValidationErrType::Element(vec![Violation(ValueMissing, "Value missing".to_string())]);
-    // let _ = ValidationErrType::Other(Box::new(std::io::Error::new(std::io::ErrorKind::Other, "Some error occurred")));
   }
 }

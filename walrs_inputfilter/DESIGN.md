@@ -28,7 +28,7 @@ Due to the above, in this library, we'll require less Validator, and Filter, str
 
 ### Current:
 
-- `./constraints` - Structs with validation methods, validation properties, and filter methods used for validating/filtering given value(s).
+- `./input`, `./ref_input` - Structs with validation methods, validation properties, and filter methods used for validating/filtering given value(s).
 - `./filters` - Structs that implement `Fn` traits that transform incoming values.
 - [tentative] `./validators` - `Fn` structs that validate a given value against some inherent configuration.
 
@@ -64,31 +64,7 @@ Here we're going with `&T` for simplicity's sake.
 
 ## TODOs
 
-- [ ] Add constraint `T: Into<FT>`
+- [x] Add constraint `FT: From<T>`
 - [x] ~~Change `validator*` methods to accept `&T`.~~ - No longer required as we're only supporting 'Copy', and/or Scalar, types.
 - [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
-- [ ] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.
-
-## Visited Designs
-
-### ViolationTuple
-
-```rust
-struct ViolationTuple (ViolationEnum, ViolationMessage);
-
-impl ToString for ViolationTuple {
-    fn to_string(&self) -> String {
-        self.1.to_string()
-    }
-}
-
-fn main () {
-  let violation_tuples = vec![
-      ViolationTuple(ViolationEnum::ValueMissing, "Value is missing".to_string()),
-      ViolationTuple(ViolationEnum::ValueMissing, "Value is missing".to_string())
-  ];
-  
-  let violation_strings: Vec<String> = violation_tuples.into();
-}
-
-```
+- [x] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.

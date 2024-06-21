@@ -361,7 +361,7 @@ mod test {
       match expected {
         Ok(_) => {
           assert_eq!(validator.validate(value), Ok(()));
-          assert_eq!(validator(value), Ok(()));
+          assert_eq!((&validator)(value), Ok(()));
         }
         Err(_enum) => {
           let err_msg_tuple = match _enum {
@@ -372,7 +372,7 @@ mod test {
           };
 
           assert_eq!(validator.validate(value), Err(vec![err_msg_tuple.clone()]));
-          assert_eq!(validator(value), Err(vec![err_msg_tuple]));
+          assert_eq!((&validator)(value), Err(vec![err_msg_tuple]));
         }
       }
     }

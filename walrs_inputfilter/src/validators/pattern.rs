@@ -172,9 +172,9 @@ mod test {
       println!("{}", name);
 
       // Test as an `Fn*` trait
-      assert_eq!(instance(passing_value), Ok(()));
+      assert_eq!((&instance)(passing_value), Ok(()));
       assert_eq!(
-        instance(failing_value),
+        (&instance)(failing_value),
         Err(vec![(
           PatternMismatch,
           (instance.pattern_mismatch)(&instance, failing_value)

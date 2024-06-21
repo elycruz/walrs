@@ -1,6 +1,6 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption, ValidationErrType,
+  FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption,
   ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
 };
 use std::fmt::{Debug, Display, Formatter};
@@ -108,7 +108,7 @@ where
   FT: From<&'b T>,
 {
   fn validate_ref(&self, value: &T) -> ValidationResult2 {
-    let mut violations = ValidationErrType::Element(vec![]);
+    let mut violations = vec![];
 
     // Validate custom
     match if let Some(custom) = self.custom {
@@ -117,7 +117,7 @@ where
       Ok(())
     } {
       Ok(()) => (),
-      Err(err_type) => violations.extend(err_type),
+      Err(err_type) => violations.push(err_type),
     }
 
     if !violations.is_empty() && self.break_on_failure {
@@ -130,7 +130,7 @@ where
         match validator(value) {
           Ok(()) => continue,
           Err(err_type) => {
-            violations.extend(err_type);
+            violations.push(err_type);
             if self.break_on_failure {
               break;
             }
@@ -158,10 +158,10 @@ where
       Some(v) => self.validate_ref(v),
       None => {
         if self.required {
-          Err(ValidationErrType::Element(vec![Violation(
+          Err(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )]))
+          )])
         } else {
           Ok(())
         }
@@ -220,7 +220,7 @@ where
   /// use walrs_inputfilter::{
   ///     RefInput, ValidateRef, Filter,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
-  ///     ViolationType::TypeMismatch, ValidationErrType,
+  ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
   /// };
   ///
@@ -229,7 +229,7 @@ where
   /// let alnum_only = move |value: &str| if alnum_regex.is_match(value) {
   ///     Ok(())
   ///   } else {
-  ///     Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]))
+  ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
   ///   };
   ///
   /// // Create some input controls
@@ -251,7 +251,7 @@ where
   ///
   /// // Disallow empty lists
   /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
-  ///    Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is empty".to_string())]))
+  ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
   /// } else {
   ///   Ok(())
   /// }]);
@@ -262,16 +262,16 @@ where
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter(&value).unwrap(), vec![2, 4, 6]);
-  /// assert_eq!(input_num_list.filter(&vec![]), Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
+  /// assert_eq!(input_num_list.filter(&vec![]), Err(vec![Violation(TypeMismatch, "Value is empty".to_string())]));
   ///
   /// let value = "Hello, World!";
   ///
   /// assert_eq!(input.filter(value).unwrap(), Cow::Borrowed(value));
   /// assert_eq!(input2.filter(value).unwrap(), value.to_lowercase());
-  /// assert_eq!(alnum_input.filter(value), Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
+  /// assert_eq!(alnum_input.filter(value), Err(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]));
   ///
   /// ```
-  fn filter(&self, value: &'b T) -> Result<FT, ValidationErrType> {
+  fn filter(&self, value: &'b T) -> Result<FT, Vec<Violation>> {
     ValidateRef::validate_ref(self, value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
@@ -288,7 +288,7 @@ where
   /// use walrs_inputfilter::{
   ///     RefInput, ValidateRef, Filter,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
-  ///     ViolationType::TypeMismatch, ValidationErrType,
+  ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
   /// };
   ///
@@ -297,7 +297,7 @@ where
   /// let alnum_only = move |value: &str| if alnum_regex.is_match(value) {
   ///     Ok(())
   ///   } else {
-  ///     Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]))
+  ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
   ///   };
   ///
   /// // Create some input controls
@@ -319,7 +319,7 @@ where
   ///
   /// // Disallow empty lists
   /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
-  ///    Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is empty".to_string())]))
+  ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
   /// } else {
   ///   Ok(())
   /// }]);
@@ -330,27 +330,31 @@ where
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
-  /// assert_eq!(input_num_list.filter_option(Some(&vec![])), Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
+  /// assert_eq!(input_num_list.filter_option(Some(&vec![])), Err(vec![Violation(TypeMismatch, "Value is empty".to_string())]));
   ///
   /// let value = "Hello, World!";
   ///
   /// assert_eq!(input.filter_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
   /// assert_eq!(input2.filter_option(Some(value)).unwrap(), Some(value.to_lowercase()));
-  /// assert_eq!(alnum_input.filter_option(Some(value)), Err(ValidationErrType::Element(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
+  /// assert_eq!(alnum_input.filter_option(Some(value)), Err(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]));
   /// ```
-  fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, ValidationErrType> {
+  fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Vec<Violation>> {
     match value {
       Some(value) => self.filter(value).map(Some),
       None => {
         if self.required {
-          Err(ValidationErrType::Element(vec![Violation(
+          Err(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )]))
+          )])
         } else {
           Ok(self.get_default_value.and_then(|f| f()))
         }
       }
     }
   }
+}
+
+#[cfg(test)]
+mod test {
 }

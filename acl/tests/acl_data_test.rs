@@ -10,8 +10,8 @@ pub fn test_from_file_ref() -> Result<(), std::io::Error> {
   // Get digraph data
   let mut f = File::open(&file_path)?;
 
-  let acl_data: AclData = (&mut f).into();
-  let b = BufReader::new(f);
+  let _: AclData = (&mut f).into();
+  let _ = BufReader::new(f);
 
   // println!("{:?}", &acl_data);
   Ok(())
