@@ -218,7 +218,7 @@ where
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef, Filter,
+  ///     RefInput, ValidateRef,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
@@ -286,7 +286,7 @@ where
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef, Filter,
+  ///     RefInput, ValidateRef,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue

@@ -84,11 +84,11 @@ impl<'b, T: ?Sized> std::ops::Deref for ValidationRefValue<'b, T> {
 }
 
 pub trait Validate<T: Copy> {
-  fn validate(x: T) -> ValidationResult2;
+  fn validate(&self, x: T) -> ValidationResult2;
 }
 
 pub trait ValidateOption<T: Copy> {
-  fn validate_option(x: Option<T>) -> ValidationResult2;
+  fn validate_option(&self, x: Option<T>) -> ValidationResult2;
 }
 
 pub trait ValidateRef<T: ?Sized> {
