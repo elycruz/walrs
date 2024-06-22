@@ -298,7 +298,7 @@ where
   }
 }*/
 
-impl<'a, 'b, T, FT> Validate<T> for Input<'a, T, FT>
+impl<'a, T, FT> Validate<T> for Input<'a, T, FT>
 where
     T: Copy,
     FT: From<T>,
@@ -392,7 +392,7 @@ where
     }
 }
 
-impl<'a, 'b, T, FT> ValidateOption<T> for Input<'a, T, FT>
+impl<'a, T, FT> ValidateOption<T> for Input<'a, T, FT>
 where
     T: Copy,
     FT: From<T>,
