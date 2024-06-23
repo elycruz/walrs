@@ -91,14 +91,6 @@ pub trait ValidateOption<T: Copy> {
   fn validate_option(&self, x: Option<T>) -> ValidationResult2;
 }
 
-pub trait ValidateRef<T: ?Sized> {
-  fn validate_ref(&self, x: &T) -> ValidationResult2;
-}
-
-pub trait ValidateRefOption<T: ?Sized> {
-  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
-}
-
 pub trait Filter<T> {
   fn filter(&self, x: T) -> T;
 }
@@ -123,6 +115,10 @@ where
   T: ?Sized + 'a,
   FT: From<&'a T>,
 {
+  fn validate_ref(&self, x: &T) -> ValidationResult2;
+  
+  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
+  
   fn filter(&self, value: &'a T) -> Result<FT, Vec<Violation>>;
 
   fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<Violation>>;

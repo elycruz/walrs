@@ -1,6 +1,6 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption,
+  FilterFn, InputFilterForUnsized,
   ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
 };
 use std::fmt::{Debug, Display, Formatter};
@@ -102,74 +102,6 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   }
 }
 
-impl<'a, 'b, T, FT> ValidateRef<T> for RefInput<'a, 'b, T, FT>
-where
-  T: ?Sized + 'b,
-  FT: From<&'b T>,
-{
-  fn validate_ref(&self, value: &T) -> ValidationResult2 {
-    let mut violations = vec![];
-
-    // Validate custom
-    match if let Some(custom) = self.custom {
-      (custom)(value)
-    } else {
-      Ok(())
-    } {
-      Ok(()) => (),
-      Err(err_type) => violations.push(err_type),
-    }
-
-    if !violations.is_empty() && self.break_on_failure {
-      return Err(violations);
-    }
-
-    // Else validate against validators
-    self.validators.as_deref().map_or(Ok(()), |validators| {
-      for validator in validators {
-        match validator(value) {
-          Ok(()) => continue,
-          Err(err_type) => {
-            violations.push(err_type);
-            if self.break_on_failure {
-              break;
-            }
-          }
-        }
-      }
-
-      // Resolve return value
-      if violations.is_empty() {
-        Ok(())
-      } else {
-        Err(violations)
-      }
-    })
-  }
-}
-
-impl<'a, 'b, T, FT> ValidateRefOption<T> for RefInput<'a, 'b, T, FT>
-where
-  T: ?Sized + 'b,
-  FT: From<&'b T>,
-{
-  fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
-    match value {
-      Some(v) => self.validate_ref(v),
-      None => {
-        if self.required {
-          Err(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )])
-        } else {
-          Ok(())
-        }
-      }
-    }
-  }
-}
-
 impl<'a, 'b, T, FT> Display for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
@@ -213,12 +145,68 @@ where
   T: ?Sized + 'b,
   FT: From<&'b T>,
 {
+  fn validate_ref(&self, value: &T) -> ValidationResult2 {
+    let mut violations = vec![];
+
+    // Validate custom
+    match if let Some(custom) = self.custom {
+      (custom)(value)
+    } else {
+      Ok(())
+    } {
+      Ok(()) => (),
+      Err(err_type) => violations.push(err_type),
+    }
+
+    if !violations.is_empty() && self.break_on_failure {
+      return Err(violations);
+    }
+
+    // Else validate against validators
+    self.validators.as_deref().map_or(Ok(()), |validators| {
+      for validator in validators {
+        match validator(value) {
+          Ok(()) => continue,
+          Err(err_type) => {
+            violations.push(err_type);
+            if self.break_on_failure {
+              break;
+            }
+          }
+        }
+      }
+
+      // Resolve return value
+      if violations.is_empty() {
+        Ok(())
+      } else {
+        Err(violations)
+      }
+    })
+  }
+
+  fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
+    match value {
+      Some(v) => self.validate_ref(v),
+      None => {
+        if self.required {
+          Err(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )])
+        } else {
+          Ok(())
+        }
+      }
+    }
+  }
+
   /// Validates, and filters, incoming value.
   ///
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef,
+  ///     RefInput,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
@@ -272,7 +260,7 @@ where
   ///
   /// ```
   fn filter(&self, value: &'b T) -> Result<FT, Vec<Violation>> {
-    ValidateRef::validate_ref(self, value)?;
+    self.validate_ref(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
@@ -286,7 +274,7 @@ where
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef,
+  ///     RefInput,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
