@@ -60,6 +60,15 @@ where
     &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync),
 }
 
+impl<'a, 'b, T, FT> RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T> {
+  pub fn new() -> Self {
+    RefInput::default()
+  }
+}
+
 impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
@@ -209,7 +218,7 @@ where
   ///     RefInput,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage, ValidationRefValue
+  ///     ViolationMessage
   /// };
   ///
   /// // Create some validators
@@ -277,7 +286,7 @@ where
   ///     RefInput,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage, ValidationRefValue
+  ///     ViolationMessage
   /// };
   ///
   /// // Create some validators

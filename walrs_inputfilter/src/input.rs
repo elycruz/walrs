@@ -79,17 +79,7 @@ impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
     /// assert!(input.filters.is_none());
     /// ```
     pub fn new() -> Self {
-        Input {
-            break_on_failure: false,
-            required: false,
-            custom: None,
-            locale: None,
-            name: None,
-            get_default_value: None,
-            validators: None,
-            filters: None,
-            value_missing_msg_getter: &value_missing_msg_getter,
-        }
+      Input::default()
     }
 }
 
@@ -298,206 +288,192 @@ where
   }
 }*/
 
-impl<'a, T, FT> Validate<T> for Input<'a, T, FT>
-where
-    T: Copy,
-    FT: From<T>,
-{
-    /// Validates given value against contained constraints, and returns a result of unit,
-    /// and/or, a Vec of Violation messages.
-    ///
-    /// ```rust
-    /// use walrs_inputfilter::{
-    ///   Input,
-    ///   InputConstraints,
-    ///   ViolationType,
-    ///   ViolationType::{CustomError, ValueMissing},
-    ///   Violation,
-    ///   Validate,
-    ///   InputBuilder,
-    ///   value_missing_msg_getter,
-    /// };
-    ///
-    /// // Setup a custom validator
-    /// let validate_is_even = |x: usize| if x % 2 != 0 {
-    ///   Err(Violation(CustomError, "Must be even".to_string()))
-    /// } else {
-    ///   Ok(())
-    /// };
-    ///
-    /// // Setup input constraints
-    /// let usize_required = InputBuilder::<usize, usize>::default()
-    ///   .required(true)
-    ///   .validators(vec![&validate_is_even])
-    ///   .build()
-    ///   .unwrap();
-    ///
-    /// let usize_break_on_failure = (|| {
-    ///    let mut new_input = usize_required.clone();
-    ///    new_input.break_on_failure = true;
-    ///    new_input
-    /// })();
-    ///
-    /// let test_cases = [
-    ///   ("With valid value", &usize_required, 4, Ok(())),
-    ///   ("With \"not Even\" value", &usize_required, 7, Err(vec![
-    ///      Violation(CustomError, "Must be even".to_string(),
-    ///   )])),
-    /// ];
-    ///
-    /// // Run test cases
-    /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-    ///   println!("Case {}: {}", i + 1, test_name);
-    ///   assert_eq!(input.validate(value), expected_rslt);
-    /// }
-    /// ```
-    fn validate(&self, value: T) -> ValidationResult2 {
-        let mut violations = vec![];
-
-        // Validate custom
-        match if let Some(custom) = self.custom {
-            (custom)(value)
-        } else {
-            Ok(())
-        } {
-            Ok(()) => (),
-            Err(err_type) => violations.push(err_type),
-        }
-
-        if !violations.is_empty() && self.break_on_failure {
-            return Err(violations);
-        }
-
-        // Else validate against validators
-        self.validators.as_deref().map_or(Ok(()), |validators| {
-            for validator in validators {
-                match validator(value) {
-                    Ok(()) => continue,
-                    Err(err_type) => {
-                        violations.push(err_type);
-                        if self.break_on_failure {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            // Resolve return value
-            if violations.is_empty() {
-                Ok(())
-            } else {
-                Err(violations)
-            }
-        })
-    }
-}
-
-impl<'a, T, FT> ValidateOption<T> for Input<'a, T, FT>
-where
-    T: Copy,
-    FT: From<T>,
-{
-    /// Validates given value against contained constraints, and returns a result of unit,
-    /// and/or a Vec of violation tuples if value doesn't pass validation.
-    ///
-    /// ```rust
-    /// use walrs_inputfilter::{
-    ///   Input,
-    ///   InputConstraints,
-    ///   ViolationType,
-    ///   InputBuilder,
-    ///   ValidateOption,
-    ///   Violation,
-    ///   value_missing_msg_getter,
-    /// };
-    ///
-    /// // Setup a custom validator
-    /// let validate_is_even = |x: usize| if x % 2 != 0 {
-    ///   Err(Violation(ViolationType::CustomError, "Must be even".to_string()))
-    /// } else {
-    ///   Ok(())
-    /// };
-    ///
-    /// // Setup input constraints
-    /// let usize_required = InputBuilder::<usize, usize>::default()
-    ///   .required(true)
-    ///   .validators(vec![&validate_is_even])
-    ///   .build()
-    ///   .unwrap();
-    ///
-    /// let usize_break_on_failure = (|| {
-    ///    let mut new_input = usize_required.clone();
-    ///    new_input.break_on_failure = true;
-    ///    new_input
-    /// })();
-    ///
-    /// let test_cases = [
-    ///   ("No value", &usize_required, None, Err(vec![
-    ///     Violation(ViolationType::ValueMissing,
-    ///      value_missing_msg_getter(&usize_required)),
-    ///   ])),
-    ///   ("With valid value", &usize_required, Some(4), Ok(())),
-    ///   ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
-    ///     Violation(ViolationType::CustomError,
-    ///      "Must be even".to_string()),
-    ///   ])),
-    /// ];
-    ///
-    /// // Run test cases
-    /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-    ///   println!("Case {}: {}", i + 1, test_name);
-    ///   assert_eq!(input.validate_option(value), expected_rslt);
-    /// }
-    /// ```
-    fn validate_option(&self, value: Option<T>) -> ValidationResult2 {
-        match value {
-            Some(v) => self.validate(v),
-            None => {
-                if self.required {
-                    Err(vec![Violation(
-                        ValueMissing,
-                        (self.value_missing_msg_getter)(self),
-                    )])
-                } else {
-                    Ok(())
-                }
-            }
-        }
-    }
-}
-
 impl<'a, T, FT> InputFilterForSized<T, FT> for Input<'a, T, FT>
 where
-    T: Copy,
-    FT: From<T>,
+  T: Copy,
+  FT: From<T>,
 {
-    /// Validates, and filters, incoming value.
-    fn filter(&self, value: T) -> Result<FT, Vec<Violation>> {
-        Validate::validate(self, value)?;
+  /// Validates given value against contained constraints, and returns a result of unit,
+  /// and/or, a Vec of Violation messages.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   Input,
+  ///   InputBuilder,
+  ///   InputFilterForSized,
+  ///   ViolationType::{CustomError, ValueMissing},
+  ///   Violation,
+  ///   value_missing_msg_getter,
+  /// };
+  ///
+  /// // Setup a custom validator
+  /// let validate_is_even = |x: usize| if x % 2 != 0 {
+  ///   Err(Violation(CustomError, "Must be even".to_string()))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// // Setup input constraints
+  /// let usize_required = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&validate_is_even])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let usize_break_on_failure = (|| {
+  ///    let mut new_input = usize_required.clone();
+  ///    new_input.break_on_failure = true;
+  ///    new_input
+  /// })();
+  ///
+  /// let test_cases = [
+  ///   ("With valid value", &usize_required, 4, Ok(())),
+  ///   ("With \"not Even\" value", &usize_required, 7, Err(vec![
+  ///      Violation(CustomError, "Must be even".to_string(),
+  ///   )])),
+  /// ];
+  ///
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.validate(value), expected_rslt);
+  /// }
+  /// ```
+  fn validate(&self, value: T) -> ValidationResult2 {
+    let mut violations = vec![];
 
-        Ok(self.filters.as_deref().map_or(value.into(), |filters| {
-            filters
-                .iter()
-                .fold(value.into(), |agg, filter| (filter)(agg))
-        }))
+    // Validate custom
+    match if let Some(custom) = self.custom {
+      (custom)(value)
+    } else {
+      Ok(())
+    } {
+      Ok(()) => (),
+      Err(err_type) => violations.push(err_type),
     }
 
-    /// Validates, and filters, incoming Option value.
-    fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>> {
-        match value {
-            Some(value) => self.filter(value).map(Some),
-            None => {
-                if self.required {
-                    Err(vec![Violation(
-                        ValueMissing,
-                        (self.value_missing_msg_getter)(self),
-                    )])
-                } else {
-                    Ok(self.get_default_value.and_then(|f| f()))
-                }
+    if !violations.is_empty() && self.break_on_failure {
+      return Err(violations);
+    }
+
+    // Else validate against validators
+    self.validators.as_deref().map_or(Ok(()), |validators| {
+      for validator in validators {
+        match validator(value) {
+          Ok(()) => continue,
+          Err(err_type) => {
+            violations.push(err_type);
+            if self.break_on_failure {
+              break;
             }
+          }
         }
+      }
+
+      // Resolve return value
+      if violations.is_empty() {
+        Ok(())
+      } else {
+        Err(violations)
+      }
+    })
+  }
+
+  /// Validates given value against contained constraints, and returns a result of unit,
+  /// and/or a Vec of violation tuples if value doesn't pass validation.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   Input,
+  ///   InputBuilder,
+  ///   InputFilterForSized,
+  ///   ViolationType,
+  ///   ValidateOption,
+  ///   Violation,
+  ///   value_missing_msg_getter,
+  /// };
+  ///
+  /// // Setup a custom validator
+  /// let validate_is_even = |x: usize| if x % 2 != 0 {
+  ///   Err(Violation(ViolationType::CustomError, "Must be even".to_string()))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// // Setup input constraints
+  /// let usize_required = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&validate_is_even])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let usize_break_on_failure = (|| {
+  ///    let mut new_input = usize_required.clone();
+  ///    new_input.break_on_failure = true;
+  ///    new_input
+  /// })();
+  ///
+  /// let test_cases = [
+  ///   ("No value", &usize_required, None, Err(vec![
+  ///     Violation(ViolationType::ValueMissing,
+  ///      value_missing_msg_getter(&usize_required)),
+  ///   ])),
+  ///   ("With valid value", &usize_required, Some(4), Ok(())),
+  ///   ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
+  ///     Violation(ViolationType::CustomError,
+  ///      "Must be even".to_string()),
+  ///   ])),
+  /// ];
+  ///
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.validate_option(value), expected_rslt);
+  /// }
+  /// ```
+  fn validate_option(&self, value: Option<T>) -> ValidationResult2 {
+    match value {
+      Some(v) => self.validate(v),
+      None => {
+        if self.required {
+          Err(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )])
+        } else {
+          Ok(())
+        }
+      }
     }
+  }
+
+  /// Validates, and filters, incoming value.
+  fn filter(&self, value: T) -> Result<FT, Vec<Violation>> {
+    self.validate(value)?;
+
+    Ok(self.filters.as_deref().map_or(value.into(), |filters| {
+      filters
+        .iter()
+        .fold(value.into(), |agg, filter| (filter)(agg))
+    }))
+  }
+
+  /// Validates, and filters, incoming Option value.
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>> {
+    match value {
+      Some(value) => self.filter(value).map(Some),
+      None => {
+        if self.required {
+          Err(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )])
+        } else {
+          Ok(self.get_default_value.and_then(|f| f()))
+        }
+      }
+    }
+  }
 }
 
 impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
@@ -518,7 +494,17 @@ impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
   /// assert!(input.filters.is_none());
   /// ```
   fn default() -> Self {
-    Self::new()
+    Input {
+      break_on_failure: false,
+      required: false,
+      custom: None,
+      locale: None,
+      name: None,
+      get_default_value: None,
+      validators: None,
+      filters: None,
+      value_missing_msg_getter: &value_missing_msg_getter,
+    }
   }
 }
 

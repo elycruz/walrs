@@ -58,31 +58,6 @@ impl std::ops::DerefMut for Violation {
 
 pub type ValidationResult2 = Result<(), Vec<Violation>>;
 
-pub enum ValidationValue<T: Copy> {
-  Struct(T),
-  Collection(T),
-  Element(T),
-}
-
-pub enum ValidationRefValue<'b, T: ?Sized> {
-  // Struct(&'b T),
-  // Collection(&'b T),
-  Element(&'b T),
-}
-
-/// Deref for Validation Ref Value.
-impl<'b, T: ?Sized> std::ops::Deref for ValidationRefValue<'b, T> {
-  type Target = T;
-
-  fn deref(&self) -> &Self::Target {
-    match self {
-      // ValidationRefValue::Struct(v) => v,
-      // ValidationRefValue::Collection(v) => v,
-      ValidationRefValue::Element(v) => v,
-    }
-  }
-}
-
 pub trait Validate<T: Copy> {
   fn validate(&self, x: T) -> ValidationResult2;
 }
@@ -91,16 +66,16 @@ pub trait ValidateOption<T: Copy> {
   fn validate_option(&self, x: Option<T>) -> ValidationResult2;
 }
 
-pub trait Filter<T> {
-  fn filter(&self, x: T) -> T;
-}
-
 /// A trait for performing validations, and filtering (transformations), all in one.
 pub trait InputFilterForSized<T, FT = T>: Display + Debug
 where
   T: Copy,
   FT: From<T>,
 {
+  fn validate(&self, x: T) -> ValidationResult2;
+  
+  fn validate_option(&self, x: Option<T>) -> ValidationResult2;
+  
   /// Validates, and filters, incoming value.
   fn filter(&self, value: T) -> Result<FT, Vec<Violation>>;
 
