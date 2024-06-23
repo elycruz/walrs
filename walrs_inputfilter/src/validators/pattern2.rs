@@ -1,3 +1,5 @@
+#![allow(unused_parens)]
+
 use crate::{ToAttributesList, ValidateRefValue2, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
