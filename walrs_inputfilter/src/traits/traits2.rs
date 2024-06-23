@@ -83,19 +83,19 @@ impl<'b, T: ?Sized> std::ops::Deref for ValidationRefValue<'b, T> {
   }
 }
 
-pub trait Validate<T: Copy> {
+pub trait InputValidate<T: Copy> {
   fn validate(&self, x: T) -> ValidationResult2;
 }
 
-pub trait ValidateOption<T: Copy> {
+pub trait InputValidateOption<T: Copy> {
   fn validate_option(&self, x: Option<T>) -> ValidationResult2;
 }
 
-pub trait ValidateRef<T: ?Sized> {
+pub trait InputValidateRef<T: ?Sized> {
   fn validate_ref(&self, x: &T) -> ValidationResult2;
 }
 
-pub trait ValidateRefOption<T: ?Sized> {
+pub trait InputValidateRefOption<T: ?Sized> {
   fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
 }
 
@@ -109,6 +109,9 @@ where
   T: Copy,
   FT: From<T>,
 {
+  // fn validate(&self, x: T) -> ValidationResult2;
+  // fn validate_option(&self, x: Option<T>) -> ValidationResult2;
+
   /// Validates, and filters, incoming value.
   fn filter(&self, value: T) -> Result<FT, Vec<Violation>>;
 
@@ -123,6 +126,8 @@ where
   T: ?Sized + 'a,
   FT: From<&'a T>,
 {
+  // fn validate_ref(&self, x: &T) -> ValidationResult2;
+  // fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
   fn filter(&self, value: &'a T) -> Result<FT, Vec<Violation>>;
 
   fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<Violation>>;

@@ -1,6 +1,6 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, InputFilterForUnsized, ValidateRef, ValidateRefOption,
+  FilterFn, InputFilterForUnsized, InputValidateRef, InputValidateRefOption,
   ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
 };
 use std::fmt::{Debug, Display, Formatter};
@@ -102,7 +102,7 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   }
 }
 
-impl<'a, 'b, T, FT> ValidateRef<T> for RefInput<'a, 'b, T, FT>
+impl<'a, 'b, T, FT> InputValidateRef<T> for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -148,7 +148,7 @@ where
   }
 }
 
-impl<'a, 'b, T, FT> ValidateRefOption<T> for RefInput<'a, 'b, T, FT>
+impl<'a, 'b, T, FT> InputValidateRefOption<T> for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -218,7 +218,7 @@ where
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef,
+  ///     RefInput, InputValidateRef,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
@@ -272,7 +272,7 @@ where
   ///
   /// ```
   fn filter(&self, value: &'b T) -> Result<FT, Vec<Violation>> {
-    ValidateRef::validate_ref(self, value)?;
+    InputValidateRef::validate_ref(self, value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
@@ -286,7 +286,7 @@ where
   /// ```rust
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
-  ///     RefInput, ValidateRef,
+  ///     RefInput, InputValidateRef,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage, ValidationRefValue
