@@ -1,5 +1,5 @@
 use crate::{
-    FilterFn, Validate, ValidateOption, ValidatorForSized,
+    FilterFn, ValidatorForSized,
     ViolationMessage, Violation, ValidationResult2, InputFilterForSized,
     ViolationType::ValueMissing,
 };
@@ -388,7 +388,6 @@ where
   ///   InputBuilder,
   ///   InputFilterForSized,
   ///   ViolationType,
-  ///   ValidateOption,
   ///   Violation,
   ///   value_missing_msg_getter,
   /// };

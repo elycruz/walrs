@@ -58,14 +58,6 @@ impl std::ops::DerefMut for Violation {
 
 pub type ValidationResult2 = Result<(), Vec<Violation>>;
 
-pub trait Validate<T: Copy> {
-  fn validate(&self, x: T) -> ValidationResult2;
-}
-
-pub trait ValidateOption<T: Copy> {
-  fn validate_option(&self, x: Option<T>) -> ValidationResult2;
-}
-
 /// A trait for performing validations, and filtering (transformations), all in one.
 pub trait InputFilterForSized<T, FT = T>: Display + Debug
 where
