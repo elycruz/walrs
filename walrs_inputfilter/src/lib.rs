@@ -1,7 +1,6 @@
 #![feature(fn_traits)]
 #![feature(unboxed_closures)]
 #![feature(associated_type_defaults)]
-#![allow(unused_parens)]
 
 #[macro_use]
 extern crate derive_builder;
