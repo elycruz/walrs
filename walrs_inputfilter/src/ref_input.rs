@@ -39,9 +39,11 @@ where
   #[builder(default = "None")]
   pub custom: Option<&'a ValidatorForRef<T>>,
 
+  // @todo This should probably be an `Option<Cow<str>>` instead.
   #[builder(default = "None")]
   pub locale: Option<&'a str>,
 
+  // @todo This should be an `Option<Cow<str>>` instead.
   #[builder(default = "None")]
   pub name: Option<&'a str>,
 
@@ -216,7 +218,7 @@ where
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
   ///     RefInput,
-  ///     InputFilterForUnsized, RefInputBuilder, Violation,
+  ///     InputFilterForUnsized, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage
   /// };
