@@ -57,13 +57,10 @@ where
 }
 
 impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
-    /// Returns a new instance with all fields set defaults.
+    /// Returns a new instance with all fields set to defaults.
     ///
     /// ```rust
-    /// use walrs_inputfilter::{
-    ///   Input,
-    ///   ViolationType,
-    /// };
+    /// use walrs_inputfilter::Input;
     ///
     /// let input = Input::<usize>::new();
     ///
@@ -447,6 +444,75 @@ where
   }
 
   /// Validates, and filters, incoming value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   Input,
+  ///   InputBuilder,
+  ///   InputFilterForSized,
+  ///   ViolationType::{ CustomError, RangeOverflow, RangeUnderflow, ValueMissing },
+  ///   Violation,
+  ///   value_missing_msg_getter,
+  /// };
+  ///
+  /// // Setup some custom validators
+  /// let validate_is_even = |x: usize| if x % 2 != 0 {
+  ///   Err(Violation(CustomError, "Must be even".to_string()))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// let one_through_ten = |x: usize| if x < 1 {
+  ///   Err(Violation(RangeUnderflow, format!("`{}` is less than minimum `1`.", x)))
+  /// } else if x > 10 {
+  ///   Err(Violation(RangeOverflow, format!("`{}` is greater than maximum `10`.", x)))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// // Setup some input constraints
+  /// // ----
+  /// let even_usize_required = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![
+  ///     &validate_is_even,
+  ///     &one_through_ten,
+  ///   ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_usize_break_on_failure = (|| {
+  ///   let mut new_input = even_usize_required.clone();
+  ///   new_input.break_on_failure = true;
+  ///   new_input
+  /// })();
+  ///
+  /// let test_cases = [
+  ///   ("With valid value", &even_usize_required, 4, Ok(4)),
+  ///   ("With \"out of lower bounds\" value", &even_usize_required, 0, Err(vec![
+  ///     Violation(RangeUnderflow, "`0` is less than minimum `1`.".to_string()),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value", &even_usize_required, 11, Err(vec![
+  ///     Violation(CustomError, "Must be even".to_string()),
+  ///     Violation(RangeOverflow, "`11` is greater than maximum `10`.".to_string()),
+  ///   ])),
+  ///   ("With \"not Even\" value", &even_usize_required, 7, Err(vec![
+  ///     Violation(CustomError, "Must be even".to_string()),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'", &even_usize_break_on_failure,
+  ///     11,
+  ///     Err(vec![
+  ///       Violation(CustomError, "Must be even".to_string()),
+  ///     ])
+  ///   ),
+  /// ];
+  ///
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.filter(value), expected_rslt);
+  /// }
+  /// ```
   fn filter(&self, value: T) -> Result<FT, Vec<Violation>> {
     self.validate(value)?;
 
@@ -458,6 +524,90 @@ where
   }
 
   /// Validates, and filters, incoming Option value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   Input,
+  ///   InputBuilder,
+  ///   InputFilterForSized,
+  ///   ViolationType::{ CustomError, RangeOverflow, RangeUnderflow, ValueMissing },
+  ///   Violation,
+  ///   value_missing_msg_getter,
+  /// };
+  ///
+  /// // Setup some custom validators
+  /// let validate_is_even = |x: usize| if x % 2 != 0 {
+  ///   Err(Violation(CustomError, "Must be even".to_string()))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// let one_through_ten = |x: usize| if x < 1 {
+  ///   Err(Violation(RangeUnderflow, format!("`{}` is less than minimum `1`.", x)))
+  /// } else if x > 10 {
+  ///   Err(Violation(RangeOverflow, format!("`{}` is greater than maximum `10`.", x)))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// // Setup some input constraints
+  /// // ----
+  /// let even_usize_required = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![
+  ///     &validate_is_even,
+  ///     &one_through_ten,
+  ///   ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_usize_break_on_failure = (|| {
+  ///   let mut new_input = even_usize_required.clone();
+  ///   new_input.break_on_failure = true;
+  ///   new_input
+  /// })();
+  ///
+  /// let even_with_default = (|| {
+  ///   let mut new_input = even_usize_break_on_failure.clone();
+  ///   new_input.required = false;
+  ///   new_input.get_default_value = Some(&|| Some(8));
+  ///   new_input
+  /// })();
+  ///
+  /// let test_cases = [
+  ///   ("No value", &even_usize_required, None, Err(vec![
+  ///     Violation(ValueMissing, value_missing_msg_getter(&even_usize_required)),
+  ///   ])),
+  ///   ("With valid value", &even_usize_required, Some(4), Ok(Some(4))),
+  ///   ("With \"out of lower bounds\" value", &even_usize_required, Some(0), Err(vec![
+  ///      Violation(RangeUnderflow, "`0` is less than minimum `1`.".to_string()),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value", &even_usize_required, Some(11), Err(vec![
+  ///     Violation(CustomError, "Must be even".to_string()),
+  ///     Violation(RangeOverflow, "`11` is greater than maximum `10`.".to_string()),
+  ///   ])),
+  ///   ("With \"not Even\" value", &even_usize_required, Some(7), Err(vec![
+  ///     Violation(CustomError, "Must be even".to_string()),
+  ///   ])),
+  ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'", 
+  ///     &even_usize_break_on_failure,
+  ///     Some(11),
+  ///     Err(vec![
+  ///       Violation(CustomError, "Must be even".to_string()),
+  ///     ])),
+  ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true', and default value",
+  ///     &even_with_default,
+  ///     None,
+  ///     Ok(Some(8)),
+  ///   ),
+  /// ];
+  /// 
+  /// // Run test cases
+  /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+  ///   println!("Case {}: {}", i + 1, test_name);
+  ///   assert_eq!(input.filter_option(value), expected_rslt);
+  /// }
+  /// ```
   fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>> {
     match value {
       Some(value) => self.filter(value).map(Some),
