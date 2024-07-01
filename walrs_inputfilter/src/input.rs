@@ -1,8 +1,4 @@
-use crate::{
-    FilterFn, ValidatorForSized,
-    ViolationMessage, Violation, ValidationResult2, InputFilterForSized,
-    ViolationType::ValueMissing,
-};
+use crate::{FilterFn, ValidatorForSized, ViolationMessage, Violation, ValidationResult2, InputFilterForSized, ViolationType::ValueMissing, Violations};
 
 use std::fmt::{Debug, Display, Formatter};
 
@@ -300,6 +296,7 @@ where
   ///   InputFilterForSized,
   ///   ViolationType::{CustomError, ValueMissing},
   ///   Violation,
+  ///   Violations,
   ///   value_missing_msg_getter,
   /// };
   ///
@@ -325,9 +322,9 @@ where
   ///
   /// let test_cases = [
   ///   ("With valid value", &usize_required, 4, Ok(())),
-  ///   ("With \"not Even\" value", &usize_required, 7, Err(vec![
+  ///   ("With \"not Even\" value", &usize_required, 7, Err(Violations(vec![
   ///      Violation(CustomError, "Must be even".to_string(),
-  ///   )])),
+  ///   )]))),
   /// ];
   ///
   /// // Run test cases
@@ -350,7 +347,7 @@ where
     }
 
     if !violations.is_empty() && self.break_on_failure {
-      return Err(violations);
+      return Err(Violations(violations));
     }
 
     // Else validate against validators
@@ -371,7 +368,7 @@ where
       if violations.is_empty() {
         Ok(())
       } else {
-        Err(violations)
+        Err(Violations(violations))
       }
     })
   }
@@ -386,6 +383,7 @@ where
   ///   InputFilterForSized,
   ///   ViolationType,
   ///   Violation,
+  ///   Violations,
   ///   value_missing_msg_getter,
   /// };
   ///
@@ -410,15 +408,15 @@ where
   /// })();
   ///
   /// let test_cases = [
-  ///   ("No value", &usize_required, None, Err(vec![
+  ///   ("No value", &usize_required, None, Err(Violations(vec![
   ///     Violation(ViolationType::ValueMissing,
   ///      value_missing_msg_getter(&usize_required)),
-  ///   ])),
+  ///   ]))),
   ///   ("With valid value", &usize_required, Some(4), Ok(())),
-  ///   ("With \"not Even\" value", &usize_required, Some(7), Err(vec![
+  ///   ("With \"not Even\" value", &usize_required, Some(7), Err(Violations(vec![
   ///     Violation(ViolationType::CustomError,
   ///      "Must be even".to_string()),
-  ///   ])),
+  ///   ]))),
   /// ];
   ///
   /// // Run test cases
@@ -432,10 +430,10 @@ where
       Some(v) => self.validate(v),
       None => {
         if self.required {
-          Err(vec![Violation(
+          Err(Violations(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )])
+          )]))
         } else {
           Ok(())
         }
@@ -452,6 +450,7 @@ where
   ///   InputFilterForSized,
   ///   ViolationType::{ CustomError, RangeOverflow, RangeUnderflow, ValueMissing },
   ///   Violation,
+  ///   Violations,
   ///   value_missing_msg_getter,
   /// };
   ///
@@ -489,22 +488,22 @@ where
   ///
   /// let test_cases = [
   ///   ("With valid value", &even_usize_required, 4, Ok(4)),
-  ///   ("With \"out of lower bounds\" value", &even_usize_required, 0, Err(vec![
+  ///   ("With \"out of lower bounds\" value", &even_usize_required, 0, Err(Violations(vec![
   ///     Violation(RangeUnderflow, "`0` is less than minimum `1`.".to_string()),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value", &even_usize_required, 11, Err(vec![
+  ///   ]))),
+  ///   ("With \"out of upper bounds\" value", &even_usize_required, 11, Err(Violations(vec![
   ///     Violation(CustomError, "Must be even".to_string()),
   ///     Violation(RangeOverflow, "`11` is greater than maximum `10`.".to_string()),
-  ///   ])),
-  ///   ("With \"not Even\" value", &even_usize_required, 7, Err(vec![
+  ///   ]))),
+  ///   ("With \"not Even\" value", &even_usize_required, 7, Err(Violations(vec![
   ///     Violation(CustomError, "Must be even".to_string()),
-  ///   ])),
+  ///   ]))),
   ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'", &even_usize_break_on_failure,
   ///     11,
-  ///     Err(vec![
+  ///     Err(Violations(vec![
   ///       Violation(CustomError, "Must be even".to_string()),
   ///     ])
-  ///   ),
+  ///   )),
   /// ];
   ///
   /// // Run test cases
@@ -513,7 +512,7 @@ where
   ///   assert_eq!(input.filter(value), expected_rslt);
   /// }
   /// ```
-  fn filter(&self, value: T) -> Result<FT, Vec<Violation>> {
+  fn filter(&self, value: T) -> Result<FT, Violations> {
     self.validate(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
@@ -532,6 +531,7 @@ where
   ///   InputFilterForSized,
   ///   ViolationType::{ CustomError, RangeOverflow, RangeUnderflow, ValueMissing },
   ///   Violation,
+  ///   Violations,
   ///   value_missing_msg_getter,
   /// };
   ///
@@ -575,26 +575,26 @@ where
   /// })();
   ///
   /// let test_cases = [
-  ///   ("No value", &even_usize_required, None, Err(vec![
+  ///   ("No value", &even_usize_required, None, Err(Violations(vec![
   ///     Violation(ValueMissing, value_missing_msg_getter(&even_usize_required)),
-  ///   ])),
+  ///   ]))),
   ///   ("With valid value", &even_usize_required, Some(4), Ok(Some(4))),
-  ///   ("With \"out of lower bounds\" value", &even_usize_required, Some(0), Err(vec![
+  ///   ("With \"out of lower bounds\" value", &even_usize_required, Some(0), Err(Violations(vec![
   ///      Violation(RangeUnderflow, "`0` is less than minimum `1`.".to_string()),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value", &even_usize_required, Some(11), Err(vec![
+  ///   ]))),
+  ///   ("With \"out of upper bounds\" value", &even_usize_required, Some(11), Err(Violations(vec![
   ///     Violation(CustomError, "Must be even".to_string()),
   ///     Violation(RangeOverflow, "`11` is greater than maximum `10`.".to_string()),
-  ///   ])),
-  ///   ("With \"not Even\" value", &even_usize_required, Some(7), Err(vec![
+  ///   ]))),
+  ///   ("With \"not Even\" value", &even_usize_required, Some(7), Err(Violations(vec![
   ///     Violation(CustomError, "Must be even".to_string()),
-  ///   ])),
+  ///   ]))),
   ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'", 
   ///     &even_usize_break_on_failure,
   ///     Some(11),
-  ///     Err(vec![
+  ///     Err(Violations(vec![
   ///       Violation(CustomError, "Must be even".to_string()),
-  ///     ])),
+  ///     ]))),
   ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true', and default value",
   ///     &even_with_default,
   ///     None,
@@ -608,15 +608,15 @@ where
   ///   assert_eq!(input.filter_option(value), expected_rslt);
   /// }
   /// ```
-  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>> {
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter(value).map(Some),
       None => {
         if self.required {
-          Err(vec![Violation(
+          Err(Violations(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )])
+          )]))
         } else {
           Ok(self.get_default_value.and_then(|f| f()))
         }

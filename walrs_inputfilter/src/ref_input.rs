@@ -1,8 +1,5 @@
 use crate::ViolationType::ValueMissing;
-use crate::{
-  FilterFn, InputFilterForUnsized,
-  ValidationResult2, ValidatorForRef, Violation, ViolationMessage,
-};
+use crate::{FilterFn, InputFilterForUnsized, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -170,7 +167,7 @@ where
     }
 
     if !violations.is_empty() && self.break_on_failure {
-      return Err(violations);
+      return Err(Violations(violations));
     }
 
     // Else validate against validators
@@ -191,7 +188,7 @@ where
       if violations.is_empty() {
         Ok(())
       } else {
-        Err(violations)
+        Err(Violations(violations))
       }
     })
   }
@@ -201,10 +198,10 @@ where
       Some(v) => self.validate_ref(v),
       None => {
         if self.required {
-          Err(vec![Violation(
+          Err(Violations(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )])
+          )]))
         } else {
           Ok(())
         }
@@ -218,9 +215,11 @@ where
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
   ///     RefInput,
-  ///     InputFilterForUnsized, Violation,
+  ///     InputFilterForUnsized,
   ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage
+  ///     ViolationMessage,
+  ///     Violation,
+  ///     Violations
   /// };
   ///
   /// // Create some validators
@@ -261,16 +260,16 @@ where
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter(&value).unwrap(), vec![2, 4, 6]);
-  /// assert_eq!(input_num_list.filter(&vec![]), Err(vec![Violation(TypeMismatch, "Value is empty".to_string())]));
+  /// assert_eq!(input_num_list.filter(&vec![]), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
   ///
   /// let value = "Hello, World!";
   ///
   /// assert_eq!(input.filter(value).unwrap(), Cow::Borrowed(value));
   /// assert_eq!(input2.filter(value).unwrap(), value.to_lowercase());
-  /// assert_eq!(alnum_input.filter(value), Err(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]));
+  /// assert_eq!(alnum_input.filter(value), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
   ///
   /// ```
-  fn filter(&self, value: &'b T) -> Result<FT, Vec<Violation>> {
+  fn filter(&self, value: &'b T) -> Result<FT, Violations> {
     self.validate_ref(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
@@ -288,7 +287,8 @@ where
   ///     RefInput,
   ///     InputFilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage
+  ///     ViolationMessage,
+  ///     Violations
   /// };
   ///
   /// // Create some validators
@@ -329,23 +329,23 @@ where
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
-  /// assert_eq!(input_num_list.filter_option(Some(&vec![])), Err(vec![Violation(TypeMismatch, "Value is empty".to_string())]));
+  /// assert_eq!(input_num_list.filter_option(Some(&vec![])), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
   ///
   /// let value = "Hello, World!";
   ///
   /// assert_eq!(input.filter_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
   /// assert_eq!(input2.filter_option(Some(value)).unwrap(), Some(value.to_lowercase()));
-  /// assert_eq!(alnum_input.filter_option(Some(value)), Err(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())]));
+  /// assert_eq!(alnum_input.filter_option(Some(value)), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
   /// ```
-  fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Vec<Violation>> {
+  fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter(value).map(Some),
       None => {
         if self.required {
-          Err(vec![Violation(
+          Err(Violations(vec![Violation(
             ValueMissing,
             (self.value_missing_msg_getter)(self),
-          )])
+          )]))
         } else {
           Ok(self.get_default_value.and_then(|f| f()))
         }

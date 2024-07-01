@@ -56,7 +56,37 @@ impl std::ops::DerefMut for Violation {
   }
 }
 
-pub type ValidationResult2 = Result<(), Vec<Violation>>;
+#[derive(Clone, PartialEq, Debug)]
+pub struct Violations(pub Vec<Violation>);
+
+impl std::ops::Deref for Violations {
+  type Target = Vec<Violation>;
+
+  fn deref(&self) -> &Self::Target {
+    &self.0
+  }
+}
+
+impl std::ops::DerefMut for Violations {
+  fn deref_mut(&mut self) -> &mut Self::Target {
+    &mut self.0
+  }
+}
+
+impl Into<Vec<Violation>> for Violations {
+  fn into(self) -> Vec<Violation> {
+    self.0
+  }
+}
+
+impl Into<Vec<String>> for Violations {
+  fn into(self) -> Vec<String> {
+    self.0.into_iter().map(|violation| violation.1).collect()
+  }
+}
+
+pub type ValidationResult2 = Result<(), Violations>;
+
 
 /// A trait for performing validations, and filtering (transformations), all in one.
 pub trait InputFilterForSized<T, FT = T>: Display + Debug
@@ -69,10 +99,10 @@ where
   fn validate_option(&self, x: Option<T>) -> ValidationResult2;
   
   /// Validates, and filters, incoming value.
-  fn filter(&self, value: T) -> Result<FT, Vec<Violation>>;
+  fn filter(&self, value: T) -> Result<FT, Violations>;
 
   /// Validates, and filters, incoming value Option value.
-  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<Violation>>;
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Violations>;
 }
 
 /// A trait for performing validations, and filtering (transformations), all in one,
@@ -86,9 +116,9 @@ where
   
   fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
   
-  fn filter(&self, value: &'a T) -> Result<FT, Vec<Violation>>;
+  fn filter(&self, value: &'a T) -> Result<FT, Violations>;
 
-  fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<Violation>>;
+  fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
 }
 
 #[cfg(test)]
