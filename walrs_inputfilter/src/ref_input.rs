@@ -1,5 +1,5 @@
 use crate::ViolationType::ValueMissing;
-use crate::{FilterFn, InputFilterForUnsized, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
+use crate::{FilterFn, FilterForUnsized, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -148,11 +148,33 @@ where
   }
 }
 
-impl<'a, 'b, T, FT> InputFilterForUnsized<'b, T, FT> for RefInput<'a, 'b, T, FT>
+impl<'a, 'b, T, FT> FilterForUnsized<'b, T, FT> for RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
 {
+  /// Validates given value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForUnsized, RefInput, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::TypeMismatch;
+  ///
+  /// let mut input = RefInput::<str, String>::default();
+  ///
+  /// input.validators = Some(vec![
+  ///  &|value: &str| if value.len() > 5 {
+  ///    Ok(())
+  ///  } else {
+  ///    Err(Violation(TypeMismatch, "Value is too short".to_string()))
+  ///  }]);
+  ///
+  /// input.required = true;
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_ref("Hello, World!"), Ok(()));
+  /// assert_eq!(input.validate_ref("Hi!"), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// assert_eq!(input.validate_ref(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// ```
   fn validate_ref(&self, value: &T) -> ValidationResult2 {
     let mut violations = vec![];
 
@@ -193,6 +215,29 @@ where
     })
   }
 
+  /// Validates given "optional" value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForUnsized, RefInput, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::TypeMismatch;
+  ///
+  /// let mut input = RefInput::<str, String>::default();
+  ///
+  /// input.validators = Some(vec![
+  ///  &|value: &str| if value.len() > 5 {
+  ///    Ok(())
+  ///  } else {
+  ///    Err(Violation(TypeMismatch, "Value is too short".to_string()))
+  ///  }]);
+  ///
+  /// input.required = true;
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_ref_option(Some("Hello, World!")), Ok(()));
+  /// assert_eq!(input.validate_ref_option(Some("Hi!")), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// assert_eq!(input.validate_ref_option(Some("")), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// assert_eq!(input.validate_ref_option(None), Err(Violations(vec![Violation(TypeMismatch, "Value is missing".to_string())])));
+  /// ```
   fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
     match value {
       Some(v) => self.validate_ref(v),
@@ -215,7 +260,7 @@ where
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
   ///     RefInput,
-  ///     InputFilterForUnsized,
+  ///     FilterForUnsized,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage,
   ///     Violation,
@@ -285,7 +330,7 @@ where
   /// use std::borrow::Cow;
   /// use walrs_inputfilter::{
   ///     RefInput,
-  ///     InputFilterForUnsized, RefInputBuilder, Violation,
+  ///     FilterForUnsized, RefInputBuilder, Violation,
   ///     ViolationType::TypeMismatch,
   ///     ViolationMessage,
   ///     Violations

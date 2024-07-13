@@ -85,6 +85,12 @@ impl Into<Vec<String>> for Violations {
   }
 }
 
+impl Violations {
+  pub fn to_string_vec(self) -> Vec<String> {
+    self.into()
+  }
+}
+
 pub type ValidationResult2 = Result<(), Violations>;
 
 
@@ -107,7 +113,7 @@ where
 
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.
-pub trait InputFilterForUnsized<'a, T, FT>: Display + Debug
+pub trait FilterForUnsized<'a, T, FT>: Display + Debug
 where
   T: ?Sized + 'a,
   FT: From<&'a T>,
@@ -119,6 +125,14 @@ where
   fn filter(&self, value: &'a T) -> Result<FT, Violations>;
 
   fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
+}
+
+pub trait FilterForSized<T, FT = T>: Display + Debug
+where
+  T: Copy,
+  FT: From<T>,
+{
+  fn filter(&self, value: T) -> Result<FT, Violations>;
 }
 
 #[cfg(test)]
