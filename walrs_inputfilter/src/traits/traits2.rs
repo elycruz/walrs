@@ -133,7 +133,7 @@ where
   T: ?Sized + 'a,
   FT: From<&'a T>,
 {
-  fn validate_ref(&self, x: &T) -> ValidationResult2;
+  fn validate_ref(&self, x: &T) -> ValidationResult1;
 
   fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 

@@ -1,5 +1,5 @@
 use crate::ViolationType::ValueMissing;
-use crate::{FilterFn, FilterForUnsized, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
+use crate::{FilterFn, FilterForUnsized, ValidationResult1, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -176,13 +176,39 @@ where
   ///
   /// // Test
   /// assert_eq!(input.validate_ref("Hello, World!"), Ok(()));
-  /// assert_eq!(input.validate_ref("Hi!"), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
-  /// assert_eq!(input.validate_ref(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// assert_eq!(input.validate_ref("Hi!"), Err(vec!["Value is too short".to_string()]));
+  /// assert_eq!(input.validate_ref(""), Err(vec!["Value is too short".to_string()]));
   /// ```
-  fn validate_ref(&self, value: &T) -> ValidationResult2 {
-    self.validate_ref_detailed(value)
+  fn validate_ref(&self, value: &T) -> ValidationResult1 {
+    match self.validate_ref_detailed(value) {
+      Ok(()) => Ok(()),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
   }
 
+  /// Validates given value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForUnsized, RefInput, RefInputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::TypeMismatch;
+  ///
+  /// let input = RefInputBuilder::<str, String>::default()
+  ///   .required(true)
+  ///   .validators(vec![
+  ///     &|value: &str| if value.len() > 5 {
+  ///       Ok(())
+  ///     } else {
+  ///       Err(Violation(TypeMismatch, "Value is too short".to_string()))
+  ///     }
+  ///   ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_ref_detailed("Hello, World!"), Ok(()));
+  /// assert_eq!(input.validate_ref_detailed("Hi!"), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// assert_eq!(input.validate_ref_detailed(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// ```
   fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {
     let mut violations = vec![];
 
@@ -253,7 +279,7 @@ where
 
   fn validate_ref_option_detailed(&self, value: Option<&T>) -> ValidationResult2 {
     match value {
-      Some(v) => self.validate_ref(v),
+      Some(v) => self.validate_ref_detailed(v),
       None => {
         if self.required {
           Err(Violations(vec![Violation(
@@ -330,9 +356,9 @@ where
   fn filter_ref(&self, value: &'b T) -> Result<FT, Violations> {
     self.filter_ref_detailed(value)
   }
-  
+
   fn filter_ref_detailed(&self, value: &'b T) -> Result<FT, Violations> {
-    self.validate_ref(value)?;
+    self.validate_ref_detailed(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
