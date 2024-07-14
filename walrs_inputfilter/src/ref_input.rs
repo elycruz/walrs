@@ -6,13 +6,13 @@ use std::fmt::{Debug, Display, Formatter};
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use walrs_inputfilter::{ref_value_missing_msg_getter, RefInput, value_missing_msg_getter};
+/// use walrs_inputfilter::{ref_input_value_missing_msg_getter, RefInput, value_missing_msg_getter};
 ///
 /// let input = RefInput::<str, Cow<str>>::default();
 ///
-/// assert_eq!(ref_value_missing_msg_getter(&input), "Value is missing".to_string());
+/// assert_eq!(ref_input_value_missing_msg_getter(&input), "Value is missing".to_string());
 /// ```
-pub fn ref_value_missing_msg_getter<'a, 'b, T, FT>(_: &RefInput<'a, 'b, T, FT>) -> ViolationMessage
+pub fn ref_input_value_missing_msg_getter<'a, 'b, T, FT>(_: &RefInput<'a, 'b, T, FT>) -> ViolationMessage
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -20,41 +20,42 @@ where
   "Value is missing".to_string()
 }
 
-#[derive(Builder, Clone)]
-#[builder(setter(strip_option))]
 pub struct RefInput<'a, 'b, T, FT = T>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
 {
-  #[builder(default = "false")]
+  /// Controls whether to run through all contained validators despite there being
+  /// failures/violations and/or to stop on the first failing one.
   pub break_on_failure: bool,
 
-  #[builder(default = "false")]
+  /// Whether value to be validated is required or not - Relevant only when using `*_option`
+  /// methods.
   pub required: bool,
 
-  #[builder(default = "None")]
+  /// Field for setting only one validator - Saves bytes when need only one validator versus
+  /// using `validators` field (which requires a `Vec`).
   pub custom: Option<&'a ValidatorForRef<T>>,
 
   // @todo This should probably be an `Option<Cow<str>>` instead.
-  #[builder(default = "None")]
+  /// Optional locale - Useful in validation "violation" message contexts.  Composed by the user.
   pub locale: Option<&'a str>,
 
   // @todo This should be an `Option<Cow<str>>` instead.
-  #[builder(default = "None")]
+  /// Optional name - Useful in validation "violation" message contexts.  Composed by the user.
   pub name: Option<&'a str>,
 
   /// Returns a default value for the "input is not required, but is empty" use case.
-  #[builder(default = "None")]
   pub get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
 
-  #[builder(default = "None")]
+  /// Validator functions to call on value to be validated.
   pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
 
-  #[builder(default = "None")]
+  /// Transformation functions to subsequently pass validated value through.
   pub filters: Option<Vec<&'a FilterFn<FT>>>,
 
-  #[builder(default = "&ref_value_missing_msg_getter")]
+  /// Supplies the error message returned by `validate_ref_option`, and/or `filter_option`,
+  /// methods when the parent ref input contains `required = true` and the incoming value is `None`.
   pub value_missing_msg_getter:
     &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync),
 }
@@ -63,6 +64,7 @@ impl<'a, 'b, T, FT> RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T> {
+  /// Returns a new `RefInput` instance.
   pub fn new() -> Self {
     RefInput::default()
   }
@@ -73,9 +75,9 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   ///
   /// ```rust
   /// use std::borrow::Cow;
-  /// use walrs_inputfilter::{  
+  /// use walrs_inputfilter::{
   ///   RefInput,
-  ///   ref_value_missing_msg_getter,
+  ///   ref_input_value_missing_msg_getter,
   ///   ViolationEnum
   /// };
   ///
@@ -92,7 +94,7 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   /// assert!(input.filters.is_none());
   /// assert_eq!(
   ///   (&input.value_missing_msg_getter)(&input),
-  ///   ref_value_missing_msg_getter(&input)
+  ///   ref_input_value_missing_msg_getter(&input)
   /// );
   /// ```
   fn default() -> Self {
@@ -105,7 +107,7 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
       get_default_value: None,
       validators: None,
       filters: None,
-      value_missing_msg_getter: &ref_value_missing_msg_getter,
+      value_missing_msg_getter: &ref_input_value_missing_msg_getter,
     }
   }
 }
@@ -219,7 +221,7 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{FilterForUnsized, RefInput, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::TypeMismatch;
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, ValueMissing};
   ///
   /// let mut input = RefInput::<str, String>::default();
   ///
@@ -236,7 +238,7 @@ where
   /// assert_eq!(input.validate_ref_option(Some("Hello, World!")), Ok(()));
   /// assert_eq!(input.validate_ref_option(Some("Hi!")), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// assert_eq!(input.validate_ref_option(Some("")), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
-  /// assert_eq!(input.validate_ref_option(None), Err(Violations(vec![Violation(TypeMismatch, "Value is missing".to_string())])));
+  /// assert_eq!(input.validate_ref_option(None), Err(Violations(vec![Violation(ValueMissing, "Value is missing".to_string())])));
   /// ```
   fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
     match value {
@@ -399,6 +401,191 @@ where
   }
 }
 
+/// Ref Input builder.
+///
+/// ```rust
+/// use walrs_inputfilter::{RefInput, RefInputBuilder, ValidatorForRef};
+/// use std::borrow::Cow;
+///
+/// let input = RefInputBuilder::<str, Cow<str>>::default()
+///    .break_on_failure(true)
+///    .required(true)
+///    .custom(&|_: &str| Ok(()))
+///    .locale("en_US")
+///    .name("name")
+///    .get_default_value(&|| Some(Cow::Borrowed("default")))
+///    .validators(vec![&|_: &str| Ok(())])
+///    .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
+///    .value_missing_msg_getter(&|_: &RefInput<str, Cow<str>>| "Value is missing".to_string())
+///    .build()
+///    .unwrap();
+///
+/// // Result
+/// // ----
+/// assert_eq!(input.break_on_failure, true);
+/// assert_eq!(input.required, true);
+/// assert!(input.custom.is_some());
+/// assert_eq!(input.locale, Some("en_US"));
+/// assert_eq!(input.name, Some("name"));
+/// assert!(input.get_default_value.is_some());
+/// assert_eq!(input.validators.as_deref().unwrap().len(), 1usize);
+/// assert_eq!(input.filters.as_deref().unwrap().len(), 1usize);
+/// assert_eq!(
+///  (&input.value_missing_msg_getter)(&input),
+///  "Value is missing".to_string()
+/// );
+/// ```
+#[derive(Clone)]
+pub struct RefInputBuilder<'a, 'b, T, FT>
+where
+  T: ?Sized + 'a,
+  FT: From<&'b T>,
+{
+  break_on_failure: Option<bool>,
+  required: Option<bool>,
+  custom: Option<&'a ValidatorForRef<T>>,
+  locale: Option<&'a str>,
+  name: Option<&'a str>,
+  get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
+  validators: Option<Vec<&'a ValidatorForRef<T>>>,
+  filters: Option<Vec<&'a FilterFn<FT>>>,
+  value_missing_msg_getter: Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
+}
+
+impl<'a, 'b, T, FT> RefInputBuilder<'a, 'b, T, FT>
+where T: ?Sized + 'b, FT: From<&'b T> {
+  pub fn break_on_failure(&mut self, break_on_failure: bool) -> &mut Self {
+    self.break_on_failure = Some(break_on_failure);
+    self
+  }
+
+  pub fn required(&mut self, required: bool) -> &mut Self {
+    self.required = Some(required);
+    self
+  }
+
+  pub fn custom(&mut self, custom: &'a ValidatorForRef<T>) -> &mut Self {
+    self.custom = Some(custom);
+    self
+  }
+
+  pub fn locale(&mut self, locale: &'a str) -> &mut Self {
+    self.locale = Some(locale);
+    self
+  }
+
+  pub fn name(&mut self, name: &'a str) -> &mut Self {
+    self.name = Some(name);
+    self
+  }
+
+  pub fn get_default_value(&mut self, get_default_value: &'a (dyn Fn() -> Option<FT> + Send + Sync)) -> &mut Self {
+    self.get_default_value = Some(get_default_value);
+    self
+  }
+
+  pub fn validators(&mut self, validators: Vec<&'a ValidatorForRef<T>>) -> &mut Self {
+    self.validators = Some(validators);
+    self
+  }
+
+  pub fn filters(&mut self, filters: Vec<&'a FilterFn<FT>>) -> &mut Self {
+    self.filters = Some(filters);
+    self
+  }
+
+  pub fn value_missing_msg_getter(&mut self, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)) -> &mut Self {
+    self.value_missing_msg_getter = Some(value_missing_msg_getter);
+    self
+  }
+
+  pub fn build(&mut self) -> Result<RefInput<'a, 'b, T, FT>, String> {
+    Ok(RefInput {
+      break_on_failure: self.break_on_failure.unwrap_or(false),
+      required: self.required.unwrap_or(false),
+      custom: self.custom,
+      locale: self.locale,
+      name: self.name,
+      get_default_value: self.get_default_value,
+      validators: self.validators.clone(),
+      filters: self.filters.clone(),
+      value_missing_msg_getter: self.value_missing_msg_getter.unwrap_or(&ref_input_value_missing_msg_getter),
+    })
+  }
+}
+
+impl<'a, 'b, T, FT> Default for RefInputBuilder<'a, 'b, T, FT>
+where T: ?Sized + 'b, FT: From<&'b T> {
+  fn default() -> Self {
+    RefInputBuilder {
+      break_on_failure: None,
+      required: None,
+      custom: None,
+      locale: None,
+      name: None,
+      get_default_value: None,
+      validators: None,
+      filters: None,
+      value_missing_msg_getter: None,
+    }
+  }
+}
+
 #[cfg(test)]
 mod test {
+  use super::*;
+  use std::borrow::Cow;
+
+  #[test]
+  fn test_builder() {
+    // Test default builder
+    // ----
+    let default_input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();
+
+    // Test result
+    // ----
+    assert_eq!(default_input.break_on_failure, false);
+    assert_eq!(default_input.required, false);
+    assert!(default_input.custom.is_none());
+    assert!(default_input.locale.is_none());
+    assert!(default_input.name.is_none());
+    assert!(default_input.get_default_value.is_none());
+    assert!(default_input.validators.is_none());
+    assert!(default_input.filters.is_none());
+    assert_eq!(
+      (&default_input.value_missing_msg_getter)(&default_input),
+      "Value is missing".to_string()
+    );
+
+    // Test builder with values
+    // ----
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+        .break_on_failure(true)
+        .required(true)
+        .custom(&|_: &str| Ok(()))
+        .locale("en_US")
+        .name("name")
+        .get_default_value(&|| Some(Cow::Borrowed("default")))
+        .validators(vec![&|_: &str| Ok(())])
+        .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
+        .value_missing_msg_getter(&|_: &RefInput<'_, '_, str, Cow<str>>| "Value is missing".to_string())
+        .build()
+        .unwrap();
+
+    // Test result
+    // ----
+    assert_eq!(input.break_on_failure, true);
+    assert_eq!(input.required, true);
+    assert!(input.custom.is_some());
+    assert_eq!(input.locale, Some("en_US"));
+    assert_eq!(input.name, Some("name"));
+    assert!(input.get_default_value.is_some());
+    assert!(input.validators.is_some());
+    assert!(input.validators.is_some());
+    assert!(input.filters.is_some());
+    assert_eq!(
+      (&input.value_missing_msg_getter)(&input),
+      "Value is missing".to_string()
+    );
+  }
 }
