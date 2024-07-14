@@ -141,11 +141,11 @@ where
 
   fn validate_ref_option_detailed(&self, x: Option<&T>) -> Result<(), Violations>;
 
-  fn filter_ref(&self, value: &'a T) -> Result<FT, Violations>;
+  fn filter_ref(&self, value: &'a T) -> Result<FT, Vec<ViolationMessage>>;
 
   fn filter_ref_detailed(&self, value: &'a T) -> Result<FT, Violations>;
 
-  fn filter_ref_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
+  fn filter_ref_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
 
   fn filter_ref_option_detailed(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
 }
