@@ -180,6 +180,10 @@ where
   /// assert_eq!(input.validate_ref(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// ```
   fn validate_ref(&self, value: &T) -> ValidationResult2 {
+    self.validate_ref_detailed(value)
+  }
+
+  fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {
     let mut violations = vec![];
 
     // Validate custom
@@ -244,6 +248,10 @@ where
   /// assert_eq!(input.validate_ref_option(None), Err(Violations(vec![Violation(ValueMissing, "Value is missing".to_string())])));
   /// ```
   fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult2 {
+    self.validate_ref_option_detailed(value)
+  }
+
+  fn validate_ref_option_detailed(&self, value: Option<&T>) -> ValidationResult2 {
     match value {
       Some(v) => self.validate_ref(v),
       None => {
@@ -320,12 +328,16 @@ where
   ///
   /// ```
   fn filter_ref(&self, value: &'b T) -> Result<FT, Violations> {
+    self.filter_ref_detailed(value)
+  }
+  
+  fn filter_ref_detailed(&self, value: &'b T) -> Result<FT, Violations> {
     self.validate_ref(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
-        .iter()
-        .fold(value.into(), |agg, filter| (filter)(agg))
+          .iter()
+          .fold(value.into(), |agg, filter| (filter)(agg))
     }))
   }
 
@@ -388,6 +400,10 @@ where
   /// assert_eq!(alnum_input.filter_ref_option(Some(value)), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
   /// ```
   fn filter_ref_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
+    self.filter_ref_option_detailed(value)
+  }
+
+  fn filter_ref_option_detailed(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter_ref(value).map(Some),
       None => {

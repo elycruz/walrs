@@ -135,19 +135,19 @@ where
 {
   fn validate_ref(&self, x: &T) -> ValidationResult2;
 
-  // fn validate_ref_detailed(&self, x: &T) -> ValidationResultDetailed;
+  fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 
   fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
 
-  // fn validate_ref_option_detailed(&self, x: Option<&T>) -> ValidationResultDetailed;
+  fn validate_ref_option_detailed(&self, x: Option<&T>) -> Result<(), Violations>;
 
   fn filter_ref(&self, value: &'a T) -> Result<FT, Violations>;
 
-  // fn filter_detailed(&self, value: &'a T) -> Result<Option<FT>, Violations>;
+  fn filter_ref_detailed(&self, value: &'a T) -> Result<FT, Violations>;
 
   fn filter_ref_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
 
-  // fn filter_option_detailed(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
+  fn filter_ref_option_detailed(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
 }
 
 pub trait FilterForSized<T, FT = T>: Display + Debug
