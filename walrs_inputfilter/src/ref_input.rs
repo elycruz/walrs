@@ -309,17 +309,17 @@ where
   ///
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
-  /// assert_eq!(input_num_list.filter(&value).unwrap(), vec![2, 4, 6]);
-  /// assert_eq!(input_num_list.filter(&vec![]), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
+  /// assert_eq!(input_num_list.filter_ref(&value).unwrap(), vec![2, 4, 6]);
+  /// assert_eq!(input_num_list.filter_ref(&vec![]), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
   ///
   /// let value = "Hello, World!";
   ///
-  /// assert_eq!(input.filter(value).unwrap(), Cow::Borrowed(value));
-  /// assert_eq!(input2.filter(value).unwrap(), value.to_lowercase());
-  /// assert_eq!(alnum_input.filter(value), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
+  /// assert_eq!(input.filter_ref(value).unwrap(), Cow::Borrowed(value));
+  /// assert_eq!(input2.filter_ref(value).unwrap(), value.to_lowercase());
+  /// assert_eq!(alnum_input.filter_ref(value), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
   ///
   /// ```
-  fn filter(&self, value: &'b T) -> Result<FT, Violations> {
+  fn filter_ref(&self, value: &'b T) -> Result<FT, Violations> {
     self.validate_ref(value)?;
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
@@ -378,18 +378,18 @@ where
   ///
   /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
-  /// assert_eq!(input_num_list.filter_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
-  /// assert_eq!(input_num_list.filter_option(Some(&vec![])), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
+  /// assert_eq!(input_num_list.filter_ref_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
+  /// assert_eq!(input_num_list.filter_ref_option(Some(&vec![])), Err(Violations(vec![Violation(TypeMismatch, "Value is empty".to_string())])));
   ///
   /// let value = "Hello, World!";
   ///
-  /// assert_eq!(input.filter_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
-  /// assert_eq!(input2.filter_option(Some(value)).unwrap(), Some(value.to_lowercase()));
-  /// assert_eq!(alnum_input.filter_option(Some(value)), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
+  /// assert_eq!(input.filter_ref_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
+  /// assert_eq!(input2.filter_ref_option(Some(value)).unwrap(), Some(value.to_lowercase()));
+  /// assert_eq!(alnum_input.filter_ref_option(Some(value)), Err(Violations(vec![Violation(TypeMismatch, "Value is not alpha-numeric".to_string())])));
   /// ```
-  fn filter_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
+  fn filter_ref_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
     match value {
-      Some(value) => self.filter(value).map(Some),
+      Some(value) => self.filter_ref(value).map(Some),
       None => {
         if self.required {
           Err(Violations(vec![Violation(
