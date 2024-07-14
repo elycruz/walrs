@@ -137,7 +137,7 @@ where
 
   fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 
-  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
+  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult1;
 
   fn validate_ref_option_detailed(&self, x: Option<&T>) -> Result<(), Violations>;
 
