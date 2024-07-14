@@ -690,6 +690,64 @@ impl<'a, T: Copy, FT: From<T>> Debug for Input<'a, T, FT> {
 
 #[cfg(test)]
 mod test {
+    use crate::ViolationType::{CustomError, StepMismatch};
+    use std::borrow::Cow;
+    use std::error::Error;
+    use super::*;
+
+    #[test]
+    fn test_new() -> Result<(), Box<dyn Error>> {
+        let _ = Input::<&str, Cow<str>>::new();
+        let _ = Input::<char, char>::new();
+        let _ = Input::<usize, usize>::new();
+        let _ = Input::<bool, bool>::new();
+        let _ = Input::<usize, usize>::new();
+
+        fn one_to_one_hundredd_err_msg(x: u64) -> String {
+            format!("{} is not between 1 and 100", x)
+        }
+        ;
+
+        let one_to_one_hundred = |x: u64| {
+            if x < 1 || x > 100 {
+                Err(Violation(
+                    CustomError,
+                    one_to_one_hundredd_err_msg(x),
+                ))
+            } else {
+                Ok(())
+            }
+        };
+
+        let percent = InputBuilder::<u64, u64>::default()
+            .validators(vec![
+                &|x| {
+                    if x != 0 && x % 5 != 0 {
+                        Err(Violation(StepMismatch, format!("{} is not divisible by 5", x)))
+                    } else {
+                        Ok(())
+                    }
+                },
+                &one_to_one_hundred,
+            ])
+            .build()?;
+
+        assert_eq!(percent.validate(5), Ok(()));
+        assert_eq!(
+            percent.validate(101),
+            Err(Violations(vec![
+                Violation(StepMismatch, "101 is not divisible by 5".to_string()),
+                Violation(CustomError, one_to_one_hundredd_err_msg(101)),
+            ]))
+        );
+
+        assert_eq!(
+            percent.validate(26),
+            Err(Violations(vec![Violation(StepMismatch, "26 is not divisible by 5".to_string())]))
+        );
+
+        Ok(())
+    }
     /*
         use crate::ViolationType::StepMismatch;
         use crate::{

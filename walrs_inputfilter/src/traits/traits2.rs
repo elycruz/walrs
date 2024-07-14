@@ -1,3 +1,4 @@
+use std::error::Error;
 use crate::ViolationMessage;
 use std::fmt;
 use std::fmt::{Debug, Display};
@@ -56,6 +57,12 @@ impl std::ops::DerefMut for Violation {
   }
 }
 
+impl Error for Violation {
+  fn source(&self) -> Option<&(dyn Error + 'static)> {
+    None
+  }
+}
+
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violations(pub Vec<Violation>);
 
@@ -91,8 +98,16 @@ impl Violations {
   }
 }
 
+// @deprecated Use `DetailedValidationResult` instead.
 pub type ValidationResult2 = Result<(), Violations>;
 
+pub type DetailedValidationResult = Result<(), Violations>;
+
+pub type DetailedFilterResult1<FT> = Result<Option<FT>, Violations>;
+
+pub type ValidationResult1 = Result<(), Vec<ViolationMessage>>;
+
+pub type FilterResult1<FT> = Result<FT, Vec<ViolationMessage>>;
 
 /// A trait for performing validations, and filtering (transformations), all in one.
 pub trait InputFilterForSized<T, FT = T>: Display + Debug
@@ -119,12 +134,20 @@ where
   FT: From<&'a T>,
 {
   fn validate_ref(&self, x: &T) -> ValidationResult2;
-  
+
+  // fn validate_ref_detailed(&self, x: &T) -> ValidationResultDetailed;
+
   fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult2;
-  
+
+  // fn validate_ref_option_detailed(&self, x: Option<&T>) -> ValidationResultDetailed;
+
   fn filter(&self, value: &'a T) -> Result<FT, Violations>;
 
+  // fn filter_detailed(&self, value: &'a T) -> Result<Option<FT>, Violations>;
+
   fn filter_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
+
+  // fn filter_option_detailed(&self, value: Option<&'a T>) -> Result<Option<FT>, Violations>;
 }
 
 pub trait FilterForSized<T, FT = T>: Display + Debug
