@@ -89,6 +89,7 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   /// assert_eq!(input.required, false);
   /// assert!(input.name.is_none());
   /// assert!(input.custom.is_none());
+  /// assert!(input.locale.is_none());
   /// assert!(input.get_default_value.is_none());
   /// assert!(input.validators.is_none());
   /// assert!(input.filters.is_none());
@@ -158,19 +159,20 @@ where
   /// Validates given value.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{FilterForUnsized, RefInput, Violation, Violations};
+  /// use walrs_inputfilter::{FilterForUnsized, RefInput, RefInputBuilder, Violation, Violations};
   /// use walrs_inputfilter::ViolationType::TypeMismatch;
   ///
-  /// let mut input = RefInput::<str, String>::default();
-  ///
-  /// input.validators = Some(vec![
-  ///  &|value: &str| if value.len() > 5 {
-  ///    Ok(())
-  ///  } else {
-  ///    Err(Violation(TypeMismatch, "Value is too short".to_string()))
-  ///  }]);
-  ///
-  /// input.required = true;
+  /// let input = RefInputBuilder::<str, String>::default()
+  ///   .required(true)
+  ///   .validators(vec![
+  ///     &|value: &str| if value.len() > 5 {
+  ///       Ok(())
+  ///     } else {
+  ///       Err(Violation(TypeMismatch, "Value is too short".to_string()))
+  ///     }
+  ///   ])
+  ///   .build()
+  ///   .unwrap();
   ///
   /// // Test
   /// assert_eq!(input.validate_ref("Hello, World!"), Ok(()));
@@ -220,19 +222,20 @@ where
   /// Validates given "optional" value.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{FilterForUnsized, RefInput, Violation, Violations};
+  /// use walrs_inputfilter::{FilterForUnsized, RefInput, RefInputBuilder, Violation, Violations};
   /// use walrs_inputfilter::ViolationType::{TypeMismatch, ValueMissing};
   ///
-  /// let mut input = RefInput::<str, String>::default();
-  ///
-  /// input.validators = Some(vec![
-  ///  &|value: &str| if value.len() > 5 {
-  ///    Ok(())
-  ///  } else {
-  ///    Err(Violation(TypeMismatch, "Value is too short".to_string()))
-  ///  }]);
-  ///
-  /// input.required = true;
+  /// let input = RefInputBuilder::<str, String>::default()
+  ///   .required(true)
+  ///   .validators(vec![
+  ///     &|value: &str| if value.len() > 5 {
+  ///       Ok(())
+  ///     } else {
+  ///       Err(Violation(TypeMismatch, "Value is too short".to_string()))
+  ///     }
+  ///   ])
+  ///   .build()
+  ///   .unwrap();
   ///
   /// // Test
   /// assert_eq!(input.validate_ref_option(Some("Hello, World!")), Ok(()));
@@ -435,7 +438,6 @@ where
 ///  "Value is missing".to_string()
 /// );
 /// ```
-#[derive(Clone)]
 pub struct RefInputBuilder<'a, 'b, T, FT>
 where
   T: ?Sized + 'a,
