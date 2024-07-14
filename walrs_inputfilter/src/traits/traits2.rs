@@ -98,12 +98,14 @@ impl Violations {
   }
 }
 
+// @todo `Violations` should implement `Error`.
+
 // @deprecated Use `DetailedValidationResult` instead.
 pub type ValidationResult2 = Result<(), Violations>;
 
 pub type DetailedValidationResult = Result<(), Violations>;
 
-pub type DetailedFilterResult1<FT> = Result<Option<FT>, Violations>;
+pub type DetailedFilterResult<FT> = Result<Option<FT>, Violations>;
 
 pub type ValidationResult1 = Result<(), Vec<ViolationMessage>>;
 
@@ -133,11 +135,11 @@ where
   T: ?Sized + 'a,
   FT: From<&'a T>,
 {
-  fn validate_ref(&self, x: &T) -> ValidationResult1;
+  fn validate_ref(&self, x: &T) -> Result<(), Vec<ViolationMessage>>;
 
   fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 
-  fn validate_ref_option(&self, x: Option<&T>) -> ValidationResult1;
+  fn validate_ref_option(&self, x: Option<&T>) -> Result<(), Vec<ViolationMessage>>;
 
   fn validate_ref_option_detailed(&self, x: Option<&T>) -> Result<(), Violations>;
 

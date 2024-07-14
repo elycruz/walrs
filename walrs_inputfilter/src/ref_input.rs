@@ -209,7 +209,7 @@ where
   /// assert_eq!(input.validate_ref_detailed("Hi!"), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// assert_eq!(input.validate_ref_detailed(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// ```
-  fn validate_ref_detailed(&self, value: &T) -> ValidationResult2 {
+  fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {
     let mut violations = vec![];
 
     // Validate custom
@@ -305,7 +305,7 @@ where
   /// assert_eq!(input.validate_ref_option_detailed(Some("")), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// assert_eq!(input.validate_ref_option_detailed(None), Err(Violations(vec![Violation(ValueMissing, "Value is missing".to_string())])));
   /// ```
-  fn validate_ref_option_detailed(&self, value: Option<&T>) -> ValidationResult2 {
+  fn validate_ref_option_detailed(&self, value: Option<&T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_ref_detailed(v),
       None => {
@@ -526,7 +526,7 @@ where
       Err(violations) => Err(violations.to_string_vec()),
     }
   }
-  
+
   /// Validates, and filters, incoming Option value.
   ///
   /// ```rust
