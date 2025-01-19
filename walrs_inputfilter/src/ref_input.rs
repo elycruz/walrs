@@ -71,6 +71,32 @@ where
   FT: From<&'b T>,
 {
   /// Returns a new `RefInput` instance.
+  ///
+  /// ```rust
+  /// use std::borrow::Cow;
+  /// use walrs_inputfilter::{
+  ///   RefInput,
+  ///   ref_input_value_missing_msg_getter,
+  ///   ViolationEnum
+  /// };
+  ///
+  /// let input = RefInput::<str, Cow<str>>::default();
+  ///
+  /// // Assert defaults
+  /// // ----
+  /// assert_eq!(input.break_on_failure, false);
+  /// assert_eq!(input.required, false);
+  /// assert!(input.name.is_none());
+  /// assert!(input.custom.is_none());
+  /// assert!(input.locale.is_none());
+  /// assert!(input.get_default_value.is_none());
+  /// assert!(input.validators.is_none());
+  /// assert!(input.filters.is_none());
+  /// assert_eq!(
+  ///   (&input.value_missing_msg_getter)(&input),
+  ///   ref_input_value_missing_msg_getter(&input)
+  /// );
+  /// ```
   pub fn new() -> Self {
     RefInput::default()
   }
@@ -843,7 +869,7 @@ mod test {
 
   #[test]
   fn test_debug_and_display() {
-    println!("Testing \"Display\"");
+    println!("Testing \"Debug\" and \"Display\"");
     
     let input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();
     println!("{:#?}", &input);

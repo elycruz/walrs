@@ -1,4 +1,7 @@
-use crate::{FilterFn, ValidatorForSized, ViolationMessage, Violation, ValidationResult2, InputFilterForSized, ViolationType::ValueMissing, Violations};
+use crate::{
+  FilterFn, InputFilterForSized, ValidationResult2, ValidatorForSized, Violation, ViolationMessage,
+  ViolationType::ValueMissing, Violations,
+};
 
 use std::fmt::{Debug, Display, Formatter};
 
@@ -12,68 +15,72 @@ use std::fmt::{Debug, Display, Formatter};
 /// assert_eq!(value_missing_msg_getter(&input), "Value is missing".to_string());
 /// ```
 pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> ViolationMessage {
-    "Value is missing".to_string()
+  "Value is missing".to_string()
 }
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct Input<'a, T, FilterT = T>
 where
-    T: Copy,
-    FilterT: From<T>,
+  T: Copy,
+  FilterT: From<T>,
 {
-    #[builder(default = "false")]
-    pub break_on_failure: bool,
+  #[builder(default = "false")]
+  pub break_on_failure: bool,
 
-    #[builder(default = "false")]
-    pub required: bool,
+  #[builder(default = "false")]
+  pub required: bool,
 
-    #[builder(default = "None")]
-    pub custom: Option<&'a ValidatorForSized<T>>,
+  #[builder(default = "None")]
+  pub custom: Option<&'a ValidatorForSized<T>>,
 
-    #[builder(default = "None")]
-    pub locale: Option<&'a str>,
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 
-    #[builder(default = "None")]
-    pub name: Option<&'a str>,
+  #[builder(default = "None")]
+  pub name: Option<&'a str>,
 
-    /// Returns a default value for the "input is not required, but is empty" use case.
-    #[builder(default = "None")]
-    pub get_default_value: Option<&'a (dyn Fn() -> Option<FilterT> + Send + Sync)>,
+  /// Returns a default value for the "input is not required, but is empty" use case.
+  #[builder(default = "None")]
+  pub get_default_value: Option<&'a (dyn Fn() -> Option<FilterT> + Send + Sync)>,
 
-    #[builder(default = "None")]
-    pub validators: Option<Vec<&'a ValidatorForSized<T>>>,
+  #[builder(default = "None")]
+  pub validators: Option<Vec<&'a ValidatorForSized<T>>>,
 
-    #[builder(default = "None")]
-    pub filters: Option<Vec<&'a FilterFn<FilterT>>>,
+  #[builder(default = "None")]
+  pub filters: Option<Vec<&'a FilterFn<FilterT>>>,
 
-    #[builder(default = "&value_missing_msg_getter")]
-    pub value_missing_msg_getter:
-        &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync),
+  #[builder(default = "&value_missing_msg_getter")]
+  pub value_missing_msg_getter:
+    &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync),
 }
 
 impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
-    /// Returns a new instance with all fields set to defaults.
-    ///
-    /// ```rust
-    /// use walrs_inputfilter::Input;
-    ///
-    /// let input = Input::<usize>::new();
-    ///
-    /// // Assert defaults
-    /// // ----
-    /// assert_eq!(input.break_on_failure, false);
-    /// assert_eq!(input.required, false);
-    /// assert!(input.custom.is_none());
-    /// assert_eq!(input.locale, None);
-    /// assert_eq!(input.name, None);
-    /// assert!(input.get_default_value.is_none());
-    /// assert!(input.validators.is_none());
-    /// assert!(input.filters.is_none());
-    /// ```
-    pub fn new() -> Self {
-      Input::default()
-    }
+  /// Returns a new instance with all fields set to defaults.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{ Input, value_missing_msg_getter };
+  ///
+  /// let input = Input::<usize>::new();
+  ///
+  /// // Assert defaults
+  /// // ----
+  /// assert_eq!(input.break_on_failure, false);
+  /// assert_eq!(input.required, false);
+  /// assert!(input.custom.is_none());
+  /// assert_eq!(input.locale, None);
+  /// assert_eq!(input.name, None);
+  /// assert!(input.get_default_value.is_none());
+  /// assert!(input.validators.is_none());
+  /// assert!(input.filters.is_none());
+  /// assert_eq!(
+  ///   (&input.value_missing_msg_getter)(&input),
+  ///   value_missing_msg_getter(&input)
+  /// );
+  /// ```
+  pub fn new() -> Self {
+    Input::default()
+  }
 }
 
 /*impl<'a, T, FT: From<T>> InputConstraints<T, FT> for Input<'a, T, FT>
@@ -589,7 +596,7 @@ where
   ///   ("With \"not Even\" value", &even_usize_required, Some(7), Err(Violations(vec![
   ///     Violation(CustomError, "Must be even".to_string()),
   ///   ]))),
-  ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'", 
+  ///   ("With \"out of upper bounds\" value, with 'break_on_failure: true'",
   ///     &even_usize_break_on_failure,
   ///     Some(11),
   ///     Err(Violations(vec![
@@ -601,7 +608,7 @@ where
   ///     Ok(Some(8)),
   ///   ),
   /// ];
-  /// 
+  ///
   /// // Run test cases
   /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
   ///   println!("Case {}: {}", i + 1, test_name);
@@ -639,8 +646,16 @@ impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
   /// // ----
   /// assert_eq!(input.break_on_failure, false);
   /// assert_eq!(input.required, false);
+  /// assert!(input.custom.is_none());
+  /// assert_eq!(input.locale, None);
+  /// assert_eq!(input.name, None);
+  /// assert!(input.get_default_value.is_none());
   /// assert!(input.validators.is_none());
   /// assert!(input.filters.is_none());
+  /// assert_eq!(
+  ///   (&input.value_missing_msg_getter)(&input),
+  ///   value_missing_msg_getter(&input)
+  /// );
   /// ```
   fn default() -> Self {
     Input {
@@ -684,85 +699,114 @@ impl<'a, T: Copy, FT: From<T>> Display for Input<'a, T, FT> {
 
 impl<'a, T: Copy, FT: From<T>> Debug for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-      let validators_type_out = if let Some(vs) = self.validators.as_deref() { format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len()) } else { "None".to_string() };
-      let filters_type_out = if let Some(fs) = self.filters.as_deref() { format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len()) } else { "None".to_string() };
-      let get_default_value_type_out = if let Some(dv) = self.get_default_value.as_deref() { "Some(&dyn Fn() -> Option<FT> + Send + Sync)'" } else { "None" };
-      let custom_type_out = if self.custom.is_some() { "Some(&ValidatorForSized)" } else { "None" };
-
-      f.debug_struct("Input")
-          .field("break_on_failure", &self.break_on_failure)
-          .field("required", &self.required)
-          .field("custom", &custom_type_out)
-          .field("locale", &self.locale)
-          .field("name", &self.name)
-          .field("get_default_value", &get_default_value_type_out)
-          .field("validators", &validators_type_out)
-          .field("filters", &filters_type_out)
-          .finish()
+    f.debug_struct("Input")
+      .field("break_on_failure", &self.break_on_failure)
+      .field("required", &self.required)
+      .field_with("custom", |fmtr| {
+        let val = if self.custom.is_some() {
+          "Some(&ValidatorForSized)"
+        } else {
+          "None"
+        };
+        fmtr.write_str(val).expect("value write to succeed");
+        Ok(())
+      })
+      .field("locale", &self.locale)
+      .field("name", &self.name)
+      .field_with("get_default_value", |fmtr| {
+        let val = if self.get_default_value.is_some() {
+          "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
+        } else {
+          "None"
+        };
+        fmtr.write_str(val).expect("value write to succeed");
+        Ok(())
+      })
+      .field_with("validators", |fmtr| {
+        let val = if let Some(vs) = self.validators.as_deref() {
+          format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len())
+        } else {
+          "None".to_string()
+        };
+        fmtr.write_str(&val).expect("value write to succeed");
+        Ok(())
+      })
+      .field_with("filters", |fmtr| {
+        let val = if let Some(fs) = self.filters.as_deref() {
+          format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len())
+        } else {
+          "None".to_string()
+        };
+        fmtr.write_str(&val).expect("value write to succeed");
+        Ok(())
+      })
+      .finish()
   }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::ViolationType::{CustomError, StepMismatch};
-    use std::borrow::Cow;
-    use std::error::Error;
-    use super::*;
+  use super::*;
+  use crate::ViolationType::{CustomError, StepMismatch};
+  use std::borrow::Cow;
+  use std::error::Error;
 
-    #[test]
-    fn test_new() -> Result<(), Box<dyn Error>> {
-        let _ = Input::<&str, Cow<str>>::new();
-        let _ = Input::<char, char>::new();
-        let _ = Input::<usize, usize>::new();
-        let _ = Input::<bool, bool>::new();
-        let _ = Input::<usize, usize>::new();
+  #[test]
+  fn test_new() -> Result<(), Box<dyn Error>> {
+    let _ = Input::<&str, Cow<str>>::new();
+    let _ = Input::<char, char>::new();
+    let _ = Input::<usize, usize>::new();
+    let _ = Input::<bool, bool>::new();
+    let _ = Input::<usize, usize>::new();
 
-        fn one_to_one_hundredd_err_msg(x: u64) -> String {
-            format!("{} is not between 1 and 100", x)
-        }
-        ;
+    fn one_to_one_hundredd_err_msg(x: u64) -> String {
+      format!("{} is not between 1 and 100", x)
+    };
 
-        let one_to_one_hundred = |x: u64| {
-            if x < 1 || x > 100 {
-                Err(Violation(
-                    CustomError,
-                    one_to_one_hundredd_err_msg(x),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-
-        let percent = InputBuilder::<u64, u64>::default()
-            .validators(vec![
-                &|x| {
-                    if x != 0 && x % 5 != 0 {
-                        Err(Violation(StepMismatch, format!("{} is not divisible by 5", x)))
-                    } else {
-                        Ok(())
-                    }
-                },
-                &one_to_one_hundred,
-            ])
-            .build()?;
-
-        assert_eq!(percent.validate(5), Ok(()));
-        assert_eq!(
-            percent.validate(101),
-            Err(Violations(vec![
-                Violation(StepMismatch, "101 is not divisible by 5".to_string()),
-                Violation(CustomError, one_to_one_hundredd_err_msg(101)),
-            ]))
-        );
-
-        assert_eq!(
-            percent.validate(26),
-            Err(Violations(vec![Violation(StepMismatch, "26 is not divisible by 5".to_string())]))
-        );
-
+    let one_to_one_hundred = |x: u64| {
+      if x < 1 || x > 100 {
+        Err(Violation(CustomError, one_to_one_hundredd_err_msg(x)))
+      } else {
         Ok(())
-    }
-    /*
+      }
+    };
+
+    let percent = InputBuilder::<u64, u64>::default()
+      .validators(vec![
+        &|x| {
+          if x != 0 && x % 5 != 0 {
+            Err(Violation(
+              StepMismatch,
+              format!("{} is not divisible by 5", x),
+            ))
+          } else {
+            Ok(())
+          }
+        },
+        &one_to_one_hundred,
+      ])
+      .build()?;
+
+    assert_eq!(percent.validate(5), Ok(()));
+    assert_eq!(
+      percent.validate(101),
+      Err(Violations(vec![
+        Violation(StepMismatch, "101 is not divisible by 5".to_string()),
+        Violation(CustomError, one_to_one_hundredd_err_msg(101)),
+      ]))
+    );
+
+    assert_eq!(
+      percent.validate(26),
+      Err(Violations(vec![Violation(
+        StepMismatch,
+        "26 is not divisible by 5".to_string()
+      )]))
+    );
+
+    Ok(())
+  }
+  /*
         use crate::ViolationType::StepMismatch;
         use crate::{
             range_overflow_msg_getter, LengthValidatorBuilder, PatternValidatorBuilder,
@@ -1343,7 +1387,7 @@ mod test {
 
             Ok(())
         }
-        
+
   #[test]
   fn test_debug() {
     let input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();;
