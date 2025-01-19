@@ -684,7 +684,21 @@ impl<'a, T: Copy, FT: From<T>> Display for Input<'a, T, FT> {
 
 impl<'a, T: Copy, FT: From<T>> Debug for Input<'a, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{}", &self)
+      let validators_type_out = if let Some(vs) = self.validators.as_deref() { format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len()) } else { "None".to_string() };
+      let filters_type_out = if let Some(fs) = self.filters.as_deref() { format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len()) } else { "None".to_string() };
+      let get_default_value_type_out = if let Some(dv) = self.get_default_value.as_deref() { "Some(&dyn Fn() -> Option<FT> + Send + Sync)'" } else { "None" };
+      let custom_type_out = if self.custom.is_some() { "Some(&ValidatorForSized)" } else { "None" };
+
+      f.debug_struct("Input")
+          .field("break_on_failure", &self.break_on_failure)
+          .field("required", &self.required)
+          .field("custom", &custom_type_out)
+          .field("locale", &self.locale)
+          .field("name", &self.name)
+          .field("get_default_value", &get_default_value_type_out)
+          .field("validators", &validators_type_out)
+          .field("filters", &filters_type_out)
+          .finish()
   }
 }
 
@@ -1328,5 +1342,29 @@ mod test {
             );
 
             Ok(())
-        }*/
+        }
+        
+  #[test]
+  fn test_debug() {
+    let input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();;
+    println!("{:#?}", &input);
+
+    // Input with values
+    // ----
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+        .break_on_failure(true)
+        .required(true)
+        .custom(&|_: &str| Ok(()))
+        .locale("en_US")
+        .name("name")
+        .get_default_value(&|| Some(Cow::Borrowed("default")))
+        .validators(vec![&|_: &str| Ok(())])
+        .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
+        .value_missing_msg_getter(&|_: &RefInput<'_, '_, str, Cow<str>>| "Value is missing".to_string())
+        .build()
+        .unwrap();
+
+    println!("{:#?}", &input);
+  }
+  */
 }

@@ -1,6 +1,9 @@
 use crate::ViolationType::ValueMissing;
-use crate::{FilterFn, FilterForUnsized, ValidationResult1, ValidationResult2, ValidatorForRef, Violation, ViolationMessage, Violations};
-use std::fmt::{Debug, Display, Formatter};
+use crate::{
+  FilterFn, FilterForUnsized, ValidationResult1, ValidatorForRef, Violation,
+  ViolationMessage, Violations,
+};
+use std::fmt::{Debug, Display, Formatter, Write};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -12,7 +15,9 @@ use std::fmt::{Debug, Display, Formatter};
 ///
 /// assert_eq!(ref_input_value_missing_msg_getter(&input), "Value is missing".to_string());
 /// ```
-pub fn ref_input_value_missing_msg_getter<'a, 'b, T, FT>(_: &RefInput<'a, 'b, T, FT>) -> ViolationMessage
+pub fn ref_input_value_missing_msg_getter<'a, 'b, T, FT>(
+  _: &RefInput<'a, 'b, T, FT>,
+) -> ViolationMessage
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -63,7 +68,8 @@ where
 impl<'a, 'b, T, FT> RefInput<'a, 'b, T, FT>
 where
   T: ?Sized + 'b,
-  FT: From<&'b T> {
+  FT: From<&'b T>,
+{
   /// Returns a new `RefInput` instance.
   pub fn new() -> Self {
     RefInput::default()
@@ -119,16 +125,7 @@ where
   FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync) }}",
-           self.break_on_failure,
-           self.required,
-           if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
-           self.locale,
-           self.name,
-           if self.get_default_value.as_ref().is_some() { "Some(...)" } else { "None" },
-           if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
-           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
-    )
+    write!(f, "{:#?}", self)
   }
 }
 
@@ -138,16 +135,48 @@ where
   FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "RefInput {{ break_on_failure: {}, required: {}, custom: {:?}, locale: {:?}, name: {:?}, default_value: {}, validators: {}, filters: {}, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync) }}",
-           self.break_on_failure,
-           self.required,
-           if self.custom.is_some() { "Some(&ValidatorForRef)" } else { "None" },
-           self.locale,
-           self.name,
-           if self.get_default_value.as_ref().is_some() { "Some(...)" } else { "None" },
-           if let Some(vs) = self.validators.as_deref() { format!("[&ValidatorForRef<T>; {}", vs.len()) } else { "None".to_string() },
-           if let Some(fs) = self.filters.as_deref() { format!("[&FilterFn<FT>; {}", fs.len()) } else { "None".to_string() }
-    )
+    f.debug_struct("RefInput")
+      .field("break_on_failure", &self.break_on_failure)
+      .field("required", &self.required)
+      .field_with("custom", |fmtr| {
+        let val = if self.custom.is_some() {
+          "Some(&ValidatorForRef)"
+        } else {
+          "None"
+        };
+        fmtr.write_str(val).expect("value write to succeed");
+        Ok(())
+      })
+      .field("locale", &self.locale)
+      .field("name", &self.name)
+      .field_with("get_default_value", |fmtr| {
+        let val = if self.get_default_value.is_some() {
+          "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
+        } else {
+          "None"
+        };
+        fmtr.write_str(val).expect("value write to succeed");
+        Ok(())
+      })
+      .field_with("validators", |fmtr| {
+        let val = if let Some(vs) = self.validators.as_deref() {
+          format!("Some(Vec<&ValidatorForRef>{{ len: {} }})", vs.len())
+        } else {
+          "None".to_string()
+        };
+        fmtr.write_str(&val).expect("value write to succeed");
+        Ok(())
+      })
+      .field_with("filters", |fmtr| {
+        let val = if let Some(fs) = self.filters.as_deref() {
+          format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len())
+        } else {
+          "None".to_string()
+        };
+        fmtr.write_str(&val).expect("value write to succeed");
+        Ok(())
+      })
+      .finish()
   }
 }
 
@@ -457,8 +486,8 @@ where
 
     Ok(self.filters.as_deref().map_or(value.into(), |filters| {
       filters
-          .iter()
-          .fold(value.into(), |agg, filter| (filter)(agg))
+        .iter()
+        .fold(value.into(), |agg, filter| (filter)(agg))
     }))
   }
 
@@ -653,11 +682,15 @@ where
   get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
   validators: Option<Vec<&'a ValidatorForRef<T>>>,
   filters: Option<Vec<&'a FilterFn<FT>>>,
-  value_missing_msg_getter: Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
+  value_missing_msg_getter:
+    Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
 }
 
 impl<'a, 'b, T, FT> RefInputBuilder<'a, 'b, T, FT>
-where T: ?Sized + 'b, FT: From<&'b T> {
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
   pub fn break_on_failure(&mut self, break_on_failure: bool) -> &mut Self {
     self.break_on_failure = Some(break_on_failure);
     self
@@ -683,7 +716,10 @@ where T: ?Sized + 'b, FT: From<&'b T> {
     self
   }
 
-  pub fn get_default_value(&mut self, get_default_value: &'a (dyn Fn() -> Option<FT> + Send + Sync)) -> &mut Self {
+  pub fn get_default_value(
+    &mut self,
+    get_default_value: &'a (dyn Fn() -> Option<FT> + Send + Sync),
+  ) -> &mut Self {
     self.get_default_value = Some(get_default_value);
     self
   }
@@ -698,7 +734,12 @@ where T: ?Sized + 'b, FT: From<&'b T> {
     self
   }
 
-  pub fn value_missing_msg_getter(&mut self, value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)) -> &mut Self {
+  pub fn value_missing_msg_getter(
+    &mut self,
+    value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage
+           + Send
+           + Sync),
+  ) -> &mut Self {
     self.value_missing_msg_getter = Some(value_missing_msg_getter);
     self
   }
@@ -713,13 +754,18 @@ where T: ?Sized + 'b, FT: From<&'b T> {
       get_default_value: self.get_default_value,
       validators: self.validators.clone(),
       filters: self.filters.clone(),
-      value_missing_msg_getter: self.value_missing_msg_getter.unwrap_or(&ref_input_value_missing_msg_getter),
+      value_missing_msg_getter: self
+        .value_missing_msg_getter
+        .unwrap_or(&ref_input_value_missing_msg_getter),
     })
   }
 }
 
 impl<'a, 'b, T, FT> Default for RefInputBuilder<'a, 'b, T, FT>
-where T: ?Sized + 'b, FT: From<&'b T> {
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
   fn default() -> Self {
     RefInputBuilder {
       break_on_failure: None,
@@ -764,17 +810,19 @@ mod test {
     // Test builder with values
     // ----
     let input = RefInputBuilder::<str, Cow<str>>::default()
-        .break_on_failure(true)
-        .required(true)
-        .custom(&|_: &str| Ok(()))
-        .locale("en_US")
-        .name("name")
-        .get_default_value(&|| Some(Cow::Borrowed("default")))
-        .validators(vec![&|_: &str| Ok(())])
-        .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
-        .value_missing_msg_getter(&|_: &RefInput<'_, '_, str, Cow<str>>| "Value is missing".to_string())
-        .build()
-        .unwrap();
+      .break_on_failure(true)
+      .required(true)
+      .custom(&|_: &str| Ok(()))
+      .locale("en_US")
+      .name("name")
+      .get_default_value(&|| Some(Cow::Borrowed("default")))
+      .validators(vec![&|_: &str| Ok(())])
+      .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
+      .value_missing_msg_getter(&|_: &RefInput<'_, '_, str, Cow<str>>| {
+        "Value is missing".to_string()
+      })
+      .build()
+      .unwrap();
 
     // Test result
     // ----
@@ -791,5 +839,36 @@ mod test {
       (&input.value_missing_msg_getter)(&input),
       "Value is missing".to_string()
     );
+  }
+
+  #[test]
+  fn test_debug_and_display() {
+    println!("Testing \"Display\"");
+    
+    let input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();
+    println!("{:#?}", &input);
+    println!("{}", &input);
+
+    // Input with values
+    // ----
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+      .break_on_failure(true)
+      .required(true)
+      .custom(&|_: &str| Ok(()))
+      .locale("en_US")
+      .name("name")
+      .get_default_value(&|| Some(Cow::Borrowed("default")))
+      .validators(vec![&|_: &str| Ok(())])
+      .filters(vec![&|_: Cow<str>| Cow::Borrowed("filtered")])
+      .value_missing_msg_getter(&|_: &RefInput<'_, '_, str, Cow<str>>| {
+        "Value is missing".to_string()
+      })
+      .build()
+      .unwrap();
+
+    println!("{:#?}", &input);
+
+    // Test Display
+    println!("{}", &input);
   }
 }
