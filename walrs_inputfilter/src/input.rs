@@ -18,7 +18,7 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
   "Value is missing".to_string()
 }
 
-/// Validation struct for working with `Copy + Sized` types (Scalars, etc).
+/// Validation struct for filtering, and/or validating, `Copy + Sized` types (Scalars, etc).
 ///
 /// ```rust
 /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
@@ -66,8 +66,8 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
 /// // Detailed violation Results
 /// assert_eq!(input.filter_detailed('a'), Ok('a'));
 /// assert_eq!(input.filter_detailed('b'), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
-/// 
-/// // Detailed violation Results for optional value 
+///
+/// // Detailed violation Results for optional value
 /// assert_eq!(input.filter_option_detailed(Some('a')), Ok(Some('a')));
 /// assert_eq!(input.filter_option_detailed(Some('b')), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
 ///
@@ -117,8 +117,14 @@ impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
+  /// use std::borrow::Cow;
   /// use walrs_inputfilter::{ Input, value_missing_msg_getter };
   ///
+  /// // Using copy types (`Input::<type-to-validate, type-returned-from-filter*-fns>`, send generic
+  /// // must fit `From<arg-1>`).
+  /// let _ = Input::<&str, Cow<str>>::new();
+  /// let _ = Input::<char, char>::new();
+  /// let _ = Input::<bool, bool>::new();
   /// let input = Input::<usize>::new();
   ///
   /// // Assert defaults
@@ -319,7 +325,7 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
-  /// Validates given optional value and returns detailed violation results, on violation.
+  /// Validates given optional value and returns detailed violation results on violation.
   ///
   /// ```rust
   /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
@@ -1085,58 +1091,6 @@ mod test {
   use std::borrow::Cow;
   use std::error::Error;
 
-  #[test]
-  fn test_new() -> Result<(), Box<dyn Error>> {
-    let _ = Input::<&str, Cow<str>>::new();
-    let _ = Input::<char, char>::new();
-    let _ = Input::<usize, usize>::new();
-    let _ = Input::<bool, bool>::new();
-    let _ = Input::<usize, usize>::new();
-
-    fn one_to_one_hundredd_err_msg(x: u64) -> String {
-      format!("{} is not between 1 and 100", x)
-    };
-
-    let one_to_one_hundred = |x: u64| {
-      if x < 1 || x > 100 {
-        Err(Violation(CustomError, one_to_one_hundredd_err_msg(x)))
-      } else {
-        Ok(())
-      }
-    };
-
-    let percent = InputBuilder::<u64, u64>::default()
-      .validators(vec![
-        &|x| {
-          if x != 0 && x % 5 != 0 {
-            Err(Violation(
-              StepMismatch,
-              format!("{} is not divisible by 5", x),
-            ))
-          } else {
-            Ok(())
-          }
-        },
-        &one_to_one_hundred,
-      ])
-      .build()?;
-
-    assert_eq!(percent.validate(5), Ok(()));
-    assert_eq!(
-      percent.validate(101),
-      Err(vec![
-        "101 is not divisible by 5".to_string(),
-        one_to_one_hundredd_err_msg(101),
-      ])
-    );
-
-    assert_eq!(
-      percent.validate(26),
-      Err(vec!["26 is not divisible by 5".to_string()])
-    );
-
-    Ok(())
-  }
   /*
         use crate::ViolationType::StepMismatch;
         use crate::{
