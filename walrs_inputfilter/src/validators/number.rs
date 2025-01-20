@@ -35,7 +35,7 @@ pub struct NumberValidator<'a, T: NumberValue> {
   pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T> NumberValidator<'a, T>
+impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
@@ -167,7 +167,7 @@ impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   }
 }
 
-impl<'a, T> Default for NumberValidator<'a, T>
+impl<T> Default for NumberValidator<'_, T>
 where
   T: NumberValue,
 {

@@ -55,7 +55,7 @@ where
     &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync),
 }
 
-impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
+impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -83,7 +83,7 @@ impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
   }
 }
 
-impl<'a, T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'a, T, FT> {
+impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
     match self.validate_detailed(value) {
       Ok(()) => Ok(()),
@@ -744,7 +744,7 @@ where
   }
 }
 */
-impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
+impl<T: Copy, FT: From<T>> Default for Input<'_, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -785,7 +785,7 @@ impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
   }
 }
 
-impl<'a, T: Copy, FT: From<T>> Display for Input<'a, T, FT> {
+impl<T: Copy, FT: From<T>> Display for Input<'_, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Input")
       .field("break_on_failure", &self.break_on_failure)
@@ -810,7 +810,7 @@ impl<'a, T: Copy, FT: From<T>> Display for Input<'a, T, FT> {
   }
 }
 
-impl<'a, T: Copy, FT: From<T>> Debug for Input<'a, T, FT> {
+impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Input")
       .field("break_on_failure", &self.break_on_failure)

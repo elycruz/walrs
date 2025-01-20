@@ -37,7 +37,7 @@ pub struct StripTagsFilter<'a> {
   pub ammonia: Option<ammonia::Builder<'a>>,
 }
 
-impl<'a> StripTagsFilter<'a> {
+impl StripTagsFilter<'_> {
   /// Constructs a new `StripTagsFilter` instance.
   pub fn new() -> Self {
     Self { ammonia: None }
@@ -107,13 +107,13 @@ impl<'a> StripTagsFilter<'a> {
   }
 }
 
-impl<'a> Default for StripTagsFilter<'a> {
+impl Default for StripTagsFilter<'_> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'a> {
+impl<'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   type Output = Cow<'b, str>;
 
   extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
@@ -121,13 +121,13 @@ impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'a> {
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'b, str>,)> for StripTagsFilter<'a> {
+impl<'b> FnMut<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'b, str>,)> for StripTagsFilter<'a> {
+impl<'b> Fn<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }

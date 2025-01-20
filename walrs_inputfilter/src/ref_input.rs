@@ -65,7 +65,7 @@ where
     &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync),
 }
 
-impl<'a, 'b, T, FT> RefInput<'a, 'b, T, FT>
+impl<'b, T, FT> RefInput<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -102,7 +102,7 @@ where
   }
 }
 
-impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT> {
+impl<'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'_, 'b, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -145,7 +145,7 @@ impl<'a, 'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'a, 'b, T, FT
   }
 }
 
-impl<'a, 'b, T, FT> Display for RefInput<'a, 'b, T, FT>
+impl<'b, T, FT> Display for RefInput<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -155,7 +155,7 @@ where
   }
 }
 
-impl<'a, 'b, T, FT> Debug for RefInput<'a, 'b, T, FT>
+impl<'b, T, FT> Debug for RefInput<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -206,7 +206,7 @@ where
   }
 }
 
-impl<'a, 'b, T, FT> FilterForUnsized<'b, T, FT> for RefInput<'a, 'b, T, FT>
+impl<'b, T, FT> FilterForUnsized<'b, T, FT> for RefInput<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -787,7 +787,7 @@ where
   }
 }
 
-impl<'a, 'b, T, FT> Default for RefInputBuilder<'a, 'b, T, FT>
+impl<'b, T, FT> Default for RefInputBuilder<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
   FT: From<&'b T>,
@@ -820,8 +820,8 @@ mod test {
 
     // Test result
     // ----
-    assert_eq!(default_input.break_on_failure, false);
-    assert_eq!(default_input.required, false);
+    assert!(!default_input.break_on_failure);
+    assert!(!default_input.required);
     assert!(default_input.custom.is_none());
     assert!(default_input.locale.is_none());
     assert!(default_input.name.is_none());
@@ -829,7 +829,7 @@ mod test {
     assert!(default_input.validators.is_none());
     assert!(default_input.filters.is_none());
     assert_eq!(
-      (&default_input.value_missing_msg_getter)(&default_input),
+      (default_input.value_missing_msg_getter)(&default_input),
       "Value is missing".to_string()
     );
 
@@ -852,8 +852,8 @@ mod test {
 
     // Test result
     // ----
-    assert_eq!(input.break_on_failure, true);
-    assert_eq!(input.required, true);
+    assert!(input.break_on_failure);
+    assert!(input.required);
     assert!(input.custom.is_some());
     assert_eq!(input.locale, Some("en_US"));
     assert_eq!(input.name, Some("name"));
@@ -862,7 +862,7 @@ mod test {
     assert!(input.validators.is_some());
     assert!(input.filters.is_some());
     assert_eq!(
-      (&input.value_missing_msg_getter)(&input),
+      (input.value_missing_msg_getter)(&input),
       "Value is missing".to_string()
     );
   }

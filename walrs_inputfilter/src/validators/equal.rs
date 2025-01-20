@@ -15,7 +15,7 @@ where
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
+impl<T> ValidateValue<T> for EqualityValidator<'_, T>
 where
   T: InputValue + Display,
 {

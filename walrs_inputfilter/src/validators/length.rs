@@ -25,7 +25,7 @@ where
   pub too_long_msg: &'a LengthValidatorCallback<T>,
 }
 
-impl<'a, T: WithLength> LengthValidator<'a, T> {
+impl<T: WithLength> LengthValidator<'_, T> {
   pub fn new() -> Self {
     LengthValidatorBuilder::default().build().unwrap()
   }
@@ -35,13 +35,13 @@ pub trait WithLength: InputValue {
   fn length(&self) -> Option<usize>;
 }
 
-impl<'a> WithLength for &'a str {
+impl WithLength for &str {
   fn length(&self) -> Option<usize> {
     Some(self.len())
   }
 }
 
-impl<'a, T: InputValue> WithLength for &'a [T] {
+impl<T: InputValue> WithLength for &[T] {
   fn length(&self) -> Option<usize> {
     Some(self.len())
   }
@@ -124,7 +124,7 @@ impl<'a, T: InputValue> WithLength for &'a [T] {
 ///  assert_eq!(rules(value), expected, "{}", name);
 /// }
 /// ```
-impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
+impl<T: WithLength> ValidateValue<T> for LengthValidator<'_, T> {
   fn validate(&self, value: T) -> ValidationResult {
     if let Some(len) = value.length() {
       let mut errs = vec![];
@@ -180,7 +180,7 @@ impl<T: WithLength> Fn<(T,)> for LengthValidator<'_, T> {
   }
 }
 
-impl<'a, T: WithLength> Default for LengthValidator<'a, T> {
+impl<T: WithLength> Default for LengthValidator<'_, T> {
   fn default() -> Self {
     LengthValidator::new()
   }

@@ -21,7 +21,7 @@ pub struct RangeValidator<'a, T: ScalarValue> {
   pub range_overflow_msg: &'a (dyn Fn(&RangeValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T: ScalarValue> RangeValidator<'a, T> {
+impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
@@ -47,7 +47,7 @@ impl<'a, T: ScalarValue> RangeValidator<'a, T> {
   }
 }
 
-impl<'a, T: ScalarValue> ValidateValue<T> for RangeValidator<'a, T> {
+impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///

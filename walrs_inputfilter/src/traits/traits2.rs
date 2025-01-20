@@ -80,15 +80,15 @@ impl std::ops::DerefMut for Violations {
   }
 }
 
-impl Into<Vec<Violation>> for Violations {
-  fn into(self) -> Vec<Violation> {
-    self.0
+impl From<Violations> for Vec<Violation> {
+  fn from(val: Violations) -> Self {
+    val.0
   }
 }
 
-impl Into<Vec<String>> for Violations {
-  fn into(self) -> Vec<String> {
-    self.0.into_iter().map(|violation| violation.1).collect()
+impl From<Violations> for Vec<String> {
+  fn from(val: Violations) -> Self {
+    val.0.into_iter().map(|violation| violation.1).collect()
   }
 }
 
