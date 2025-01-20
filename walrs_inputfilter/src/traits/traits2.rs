@@ -157,7 +157,21 @@ where
   T: Copy,
   FT: From<T>,
 {
-  fn filter(&self, value: T) -> Result<FT, Violations>;
+  fn validate(&self, x: T) -> Result<(), Vec<ViolationMessage>>;
+
+  fn validate_detailed(&self, x: T) -> Result<(), Violations>;
+
+  fn validate_option(&self, x: Option<T>) -> Result<(), Vec<ViolationMessage>>;
+
+  fn validate_option_detailed(&self, x: Option<T>) -> Result<(), Violations>;
+
+  fn filter(&self, value: T) -> Result<FT, Vec<ViolationMessage>>;
+
+  fn filter_detailed(&self, value: T) -> Result<FT, Violations>;
+
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
+
+  fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations>;
 }
 
 #[cfg(test)]

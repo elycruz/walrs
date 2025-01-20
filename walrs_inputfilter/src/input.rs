@@ -1,5 +1,5 @@
 use crate::{
-  FilterFn, InputFilterForSized, ValidationResult2, ValidatorForSized, Violation, ViolationMessage,
+  FilterFn, FilterForSized, ValidatorForSized, Violation, ViolationMessage,
   ViolationType::ValueMissing, Violations,
 };
 
@@ -80,6 +80,118 @@ impl<'a, T: Copy, FT: From<T>> Input<'a, T, FT> {
   /// ```
   pub fn new() -> Self {
     Input::default()
+  }
+}
+
+impl<'a, T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'a, T, FT> {
+  fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate_detailed(value) {
+      Ok(()) => Ok(()),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
+  }
+
+  fn validate_detailed(&self, value: T) -> Result<(), Violations> {
+    let mut violations = vec![];
+
+    // Validate custom
+    match if let Some(custom) = self.custom {
+      (custom)(value)
+    } else {
+      Ok(())
+    } {
+      Ok(()) => (),
+      Err(err_type) => violations.push(err_type),
+    }
+
+    if !violations.is_empty() && self.break_on_failure {
+      return Err(Violations(violations));
+    }
+
+    // Else validate against validators
+    self.validators.as_deref().map_or(Ok(()), |validators| {
+      for validator in validators {
+        match validator(value) {
+          Ok(()) => continue,
+          Err(err_type) => {
+            violations.push(err_type);
+            if self.break_on_failure {
+              break;
+            }
+          }
+        }
+      }
+
+      // Resolve return value
+      if violations.is_empty() {
+        Ok(())
+      } else {
+        Err(Violations(violations))
+      }
+    })
+  }
+
+  fn validate_option(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate_option_detailed(value) {
+      Ok(()) => Ok(()),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
+  }
+
+  fn validate_option_detailed(&self, value: Option<T>) -> Result<(), Violations> {
+    match value {
+      Some(v) => self.validate_detailed(v),
+      None => {
+        if self.required {
+          Err(Violations(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )]))
+        } else {
+          Ok(())
+        }
+      }
+    }
+  }
+
+  fn filter(&self, value: T) -> Result<FT, Vec<ViolationMessage>> {
+    match self.filter_detailed(value) {
+      Ok(value) => Ok(value),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
+  }
+
+  fn filter_detailed(&self, value: T) -> Result<FT, Violations> {
+    self.validate_detailed(value)?;
+
+    Ok(self.filters.as_deref().map_or(value.into(), |filters| {
+      filters
+        .iter()
+        .fold(value.into(), |agg, filter| (filter)(agg))
+    }))
+  }
+
+  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
+    match self.filter_option_detailed(value) {
+      Ok(value) => Ok(value),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
+  }
+
+  fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations> {
+    match value {
+      Some(value) => self.filter_detailed(value).map(Some),
+      None => {
+        if self.required {
+          Err(Violations(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )]))
+        } else {
+          Ok(self.get_default_value.and_then(|f| f()))
+        }
+      }
+    }
   }
 }
 
@@ -288,7 +400,7 @@ where
   }
 }*/
 
-impl<'a, T, FT> InputFilterForSized<T, FT> for Input<'a, T, FT>
+/*impl<'a, T, FT> InputFilterForSized<T, FT> for Input<'a, T, FT>
 where
   T: Copy,
   FT: From<T>,
@@ -631,13 +743,14 @@ where
     }
   }
 }
-
+*/
 impl<'a, T: Copy, FT: From<T>> Default for Input<'a, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
   /// use walrs_inputfilter::{
   ///   Input, InputConstraints, ViolationType,
+  ///   value_missing_msg_getter
   /// };
   ///
   /// let input = Input::<usize, usize>::default();
@@ -790,18 +903,15 @@ mod test {
     assert_eq!(percent.validate(5), Ok(()));
     assert_eq!(
       percent.validate(101),
-      Err(Violations(vec![
-        Violation(StepMismatch, "101 is not divisible by 5".to_string()),
-        Violation(CustomError, one_to_one_hundredd_err_msg(101)),
-      ]))
+      Err(vec![
+        "101 is not divisible by 5".to_string(),
+        one_to_one_hundredd_err_msg(101),
+      ])
     );
 
     assert_eq!(
       percent.validate(26),
-      Err(Violations(vec![Violation(
-        StepMismatch,
-        "26 is not divisible by 5".to_string()
-      )]))
+      Err(vec!["26 is not divisible by 5".to_string()])
     );
 
     Ok(())

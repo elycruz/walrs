@@ -1,7 +1,7 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, FilterForUnsized, ValidationResult1, ValidatorForRef, Violation,
-  ViolationMessage, Violations,
+  FilterFn, FilterForUnsized, ValidationResult1, ValidatorForRef, Violation, ViolationMessage,
+  Violations,
 };
 use std::fmt::{Debug, Display, Formatter, Write};
 
@@ -870,7 +870,7 @@ mod test {
   #[test]
   fn test_debug_and_display() {
     println!("Testing \"Debug\" and \"Display\"");
-    
+
     let input = RefInputBuilder::<str, Cow<str>>::default().build().unwrap();
     println!("{:#?}", &input);
     println!("{}", &input);
