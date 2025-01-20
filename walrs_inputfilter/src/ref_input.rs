@@ -262,6 +262,9 @@ where
   /// // Test
   /// assert_eq!(input.validate_ref_detailed("Hello, World!"), Ok(()));
   /// assert_eq!(input.validate_ref_detailed("Hi!"), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
+  /// // `Violations`, and `Violation` are tuple types,  E.g., inner elements can be accessed
+  /// //   with tuple enumeration syntax (`tuple.0`, `tuple.1` etc), additionally there are `Deref`
+  /// //   impls on them for easily accessing their inner items.
   /// assert_eq!(input.validate_ref_detailed(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// ```
   fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {

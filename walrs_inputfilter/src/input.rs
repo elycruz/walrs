@@ -18,6 +18,64 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
   "Value is missing".to_string()
 }
 
+/// Validation struct for working with `Copy + Sized` types (Scalars, etc).
+///
+/// ```rust
+/// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
+/// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+/// use walrs_inputfilter::validators::NumberValidator;
+///
+/// let vowels = "aeiou";
+/// let vowel_validator = &|value: char| if vowels.contains(value) {
+///   Ok(())
+/// } else {
+///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+/// };
+///
+/// // Generics: type to validate and type returned within `filter*` functions.
+/// let input = InputBuilder::<char, char>::default()
+///   .required(true)
+///   .validators(vec![ vowel_validator ])
+///   .build()
+///   .unwrap();
+///
+/// let even_num_validator = |x: usize| if x & 1 == 0 {
+///   Ok(())
+/// } else {
+///   Err(Violation(StepMismatch, format!("{} is Odd", x)))
+/// };
+///
+/// let num_input = InputBuilder::<usize, usize>::default()
+///   .required(true)
+///   .validators(vec![&even_num_validator])
+///   .build()
+///   .unwrap();
+///
+/// // Test
+/// assert_eq!(input.filter('a'), Ok('a'));
+/// assert_eq!(input.filter('b'), Err(vec!["Only vowels allowed".to_string()]));
+/// // Num input
+/// assert_eq!(num_input.filter(2), Ok(2));
+/// assert_eq!(num_input.filter(1), Err(vec!["1 is Odd".to_string()]));
+///
+/// // Optional Values
+/// assert_eq!(input.filter_option(None), Err(vec![value_missing_msg_getter(&input)]));
+/// assert_eq!(input.filter_option(Some('a')), Ok(Some('a')));
+/// assert_eq!(input.filter_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
+///
+/// // Detailed violation Results
+/// assert_eq!(input.filter_detailed('a'), Ok('a'));
+/// assert_eq!(input.filter_detailed('b'), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
+/// 
+/// // Detailed violation Results for optional value 
+/// assert_eq!(input.filter_option_detailed(Some('a')), Ok(Some('a')));
+/// assert_eq!(input.filter_option_detailed(Some('b')), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
+///
+/// // If just validating values (not applying transformations (filtering) or normalization):
+/// assert_eq!(input.validate('a'), Ok(()));
+/// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
+/// // and/or, use other `validate*` methods ...
+/// ```
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct Input<'a, T, FilterT = T>
@@ -84,6 +142,45 @@ impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
 }
 
 impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
+  /// Validates given value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+  /// use walrs_inputfilter::validators::NumberValidator;
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  /// };
+  ///
+  /// // Generics: type to validate and type returned within `filter*` functions.
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_num_validator = |x: usize| if x & 1 == 0 {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(StepMismatch, format!("{} is Odd", x)))
+  /// };
+  ///
+  /// let num_input = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&even_num_validator])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate('a'), Ok(()));
+  /// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
+  /// assert_eq!(num_input.validate(2), Ok(()));
+  /// assert_eq!(num_input.validate(1), Err(vec!["1 is Odd".to_string()]));
+  /// ```
   fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
     match self.validate_detailed(value) {
       Ok(()) => Ok(()),
@@ -91,6 +188,50 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
+  /// Validates given value and returns detailed violation results, on violation.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///       Ok(())
+  ///     } else {
+  ///       Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  ///     };
+  ///
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_num_validator = |x: usize| if x & 1 == 0 {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(StepMismatch, format!("{} is Odd", x)))
+  /// };
+  ///
+  /// let num_input = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&even_num_validator])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_detailed('a'), Ok(()));
+  /// // `Violations`, and `Violation` are tuple types,  E.g., inner elements can be accessed
+  /// //   with tuple enumeration syntax (`tuple.0`, `tuple.1` etc), additionally there are `Deref`
+  /// //   impls on them for easily accessing their inner items.
+  /// assert_eq!(input.validate_detailed('b'), Err(Violations(vec![Violation(
+  ///   TypeMismatch,
+  ///   "Only vowels allowed".to_string()
+  /// )])));
+  /// // Num input
+  /// assert_eq!(num_input.validate_detailed(2), Ok(()));
+  /// assert_eq!(num_input.validate_detailed(1), Err(Violations(vec![Violation(StepMismatch, "1 is Odd".to_string())])));
+  /// ```
   fn validate_detailed(&self, value: T) -> Result<(), Violations> {
     let mut violations = vec![];
 
@@ -131,6 +272,46 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     })
   }
 
+  /// Validates given "optional" value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  /// };
+  /// // Generics: type to validate, type returned within `filter*` functions.
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_num_validator = |x: usize| if x & 1 == 0 {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(StepMismatch, format!("{} is Odd", x)))
+  /// };
+  ///
+  /// let num_input = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&even_num_validator])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_option(None), Err(vec![value_missing_msg_getter(&input)]));
+  /// assert_eq!(input.validate_option(Some('a')), Ok(()));
+  /// assert_eq!(input.validate_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
+  /// // Num input
+  /// assert_eq!(num_input.validate_option(None), Err(vec![value_missing_msg_getter(&num_input)]));
+  /// assert_eq!(num_input.validate_option(Some(2)), Ok(()));
+  /// assert_eq!(num_input.validate_option(Some(1)), Err(vec!["1 is Odd".to_string()]));
+  /// ```
   fn validate_option(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
     match self.validate_option_detailed(value) {
       Ok(()) => Ok(()),
@@ -138,6 +319,46 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
+  /// Validates given optional value and returns detailed violation results, on violation.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{ValueMissing, TypeMismatch, StepMismatch};
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  /// };
+  /// // Generics: type to validate, type returned within `filter*` functions.
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let even_num_validator = |x: usize| if x & 1 == 0 {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(StepMismatch, format!("{} is Odd", x)))
+  /// };
+  ///
+  /// let num_input = InputBuilder::<usize, usize>::default()
+  ///   .required(true)
+  ///   .validators(vec![&even_num_validator])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_option_detailed(None), Err(Violations(vec![Violation(ValueMissing, value_missing_msg_getter(&input))])));
+  /// assert_eq!(input.validate_option_detailed(Some('a')), Ok(()));
+  /// assert_eq!(input.validate_option_detailed(Some('b')), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
+  /// // Num input
+  /// assert_eq!(num_input.validate_option_detailed(None), Err(Violations(vec![Violation(ValueMissing, value_missing_msg_getter(&num_input))])));
+  /// assert_eq!(num_input.validate_option_detailed(Some(2)), Ok(()));
+  /// assert_eq!(num_input.validate_option_detailed(Some(1)), Err(Violations(vec![Violation(StepMismatch, "1 is Odd".to_string())])));
+  /// ```
   fn validate_option_detailed(&self, value: Option<T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_detailed(v),
