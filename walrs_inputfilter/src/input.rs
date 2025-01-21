@@ -18,7 +18,7 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
   "Value is missing".to_string()
 }
 
-/// Validation struct for filtering, and/or validating, `Copy + Sized` types (Scalars, etc).
+/// Validation struct for validating, and/or filtering (validating and transforming) `Copy + Sized` types.
 ///
 /// ```rust
 /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
@@ -52,7 +52,9 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
 ///
 /// // With filters
 /// let always_a_vowel = |x: char| if !vowels.contains(x) { 'e' } else { x };
+/// let always_e = || Some('e');
 /// let always_a_vowel_input = InputBuilder::<char, char>::default()
+///   .get_default_value(&always_e) // Triggered from resulting struct's `filter_option*` methods
 ///   .filters(vec![&always_a_vowel])
 ///   .build()
 ///   .unwrap();
@@ -61,8 +63,8 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
 /// assert_eq!(input.filter('a'), Ok('a'));
 /// assert_eq!(input.filter('b'), Err(vec!["Only vowels allowed".to_string()]));
 /// assert_eq!(always_a_vowel_input.filter('b'), Ok('e'));
-/// // assert_eq!(always_a_vowel_input.filter_option(None), Ok(Some('e')));
-/// // assert_eq!(always_a_vowel_input.filter_option(Some('b')), Ok(Some('e')));
+/// assert_eq!(always_a_vowel_input.filter_option(None), Ok(Some('e')));
+/// assert_eq!(always_a_vowel_input.filter_option(Some('b')), Ok(Some('e')));
 /// // Num input
 /// assert_eq!(num_input.filter(2), Ok(2));
 /// assert_eq!(num_input.filter(1), Err(vec!["1 is Odd".to_string()]));
@@ -107,7 +109,8 @@ where
   #[builder(default = "None")]
   pub name: Option<&'a str>,
 
-  /// Returns a default value for the "input is not required, but is empty" use case.
+  /// Returns a default value from `filter_option*` methods, when "optional" value to be filtered
+  ///   is `None`.
   #[builder(default = "None")]
   pub get_default_value: Option<&'a (dyn Fn() -> Option<FilterT> + Send + Sync)>,
 
