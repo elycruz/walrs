@@ -157,37 +157,6 @@ impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
 }
 
 impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
-  /// Validates given value.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = &|value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  ///
-  /// // Generics: type to validate and type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.validate('a'), Ok(()));
-  /// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
-  /// ```
-  fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_detailed(value) {
-      Ok(()) => Ok(()),
-      Err(violations) => Err(violations.to_string_vec()),
-    }
-  }
-
   /// Validates given value and returns detailed violation results, on violation.
   ///
   /// ```rust
@@ -257,10 +226,10 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     })
   }
 
-  /// Validates given "optional" value.
+  /// Validates given value.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
   /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
   ///
   /// let vowels = "aeiou";
@@ -269,7 +238,8 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   /// } else {
   ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
   /// };
-  /// // Generics: type to validate, type returned within `filter*` functions.
+  ///
+  /// // Generics: type to validate and type returned within `filter*` functions.
   /// let input = InputBuilder::<char, char>::default()
   ///   .required(true)
   ///   .validators(vec![ vowel_validator ])
@@ -277,12 +247,11 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   ///   .unwrap();
   ///
   /// // Test
-  /// assert_eq!(input.validate_option(None), Err(vec![value_missing_msg_getter(&input)]));
-  /// assert_eq!(input.validate_option(Some('a')), Ok(()));
-  /// assert_eq!(input.validate_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
+  /// assert_eq!(input.validate('a'), Ok(()));
+  /// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
   /// ```
-  fn validate_option(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_option_detailed(value) {
+  fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate_detailed(value) {
       Ok(()) => Ok(()),
       Err(violations) => Err(violations.to_string_vec()),
     }
@@ -328,6 +297,72 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
+  /// Validates given "optional" value.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  /// };
+  /// // Generics: type to validate, type returned within `filter*` functions.
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.validate_option(None), Err(vec![value_missing_msg_getter(&input)]));
+  /// assert_eq!(input.validate_option(Some('a')), Ok(()));
+  /// assert_eq!(input.validate_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
+  /// ```
+  fn validate_option(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
+    match self.validate_option_detailed(value) {
+      Ok(()) => Ok(()),
+      Err(violations) => Err(violations.to_string_vec()),
+    }
+  }
+
+  /// Validates and transforms given value, and returns transformed value on validation success,
+  /// and/or detailed violation details on violation.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
+  ///
+  /// let vowels = "aeiou";
+  /// let vowel_validator = &|value: char| if vowels.contains(value) {
+  ///   Ok(())
+  /// } else {
+  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
+  /// };
+  ///
+  /// // Generics: type to validate and type returned within `filter*` functions.
+  /// let input = InputBuilder::<char, char>::default()
+  ///   .required(true)
+  ///   .validators(vec![ vowel_validator ])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// // Test
+  /// assert_eq!(input.filter_detailed('a'), Ok('a'));
+  /// assert_eq!(input.filter_detailed('b'), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
+  /// ```
+  fn filter_detailed(&self, value: T) -> Result<FT, Violations> {
+    self.validate_detailed(value)?;
+
+    Ok(self.filters.as_deref().map_or(value.into(), |filters| {
+      filters
+        .iter()
+        .fold(value.into(), |agg, filter| (filter)(agg))
+    }))
+  }
+
   /// Validates and transforms given value, and returns transformed value on successful validation,
   /// and/or generated violation message(s) on validation violation.
   ///
@@ -368,39 +403,20 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
-  /// Validates and transforms given value, and returns transformed value on validation success,
-  /// and/or detailed violation details on violation.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = &|value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  ///
-  /// // Generics: type to validate and type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.filter_detailed('a'), Ok('a'));
-  /// assert_eq!(input.filter_detailed('b'), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
-  /// ```
-  fn filter_detailed(&self, value: T) -> Result<FT, Violations> {
-    self.validate_detailed(value)?;
-
-    Ok(self.filters.as_deref().map_or(value.into(), |filters| {
-      filters
-        .iter()
-        .fold(value.into(), |agg, filter| (filter)(agg))
-    }))
+  fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations> {
+    match value {
+      Some(value) => self.filter_detailed(value).map(Some),
+      None => {
+        if self.required {
+          Err(Violations(vec![Violation(
+            ValueMissing,
+            (self.value_missing_msg_getter)(self),
+          )]))
+        } else {
+          Ok(self.get_default_value.and_then(|f| f()))
+        }
+      }
+    }
   }
 
   /// Validates and transforms given value, and returns transformed value on validation success,
@@ -432,22 +448,6 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     match self.filter_option_detailed(value) {
       Ok(value) => Ok(value),
       Err(violations) => Err(violations.to_string_vec()),
-    }
-  }
-
-  fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations> {
-    match value {
-      Some(value) => self.filter_detailed(value).map(Some),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(self.get_default_value.and_then(|f| f()))
-        }
-      }
     }
   }
 }
