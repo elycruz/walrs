@@ -54,7 +54,9 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
 /// let always_a_vowel = |x: char| if !vowels.contains(x) { 'e' } else { x };
 /// let always_e = || Some('e');
 /// let always_a_vowel_input = InputBuilder::<char, char>::default()
-///   .get_default_value(&always_e) // Triggered from resulting struct's `filter_option*` methods
+///   // Triggered from resulting struct's `filter_option*` methods, which
+///   // validate, and filter, incoming value
+///   .get_default_value(&always_e)
 ///   .filters(vec![&always_a_vowel])
 ///   .build()
 ///   .unwrap();
@@ -94,18 +96,25 @@ where
   T: Copy,
   FilterT: From<T>,
 {
+  /// Causes validation to stop at the first encountered error, and triggers early exit 
+  /// causing the encountered error to be returned.
   #[builder(default = "false")]
   pub break_on_failure: bool,
 
+  /// Denotes whether value being validated is required or not.
   #[builder(default = "false")]
   pub required: bool,
 
+  /// To be used when only a single validator is needed;  Avoids additional
+  /// allocations that happen when using `validators` Vec.
   #[builder(default = "None")]
   pub custom: Option<&'a ValidatorForSized<T>>,
 
+  /// Locale to be used in user-land validation error message getters. 
   #[builder(default = "None")]
   pub locale: Option<&'a str>,
 
+  /// Used to communicate input name in user-land use cases.
   #[builder(default = "None")]
   pub name: Option<&'a str>,
 
@@ -114,12 +123,16 @@ where
   #[builder(default = "None")]
   pub get_default_value: Option<&'a (dyn Fn() -> Option<FilterT> + Send + Sync)>,
 
+  /// Validators to apply when validating, and/or filtering, values.
   #[builder(default = "None")]
   pub validators: Option<Vec<&'a ValidatorForSized<T>>>,
 
+  /// List of transformations to apply on value being filtered.
   #[builder(default = "None")]
   pub filters: Option<Vec<&'a FilterFn<FilterT>>>,
 
+  /// Triggered when value being validated is "required" and is missing (triggered from *_option 
+  ///  filter, and/or validation, methods). 
   #[builder(default = "&value_missing_msg_getter")]
   pub value_missing_msg_getter:
     &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync),
@@ -135,9 +148,9 @@ impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
   /// // Using copy types (`Input::<type-to-validate, type-returned-from-filter*-fns>`, send generic
   /// // must fit `From<arg-1>`).
   /// let _ = Input::<&str, Cow<str>>::new();
-  /// let _ = Input::<char, char>::new();
-  /// let _ = Input::<bool, bool>::new();
-  /// let input = Input::<usize>::new();
+  /// let _ = Input::<char>::new();      // second generic (`From<T>`) is implicit so can be left off.
+  /// let _ = Input::<bool>::new();      // ""
+  /// let input = Input::<usize>::new(); // ""
   ///
   /// // Assert defaults
   /// // ----
