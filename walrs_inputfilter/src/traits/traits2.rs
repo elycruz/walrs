@@ -1,5 +1,5 @@
-use std::error::Error;
 use crate::ViolationMessage;
+use std::error::Error;
 use std::fmt;
 use std::fmt::{Debug, Display};
 
@@ -118,9 +118,9 @@ where
   FT: From<T>,
 {
   fn validate(&self, x: T) -> ValidationResult2;
-  
+
   fn validate_option(&self, x: Option<T>) -> ValidationResult2;
-  
+
   /// Validates, and filters, incoming value.
   fn filter(&self, value: T) -> Result<FT, Violations>;
 
