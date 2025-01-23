@@ -119,22 +119,3 @@ impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F where F: Fn(&T) -> ValidationR
 
 /// Violation message getter for `ValueMissing` Violation Enum type.
 pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
-
-pub trait InputConstraints<T, FT = T>: Display + Debug
-where
-  T: Copy,
-  FT: From<T>,
-{
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
-
-  fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
-
-  fn filter(&self, value: FT) -> FT;
-
-  fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
-
-  fn validate_and_filter_detailed(
-    &self,
-    value: Option<T>,
-  ) -> Result<Option<FT>, Vec<ViolationTuple>>;
-}

@@ -139,8 +139,6 @@ where
 }
 
 /// Input filter struct - used for keeping rules used for validating, and/or filtering values.
-/// @param `T` - value type to be validated, 
-/// @param `FT` - value type to be filtered.
 impl<T: Copy, FT: From<T>> Input<'_, T, FT> {
   /// Returns a new instance with all fields set to defaults.
   ///
@@ -517,7 +515,7 @@ impl<T: Copy, FT: From<T>> Default for Input<'_, T, FT> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   Input, InputConstraints, ViolationType,
+  ///   Input, ViolationType,
   ///   value_missing_msg_getter
   /// };
   ///
