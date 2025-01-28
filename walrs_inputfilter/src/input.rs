@@ -662,7 +662,7 @@ mod test {
                   .unwrap();
 
               // Setup input constraints
-              let usize_required = InputBuilder::<usize, usize>::default()
+              let even_zero_to_ten_req = InputBuilder::<usize, usize>::default()
                   .required(true)
                   .validators(vec![&one_to_ten, &validate_is_even])
                   .build()
@@ -671,14 +671,14 @@ mod test {
               let test_cases = [
                   (
                       "No value",
-                      &usize_required,
+                      &even_zero_to_ten_req,
                       None,
-                      Err(vec![value_missing_msg_getter(&usize_required)]),
+                      Err(vec![value_missing_msg_getter(&even_zero_to_ten_req)]),
                   ),
-                  ("With valid value", &usize_required, Some(4), Ok(())),
+                  ("With valid value", &even_zero_to_ten_req, Some(4), Ok(())),
                   (
                       "With \"not Even\" value",
-                      &usize_required,
+                      &even_zero_to_ten_req,
                       Some(7),
                       Err(vec!["Must be even".to_string()]),
                   ),
@@ -707,7 +707,7 @@ mod test {
 
     let zero_to_ten = |n| {
       if n > 10 {
-        Err(Violation(RangeOverflow, format!("")))
+        Err(Violation(RangeOverflow, "Number must be between 0-10".to_string()))
       } else {
         Ok(())
       }
@@ -715,19 +715,19 @@ mod test {
 
     let usize_input_default = InputBuilder::<usize, usize>::default().build().unwrap();
 
-    let usize_not_required = InputBuilder::<usize, usize>::default()
+    let even_zero_to_ten_not_req = InputBuilder::<usize, usize>::default()
       .validators(vec![&validate_is_even, &zero_to_ten])
       .build()
       .unwrap();
 
-    let usize_required = {
-      let mut new_input = usize_not_required.clone();
+    let even_zero_to_ten_req = {
+      let mut new_input = even_zero_to_ten_not_req.clone();
       new_input.required = true;
       new_input
     };
 
-    let usize_break_on_failure = {
-      let mut new_input = usize_required.clone();
+    let even_zero_to_ten_req_break_on_fail = {
+      let mut new_input = even_zero_to_ten_req.clone();
       new_input.break_on_failure = true;
       new_input
     };
@@ -740,19 +740,19 @@ mod test {
       // ----
       (
         "1-10, Even, with valid value",
-        &usize_not_required,
+        &even_zero_to_ten_not_req,
         2,
         Ok(()),
       ),
       (
         "1-10, Even, with valid value (2)",
-        &usize_not_required,
+        &even_zero_to_ten_not_req,
         10,
         Ok(()),
       ),
       (
         "1-10, Even, with invalid value (3)",
-        &usize_not_required,
+        &even_zero_to_ten_not_req,
         7,
         Err(Violations(vec![Violation(
           CustomError,
@@ -761,7 +761,7 @@ mod test {
       ),
       (
         "1-10, Even, with valid value",
-        &usize_not_required,
+        &even_zero_to_ten_not_req,
         8,
         Ok(()),
       ),
@@ -769,31 +769,31 @@ mod test {
       // ----
       (
         "1-10, Even, required, with valid value",
-        &usize_required,
+        &even_zero_to_ten_req,
         2,
         Ok(()),
       ),
       (
         "1-10, Even, required, with valid value (1)",
-        &usize_required,
+        &even_zero_to_ten_req,
         4,
         Ok(()),
       ),
       (
         "1-10, Even, required, with valid value (2)",
-        &usize_required,
+        &even_zero_to_ten_req,
         8,
         Ok(()),
       ),
       (
         "1-10, Even, required, with valid value (3)",
-        &usize_required,
+        &even_zero_to_ten_req,
         10,
         Ok(()),
       ),
       (
         "1-10, Even, required, with invalid value (3)",
-        &usize_required,
+        &even_zero_to_ten_req,
         7,
         Err(Violations(vec![Violation(
           CustomError,
@@ -801,8 +801,18 @@ mod test {
         )])),
       ),
       (
+        "1-10, Even, required, with invalid out of bounds value",
+        &even_zero_to_ten_req,
+        77,
+        Err(Violations(vec![Violation(
+          CustomError,
+          "Must be even".to_string(),
+        ),
+        Violation(RangeOverflow, "Number must be between 0-10".to_string())])),
+      ),
+      (
         "1-10, Even, required, with invalid value (3)",
-        &usize_break_on_failure,
+        &even_zero_to_ten_req_break_on_fail,
         7,
         Err(Violations(vec![Violation(
           CustomError,
@@ -889,19 +899,19 @@ mod test {
 
     let usize_input_default = InputBuilder::<usize, usize>::default().build().unwrap();
 
-    let usize_not_required_with_rules = InputBuilder::<usize, usize>::default()
+    let even_zero_to_ten_not_req_with_rules = InputBuilder::<usize, usize>::default()
       .validators(vec![&one_to_ten, &validate_is_even])
       .build()
       .unwrap();
 
-    let usize_required_with_rules = {
-      let mut new_input = usize_not_required_with_rules.clone();
+    let even_zero_to_ten_req_with_rules = {
+      let mut new_input = even_zero_to_ten_not_req_with_rules.clone();
       new_input.required = true;
       new_input
     };
 
-    let usize_break_on_failure_with_rules = {
-      let mut new_input = usize_required_with_rules.clone();
+    let even_zero_to_ten_req_break_on_fail_with_rules = {
+      let mut new_input = even_zero_to_ten_req_with_rules.clone();
       new_input.break_on_failure = true;
       new_input
     };
@@ -925,25 +935,25 @@ mod test {
       // ----
       (
         "1-10, Even, no value",
-        &usize_not_required_with_rules,
+        &even_zero_to_ten_not_req_with_rules,
         None,
         Ok(None),
       ),
       (
         "1-10, Even, with valid value",
-        &usize_not_required_with_rules,
+        &even_zero_to_ten_not_req_with_rules,
         Some(2),
         Ok(Some(2)),
       ),
       (
         "1-10, Even, with valid value (2)",
-        &usize_not_required_with_rules,
+        &even_zero_to_ten_not_req_with_rules,
         Some(10),
         Ok(Some(10)),
       ),
       (
         "1-10, Even, with invalid value (3)",
-        &usize_not_required_with_rules,
+        &even_zero_to_ten_not_req_with_rules,
         Some(7),
         Err(vec![(
           CustomError,
@@ -952,7 +962,7 @@ mod test {
       ),
       (
         "1-10, Even, with valid value",
-        &usize_not_required_with_rules,
+        &even_zero_to_ten_not_req_with_rules,
         Some(8),
         Ok(Some(8)),
       ),
@@ -960,40 +970,40 @@ mod test {
       // ----
       (
         "1-10, Even, required, no value",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         None,
         Err(vec![(
           ValueMissing,
-          value_missing_msg_getter(&usize_required_with_rules),
+          value_missing_msg_getter(&even_zero_to_ten_req_with_rules),
         )]),
       ),
       (
         "1-10, Even, required, with valid value",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         Some(2),
         Ok(Some(2)),
       ),
       (
         "1-10, Even, required, with valid value (1)",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         Some(4),
         Ok(Some(4)),
       ),
       (
         "1-10, Even, required, with valid value (2)",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         Some(8),
         Ok(Some(8)),
       ),
       (
         "1-10, Even, required, with valid value (3)",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         Some(10),
         Ok(Some(10)),
       ),
       (
         "1-10, Even, required, with invalid value (3)",
-        &usize_required_with_rules,
+        &even_zero_to_ten_req_with_rules,
         Some(7),
         Err(vec![(
           CustomError,
@@ -1002,7 +1012,7 @@ mod test {
       ),
       (
         "1-10, Even, required, with invalid value (3)",
-        &usize_break_on_failure_with_rules,
+        &even_zero_to_ten_req_break_on_fail_with_rules,
         Some(7),
         Err(vec![(
           CustomError,
