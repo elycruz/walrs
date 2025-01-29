@@ -207,7 +207,7 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     let mut violations = vec![];
 
     // Validate custom
-    match if let Some(custom) = self.custom {
+    match if let Some(custom) = self.custom.as_deref() {
       (custom)(value)
     } else {
       Ok(())
@@ -221,26 +221,23 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
 
     // Else validate against validators
-    self.validators.as_deref().map_or(Ok(()), |validators| {
+    if let Some(validators) = self.validators.as_deref() {
       for validator in validators {
-        match validator(value) {
-          Ok(()) => continue,
-          Err(err_type) => {
-            violations.push(err_type);
-            if self.break_on_failure {
-              break;
-            }
+        if let Err(err_type) = validator(value) {
+          violations.push(err_type);
+          if self.break_on_failure {
+            break;
           }
         }
       }
+    }
 
-      // Resolve return value
-      if violations.is_empty() {
-        Ok(())
-      } else {
-        Err(Violations(violations))
-      }
-    })
+    // Resolve return value
+    if violations.is_empty() {
+      Ok(())
+    } else {
+      Err(Violations(violations))
+    }
   }
 
   /// Validates given value returning violation results on violation
@@ -707,7 +704,10 @@ mod test {
 
     let zero_to_ten = |n| {
       if n > 10 {
-        Err(Violation(RangeOverflow, "Number must be between 0-10".to_string()))
+        Err(Violation(
+          RangeOverflow,
+          "Number must be between 0-10".to_string(),
+        ))
       } else {
         Ok(())
       }
@@ -732,9 +732,19 @@ mod test {
       new_input
     };
 
+    let with_custom_validator = InputBuilder::<usize, usize>::default()
+      .custom(&validate_is_even)
+      .build()
+      .unwrap();
+
+    let with_custom_validator_two = {
+      let mut new_input = with_custom_validator.clone();
+      new_input.validators = Some(vec![&zero_to_ten]);
+    };
+
     // @todo Add test cases for some of the other scalar types to add variety.
 
-    let test_cases = vec![
+    let test_cases: Vec<(&str, &Input<usize, usize>, usize, Result<(), Violations>)> = vec![
       ("Default, with value", &usize_input_default, 1, Ok(())),
       // Not required
       // ----
@@ -804,11 +814,10 @@ mod test {
         "1-10, Even, required, with invalid out of bounds value",
         &even_zero_to_ten_req,
         77,
-        Err(Violations(vec![Violation(
-          CustomError,
-          "Must be even".to_string(),
-        ),
-        Violation(RangeOverflow, "Number must be between 0-10".to_string())])),
+        Err(Violations(vec![
+          Violation(CustomError, "Must be even".to_string()),
+          Violation(RangeOverflow, "Number must be between 0-10".to_string()),
+        ])),
       ),
       (
         "1-10, Even, required, with invalid value (3)",
@@ -816,6 +825,15 @@ mod test {
         7,
         Err(Violations(vec![Violation(
           CustomError,
+          "Must be even".to_string(),
+        )])),
+      ),
+      (
+        "1-10, Even, with \"custom\" (singular) validator and invalid value",
+        &with_custom_validator,
+        77,
+        Err(Violations(vec![Violation(
+          CustomError, 
           "Must be even".to_string(),
         )])),
       ),
