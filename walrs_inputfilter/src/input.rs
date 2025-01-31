@@ -690,7 +690,7 @@ mod test {
           }
   */
   #[test]
-  fn test_validate_and_validate_detailed () {
+  fn test_validate_methods () {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
     // 1) Test method logic
     // ----
@@ -738,9 +738,21 @@ mod test {
       .build()
       .unwrap();
 
+    let with_custom_validator_req = {
+      let mut new_input = with_custom_validator.clone();
+      new_input.required = true;
+      new_input
+    };
+
     let with_custom_validator_two = {
       let mut new_input = with_custom_validator.clone();
       new_input.validators = Some(vec![&zero_to_ten]);
+      new_input
+    };
+
+    let with_custom_validator_two_req = {
+      let mut new_input = with_custom_validator_two.clone();
+      new_input.required = true;
       new_input
     };
 
@@ -881,11 +893,51 @@ mod test {
       let validate_rslt = input.validate(subj);
       match expected {
         Err(violations) => {
-          assert_eq!(input.validate(subj), Err(violations.to_string_vec()));
+          let msgs_vec = violations.clone().to_string_vec();
+          assert_eq!(input.validate(subj), Err(msgs_vec.clone()));
+          assert_eq!(input.validate_option(Some(subj)), Err(msgs_vec.clone()));
+          assert_eq!(input.validate_option_detailed(Some(subj)), Err(violations));
         },
-        _ => assert_eq!(validate_rslt, Ok(())),
+        _ => {
+          assert_eq!(validate_rslt, Ok(()));
+          assert_eq!(input.validate_option(Some(subj)), Ok(()));
+          assert_eq!(input.validate_option_detailed(Some(subj)), Ok(()));
+        },
       }
     }
+
+    // Validate required value, with "None" value;  E.g., should always return "one" error message
+    // ----
+    assert_eq!(even_zero_to_ten_req.validate_option(None),
+     Err(vec![
+       value_missing_msg_getter(&even_zero_to_ten_req)
+     ])
+    );
+    assert_eq!(even_zero_to_ten_req.validate_option_detailed(None),
+      Err(Violations(
+       vec![Violation(ValueMissing, value_missing_msg_getter(&even_zero_to_ten_req))]
+      ))
+    );
+    assert_eq!(with_custom_validator_req.validate_option(None),
+     Err(vec![
+       value_missing_msg_getter(&with_custom_validator_req)
+     ])
+    );
+    assert_eq!(with_custom_validator_req.validate_option_detailed(None),
+     Err(Violations(vec![
+       Violation(ValueMissing, value_missing_msg_getter(&with_custom_validator_req))
+     ]))
+    );
+    assert_eq!(with_custom_validator_two_req.validate_option(None),
+     Err(vec![
+       value_missing_msg_getter(&with_custom_validator_two_req)
+     ])
+    );
+    assert_eq!(with_custom_validator_two_req.validate_option_detailed(None),
+     Err(Violations(vec![
+       Violation(ValueMissing, value_missing_msg_getter(&with_custom_validator_two_req))
+     ]))
+    );
   }
 
   #[test]
