@@ -624,6 +624,7 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
 mod test {
   use super::*;
   use crate::ViolationType::{CustomError, RangeOverflow};
+  use std::error::Error;
 
   /*
     // From previous implementation
@@ -689,7 +690,7 @@ mod test {
           }
   */
   #[test]
-  fn test_validate_detailed() {
+  fn test_validate_and_validate_detailed () {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
     // 1) Test method logic
     // ----
@@ -740,6 +741,7 @@ mod test {
     let with_custom_validator_two = {
       let mut new_input = with_custom_validator.clone();
       new_input.validators = Some(vec![&zero_to_ten]);
+      new_input
     };
 
     // @todo Add test cases for some of the other scalar types to add variety.
@@ -829,6 +831,12 @@ mod test {
         )])),
       ),
       (
+        "1-10, Even, required, with valid value",
+        &even_zero_to_ten_req_break_on_fail,
+        10,
+        Ok(()),
+      ),
+      (
         "1-10, Even, with \"custom\" (singular) validator and invalid value",
         &with_custom_validator,
         77,
@@ -837,62 +845,98 @@ mod test {
           "Must be even".to_string(),
         )])),
       ),
+      (
+        "1-10, Even, with \"custom\" (singular) validator and valid value",
+        &with_custom_validator,
+        10,
+        Ok(()),
+      ),
+      (
+        "1-10, Even, with \"custom\", additional validators, and invalid value",
+        &with_custom_validator_two,
+        77,
+        Err(Violations(vec![
+          Violation(
+            CustomError,
+            "Must be even".to_string(),
+          ),
+          Violation(
+            RangeOverflow,
+            "Number must be between 0-10".to_string()
+          )
+        ])),
+      ),
+      (
+        "1-10, Even, with \"custom\", additional validators, and valid value",
+        &with_custom_validator_two,
+        8,
+        Ok(()),
+      ),
     ];
 
     for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
       println!("Case {}: {}", i + 1, test_name);
 
       assert_eq!(input.validate_detailed(subj), expected);
+      let validate_rslt = input.validate(subj);
+      match expected {
+        Err(violations) => {
+          assert_eq!(input.validate(subj), Err(violations.to_string_vec()));
+        },
+        _ => assert_eq!(validate_rslt, Ok(())),
+      }
     }
   }
 
+  #[test]
+  fn test_filter() -> Result<(), Box<dyn Error>> {
+    // Setup input constraints
+    // ----
+    // 1. With no filters.
+    let usize_input_default = InputBuilder::<usize, usize>::default().build()?;
+
+    // 2. With one filter.
+    let usize_input_twofold = InputBuilder::<usize, usize>::default()
+        .filters(vec![&|x: usize| x * 2usize])
+        .build()?;
+
+    // 3. With two filters.
+    let usize_input_gte_four = InputBuilder::<usize, usize>::default()
+        .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
+          x * 2usize
+        }])
+        .build()?;
+
+    let test_cases = [
+      // No filters
+      (&usize_input_default, 100, 100),
+      // With one filter
+      (&usize_input_twofold, 0, 0),
+      (&usize_input_twofold, 2, 4),
+      (&usize_input_twofold, 4, 8),
+      // With multiple filters
+      (&usize_input_gte_four, 0, 8),
+      (&usize_input_gte_four, 2, 8),
+      (&usize_input_gte_four, 4, 8),
+      (&usize_input_gte_four, 6, 12),
+    ];
+
+    // Run test cases
+    // @todo Update this to allow Error results as well.
+    for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
+      println!(
+        "Case {}: `(usize_input.filter)({:?}) == {:?}`",
+        i + 1,
+        value.clone(),
+        expected_rslt.clone()
+      );
+      assert_eq!(input.filter(value), Ok(expected_rslt));
+    }
+
+    Ok(())
+  }
   /*
-          #[test]
-          fn test_filter() -> Result<(), Box<dyn Error>> {
-              // Setup input constraints
-              // ----
-              // 1. With no filters.
-              let usize_input_default = InputBuilder::<usize, usize>::default().build()?;
 
-              // 2. With one filter.
-              let usize_input_twofold = InputBuilder::<usize, usize>::default()
-                  .filters(vec![&|x: usize| x * 2usize])
-                  .build()?;
-
-              // 3. With two filters.
-              let usize_input_gte_four = InputBuilder::<usize, usize>::default()
-                  .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
-                      x * 2usize
-                  }])
-                  .build()?;
-
-              let test_cases = [
-                  // No filters
-                  (&usize_input_default, 100, 100),
-                  // With one filter
-                  (&usize_input_twofold, 0, 0),
-                  (&usize_input_twofold, 2, 4),
-                  (&usize_input_twofold, 4, 8),
-                  // With multiple filters
-                  (&usize_input_gte_four, 0, 8),
-                  (&usize_input_gte_four, 2, 8),
-                  (&usize_input_gte_four, 4, 8),
-                  (&usize_input_gte_four, 6, 12),
-              ];
-
-              // Run test cases
-              for (i, (input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-                  println!(
-                      "Case {}: `(usize_input.filter)({:?}) == {:?}`",
-                      i + 1,
-                      value.clone(),
-                      expected_rslt.clone()
-                  );
-                  assert_eq!(input.filter(value), expected_rslt);
-              }
-
-              Ok(())
-          }
   #[test]
   fn test_validate_and_filter_detailed() -> Result<(), Box<dyn Error>> {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
