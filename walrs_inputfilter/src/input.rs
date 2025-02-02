@@ -690,7 +690,7 @@ mod test {
           }
   */
   #[test]
-  fn test_validate_methods () {
+  fn test_validate_methods() {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
     // 1) Test method logic
     // ----
@@ -758,21 +758,21 @@ mod test {
 
     // @todo Add test cases for some of the other scalar types to add variety.
 
-    let test_cases: Vec<(&str, &Input<usize, usize>, usize, Result<(), Violations>)> = vec![
-      ("Default, with value", &usize_input_default, 1, Ok(())),
+    let test_cases: Vec<(&str, &Input<usize, usize>, usize, Result<usize, Violations>)> = vec![
+      ("Default, with value", &usize_input_default, 1, Ok(1)),
       // Not required
       // ----
       (
         "1-10, Even, with valid value",
         &even_zero_to_ten_not_req,
         2,
-        Ok(()),
+        Ok(2),
       ),
       (
         "1-10, Even, with valid value (2)",
         &even_zero_to_ten_not_req,
         10,
-        Ok(()),
+        Ok(10),
       ),
       (
         "1-10, Even, with invalid value (3)",
@@ -787,7 +787,7 @@ mod test {
         "1-10, Even, with valid value",
         &even_zero_to_ten_not_req,
         8,
-        Ok(()),
+        Ok(8),
       ),
       // Required
       // ----
@@ -795,25 +795,25 @@ mod test {
         "1-10, Even, required, with valid value",
         &even_zero_to_ten_req,
         2,
-        Ok(()),
+        Ok(2),
       ),
       (
         "1-10, Even, required, with valid value (1)",
         &even_zero_to_ten_req,
         4,
-        Ok(()),
+        Ok(4),
       ),
       (
         "1-10, Even, required, with valid value (2)",
         &even_zero_to_ten_req,
         8,
-        Ok(()),
+        Ok(8),
       ),
       (
         "1-10, Even, required, with valid value (3)",
         &even_zero_to_ten_req,
         10,
-        Ok(()),
+        Ok(10),
       ),
       (
         "1-10, Even, required, with invalid value (3)",
@@ -846,14 +846,14 @@ mod test {
         "1-10, Even, required, with valid value",
         &even_zero_to_ten_req_break_on_fail,
         10,
-        Ok(()),
+        Ok(10),
       ),
       (
         "1-10, Even, with \"custom\" (singular) validator and invalid value",
         &with_custom_validator,
         77,
         Err(Violations(vec![Violation(
-          CustomError, 
+          CustomError,
           "Must be even".to_string(),
         )])),
       ),
@@ -861,82 +861,95 @@ mod test {
         "1-10, Even, with \"custom\" (singular) validator and valid value",
         &with_custom_validator,
         10,
-        Ok(()),
+        Ok(10),
       ),
       (
         "1-10, Even, with \"custom\", additional validators, and invalid value",
         &with_custom_validator_two,
         77,
         Err(Violations(vec![
-          Violation(
-            CustomError,
-            "Must be even".to_string(),
-          ),
-          Violation(
-            RangeOverflow,
-            "Number must be between 0-10".to_string()
-          )
+          Violation(CustomError, "Must be even".to_string()),
+          Violation(RangeOverflow, "Number must be between 0-10".to_string()),
         ])),
       ),
       (
         "1-10, Even, with \"custom\", additional validators, and valid value",
         &with_custom_validator_two,
         8,
-        Ok(()),
+        Ok(8),
       ),
     ];
 
     for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
       println!("Case {}: {}", i + 1, test_name);
 
-      assert_eq!(input.validate_detailed(subj), expected);
-      let validate_rslt = input.validate(subj);
       match expected {
         Err(violations) => {
           let msgs_vec = violations.clone().to_string_vec();
           assert_eq!(input.validate(subj), Err(msgs_vec.clone()));
+          assert_eq!(input.validate_detailed(subj), Err(violations.clone()));
           assert_eq!(input.validate_option(Some(subj)), Err(msgs_vec.clone()));
-          assert_eq!(input.validate_option_detailed(Some(subj)), Err(violations));
-        },
-        _ => {
-          assert_eq!(validate_rslt, Ok(()));
+          assert_eq!(
+            input.validate_option_detailed(Some(subj)),
+            Err(violations.clone())
+          );
+          assert_eq!(input.filter(subj), Err(msgs_vec.clone()));
+          assert_eq!(input.filter_detailed(subj), Err(violations.clone()));
+          assert_eq!(input.filter_option(Some(subj)), Err(msgs_vec.clone()));
+          assert_eq!(
+            input.filter_option_detailed(Some(subj)),
+            Err(violations.clone())
+          );
+        }
+        Ok(value) => {
+          assert_eq!(input.validate(subj), Ok(()));
+          assert_eq!(input.validate_detailed(subj), Ok(()));
           assert_eq!(input.validate_option(Some(subj)), Ok(()));
           assert_eq!(input.validate_option_detailed(Some(subj)), Ok(()));
-        },
+          assert_eq!(input.filter(subj), Ok(value));
+          assert_eq!(input.filter_detailed(subj), Ok(value));
+          assert_eq!(input.filter_option(Some(subj)), Ok(Some(value)));
+          assert_eq!(input.filter_option_detailed(Some(subj)), Ok(Some(value)));
+        }
       }
     }
 
     // Validate required value, with "None" value;  E.g., should always return "one" error message
     // ----
-    assert_eq!(even_zero_to_ten_req.validate_option(None),
-     Err(vec![
-       value_missing_msg_getter(&even_zero_to_ten_req)
-     ])
+    assert_eq!(
+      even_zero_to_ten_req.validate_option(None),
+      Err(vec![value_missing_msg_getter(&even_zero_to_ten_req)])
     );
-    assert_eq!(even_zero_to_ten_req.validate_option_detailed(None),
-      Err(Violations(
-       vec![Violation(ValueMissing, value_missing_msg_getter(&even_zero_to_ten_req))]
-      ))
+    assert_eq!(
+      even_zero_to_ten_req.validate_option_detailed(None),
+      Err(Violations(vec![Violation(
+        ValueMissing,
+        value_missing_msg_getter(&even_zero_to_ten_req)
+      )]))
     );
-    assert_eq!(with_custom_validator_req.validate_option(None),
-     Err(vec![
-       value_missing_msg_getter(&with_custom_validator_req)
-     ])
+    assert_eq!(
+      with_custom_validator_req.validate_option(None),
+      Err(vec![value_missing_msg_getter(&with_custom_validator_req)])
     );
-    assert_eq!(with_custom_validator_req.validate_option_detailed(None),
-     Err(Violations(vec![
-       Violation(ValueMissing, value_missing_msg_getter(&with_custom_validator_req))
-     ]))
+    assert_eq!(
+      with_custom_validator_req.validate_option_detailed(None),
+      Err(Violations(vec![Violation(
+        ValueMissing,
+        value_missing_msg_getter(&with_custom_validator_req)
+      )]))
     );
-    assert_eq!(with_custom_validator_two_req.validate_option(None),
-     Err(vec![
-       value_missing_msg_getter(&with_custom_validator_two_req)
-     ])
+    assert_eq!(
+      with_custom_validator_two_req.validate_option(None),
+      Err(vec![value_missing_msg_getter(
+        &with_custom_validator_two_req
+      )])
     );
-    assert_eq!(with_custom_validator_two_req.validate_option_detailed(None),
-     Err(Violations(vec![
-       Violation(ValueMissing, value_missing_msg_getter(&with_custom_validator_two_req))
-     ]))
+    assert_eq!(
+      with_custom_validator_two_req.validate_option_detailed(None),
+      Err(Violations(vec![Violation(
+        ValueMissing,
+        value_missing_msg_getter(&with_custom_validator_two_req)
+      )]))
     );
   }
 
@@ -949,15 +962,15 @@ mod test {
 
     // 2. With one filter.
     let usize_input_twofold = InputBuilder::<usize, usize>::default()
-        .filters(vec![&|x: usize| x * 2usize])
-        .build()?;
+      .filters(vec![&|x: usize| x * 2usize])
+      .build()?;
 
     // 3. With two filters.
     let usize_input_gte_four = InputBuilder::<usize, usize>::default()
-        .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
-          x * 2usize
-        }])
-        .build()?;
+      .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
+        x * 2usize
+      }])
+      .build()?;
 
     let test_cases = [
       // No filters
