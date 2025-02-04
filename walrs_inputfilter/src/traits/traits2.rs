@@ -111,23 +111,6 @@ pub type ValidationResult1 = Result<(), Vec<ViolationMessage>>;
 
 pub type FilterResult1<FT> = Result<FT, Vec<ViolationMessage>>;
 
-/// A trait for performing validations, and filtering (transformations), all in one.
-pub trait InputFilterForSized<T, FT = T>: Display + Debug
-where
-  T: Copy,
-  FT: From<T>,
-{
-  fn validate(&self, x: T) -> ValidationResult2;
-
-  fn validate_option(&self, x: Option<T>) -> ValidationResult2;
-
-  /// Validates, and filters, incoming value.
-  fn filter(&self, value: T) -> Result<FT, Violations>;
-
-  /// Validates, and filters, incoming value Option value.
-  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Violations>;
-}
-
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.
 pub trait FilterForUnsized<'a, T, FT>: Display + Debug
