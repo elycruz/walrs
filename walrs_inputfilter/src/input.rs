@@ -782,7 +782,7 @@ mod test {
       (
         "1-10, Even, required, with invalid value, and \"break_on_failure\"",
         &even_zero_to_ten_req_break_on_fail,
-        11,
+        12,
         Err(Violations(vec![Violation(
           RangeOverflow, "Number must be between 0-10".to_string()
         )])),
