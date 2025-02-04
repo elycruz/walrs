@@ -100,17 +100,6 @@ impl Violations {
 
 // @todo `Violations` should implement `Error`.
 
-// @deprecated Use `DetailedValidationResult` instead.
-pub type ValidationResult2 = Result<(), Violations>;
-
-pub type DetailedValidationResult = Result<(), Violations>;
-
-pub type DetailedFilterResult<FT> = Result<Option<FT>, Violations>;
-
-pub type ValidationResult1 = Result<(), Vec<ViolationMessage>>;
-
-pub type FilterResult1<FT> = Result<FT, Vec<ViolationMessage>>;
-
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.
 pub trait FilterForUnsized<'a, T, FT>: Display + Debug

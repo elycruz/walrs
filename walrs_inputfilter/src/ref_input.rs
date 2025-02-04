@@ -1,6 +1,6 @@
 use crate::ViolationType::ValueMissing;
 use crate::{
-  FilterFn, FilterForUnsized, ValidationResult1, ValidatorForRef, Violation, ViolationMessage,
+  FilterFn, FilterForUnsized, ValidatorForRef, Violation, ViolationMessage,
   Violations,
 };
 use std::fmt::{Debug, Display, Formatter, Write};
@@ -298,7 +298,7 @@ where
   /// assert_eq!(input.validate_ref("Hi!"), Err(vec!["Value is too short".to_string()]));
   /// assert_eq!(input.validate_ref(""), Err(vec!["Value is too short".to_string()]));
   /// ```
-  fn validate_ref(&self, value: &T) -> ValidationResult1 {
+  fn validate_ref(&self, value: &T) -> Result<(), Vec<ViolationMessage>> {
     match self.validate_ref_detailed(value) {
       Ok(()) => Ok(()),
       Err(violations) => Err(violations.to_string_vec()),
@@ -370,7 +370,7 @@ where
   /// assert_eq!(input.validate_ref_option(Some("")), Err(vec!["Value is too short".to_string()]));
   /// assert_eq!(input.validate_ref_option(None), Err(vec!["Value is missing".to_string()]));
   /// ```
-  fn validate_ref_option(&self, value: Option<&T>) -> ValidationResult1 {
+  fn validate_ref_option(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>> {
     match self.validate_ref_option_detailed(value) {
       Ok(()) => Ok(()),
       Err(violations) => Err(violations.to_string_vec()),
