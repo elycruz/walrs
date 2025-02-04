@@ -177,9 +177,9 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   /// Validates given value and returns detailed violation results on violation.
   ///
   /// ```rust
+  /// use std::borrow::Cow;
   /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
+  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch, TooShort};
   /// let vowels = "aeiou";
   /// let vowel_validator = &|value: char| if vowels.contains(value) {
   ///       Ok(())
@@ -193,6 +193,33 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   ///   .build()
   ///   .unwrap();
   ///
+  /// let min_length = |s: &str| if s.len() < 5 {
+  ///   Err(Violation(TooShort, "Length is too short".to_string()))
+  /// } else {
+  ///   Ok(())
+  /// };
+  ///
+  /// let to_uppercase = |s: String| s.to_uppercase();
+  /// let to_uppercase_for_cow = |s: Cow<str>| -> Cow<str> {
+  ///   s.to_uppercase().into()
+  /// };
+  ///
+  /// // Note: For "invariant" lifetime scenarios, use `RefInput`
+  /// // for reference types.
+  /// let str_input = InputBuilder::<&str, String>::default()
+  ///   .required(true)
+  ///   .validators(vec![&min_length])
+  ///   .filters(vec![&to_uppercase])
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let str_input2 = InputBuilder::<&str, Cow<str>>::default()
+  ///   .required(true)
+  ///   .validators(vec![&min_length])
+  ///   .filters(vec![&to_uppercase_for_cow])
+  ///   .build()
+  ///   .unwrap();
+  ///
   /// // Test
   /// assert_eq!(input.validate_detailed('a'), Ok(()));
   /// // `Violations`, and `Violation` are tuple types,  E.g., inner elements can be accessed
@@ -202,6 +229,10 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   ///   TypeMismatch,
   ///   "Only vowels allowed".to_string()
   /// )])));
+  /// assert_eq!(str_input.validate("abc"), Err(vec!["Length is too short".to_string()]));
+  /// assert_eq!(str_input2.validate("abc"), Err(vec!["Length is too short".to_string()]));
+  /// assert_eq!(str_input.filter("abcdefg"), Ok("ABCDEFG".to_string()));
+  /// assert_eq!(str_input2.filter("abcdefg"), Ok(Cow::from("ABCDEFG".to_string())));
   /// ```
   fn validate_detailed(&self, value: T) -> Result<(), Violations> {
     let mut violations = vec![];
