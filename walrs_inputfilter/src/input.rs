@@ -626,69 +626,6 @@ mod test {
   use crate::ViolationType::{CustomError, RangeOverflow};
   use std::error::Error;
 
-  /*
-    // From previous implementation
-    // ----
-          use crate::{
-              range_overflow_msg_getter, LengthValidatorBuilder, PatternValidatorBuilder,
-              RangeValidatorBuilder, SlugFilter,
-          };
-          use regex::Regex;
-          use std::borrow::Cow;
-          use std::error::Error;
-          // use crate::{InputBuilder, StringConstraintsBuilder};
-          // use crate::StepMismatch;
-
-          #[test]
-          fn test_validate() {
-              // Setup a custom validator
-              let validate_is_even = |x: usize| {
-                  if x % 2 != 0 {
-                      Err(vec![(
-                          CustomError,
-                          "Must be even".to_string(),
-                      )])
-                  } else {
-                      Ok(())
-                  }
-              };
-
-              let one_to_ten = RangeValidatorBuilder::<usize>::default()
-                  .min(1)
-                  .max(10)
-                  .build()
-                  .unwrap();
-
-              // Setup input constraints
-              let even_zero_to_ten_req = InputBuilder::<usize, usize>::default()
-                  .required(true)
-                  .validators(vec![&one_to_ten, &validate_is_even])
-                  .build()
-                  .unwrap();
-
-              let test_cases = [
-                  (
-                      "No value",
-                      &even_zero_to_ten_req,
-                      None,
-                      Err(vec![value_missing_msg_getter(&even_zero_to_ten_req)]),
-                  ),
-                  ("With valid value", &even_zero_to_ten_req, Some(4), Ok(())),
-                  (
-                      "With \"not Even\" value",
-                      &even_zero_to_ten_req,
-                      Some(7),
-                      Err(vec!["Must be even".to_string()]),
-                  ),
-              ];
-
-              // Run test cases
-              for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
-                  println!("Case {}: {}", i + 1, test_name);
-                  assert_eq!(input.validate(value), expected_rslt);
-              }
-          }
-  */
   #[test]
   fn test_validate_methods() {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
@@ -834,7 +771,7 @@ mod test {
         ])),
       ),
       (
-        "1-10, Even, required, with invalid value (3)",
+        "1-10, Even, required, with invalid value, and \"break_on_failure\"",
         &even_zero_to_ten_req_break_on_fail,
         7,
         Err(Violations(vec![Violation(
@@ -843,7 +780,15 @@ mod test {
         )])),
       ),
       (
-        "1-10, Even, required, with valid value",
+        "1-10, Even, required, with invalid value, and \"break_on_failure\"",
+        &even_zero_to_ten_req_break_on_fail,
+        11,
+        Err(Violations(vec![Violation(
+          RangeOverflow, "Number must be between 0-10".to_string()
+        )])),
+      ),
+      (
+        "1-10, Even, required, with valid value, and \"break_on_failure\"",
         &even_zero_to_ten_req_break_on_fail,
         10,
         Ok(10),
@@ -962,15 +907,15 @@ mod test {
 
     // 2. With one filter.
     let usize_input_twofold = InputBuilder::<usize, usize>::default()
-      .filters(vec![&|x: usize| x * 2usize])
-      .build()?;
+        .filters(vec![&|x: usize| x * 2usize])
+        .build()?;
 
     // 3. With two filters.
     let usize_input_gte_four = InputBuilder::<usize, usize>::default()
-      .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
-        x * 2usize
-      }])
-      .build()?;
+        .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
+          x * 2usize
+        }])
+        .build()?;
 
     let test_cases = [
       // No filters
@@ -1000,218 +945,4 @@ mod test {
 
     Ok(())
   }
-  /*
-
-  #[test]
-  fn test_validate_and_filter_detailed() -> Result<(), Box<dyn Error>> {
-    // Ensure each logic case in method is sound, and that method is callable for each scalar type:
-    // 1) Test method logic
-    // ----
-    let validate_is_even = |x: usize| {
-      if x % 2 != 0 {
-        Err(vec![(
-          CustomError,
-          "Must be even".to_string(),
-        )])
-      } else {
-        Ok(())
-      }
-    };
-
-    let one_to_ten = RangeValidatorBuilder::<usize>::default()
-      .min(1)
-      .max(10)
-      .build()
-      .unwrap();
-
-    let usize_input_default = InputBuilder::<usize, usize>::default().build().unwrap();
-
-    let even_zero_to_ten_not_req_with_rules = InputBuilder::<usize, usize>::default()
-      .validators(vec![&one_to_ten, &validate_is_even])
-      .build()
-      .unwrap();
-
-    let even_zero_to_ten_req_with_rules = {
-      let mut new_input = even_zero_to_ten_not_req_with_rules.clone();
-      new_input.required = true;
-      new_input
-    };
-
-    let even_zero_to_ten_req_break_on_fail_with_rules = {
-      let mut new_input = even_zero_to_ten_req_with_rules.clone();
-      new_input.break_on_failure = true;
-      new_input
-    };
-
-    let test_cases = vec![
-      // Default
-      // ----
-      (
-        "Default, with no value",
-        &usize_input_default,
-        None,
-        Ok(None),
-      ),
-      (
-        "Default, with value",
-        &usize_input_default,
-        Some(1),
-        Ok(Some(1)),
-      ),
-      // Not required
-      // ----
-      (
-        "1-10, Even, no value",
-        &even_zero_to_ten_not_req_with_rules,
-        None,
-        Ok(None),
-      ),
-      (
-        "1-10, Even, with valid value",
-        &even_zero_to_ten_not_req_with_rules,
-        Some(2),
-        Ok(Some(2)),
-      ),
-      (
-        "1-10, Even, with valid value (2)",
-        &even_zero_to_ten_not_req_with_rules,
-        Some(10),
-        Ok(Some(10)),
-      ),
-      (
-        "1-10, Even, with invalid value (3)",
-        &even_zero_to_ten_not_req_with_rules,
-        Some(7),
-        Err(vec![(
-          CustomError,
-          "Must be even".to_string(),
-        )]),
-      ),
-      (
-        "1-10, Even, with valid value",
-        &even_zero_to_ten_not_req_with_rules,
-        Some(8),
-        Ok(Some(8)),
-      ),
-      // Required
-      // ----
-      (
-        "1-10, Even, required, no value",
-        &even_zero_to_ten_req_with_rules,
-        None,
-        Err(vec![(
-          ValueMissing,
-          value_missing_msg_getter(&even_zero_to_ten_req_with_rules),
-        )]),
-      ),
-      (
-        "1-10, Even, required, with valid value",
-        &even_zero_to_ten_req_with_rules,
-        Some(2),
-        Ok(Some(2)),
-      ),
-      (
-        "1-10, Even, required, with valid value (1)",
-        &even_zero_to_ten_req_with_rules,
-        Some(4),
-        Ok(Some(4)),
-      ),
-      (
-        "1-10, Even, required, with valid value (2)",
-        &even_zero_to_ten_req_with_rules,
-        Some(8),
-        Ok(Some(8)),
-      ),
-      (
-        "1-10, Even, required, with valid value (3)",
-        &even_zero_to_ten_req_with_rules,
-        Some(10),
-        Ok(Some(10)),
-      ),
-      (
-        "1-10, Even, required, with invalid value (3)",
-        &even_zero_to_ten_req_with_rules,
-        Some(7),
-        Err(vec![(
-          CustomError,
-          "Must be even".to_string(),
-        )]),
-      ),
-      (
-        "1-10, Even, required, with invalid value (3)",
-        &even_zero_to_ten_req_break_on_fail_with_rules,
-        Some(7),
-        Err(vec![(
-          CustomError,
-          "Must be even".to_string(),
-        )]),
-      ),
-    ];
-
-    for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
-      println!("Case {}: {}", i + 1, test_name);
-
-      assert_eq!(input.validate_and_filter_detailed(subj), expected);
-    }
-
-    // Test basic usage with other types
-    // ----
-
-    let one_to_ten = RangeValidatorBuilder::<f64>::default()
-      .min(1.0)
-      .max(10.0)
-      .build()
-      .unwrap();
-
-    // Validates `f64`, and `f32` usage
-    let f64_input_required = InputBuilder::<f64, f64>::default()
-      .required(true)
-      .validators(vec![&one_to_ten, &|x: f64| {
-        if x % 2.0 != 0.0 {
-          Err(vec![(
-            CustomError,
-            "Must be even".to_string(),
-          )])
-        } else {
-          Ok(())
-        }
-      }])
-      .build()
-      .unwrap();
-
-    assert_eq!(
-      f64_input_required.validate_detailed(None),
-      Err(vec![(
-        ValueMissing,
-        value_missing_msg_getter(&f64_input_required)
-      ),])
-    );
-    assert_eq!(f64_input_required.validate_detailed(Some(2.0)), Ok(()));
-
-    let a_to_f = RangeValidatorBuilder::<char>::default()
-      .min('a')
-      .max('f')
-      .build()
-      .unwrap();
-
-    // Test `char` usage
-    let char_input = InputBuilder::<char, char>::default()
-      .validators(vec![&a_to_f])
-      .build()
-      .unwrap();
-
-    assert_eq!(char_input.validate_detailed(None), Ok(()));
-    assert_eq!(char_input.validate_detailed(Some('a')), Ok(()));
-    assert_eq!(char_input.validate_detailed(Some('f')), Ok(()));
-    assert_eq!(
-      char_input.validate_detailed(Some('g')),
-      Err(vec![(
-        RangeOverflow,
-        "`g` is greater than maximum `f`.".to_string()
-      ),])
-    );
-
-    Ok(())
-  }
-  */
 }
