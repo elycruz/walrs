@@ -25,6 +25,7 @@ where
   "Value is missing".to_string()
 }
 
+#[derive(Clone)]
 pub struct RefInput<'a, 'b, T, FT = T>
 where
   T: ?Sized + 'b,
@@ -810,6 +811,8 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::ViolationType::{ValueMissing, PatternMismatch};
+  use regex::Regex;
   use std::borrow::Cow;
 
   #[test]
@@ -896,5 +899,246 @@ mod test {
 
     // Test Display
     println!("{}", &input);
+  }
+
+  #[test]
+  fn test_e2e() {
+    // Prepare validators and filters
+    // ----
+    // Alnum validator
+    let alnum_regex = Regex::new(r"(?i)^[a-z\d]+$").unwrap();
+    fn get_alnum_violation() -> Violation {
+      Violation(PatternMismatch, "Expected only alnum".to_string())
+    }
+    let validate_alnum = move |s: &str| -> Result<(), Violation> {
+      if alnum_regex.is_match(s) {
+        Ok(())
+      } else {
+        Err(get_alnum_violation())
+      }
+    };
+
+    // Vowels validator
+    let vowels_regex = Regex::new(r"(?i)^[aeiou]+$").unwrap();
+    fn get_vowels_violation() -> Violation {
+      Violation(PatternMismatch, "Expected only vowels".to_string())
+    }
+    let validate_only_vowels = move |s: &str| -> Result<(), Violation> {
+      if vowels_regex.is_match(s) {
+        Ok(())
+      } else {
+        Err(get_vowels_violation())
+      }
+    };
+
+    fn get_empty_value_violation() -> Violation {
+      Violation(ValueMissing, "Value empty".to_string())
+    }
+    let validate_not_empty = |s: &str| -> Result<(), Violation> {
+      if !s.is_empty() {
+        Ok(())
+      } else {
+        Err(get_empty_value_violation())
+      }
+    };
+
+    let test_cases: Vec<(
+      &str,
+      RefInput<str, Cow<str>>,
+      &str,
+      Result<Cow<str>, Violations>,
+    )> = vec![
+      // Default
+      // ----
+      (
+        "Default, with value",
+        RefInputBuilder::<str, Cow<str>>::default().build().unwrap(),
+        "abc",
+        Ok("abc".into()),
+      ),
+      (
+        "Default, with empty value",
+        RefInputBuilder::<str, Cow<str>>::default().build().unwrap(),
+        "",
+        Ok("".into()),
+      ),
+      // Via `custom` field
+      // ----
+      (
+        "Validate 'not empty' (via 'custom', with valid value)",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .custom(&validate_not_empty)
+          .build()
+          .unwrap(),
+        "abc",
+        Ok("abc".into()),
+      ),
+      (
+        "Validate 'not empty' (via 'custom', with invalid value)",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .custom(&validate_not_empty)
+          .build()
+          .unwrap(),
+        "",
+        Err(Violations(vec![get_empty_value_violation()])),
+      ),
+      // Via `validators` field
+      // ----
+      (
+        "Validate 'not empty' (via 'validators', with valid value)",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .validators(vec![&validate_not_empty])
+          .build()
+          .unwrap(),
+        "abc",
+        Ok("abc".into()),
+      ),
+      (
+        "Validate 'not empty' (via 'validators', with invalid value)",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .validators(vec![&validate_not_empty])
+          .build()
+          .unwrap(),
+        "",
+        Err(Violations(vec![get_empty_value_violation()])),
+      ),
+      // Via `validators` field, with multiple validators
+      // ----
+      (
+        "Validate with multiple 'validators', and valid value",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "aeiou",
+        Ok("aeiou".into()),
+      ),
+      (
+        "Validate with multiple 'validators', and invalid value",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "z#abce",
+        Err(Violations(vec![
+          get_vowels_violation(),
+          get_alnum_violation(),
+        ])),
+      ),
+      // With `custom`, and multiple, validators
+      (
+        "Validate with 'custom' validator, and multiple 'validators', and valid value",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .custom(&validate_not_empty)
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "aeiou",
+        Ok("aeiou".into()),
+      ),
+      (
+        "Validate with 'custom' validator, and multiple 'validators', and invalid value",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .custom(&validate_not_empty)
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "",
+        Err(Violations(vec![
+          get_empty_value_violation(),
+          get_vowels_violation(),
+          get_alnum_violation(),
+        ])),
+      ),
+      // With `break_on_failure`
+      // ----
+      (
+        "Break on failure with multiple 'validators'",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .break_on_failure(true)
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "z#abce",
+        Err(Violations(vec![get_vowels_violation()])),
+      ),
+      (
+        "Break on failure with 'custom' validator, and multiple 'validators'",
+        RefInputBuilder::<str, Cow<str>>::default()
+          .break_on_failure(true)
+          .custom(&validate_not_empty)
+          .validators(vec![&validate_only_vowels, &validate_alnum])
+          .build()
+          .unwrap(),
+        "",
+        Err(Violations(vec![get_empty_value_violation()])),
+      ),
+    ];
+
+    for (i, (test_name, input, subj, expected)) in test_cases.into_iter().enumerate() {
+      println!("Case {}: {}", i + 1, test_name);
+
+      match expected {
+        Err(violations) => {
+          let msgs_vec = violations.clone().to_string_vec();
+          assert_eq!(input.validate_ref(subj), Err(msgs_vec.clone()));
+          assert_eq!(input.validate_ref_detailed(subj), Err(violations.clone()));
+          assert_eq!(input.validate_ref_option(Some(subj)), Err(msgs_vec.clone()));
+          assert_eq!(
+            input.validate_ref_option_detailed(Some(subj)),
+            Err(violations.clone())
+          );
+          assert_eq!(input.filter_ref(subj), Err(msgs_vec.clone()));
+          assert_eq!(input.filter_ref_detailed(subj), Err(violations.clone()));
+          assert_eq!(input.filter_ref_option(Some(subj)), Err(msgs_vec.clone()));
+          assert_eq!(
+            input.filter_ref_option_detailed(Some(subj)),
+            Err(violations.clone())
+          );
+        }
+        Ok(value) => {
+          assert_eq!(input.validate_ref(subj), Ok(()));
+          assert_eq!(input.validate_ref_detailed(subj), Ok(()));
+          assert_eq!(input.validate_ref_option(Some(subj)), Ok(()));
+          assert_eq!(input.validate_ref_option_detailed(Some(subj)), Ok(()));
+          assert_eq!(input.filter_ref(subj), Ok(value.clone()));
+          assert_eq!(input.filter_ref_detailed(subj), Ok(value.clone()));
+          assert_eq!(input.filter_ref_option(Some(subj)), Ok(Some(value.clone())));
+          assert_eq!(
+            input.filter_ref_option_detailed(Some(subj)),
+            Ok(Some(value.clone()))
+          );
+        }
+      }
+    }
+
+    // Validate required value, with "None" value;  E.g., should always return "one" error message
+    // ----
+    let required_input = RefInputBuilder::<str, Cow<str>>::default()
+        .required(true)
+        .build()
+        .unwrap();
+    assert_eq!(
+      required_input.validate_ref_option(None),
+      Err(vec![ref_input_value_missing_msg_getter(&required_input)])
+    );
+    assert_eq!(
+      required_input.validate_ref_option_detailed(None),
+      Err(Violations(vec![Violation(
+        ValueMissing,
+        ref_input_value_missing_msg_getter(&required_input)
+      )]))
+    );
+    assert_eq!(
+      required_input.filter_ref_option(None),
+      Err(vec![ref_input_value_missing_msg_getter(&required_input)])
+    );
+    assert_eq!(
+      required_input.filter_ref_option_detailed(None),
+      Err(Violations(vec![Violation(
+        ValueMissing,
+        ref_input_value_missing_msg_getter(&required_input)
+      )]))
+    );
   }
 }
