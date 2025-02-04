@@ -78,7 +78,7 @@ where
   /// use walrs_inputfilter::{
   ///   RefInput,
   ///   ref_input_value_missing_msg_getter,
-  ///   ViolationEnum
+  ///   ViolationType
   /// };
   ///
   /// let input = RefInput::<str, Cow<str>>::default();
@@ -111,7 +111,7 @@ impl<'b, T: ?Sized + 'b, FT: From<&'b T>> Default for RefInput<'_, 'b, T, FT> {
   /// use walrs_inputfilter::{
   ///   RefInput,
   ///   ref_input_value_missing_msg_getter,
-  ///   ViolationEnum
+  ///   ViolationType
   /// };
   ///
   /// let input = RefInput::<str, Cow<str>>::default();

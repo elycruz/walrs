@@ -1,7 +1,7 @@
 use crate::traits::{
-  NumberValue, ValidationResult, ViolationEnum,
-  ViolationEnum::{RangeOverflow, RangeUnderflow, StepMismatch},
+  NumberValue, ValidationResult,
 };
+use crate::{ViolationType, ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch}};
 use crate::ToAttributesList;
 use crate::ValidateValue;
 use std::fmt::{Display, Formatter};
@@ -39,7 +39,7 @@ impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ViolationEnum> {
+  fn _validate_integer(&self, v: T) -> Option<ViolationType> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -64,7 +64,7 @@ where
     None
   }
 
-  fn _get_violation_msg(&self, violation: ViolationEnum, value: T) -> String {
+  fn _get_violation_msg(&self, violation: ViolationType, value: T) -> String {
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
