@@ -726,8 +726,18 @@ mod test {
       new_input
     };
 
+    let is_not_six = |x: usize| if x == 6 {
+      Err(Violation(CustomError, "\"6\" is not allowed.".to_string()))
+    } else {
+      Ok(())
+    };
+    
     let usize_break_on_failure = {
       let mut new_input = usize_required.clone();
+      new_input.validators.as_mut().map(|vs| {
+        vs.push(&is_not_six);
+        return vs;
+      });
       new_input.break_on_failure = true;
       new_input
     };
@@ -801,7 +811,7 @@ mod test {
         )])),
       ),
       (
-        "1-10, Even, required, with invalid value (3)",
+        "1-10, Even, required, with invalid value, and `break_on_failure` set to `true` (3)",
         &usize_break_on_failure,
         7,
         Err(Violations(vec![Violation(
