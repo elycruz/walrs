@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, ValidateValue, ValidationResult, ViolationEnum};
+use crate::{ScalarValue, ValidateValue, ValidationResult, ViolationType};
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
@@ -25,7 +25,7 @@ impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   RangeValidator, ViolationEnum,
+  ///   RangeValidator, ViolationType,
   /// };
   ///
   /// let input = RangeValidator::<usize>::new();
@@ -53,7 +53,7 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   RangeValidator, ViolationEnum,
+  ///   RangeValidator, ViolationType,
   ///   RangeValidatorBuilder,
   ///   range_underflow_msg_getter, range_overflow_msg_getter,
   ///   ValidateValue,
@@ -72,10 +72,10 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///   ("With valid value (2)", &usize_vldtr, 4, Ok(())),
   ///   ("With valid value (3)", &usize_vldtr, 10, Ok(())),
   ///   ("With \"out of lower bounds\" value", &usize_vldtr, 0, Err(vec![
-  ///     (ViolationEnum::RangeUnderflow, range_underflow_msg_getter(&usize_vldtr, 0)),
+  ///     (ViolationType::RangeUnderflow, range_underflow_msg_getter(&usize_vldtr, 0)),
   ///   ])),
   ///   ("With \"out of upper bounds\" value", &usize_vldtr, 11, Err(vec![
-  ///     (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_vldtr, 11)),
+  ///     (ViolationType::RangeOverflow, range_overflow_msg_getter(&usize_vldtr, 11)),
   ///   ])),
   ///
   /// ];
@@ -92,7 +92,7 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
     if let Some(min) = self.min {
       if value < min {
         return Err(vec![(
-          ViolationEnum::RangeUnderflow,
+          ViolationType::RangeUnderflow,
           (self.range_underflow_msg)(self, value),
         )]);
       }
@@ -102,7 +102,7 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
     if let Some(max) = self.max {
       if value > max {
         return Err(vec![(
-          ViolationEnum::RangeOverflow,
+          ViolationType::RangeOverflow,
           (self.range_overflow_msg)(self, value),
         )]);
       }
@@ -206,7 +206,7 @@ impl<T: ScalarValue> Debug for RangeValidator<'_, T> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::ViolationEnum::{RangeOverflow, RangeUnderflow};
+  use crate::ViolationType::{RangeOverflow, RangeUnderflow};
 
   #[test]
   fn test_validate() {
