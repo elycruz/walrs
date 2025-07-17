@@ -23,7 +23,7 @@ pub enum ViolationType {
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violation(pub ViolationType, pub ViolationMessage);
 
-/// `Display` (and `ToString` (which we get for free)) impl for `Violation`.
+/// `Display` impl (and `ToString` (which we get for free)) for `Violation` type.
 ///
 /// ```rust
 /// use walrs_inputfilter::{ViolationType::ValueMissing, Violation};
