@@ -15,7 +15,8 @@ walrs_navigation = { path = "navigation" }
 
 [workspace]
 members = [
-    "acl",
+    "acl", 
+    "digraph",
     "graph",
     "inputfilter",
     "navigation"
