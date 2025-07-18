@@ -46,13 +46,13 @@ struct Input<'a, T> {
   validators: Option<Vec<&'a Validator<T>>>,
 }
 
-impl<'a, T> Input<'a, T> {
+impl<T> Input<'_, T> {
   pub fn new() -> Self {
     Self::default()
   }
 }
 
-impl<'a, T> Default for Input<'a, T> {
+impl<T> Default for Input<'_, T> {
   fn default() -> Self {
     Self {
       required: false,

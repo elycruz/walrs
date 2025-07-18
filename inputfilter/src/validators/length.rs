@@ -1,4 +1,4 @@
-use crate::{InputValue, ValidateValue, ValidationResult, ViolationEnum, ViolationMessage};
+use crate::{InputValue, ValidateValue, ValidationResult, ViolationType, ViolationMessage};
 
 pub type LengthValidatorCallback<T> =
   dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;
@@ -25,7 +25,7 @@ where
   pub too_long_msg: &'a LengthValidatorCallback<T>,
 }
 
-impl<'a, T: WithLength> LengthValidator<'a, T> {
+impl<T: WithLength> LengthValidator<'_, T> {
   pub fn new() -> Self {
     LengthValidatorBuilder::default().build().unwrap()
   }
@@ -35,13 +35,13 @@ pub trait WithLength: InputValue {
   fn length(&self) -> Option<usize>;
 }
 
-impl<'a> WithLength for &'a str {
+impl WithLength for &str {
   fn length(&self) -> Option<usize> {
     Some(self.len())
   }
 }
 
-impl<'a, T: InputValue> WithLength for &'a [T] {
+impl<T: InputValue> WithLength for &[T] {
   fn length(&self) -> Option<usize> {
     Some(self.len())
   }
@@ -94,7 +94,7 @@ impl<'a, T: InputValue> WithLength for &'a [T] {
 ///
 /// ```rust
 /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-/// use walrs_inputfilter::ViolationEnum::{RangeOverflow, RangeUnderflow, TooLong, TooShort};
+/// use walrs_inputfilter::ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort};
 /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateValue};
 ///
 /// let no_rules = LengthValidator::new();
@@ -124,14 +124,14 @@ impl<'a, T: InputValue> WithLength for &'a [T] {
 ///  assert_eq!(rules(value), expected, "{}", name);
 /// }
 /// ```
-impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
+impl<T: WithLength> ValidateValue<T> for LengthValidator<'_, T> {
   fn validate(&self, value: T) -> ValidationResult {
     if let Some(len) = value.length() {
       let mut errs = vec![];
 
       if let Some(min_length) = self.min_length {
         if len < min_length {
-          errs.push((ViolationEnum::TooShort, (self.too_short_msg)(self, value)));
+          errs.push((ViolationType::TooShort, (self.too_short_msg)(self, value)));
 
           if self.break_on_failure {
             return Err(errs);
@@ -141,7 +141,7 @@ impl<'a, T: WithLength> ValidateValue<T> for LengthValidator<'a, T> {
 
       if let Some(max_length) = self.max_length {
         if len > max_length {
-          errs.push((ViolationEnum::TooLong, (self.too_long_msg)(self, value)));
+          errs.push((ViolationType::TooLong, (self.too_long_msg)(self, value)));
 
           if self.break_on_failure {
             return Err(errs);
@@ -180,7 +180,7 @@ impl<T: WithLength> Fn<(T,)> for LengthValidator<'_, T> {
   }
 }
 
-impl<'a, T: WithLength> Default for LengthValidator<'a, T> {
+impl<T: WithLength> Default for LengthValidator<'_, T> {
   fn default() -> Self {
     LengthValidator::new()
   }

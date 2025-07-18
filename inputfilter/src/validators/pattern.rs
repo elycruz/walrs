@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::fmt::Display;
 
 use crate::traits::ValidationResult;
-use crate::ViolationEnum::PatternMismatch;
+use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 

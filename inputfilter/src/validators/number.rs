@@ -1,7 +1,7 @@
 use crate::traits::{
-  NumberValue, ValidationResult, ViolationEnum,
-  ViolationEnum::{RangeOverflow, RangeUnderflow, StepMismatch},
+  NumberValue, ValidationResult,
 };
+use crate::{ViolationType, ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch}};
 use crate::ToAttributesList;
 use crate::ValidateValue;
 use std::fmt::{Display, Formatter};
@@ -35,11 +35,11 @@ pub struct NumberValidator<'a, T: NumberValue> {
   pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T> NumberValidator<'a, T>
+impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ViolationEnum> {
+  fn _validate_integer(&self, v: T) -> Option<ViolationType> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -64,7 +64,7 @@ where
     None
   }
 
-  fn _get_violation_msg(&self, violation: ViolationEnum, value: T) -> String {
+  fn _get_violation_msg(&self, violation: ViolationType, value: T) -> String {
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
@@ -167,7 +167,7 @@ impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   }
 }
 
-impl<'a, T> Default for NumberValidator<'a, T>
+impl<T> Default for NumberValidator<'_, T>
 where
   T: NumberValue,
 {

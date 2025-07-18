@@ -1,6 +1,7 @@
 use serde::Serialize;
 use std::fmt::{Debug, Display};
 use std::ops::{Add, Div, Mul, Rem, Sub};
+use crate::{ViolationMessage, ViolationType};
 
 pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 
@@ -69,35 +70,8 @@ impl NumberValue for usize {}
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
 
-/// Violation Enum types represent the possible violation types that may be returned, along with error messages,
-/// from any given "validation" operation.
-///
-/// These additionally provide a runtime opportunity to override
-/// returned violation message(s), via returned validation result `Err` tuples, and the ability to provide the
-/// violation type from "constraint" structures that perform validation against their own constraint props.;  E.g.,
-/// `StringConstraints` (etc.) with it's `pattern`, `min_length`, `max_length` props. etc.
-///
-/// @todo Consider attaching messages to enum variants (will require something like `unwrap`,
-///   and/or, `to_string()` to limit the `match` statement verbosity that it might add).
-#[derive(PartialEq, Debug, Clone, Copy)]
-pub enum ViolationEnum {
-  CustomError,
-  PatternMismatch,
-  RangeOverflow,
-  RangeUnderflow,
-  StepMismatch,
-  TooLong,
-  TooShort,
-  NotEqual,
-  TypeMismatch,
-  ValueMissing,
-}
-
-/// A validation violation message.
-pub type ViolationMessage = String;
-
 /// A validation violation tuple.
-pub type ViolationTuple = (ViolationEnum, ViolationMessage);
+pub type ViolationTuple = (ViolationType, ViolationMessage);
 
 /// Returned from validators, and Input Constraint struct `validate_*detailed` methods.
 pub type ValidationResult = Result<(), Vec<ViolationTuple>>;
@@ -110,31 +84,3 @@ pub trait ToAttributesList {
 }
 
 pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
-
-pub type Validator<T> = dyn Fn(T) -> ValidationResult + Send + Sync;
-
-pub trait ValidatorRefT<T: ?Sized>: Fn(&T) -> ValidationResult + Send + Sync {}
-
-impl<T: ?Sized, F: ?Sized> ValidatorRefT<T> for F where F: Fn(&T) -> ValidationResult + Send + Sync {}
-
-/// Violation message getter for `ValueMissing` Violation Enum type.
-pub type ValueMissingCallback = dyn Fn() -> ViolationMessage + Send + Sync;
-
-pub trait InputConstraints<T, FT = T>: Display + Debug
-where
-  T: Copy,
-  FT: From<T>,
-{
-  fn validate(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>>;
-
-  fn validate_detailed(&self, value: Option<T>) -> Result<(), Vec<ViolationTuple>>;
-
-  fn filter(&self, value: FT) -> FT;
-
-  fn validate_and_filter(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
-
-  fn validate_and_filter_detailed(
-    &self,
-    value: Option<T>,
-  ) -> Result<Option<FT>, Vec<ViolationTuple>>;
-}

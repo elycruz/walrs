@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display, Formatter};
 use regex::Regex;
 
 use crate::{
-    ViolationEnum, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback,
+    ViolationType, ViolationTuple, ValidationResult, value_missing_msg, ValueMissingCallback,
     Filter, InputConstraints, Validator, ViolationMessage
 };
 
@@ -97,7 +97,7 @@ impl<'a, 'b> StringConstraints<'a, 'b> {
         if let Some(min_length) = self.min_length {
             if value.len() < min_length {
                 errs.push((
-                    ViolationEnum::TooShort,
+                    ViolationType::TooShort,
                     (self.too_short_msg)(self, Some(value)),
                 ));
 
@@ -108,7 +108,7 @@ impl<'a, 'b> StringConstraints<'a, 'b> {
         if let Some(max_length) = self.max_length {
             if value.len() > max_length {
                 errs.push((
-                    ViolationEnum::TooLong,
+                    ViolationType::TooLong,
                     (self.too_long_msg)(self, Some(value)),
                 ));
 
@@ -119,7 +119,7 @@ impl<'a, 'b> StringConstraints<'a, 'b> {
         if let Some(pattern) = &self.pattern {
             if !pattern.is_match(value) {
                 errs.push((
-                    ViolationEnum::PatternMismatch,
+                    ViolationType::PatternMismatch,
                     (self.pattern_mismatch_msg)(self, Some(value)),
                 ));
 
@@ -167,7 +167,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
     /// ```rust
     /// use walrs_inputfilter::*;
     /// use walrs_inputfilter::pattern::PatternValidator;
-    /// use walrs_inputfilter::traits::ViolationEnum::{
+    /// use walrs_inputfilter::violation::ViolationType::{
     ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
     ///   RangeOverflow, RangeUnderflow, StepMismatch
     /// };
@@ -217,7 +217,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
     /// ```rust
     /// use walrs_inputfilter::*;
     /// use walrs_inputfilter::pattern::PatternValidator;
-    /// use walrs_inputfilter::traits::ViolationEnum::{
+    /// use walrs_inputfilter::violation::ViolationType::{
     ///   ValueMissing, TooShort, TooLong, TypeMismatch, CustomError,
     ///   RangeOverflow, RangeUnderflow, StepMismatch
     /// };
@@ -257,7 +257,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
             None => {
                 if self.required {
                     Err(vec![(
-                        ViolationEnum::ValueMissing,
+                        ViolationType::ValueMissing,
                         (self.value_missing_msg)(),
                     )])
                 } else {
@@ -305,7 +305,7 @@ impl<'a, 'b> InputConstraints<'a, 'b, &'b str, Cow<'b, str>> for StringConstrain
     ///   .validators(vec![&|x: &str| {
     ///     if x.len() < 3 {
     ///       return Err(vec![(
-    ///         ViolationEnum::TooShort,
+    ///         ViolationType::TooShort,
     ///        "Too short".to_string(),
     ///       )]);
     ///     }
@@ -371,7 +371,7 @@ impl Debug for StringConstraints<'_, '_> {
 mod test {
     use super::*;
     use crate::{
-        ViolationEnum::{PatternMismatch, RangeOverflow},
+        ViolationType::{PatternMismatch, RangeOverflow},
     };
     use crate::validators::pattern::PatternValidator;
     use std::{error::Error, sync::Arc, thread};
@@ -639,7 +639,7 @@ mod test {
                 Ok(())
             } else {
                 Err(vec![(
-                    ViolationEnum::TypeMismatch,
+                    ViolationType::TypeMismatch,
                     "Error".to_string(),
                 )])
             }

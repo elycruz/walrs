@@ -1,4 +1,4 @@
-use crate::traits::ViolationEnum;
+use crate::violation::ViolationType;
 use crate::traits::{InputValue, ValidationResult};
 use crate::ToAttributesList;
 use crate::ValidateValue;
@@ -15,7 +15,7 @@ where
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<'a, T> ValidateValue<T> for EqualityValidator<'a, T>
+impl<T> ValidateValue<T> for EqualityValidator<'_, T>
 where
   T: InputValue + Display,
 {
@@ -24,7 +24,8 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   EqualityValidator, ViolationEnum,
+  ///   EqualityValidator,
+  ///   ViolationType,
   ///   EqualityValidatorBuilder,
   ///   equal_vldr_not_equal_msg,
   ///   ValidateValue,
@@ -46,11 +47,11 @@ where
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(vec![(ViolationEnum::NotEqual, "Value must equal abc".to_string())])
+  ///   Err(vec![(ViolationType::NotEqual, "Value must equal abc".to_string())])
   /// );
   /// assert_eq!(
   ///   input("abc"),
-  ///   Err(vec![(ViolationEnum::NotEqual, "Value must equal abc".to_string())])
+  ///   Err(vec![(ViolationType::NotEqual, "Value must equal abc".to_string())])
   /// );
   /// ```
   fn validate(&self, x: T) -> ValidationResult {
@@ -58,7 +59,7 @@ where
       Ok(())
     } else {
       Err(vec![(
-        ViolationEnum::NotEqual,
+        ViolationType::NotEqual,
         (self.not_equal_msg)(self, x),
       )])
     }
@@ -117,7 +118,7 @@ pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::ViolationEnum::NotEqual;
+  use crate::ViolationType::NotEqual;
   use std::error::Error;
 
   #[test]

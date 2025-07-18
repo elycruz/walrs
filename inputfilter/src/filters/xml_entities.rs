@@ -33,7 +33,7 @@ pub struct XmlEntitiesFilter<'a> {
   pub chars_assoc_map: &'a HashMap<char, &'static str>,
 }
 
-impl<'a> XmlEntitiesFilter<'a> {
+impl XmlEntitiesFilter<'_> {
   pub fn new() -> Self {
     Self {
       chars_assoc_map: DEFAULT_CHARS_ASSOC_MAP.get_or_init(|| {
@@ -83,13 +83,13 @@ impl<'a> XmlEntitiesFilter<'a> {
   }
 }
 
-impl<'a> Default for XmlEntitiesFilter<'a> {
+impl Default for XmlEntitiesFilter<'_> {
   fn default() -> Self {
     Self::new()
   }
 }
 
-impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
+impl<'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   type Output = Cow<'b, str>;
 
   extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
@@ -97,13 +97,13 @@ impl<'a, 'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
   }
 }
 
-impl<'a, 'b> FnMut<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
+impl<'b> FnMut<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
-impl<'a, 'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'a> {
+impl<'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }

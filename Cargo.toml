@@ -10,13 +10,14 @@ rust-version = "1.77"
 ammonia = "3.3.0"
 walrs_acl = { path = 'acl' }
 walrs_graph = { path = 'graph' }
-walrs_inputfilter = { path = "walrs_inputfilter" }
+walrs_inputfilter = { path = "inputfilter" }
 walrs_navigation = { path = "navigation" }
 
 [workspace]
 members = [
-    "acl",
+    "acl", 
+    "digraph",
     "graph",
-    "walrs_inputfilter",
+    "inputfilter",
     "navigation"
 ]
