@@ -1,4 +1,4 @@
-use crate::{InputValue, ValidateValue, ValidationResult, ViolationType, ViolationMessage};
+use crate::{InputValue, ValidateValue, ValidatorResult, ViolationType, ViolationMessage, Violation};
 
 pub type LengthValidatorCallback<T> =
   dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;
@@ -94,7 +94,7 @@ impl<T: InputValue> WithLength for &[T] {
 ///
 /// ```rust
 /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-/// use walrs_inputfilter::ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort};
+/// use walrs_inputfilter::{Violation, ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort}};
 /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateValue};
 ///
 /// let no_rules = LengthValidator::new();
@@ -109,12 +109,10 @@ impl<T: InputValue> WithLength for &[T] {
 ///
 /// let test_cases = vec![
 ///   ("Default", &no_rules, "", Ok(())),
-///   ("Value too short", &len_one_to_ten, "", Err(vec![
-///     (TooShort, len_too_short_msg(&len_one_to_ten, ""))
-///   ])),
-///   ("Value too long", &len_one_to_ten, too_long_str, Err(vec![
-///     (TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
-///   ])),
+///   ("Value too short", &len_one_to_ten, "", Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, ""))
+///   )),
+///   ("Value too long", &len_one_to_ten, too_long_str, Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
+///   )),
 ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
 ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
 /// ];
@@ -125,43 +123,27 @@ impl<T: InputValue> WithLength for &[T] {
 /// }
 /// ```
 impl<T: WithLength> ValidateValue<T> for LengthValidator<'_, T> {
-  fn validate(&self, value: T) -> ValidationResult {
+  fn validate(&self, value: T) -> ValidatorResult {
     if let Some(len) = value.length() {
-      let mut errs = vec![];
-
       if let Some(min_length) = self.min_length {
         if len < min_length {
-          errs.push((ViolationType::TooShort, (self.too_short_msg)(self, value)));
-
-          if self.break_on_failure {
-            return Err(errs);
-          }
+          return Err(Violation(ViolationType::TooShort, (self.too_short_msg)(self, value)))
         }
       }
 
       if let Some(max_length) = self.max_length {
         if len > max_length {
-          errs.push((ViolationType::TooLong, (self.too_long_msg)(self, value)));
-
-          if self.break_on_failure {
-            return Err(errs);
-          }
+          return Err(Violation(ViolationType::TooLong, (self.too_long_msg)(self, value)));
         }
       }
-
-      if errs.is_empty() {
-        Ok(())
-      } else {
-        Err(errs)
-      }
-    } else {
-      Ok(())
     }
+
+    Ok(())
   }
 }
 
 impl<T: WithLength> FnOnce<(T,)> for LengthValidator<'_, T> {
-  type Output = ValidationResult;
+  type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
     self.validate(args.0)

@@ -1,4 +1,4 @@
-use crate::{ToAttributesList, ValidateRefValue2, ValidateResult, Violation};
+use crate::{ToAttributesList, ValidateRefValue2, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
@@ -28,7 +28,7 @@ impl Default for PatternValidator2<'_> {
 }
 
 impl ValidateRefValue2<str> for PatternValidator2<'_> {
-    fn validate_ref(&self, value: &str) -> ValidateResult {
+    fn validate_ref(&self, value: &str) -> ValidatorResult {
         match self.pattern.is_match(value) {
             false => Err(Violation(
                 PatternMismatch,
@@ -46,7 +46,7 @@ impl ToAttributesList for PatternValidator2<'_> {
 }
 
 impl FnOnce<(&str,)> for PatternValidator2<'_> {
-    type Output = ValidateResult;
+    type Output = ValidatorResult;
 
     extern "rust-call" fn call_once(self, args: (&str,)) -> Self::Output {
         self.validate_ref(args.0)
@@ -67,7 +67,7 @@ impl Fn<(&str,)> for PatternValidator2<'_> {
 
 // @todo `Fn` traits implementation for `&&str` is not required.
 impl FnOnce<(&&str,)> for PatternValidator2<'_> {
-    type Output = ValidateResult;
+    type Output = ValidatorResult;
 
     extern "rust-call" fn call_once(self, args: (&&str,)) -> Self::Output {
         self.validate_ref(args.0)
@@ -88,7 +88,7 @@ impl Fn<(&&str,)> for PatternValidator2<'_> {
 
 // @todo `Fn` traits implementation for `&String` is not required.
 impl FnOnce<(&String,)> for PatternValidator2<'_> {
-    type Output = ValidateResult;
+    type Output = ValidatorResult;
 
     extern "rust-call" fn call_once(self, args: (&String,)) -> Self::Output {
         self.validate_ref(args.0)
