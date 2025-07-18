@@ -1,5 +1,5 @@
 use serde::Serialize;
-use std::fmt::{Debug, Display};
+use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 use crate::{ViolationMessage, ViolationType};
 

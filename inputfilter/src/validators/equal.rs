@@ -1,7 +1,6 @@
+use crate::traits::InputValue;
 use crate::violation::ViolationType;
-use crate::traits::{InputValue, ValidationResult};
-use crate::ToAttributesList;
-use crate::ValidateValue;
+use crate::{ToAttributesList, ValidatorResult, ValidateValue, Violation};
 use std::fmt::Display;
 
 #[derive(Builder, Clone)]
@@ -29,6 +28,8 @@ where
   ///   EqualityValidatorBuilder,
   ///   equal_vldr_not_equal_msg,
   ///   ValidateValue,
+  ///   ValidatorResult,
+  ///   Violation,
   ///   InputValue
   /// };
   ///
@@ -47,21 +48,21 @@ where
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(vec![(ViolationType::NotEqual, "Value must equal abc".to_string())])
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
   /// );
   /// assert_eq!(
   ///   input("abc"),
-  ///   Err(vec![(ViolationType::NotEqual, "Value must equal abc".to_string())])
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
   /// );
   /// ```
-  fn validate(&self, x: T) -> ValidationResult {
+  fn validate(&self, x: T) -> ValidatorResult {
     if x == self.rhs_value {
       Ok(())
     } else {
-      Err(vec![(
+      Err(Violation(
         ViolationType::NotEqual,
         (self.not_equal_msg)(self, x),
-      )])
+      ))
     }
   }
 }
@@ -89,7 +90,7 @@ impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
 }
 
 impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
-  type Output = ValidationResult;
+  type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
     self.validate(args.0)
@@ -155,17 +156,17 @@ mod test {
       } else {
         assert_eq!(
           validator.validate(lhs_value),
-          Err(vec![(
+          Err(Violation(
             NotEqual,
             equal_vldr_not_equal_msg(&validator, lhs_value)
-          )])
+          ))
         );
         assert_eq!(
           validator(lhs_value),
-          Err(vec![(
+          Err(Violation(
             NotEqual,
             equal_vldr_not_equal_msg(&validator, lhs_value)
-          )])
+          ))
         );
       }
     }
