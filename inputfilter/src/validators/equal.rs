@@ -1,6 +1,6 @@
 use crate::traits::InputValue;
 use crate::violation::ViolationType;
-use crate::{ToAttributesList, ValidatorResult, ValidateValue, Violation};
+use crate::{ToAttributesList, ValidateValue, ValidatorResult, Violation};
 use std::fmt::Display;
 
 #[derive(Builder, Clone)]

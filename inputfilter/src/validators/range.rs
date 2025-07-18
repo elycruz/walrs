@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, ValidateValue, ValidatorResult, ViolationType, Violation};
+use crate::{ScalarValue, ValidateValue, ValidatorResult, Violation, ViolationType};
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]

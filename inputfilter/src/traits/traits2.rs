@@ -1,4 +1,4 @@
-use crate::violation::{ViolationMessage, Violation, Violations};
+use crate::violation::{Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display};
 
 pub type ValidatorForSized<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;

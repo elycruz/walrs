@@ -1,4 +1,6 @@
-use crate::{InputValue, ValidateValue, ValidatorResult, ViolationType, ViolationMessage, Violation};
+use crate::{
+  InputValue, ValidateValue, ValidatorResult, Violation, ViolationMessage, ViolationType,
+};
 
 pub type LengthValidatorCallback<T> =
   dyn Fn(&LengthValidator<T>, T) -> ViolationMessage + Send + Sync;
@@ -127,13 +129,19 @@ impl<T: WithLength> ValidateValue<T> for LengthValidator<'_, T> {
     if let Some(len) = value.length() {
       if let Some(min_length) = self.min_length {
         if len < min_length {
-          return Err(Violation(ViolationType::TooShort, (self.too_short_msg)(self, value)))
+          return Err(Violation(
+            ViolationType::TooShort,
+            (self.too_short_msg)(self, value),
+          ));
         }
       }
 
       if let Some(max_length) = self.max_length {
         if len > max_length {
-          return Err(Violation(ViolationType::TooLong, (self.too_long_msg)(self, value)));
+          return Err(Violation(
+            ViolationType::TooLong,
+            (self.too_long_msg)(self, value),
+          ));
         }
       }
     }

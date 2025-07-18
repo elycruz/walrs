@@ -563,18 +563,8 @@ mod test {
     dsg.add_vertex(v1);
     dsg.add_vertex(v2);
 
-    assert_eq!(
-      dsg.has_vertex(v1),
-      true,
-      "should contain vertex \"{}\"",
-      v1
-    );
-    assert_eq!(
-      dsg.has_vertex(v2),
-      true,
-      "should contain vertex \"{}\"",
-      v2
-    );
+    assert_eq!(dsg.has_vertex(v1), true, "should contain vertex \"{}\"", v1);
+    assert_eq!(dsg.has_vertex(v2), true, "should contain vertex \"{}\"", v2);
     assert_eq!(
       dsg.has_vertex("non-existent"),
       false,

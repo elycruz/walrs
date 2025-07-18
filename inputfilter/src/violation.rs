@@ -101,7 +101,7 @@ impl Violations {
 
 #[cfg(test)]
 mod test {
-  use super::{*, ViolationType::ValueMissing};
+  use super::{ViolationType::ValueMissing, *};
 
   #[test]
   fn test_violation_to_string() {

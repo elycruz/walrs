@@ -1,7 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader, Lines};
 
-
 use crate::utils::extract_vert_and_edge_counts_from_bufreader;
 
 /// Returns panic message for invalid vertices;  Exported for use in testing.
@@ -345,10 +344,7 @@ mod test {
           g.outdegree(i)?,
           expected_outdegree,
           "{}",
-          format!(
-            "`#.outdegree({})` should return {}",
-            i, expected_outdegree
-          )
+          format!("`#.outdegree({})` should return {}", i, expected_outdegree)
         );
       }
     }
@@ -376,7 +372,7 @@ mod test {
       (Digraph::new(1), 2),
       (Digraph::new(0), 1),
     ]
-      .as_mut()
+    .as_mut()
     {
       // Add vertices 0 to num verts to add (non-inclusive on the right hand side)
       for i in 0..*num_verts_to_add {

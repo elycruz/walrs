@@ -1,8 +1,7 @@
 use crate::traits::NumberValue;
 use crate::{
-  ToAttributesList, ValidateValue, ViolationType, ValidatorResult,
+  ToAttributesList, ValidateValue, ValidatorResult, Violation, ViolationType,
   ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
-  Violation
 };
 use std::fmt::{Display, Formatter};
 
@@ -93,7 +92,10 @@ where
 {
   fn validate(&self, value: T) -> ValidatorResult {
     if let Some(violation) = self._validate_integer(value) {
-      return Err(Violation(violation, self._get_violation_msg(violation, value)));
+      return Err(Violation(
+        violation,
+        self._get_violation_msg(violation, value),
+      ));
     }
 
     Ok(())

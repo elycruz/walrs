@@ -85,9 +85,11 @@ impl<'a> NavigationItem<'a> for NavItem {
   }
 
   fn find(&self, pred: impl Fn(&NavItem) -> bool) -> Option<NavItem> {
-    self.items.as_deref().map(|items| {
-      items.iter().find(|item| pred(*item)).map(|x| x.clone())
-    }).flatten()
+    self
+      .items
+      .as_deref()
+      .map(|items| items.iter().find(|item| pred(*item)).map(|x| x.clone()))
+      .flatten()
   }
 
   fn size(&mut self) -> isize {

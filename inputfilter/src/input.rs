@@ -815,7 +815,8 @@ mod test {
         &even_zero_to_ten_req_break_on_fail,
         12,
         Err(Violations(vec![Violation(
-          RangeOverflow, "Number must be between 0-10".to_string()
+          RangeOverflow,
+          "Number must be between 0-10".to_string(),
         )])),
       ),
       (
@@ -938,15 +939,15 @@ mod test {
 
     // 2. With one filter.
     let usize_input_twofold = InputBuilder::<usize, usize>::default()
-        .filters(vec![&|x: usize| x * 2usize])
-        .build()?;
+      .filters(vec![&|x: usize| x * 2usize])
+      .build()?;
 
     // 3. With two filters.
     let usize_input_gte_four = InputBuilder::<usize, usize>::default()
-        .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
-          x * 2usize
-        }])
-        .build()?;
+      .filters(vec![&|x: usize| if x < 4 { 4 } else { x }, &|x: usize| {
+        x * 2usize
+      }])
+      .build()?;
 
     let test_cases = [
       // No filters

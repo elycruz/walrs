@@ -1,5 +1,5 @@
-use crate::dfs::{vertex_marked, DigraphDFSShape};
 use crate::Digraph;
+use crate::dfs::{DigraphDFSShape, vertex_marked};
 
 pub struct DigraphDipathsDFS {
   _marked: Vec<bool>,
@@ -80,8 +80,8 @@ impl DigraphDipathsDFS {
 
 #[cfg(test)]
 mod test {
-  use crate::symbol_digraph::DisymGraph;
   use crate::math::triangular_num;
+  use crate::symbol_digraph::DisymGraph;
 
   use super::*;
 

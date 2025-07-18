@@ -1,8 +1,5 @@
 use crate::ViolationType::ValueMissing;
-use crate::{
-  FilterFn, FilterForUnsized, ValidatorForRef, Violation, ViolationMessage,
-  Violations,
-};
+use crate::{FilterFn, FilterForUnsized, ValidatorForRef, Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter, Write};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -811,7 +808,7 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::ViolationType::{ValueMissing, PatternMismatch};
+  use crate::ViolationType::{PatternMismatch, ValueMissing};
   use regex::Regex;
   use std::borrow::Cow;
 
@@ -1115,9 +1112,9 @@ mod test {
     // Validate required value, with "None" value;  E.g., should always return "one" error message
     // ----
     let required_input = RefInputBuilder::<str, Cow<str>>::default()
-        .required(true)
-        .build()
-        .unwrap();
+      .required(true)
+      .build()
+      .unwrap();
     assert_eq!(
       required_input.validate_ref_option(None),
       Err(vec![ref_input_value_missing_msg_getter(&required_input)])

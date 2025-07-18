@@ -1,7 +1,7 @@
+use crate::{ViolationMessage, ViolationType};
 use serde::Serialize;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Rem, Sub};
-use crate::{ViolationMessage, ViolationType};
 
 pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
 
