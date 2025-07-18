@@ -95,9 +95,9 @@ impl<'a> DFS<'a> {
 #[cfg(test)]
 mod test {
   use crate::graph::symbol_graph::SymbolGraph;
+  use crate::graph::GenericSymbol;
   use std::fs::File;
   use std::io::BufReader;
-  use crate::graph::GenericSymbol;
 
   use super::*;
 

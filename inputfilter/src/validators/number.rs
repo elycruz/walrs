@@ -1,9 +1,8 @@
-use crate::traits::{
-  NumberValue, ValidationResult, ViolationEnum,
-  ViolationEnum::{RangeOverflow, RangeUnderflow, StepMismatch},
+use crate::traits::NumberValue;
+use crate::{
+  ToAttributesList, ValidateValue, ValidatorResult, Violation, ViolationType,
+  ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
 };
-use crate::ToAttributesList;
-use crate::ValidateValue;
 use std::fmt::{Display, Formatter};
 
 // @todo Validator should support `break_on_failure` feature.
@@ -39,7 +38,7 @@ impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ViolationEnum> {
+  fn _validate_integer(&self, v: T) -> Option<ViolationType> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -64,7 +63,7 @@ where
     None
   }
 
-  fn _get_violation_msg(&self, violation: ViolationEnum, value: T) -> String {
+  fn _get_violation_msg(&self, violation: ViolationType, value: T) -> String {
     let f = match violation {
       RangeUnderflow => Some(&self.range_underflow),
       RangeOverflow => Some(&self.range_overflow),
@@ -91,9 +90,12 @@ impl<T> ValidateValue<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn validate(&self, value: T) -> ValidationResult {
+  fn validate(&self, value: T) -> ValidatorResult {
     if let Some(violation) = self._validate_integer(value) {
-      return Err(vec![(violation, self._get_violation_msg(violation, value))]);
+      return Err(Violation(
+        violation,
+        self._get_violation_msg(violation, value),
+      ));
     }
 
     Ok(())
@@ -140,7 +142,7 @@ impl<T: NumberValue> Fn<(T,)> for NumberValidator<'_, T> {
 }
 
 impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
-  type Output = ValidationResult;
+  type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
     self.validate(args.0)
@@ -160,7 +162,7 @@ impl<T: NumberValue> Fn<(&T,)> for NumberValidator<'_, T> {
 }
 
 impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
-  type Output = ValidationResult;
+  type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
@@ -364,15 +366,15 @@ mod test {
           assert_eq!((&validator)(value), Ok(()));
         }
         Err(_enum) => {
-          let err_msg_tuple = match _enum {
-            StepMismatch => (StepMismatch, num_step_mismatch_msg(&validator, value)),
-            RangeUnderflow => (RangeUnderflow, num_range_underflow_msg(&validator, value)),
-            RangeOverflow => (RangeOverflow, num_range_overflow_msg(&validator, value)),
+          let violation_tuple = match _enum {
+            StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
+            RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
+            RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
             _ => panic!("Unknown enum variant encountered"),
           };
 
-          assert_eq!(validator.validate(value), Err(vec![err_msg_tuple.clone()]));
-          assert_eq!((&validator)(value), Err(vec![err_msg_tuple]));
+          assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
+          assert_eq!((&validator)(value), Err(violation_tuple));
         }
       }
     }

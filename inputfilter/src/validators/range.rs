@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, ValidateValue, ValidationResult, ViolationEnum};
+use crate::{ScalarValue, ValidateValue, ValidatorResult, Violation, ViolationType};
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
@@ -25,7 +25,7 @@ impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   RangeValidator, ViolationEnum,
+  ///   RangeValidator, ViolationType,
   /// };
   ///
   /// let input = RangeValidator::<usize>::new();
@@ -53,10 +53,11 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_inputfilter::{
-  ///   RangeValidator, ViolationEnum,
+  ///   RangeValidator, ViolationType,
   ///   RangeValidatorBuilder,
   ///   range_underflow_msg_getter, range_overflow_msg_getter,
   ///   ValidateValue,
+  ///   Violation,
   ///   ScalarValue
   /// };
   ///
@@ -71,13 +72,12 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///   ("With valid value (1)", &usize_vldtr, 1, Ok(())),
   ///   ("With valid value (2)", &usize_vldtr, 4, Ok(())),
   ///   ("With valid value (3)", &usize_vldtr, 10, Ok(())),
-  ///   ("With \"out of lower bounds\" value", &usize_vldtr, 0, Err(vec![
-  ///     (ViolationEnum::RangeUnderflow, range_underflow_msg_getter(&usize_vldtr, 0)),
-  ///   ])),
-  ///   ("With \"out of upper bounds\" value", &usize_vldtr, 11, Err(vec![
-  ///     (ViolationEnum::RangeOverflow, range_overflow_msg_getter(&usize_vldtr, 11)),
-  ///   ])),
-  ///
+  ///   ("With \"out of lower bounds\" value", &usize_vldtr, 0, Err(
+  ///     Violation(ViolationType::RangeUnderflow, range_underflow_msg_getter(&usize_vldtr, 0)),
+  ///   )),
+  ///   ("With \"out of upper bounds\" value", &usize_vldtr, 11, Err(
+  ///     Violation(ViolationType::RangeOverflow, range_overflow_msg_getter(&usize_vldtr, 11)),
+  ///   )),
   /// ];
   ///
   /// // Run test cases
@@ -87,24 +87,24 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///   assert_eq!(usize_vldtr(value), expected_rslt);
   /// }
   /// ```
-  fn validate(&self, value: T) -> ValidationResult {
+  fn validate(&self, value: T) -> ValidatorResult {
     // Test lower bound
     if let Some(min) = self.min {
       if value < min {
-        return Err(vec![(
-          ViolationEnum::RangeUnderflow,
+        return Err(Violation(
+          ViolationType::RangeUnderflow,
           (self.range_underflow_msg)(self, value),
-        )]);
+        ));
       }
     }
 
     // Test upper bound
     if let Some(max) = self.max {
       if value > max {
-        return Err(vec![(
-          ViolationEnum::RangeOverflow,
+        return Err(Violation(
+          ViolationType::RangeOverflow,
           (self.range_overflow_msg)(self, value),
-        )]);
+        ));
       }
     }
 
@@ -125,7 +125,7 @@ impl<T: ScalarValue> Fn<(T,)> for RangeValidator<'_, T> {
 }
 
 impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
-  type Output = ValidationResult;
+  type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
     self.validate(args.0)
@@ -206,7 +206,7 @@ impl<T: ScalarValue> Debug for RangeValidator<'_, T> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::ViolationEnum::{RangeOverflow, RangeUnderflow};
+  use crate::ViolationType::{RangeOverflow, RangeUnderflow};
 
   #[test]
   fn test_validate() {
@@ -232,28 +232,28 @@ mod test {
         "With \"out of lower bounds\" value",
         &usize_required,
         0,
-        Err(vec![(
+        Err(Violation(
           RangeUnderflow,
           range_underflow_msg_getter(&usize_required, 0),
-        )]),
+        )),
       ),
       (
         "With \"out of upper bounds\" value",
         &usize_required,
         11,
-        Err(vec![(
+        Err(Violation(
           RangeOverflow,
           range_overflow_msg_getter(&usize_required, 11),
-        )]),
+        )),
       ),
       (
         "With \"out of upper bounds\" value, and 'break_on_failure: true'",
         &usize_break_on_failure,
         11,
-        Err(vec![(
+        Err(Violation(
           RangeOverflow,
           range_overflow_msg_getter(&usize_required, 11),
-        )]),
+        )),
       ),
     ];
 

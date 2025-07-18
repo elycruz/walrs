@@ -1,9 +1,9 @@
-use crate::{InputValue, ValidationResult, Violation};
+use crate::{InputValue, Violation};
 
 pub type ValidatorResult = Result<(), Violation>;
 
 pub trait ValidateValue<T: InputValue> {
-  fn validate(&self, value: T) -> ValidationResult;
+  fn validate(&self, value: T) -> ValidatorResult;
 }
 
 pub trait ValidateRefValue2<T: ?Sized> {

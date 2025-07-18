@@ -73,12 +73,12 @@ impl DigraphDFSShape for DigraphDFS {
 
 #[cfg(test)]
 mod test {
-  use crate::symbol_digraph::DisymGraph;
   use crate::math::triangular_num;
+  use crate::symbol_digraph::DisymGraph;
 
   use super::*;
 
-  #[test]
+    #[test]
   pub fn test_dfs_with_symbol_dag() -> Result<(), Box<dyn std::error::Error>> {
     // Get vertices
     let vowels: Vec<&str> = "a e i o u".split_ascii_whitespace().rev().collect();

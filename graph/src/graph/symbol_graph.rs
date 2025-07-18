@@ -4,8 +4,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 
-use crate::graph::Graph;
 use crate::graph::traits::Symbol;
+use crate::graph::Graph;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericSymbol {
@@ -14,9 +14,7 @@ pub struct GenericSymbol {
 
 impl GenericSymbol {
   pub fn new(id: String) -> Self {
-    GenericSymbol {
-      _id: id,
-    }
+    GenericSymbol { _id: id }
   }
 }
 
@@ -45,15 +43,20 @@ impl From<String> for GenericSymbol {
 /// // @todo
 /// ```
 #[derive(Debug)]
-pub struct SymbolGraph<T> where
-T: Symbol {
+pub struct SymbolGraph<T>
+where
+  T: Symbol,
+{
   _vertices: Vec<T>,
   _graph: Graph,
 }
 
 /// @todo Methods here should take an `&T` instead of an `&str` when working with vertices,
 ///   since vertices here are actually `T` - Makes methods more straight forward.
-impl<T> SymbolGraph<T> where T: Symbol {
+impl<T> SymbolGraph<T>
+where
+  T: Symbol,
+{
   /// Instantiates a new SymbolGraph and returns it.
   pub fn new() -> Self {
     SymbolGraph {
@@ -139,7 +142,10 @@ impl<T> SymbolGraph<T> where T: Symbol {
   }
 
   pub fn vertices(&self, indices: &[usize]) -> Vec<&T> {
-    indices.iter().filter_map(|i| self._vertices.get(*i)).collect()
+    indices
+      .iter()
+      .filter_map(|i| self._vertices.get(*i))
+      .collect()
   }
 
   /// Adds a symbol vertex to the graph.
@@ -218,7 +224,10 @@ impl<T> SymbolGraph<T> where T: Symbol {
   }*/
 }
 
-impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
+impl<T> TryFrom<&mut BufReader<File>> for SymbolGraph<T>
+where
+  T: Symbol,
+{
   type Error = String;
 
   fn try_from(reader: &mut BufReader<File>) -> Result<Self, Self::Error> {
@@ -243,7 +252,7 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
             if let Err(err) = g.add_edge(
               T::from(vs[0].to_string()),
-              Some(vs[1..].iter().map(|x| T::from(x.to_string())).collect())
+              Some(vs[1..].iter().map(|x| T::from(x.to_string())).collect()),
             ) {
               return Err(err);
             }
@@ -264,7 +273,7 @@ impl <T> TryFrom<&mut BufReader<File>> for SymbolGraph<T> where T: Symbol {
 
 #[cfg(test)]
 mod test {
-  use crate::graph::symbol_graph::{SymbolGraph};
+  use crate::graph::symbol_graph::SymbolGraph;
   use crate::graph::traits::Symbol;
 
   impl Symbol for String {
@@ -291,7 +300,9 @@ mod test {
       // Craft vertex' adjacency list
       let adjacency_list: Option<Vec<String>> = if i > 0 {
         Some(values[0..i].iter().map(|x| x.to_string()).collect())
-      } else { None };
+      } else {
+        None
+      };
 
       // Add edges
       if let Err(err) = graph.add_edge(v.to_string(), adjacency_list) {

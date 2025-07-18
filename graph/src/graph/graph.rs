@@ -44,7 +44,9 @@ impl Graph {
   /// Returns a result containing given vertex' adjacency list, or a string
   /// containing the "out-of-bounds index" error.
   pub fn adj(&self, i: usize) -> Result<&[usize], String> {
-    self.validate_vertex(i).map(|_| self._adj_lists[i].as_slice())
+    self
+      .validate_vertex(i)
+      .map(|_| self._adj_lists[i].as_slice())
   }
 
   /// Returns a `Result` containing the number of edges touching a given vertex,
