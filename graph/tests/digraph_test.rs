@@ -2,7 +2,7 @@
 mod test {
   use std::fs::File;
   use std::io::{BufReader, Seek};
-  use walrs_graph::digraph::Digraph;
+  use walrs_digraph::Digraph;
   use walrs_graph::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
 
   #[test]

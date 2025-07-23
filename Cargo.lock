@@ -783,6 +783,9 @@ version = "0.1.0"
 [[package]]
 name = "walrs_graph"
 version = "0.1.0"
+dependencies = [
+ "walrs_digraph",
+]
 
 [[package]]
 name = "walrs_inputfilter"
