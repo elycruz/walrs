@@ -67,48 +67,6 @@ impl Fn<(&str,)> for PatternValidator<'_> {
   }
 }
 
-// @todo `Fn` traits implementation for `&&str` is not required.
-impl FnOnce<(&&str,)> for PatternValidator<'_> {
-  type Output = ValidatorResult;
-
-  extern "rust-call" fn call_once(self, args: (&&str,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
-impl FnMut<(&&str,)> for PatternValidator<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (&&str,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
-impl Fn<(&&str,)> for PatternValidator<'_> {
-  extern "rust-call" fn call(&self, args: (&&str,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
-// @todo `Fn` traits implementation for `&String` is not required.
-impl FnOnce<(&String,)> for PatternValidator<'_> {
-  type Output = ValidatorResult;
-
-  extern "rust-call" fn call_once(self, args: (&String,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
-impl FnMut<(&String,)> for PatternValidator<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (&String,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
-impl Fn<(&String,)> for PatternValidator<'_> {
-  extern "rust-call" fn call(&self, args: (&String,)) -> Self::Output {
-    self.validate(args.0)
-  }
-}
-
 impl Display for PatternValidator<'_> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(

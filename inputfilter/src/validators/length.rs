@@ -150,6 +150,8 @@ impl<T: WithLength> Validate<T> for LengthValidator<'_, T> {
   }
 }
 
+// @todo Consider implementing `ValidateRef` trait for `LengthValidator`.
+
 impl<T: WithLength> FnOnce<(T,)> for LengthValidator<'_, T> {
   type Output = ValidatorResult;
 
