@@ -42,17 +42,31 @@ The Input Constraints trait itself needs to accept the validator and filter type
 
 ### General
 
-- Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  No - If the owning struct is itself wrapped in `Arc<...>` then all members that can satisfy `Send + Sync` automatically become shareable (across threads) .
+- Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  No - If the owning struct is itself wrapped in `Arc<...>` then all members that can satisfy `Send + Sync` automatically become shareable (across threads).
 
 ### `Cow<T>` vs `&T` vs `T` in `validate` method calls 
 
 | Type     | PROs                           | CONs                                                            |
 |----------|--------------------------------|-----------------------------------------------------------------|
-| `Cow<T>` | Allows better type flexibility | Tedious to type                                                 |
+| `Cow<T>` | Allows better type flexibility | More complex when types that are not `Cow` safe are used.       |
 | `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
 | `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
 
-Here we're going with `&T` for simplicity's sake.
+~~Here we're going with `&T` for simplicity's sake.~~
+
+For supporting the above types, we're going with two trait implementations for Validator validation functions:
+ 
+```rust
+trait Validate<T: Copy> {
+    fn validate(&self, value: T) -> ValidatorResult;
+}
+
+trait ValidateRef<T: ?Sized> {
+  fn validate_ref(&self, value: &T) -> ValidatorResult;
+}
+```
+
+This allows validators to exist for both `Sized`, and Un-sized (`?Sized`) types.
 
 ### Other
 
@@ -68,3 +82,11 @@ Here we're going with `&T` for simplicity's sake.
 - [x] ~~Change `validator*` methods to accept `&T`.~~ - No longer required as we're only supporting 'Copy', and/or Scalar, types.
 - [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
 - [x] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.
+
+## Scratch
+
+Easy Lambda for validation:
+
+Approach 1: Functional approach
+
+Functions can contain the validation rule
