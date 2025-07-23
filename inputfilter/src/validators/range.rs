@@ -5,9 +5,6 @@ use crate::{ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct RangeValidator<'a, T: ScalarValue> {
-  #[builder(default = "false")]
-  pub break_on_failure: bool,
-
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -32,13 +29,11 @@ impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// // Assert defaults
   /// // ----
-  /// assert_eq!(input.break_on_failure, false);
   /// assert_eq!(input.min, None);
   /// assert_eq!(input.max, None);
   /// ```
   pub fn new() -> Self {
     RangeValidator {
-      break_on_failure: false,
       min: None,
       max: None,
       range_underflow_msg: &(range_underflow_msg_getter),
@@ -176,7 +171,6 @@ impl<T: ScalarValue> Default for RangeValidator<'_, T> {
   ///
   /// // Assert defaults
   /// // ----
-  /// assert_eq!(input.break_on_failure, false);
   /// assert_eq!(input.min, None);
   /// assert_eq!(input.max, None);
   /// ```
@@ -189,8 +183,7 @@ impl<T: ScalarValue> Display for RangeValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
-      "RangeValidator {{ break_on_failure: {}, min: {}, max: {} }}",
-      self.break_on_failure,
+      "RangeValidator {{ min: {}, max: {} }}",
       self.min.map_or("None".to_string(), |x| x.to_string()),
       self.max.map_or("None".to_string(), |x| x.to_string()),
     )
@@ -218,12 +211,6 @@ mod test {
       .build()
       .unwrap();
 
-    let usize_break_on_failure = {
-      let mut new_input = usize_required.clone();
-      new_input.break_on_failure = true;
-      new_input
-    };
-
     let test_cases = [
       ("With valid value", &usize_required, 1, Ok(())),
       ("With valid value", &usize_required, 4, Ok(())),
@@ -240,15 +227,6 @@ mod test {
       (
         "With \"out of upper bounds\" value",
         &usize_required,
-        11,
-        Err(Violation(
-          RangeOverflow,
-          range_overflow_msg_getter(&usize_required, 11),
-        )),
-      ),
-      (
-        "With \"out of upper bounds\" value, and 'break_on_failure: true'",
-        &usize_break_on_failure,
         11,
         Err(Violation(
           RangeOverflow,

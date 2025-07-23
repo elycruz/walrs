@@ -1,5 +1,5 @@
 use crate::InputValue;
 
-pub trait FilterFn<T: InputValue> {
+pub trait Filter<T: InputValue> {
   fn filter(&self, value: T) -> T;
 }

@@ -1,7 +1,10 @@
 use crate::violation::{Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display};
 
+/// For Owned values.
 pub type ValidatorForSized<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;
+
+/// For referenced/Unsized values.
 pub type ValidatorForRef<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
 
 /// A trait for performing validations, and filtering (transformations), all in one,
