@@ -773,7 +773,7 @@ dependencies = [
  "serde",
  "serde_derive",
  "serde_json",
- "walrs_graph",
+ "walrs_digraph",
 ]
 
 [[package]]
@@ -783,6 +783,9 @@ version = "0.1.0"
 [[package]]
 name = "walrs_graph"
 version = "0.1.0"
+dependencies = [
+ "walrs_digraph",
+]
 
 [[package]]
 name = "walrs_inputfilter"

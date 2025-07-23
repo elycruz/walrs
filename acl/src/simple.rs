@@ -4,8 +4,8 @@ use std::io::BufReader;
 
 use serde_derive::{Deserialize, Serialize};
 
-use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::symbol_digraph::DisymGraph;
+use walrs_digraph::dfs::{DigraphDFS, DigraphDFSShape};
+use walrs_digraph::symbol_digraph::DisymGraph;
 
 pub type Role = String;
 pub type Resource = String;
