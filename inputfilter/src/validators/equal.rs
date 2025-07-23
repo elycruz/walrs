@@ -1,6 +1,6 @@
 use crate::traits::InputValue;
 use crate::violation::ViolationType;
-use crate::{ToAttributesList, ValidateValue, ValidatorResult, Violation};
+use crate::{ToAttributesList, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
 
 #[derive(Builder, Clone)]
@@ -14,7 +14,7 @@ where
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 
-impl<T> ValidateValue<T> for EqualityValidator<'_, T>
+impl<T> Validate<T> for EqualityValidator<'_, T>
 where
   T: InputValue + Display,
 {
@@ -27,7 +27,7 @@ where
   ///   ViolationType,
   ///   EqualityValidatorBuilder,
   ///   equal_vldr_not_equal_msg,
-  ///   ValidateValue,
+  ///   Validate,
   ///   ValidatorResult,
   ///   Violation,
   ///   InputValue

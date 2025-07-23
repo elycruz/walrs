@@ -1,4 +1,4 @@
-use crate::{ToAttributesList, ValidateRefValue2, ValidatorResult, Violation};
+use crate::{ToAttributesList, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
@@ -27,7 +27,7 @@ impl Default for PatternValidator2<'_> {
   }
 }
 
-impl ValidateRefValue2<str> for PatternValidator2<'_> {
+impl ValidateRef<str> for PatternValidator2<'_> {
   fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
       false => Err(Violation(

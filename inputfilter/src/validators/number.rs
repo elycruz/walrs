@@ -1,6 +1,6 @@
 use crate::traits::NumberValue;
 use crate::{
-  ToAttributesList, ValidateValue, ValidatorResult, Violation, ViolationType,
+  ToAttributesList, Validate, ValidatorResult, Violation, ViolationType,
   ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
 };
 use std::fmt::{Display, Formatter};
@@ -86,7 +86,7 @@ where
   }
 }
 
-impl<T> ValidateValue<T> for NumberValidator<'_, T>
+impl<T> Validate<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {

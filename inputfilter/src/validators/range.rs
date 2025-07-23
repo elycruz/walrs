@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, ValidateValue, ValidatorResult, Violation, ViolationType};
+use crate::{ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
@@ -47,7 +47,7 @@ impl<T: ScalarValue> RangeValidator<'_, T> {
   }
 }
 
-impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
+impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///
@@ -56,7 +56,7 @@ impl<T: ScalarValue> ValidateValue<T> for RangeValidator<'_, T> {
   ///   RangeValidator, ViolationType,
   ///   RangeValidatorBuilder,
   ///   range_underflow_msg_getter, range_overflow_msg_getter,
-  ///   ValidateValue,
+  ///   Validate,
   ///   Violation,
   ///   ScalarValue
   /// };

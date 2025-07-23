@@ -1,5 +1,5 @@
 use crate::{
-  InputValue, ValidateValue, ValidatorResult, Violation, ViolationMessage, ViolationType,
+  InputValue, Validate, ValidatorResult, Violation, ViolationMessage, ViolationType,
 };
 
 pub type LengthValidatorCallback<T> =
@@ -97,7 +97,7 @@ impl<T: InputValue> WithLength for &[T] {
 /// ```rust
 /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
 /// use walrs_inputfilter::{Violation, ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort}};
-/// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateValue};
+/// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, Validate};
 ///
 /// let no_rules = LengthValidator::new();
 /// let len_one_to_ten = LengthValidatorBuilder::default()
@@ -124,7 +124,7 @@ impl<T: InputValue> WithLength for &[T] {
 ///  assert_eq!(rules(value), expected, "{}", name);
 /// }
 /// ```
-impl<T: WithLength> ValidateValue<T> for LengthValidator<'_, T> {
+impl<T: WithLength> Validate<T> for LengthValidator<'_, T> {
   fn validate(&self, value: T) -> ValidatorResult {
     if let Some(len) = value.length() {
       if let Some(min_length) = self.min_length {
