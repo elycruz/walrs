@@ -5,5 +5,5 @@ pub mod xml_entities;
 
 pub use slug::*;
 pub use strip_tags::*;
-pub use xml_entities::*;
 pub use traits::*;
+pub use xml_entities::*;

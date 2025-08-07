@@ -78,7 +78,7 @@ mod test {
 
   use super::*;
 
-    #[test]
+  #[test]
   pub fn test_dfs_with_symbol_dag() -> Result<(), Box<dyn std::error::Error>> {
     // Get vertices
     let vowels: Vec<&str> = "a e i o u".split_ascii_whitespace().rev().collect();
