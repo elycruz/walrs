@@ -7,8 +7,7 @@ Reference implementations: Algorithms 4th Ed. - Chapter on digraphs: https://alg
 - [x] `Digraph`
   - [x] `add_edge()`
   - [x] `add_vertex()`
-  - [x] `adj()` - Adjacency list getter.
-  - [x] `adj()` - Returns `Result`.
+  - [x] `adj()` - Adjacency list getter - Returns `Result<...>`.
   - [x] `digest_lines()`
   - [x] `edge_count()`
   - [x] `indegree()`
@@ -42,7 +41,7 @@ Reference implementations: Algorithms 4th Ed. - Chapter on digraphs: https://alg
   - [x] `validate_vertex()` - @todo Should be settable.
   - [x] `vert_count()`
 
-- [-] Consider making `DisymGraph` generic - Will allow arbitrary types to function with the structure. - We're going to go only with the MVP version of the control - a version that handles only strings.
+- [-] Consider making `DisymGraph` generic - Will allow arbitrary types to function with the structure.
 
 - [x] `DigraphDFS`
   - [x] `dfs()`
@@ -64,4 +63,4 @@ Reference implementations: Algorithms 4th Ed. - Chapter on digraphs: https://alg
 - [x] Digraph impl change to use `Vec<String>`, instead of `HashSet<String>` for adjacency lists representations.
 - [x] Digraph, "safe", methods should only return ~~`Option<>`~~ `Result<>`, unless some external (including stdlib) library call returns `Result<>`, or can panic, then returning `Result<>` is ok.
 - [x] Decide whether methods that take `usize` values should validate said values. - These should validate given vertices due to allowing code panics to propagate higher up in the  code execution chain.
-- [ ] Update control to store `Box<str>` instead of `String` - More memory efficient.
+- [-] ~~Update control to store `Box<str>` instead of `String` - More memory efficient.
