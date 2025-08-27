@@ -12,7 +12,7 @@ pub type ValidatorForRef<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
 pub trait FilterForUnsized<'a, T, FT>: Display + Debug
 where
   T: ?Sized + 'a,
-  FT: From<&'a T>,
+  FT: From<&'a T>, // Filtered type - Returned by `Filter` components.
 {
   fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 

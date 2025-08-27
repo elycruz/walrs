@@ -1,5 +1,5 @@
-use crate::InputValue;
 
-pub trait Filter<T: InputValue> {
+/// General filter trait.
+pub trait Filter<T> {
   fn filter(&self, value: T) -> T;
 }

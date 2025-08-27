@@ -1,9 +1,8 @@
-use crate::{ViolationMessage, ViolationType};
 use serde::Serialize;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
-pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Serialize {}
+pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Display + Serialize {}
 
 impl InputValue for i8 {}
 impl InputValue for i16 {}
@@ -26,9 +25,7 @@ impl InputValue for bool {}
 impl InputValue for char {}
 impl InputValue for &str {}
 
-impl<T: InputValue> InputValue for &[T] {}
-
-pub trait ScalarValue: InputValue + Display {}
+pub trait ScalarValue: InputValue {}
 
 impl ScalarValue for i8 {}
 impl ScalarValue for i16 {}
@@ -49,7 +46,6 @@ impl ScalarValue for f64 {}
 
 impl ScalarValue for bool {}
 impl ScalarValue for char {}
-impl ScalarValue for &str {}
 
 pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
@@ -69,12 +65,6 @@ impl NumberValue for usize {}
 
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
-
-/// A validation violation tuple.
-pub type ViolationTuple = (ViolationType, ViolationMessage);
-
-/// Returned from validators, and Input Constraint struct `validate_*detailed` methods.
-pub type ValidationResult = Result<(), Vec<ViolationTuple>>;
 
 /// Allows serialization of properties that can be used for html form control contexts.
 pub trait ToAttributesList {

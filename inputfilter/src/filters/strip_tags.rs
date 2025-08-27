@@ -1,12 +1,14 @@
 use std::borrow::Cow;
 use std::sync::OnceLock;
 
+use crate::Filter;
+
 static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 
 /// Sanitizes incoming HTML using the [Ammonia](https://docs.rs/ammonia/1.0.0/ammonia/) crate.
 ///
 /// ```rust
-/// use walrs_inputfilter::filters::StripTagsFilter;
+/// use walrs_inputfilter::filters::{Filter, StripTagsFilter};
 /// use std::borrow::Cow;
 ///
 /// let filter = StripTagsFilter::new();
@@ -42,7 +44,9 @@ impl StripTagsFilter<'_> {
   pub fn new() -> Self {
     Self { ammonia: None }
   }
+}
 
+impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
   /// Filters incoming HTML using the contained `ammonia::Builder` instance.
   ///  If no instance is set gets/(and/or) initializes a new (default, and singleton) instance.
   ///
@@ -50,7 +54,7 @@ impl StripTagsFilter<'_> {
   /// use std::borrow::Cow;
   /// use std::sync::OnceLock;
   /// use ammonia::Builder as AmmoniaBuilder;
-  /// use walrs_inputfilter::filters::StripTagsFilter;
+  /// use walrs_inputfilter::filters::{Filter, StripTagsFilter};
   ///
   /// // Using default settings:
   /// let filter = StripTagsFilter::new();
@@ -94,13 +98,13 @@ impl StripTagsFilter<'_> {
   ///
   /// ```
   ///
-  pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
+  fn filter<'a>(&self, input: Cow<'a, str>) -> Cow<'a, str> {
     match self.ammonia {
       None => Cow::Owned(
         DEFAULT_AMMONIA_BUILDER
-          .get_or_init(ammonia::Builder::default)
-          .clean(&input)
-          .to_string(),
+            .get_or_init(ammonia::Builder::default)
+            .clean(&input)
+            .to_string(),
       ),
       Some(ref sanitizer) => Cow::Owned(sanitizer.clean(&input).to_string()),
     }

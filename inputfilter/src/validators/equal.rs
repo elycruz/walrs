@@ -29,8 +29,7 @@ where
   ///   equal_vldr_not_equal_msg,
   ///   Validate,
   ///   ValidatorResult,
-  ///   Violation,
-  ///   InputValue
+  ///   Violation
   /// };
   ///
   /// let input = EqualityValidatorBuilder::<&str>::default()

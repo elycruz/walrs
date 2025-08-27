@@ -1,3 +1,4 @@
+use crate::Filter;
 use regex::Regex;
 use std::borrow::Cow;
 use std::sync::OnceLock;
@@ -83,8 +84,10 @@ impl SlugFilter {
       allow_duplicate_dashes,
     }
   }
+}
 
-  pub fn filter<'a>(&self, xs: Cow<'a, str>) -> Cow<'a, str> {
+impl Filter<Cow<'_, str>> for SlugFilter {
+  fn filter<'a>(&self, xs: Cow<'a, str>) -> Cow<'a, str> {
     if self.allow_duplicate_dashes {
       _to_slug(get_slug_filter_regex(), self.max_length, xs)
     } else {

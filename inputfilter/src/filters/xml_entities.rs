@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
+use crate::Filter;
 
 static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock::new();
 
@@ -13,7 +14,7 @@ static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock
 ///   E.g., ignore results like `&amp;amp;` for string `&amp;`, etc.
 ///
 /// ```rust
-/// use walrs_inputfilter::filters::XmlEntitiesFilter;
+/// use walrs_inputfilter::filters::{Filter, XmlEntitiesFilter};
 ///
 /// let filter = XmlEntitiesFilter::new();
 ///
@@ -47,12 +48,14 @@ impl XmlEntitiesFilter<'_> {
       }),
     }
   }
+}
 
+impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
   /// Uses contained character association map to encode characters matching contained characters as
   /// xml entities.
   ///
   /// ```rust
-  /// use walrs_inputfilter::filters::XmlEntitiesFilter;
+  /// use walrs_inputfilter::filters::{Filter, XmlEntitiesFilter};
   ///
   /// let filter = XmlEntitiesFilter::new();
   ///
@@ -70,7 +73,7 @@ impl XmlEntitiesFilter<'_> {
   ///   assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
   /// }
   ///```
-  pub fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
+  fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
     let mut output = String::with_capacity(input.len());
     for c in input.chars() {
       match self.chars_assoc_map.get(&c) {
