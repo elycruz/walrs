@@ -2,7 +2,7 @@ use crate::Validate;
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::traits::traits::ToAttributesList;
+use crate::traits::ToAttributesList;
 use crate::ValidatorResult;
 use crate::Violation;
 use crate::ViolationType::PatternMismatch;

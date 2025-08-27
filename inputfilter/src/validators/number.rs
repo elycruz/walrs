@@ -7,7 +7,7 @@ use std::fmt::{Display, Formatter};
 // @todo Validator should support `break_on_failure` feature.
 
 use serde_json::value::to_value as to_json_value;
-use crate::traits::traits::ToAttributesList;
+use crate::traits::ToAttributesList;
 
 pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);

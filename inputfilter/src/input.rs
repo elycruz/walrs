@@ -4,7 +4,7 @@ use crate::{
 };
 
 use std::fmt::{Debug, Display, Formatter};
-use crate::traits::traits::FilterFn;
+use crate::traits::FilterFn;
 
 /// Returns a generic message for "Value is missing" violation.
 ///
