@@ -1,7 +1,7 @@
-use crate::traits::InputValue;
 use crate::violation::ViolationType;
-use crate::{ToAttributesList, Validate, ValidatorResult, Violation};
+use crate::{InputValue, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
+use crate::traits::traits::ToAttributesList;
 
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>

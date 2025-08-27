@@ -1,5 +1,3 @@
-pub mod traits2;
-pub mod traits_initial;
+pub mod traits;
 
-pub use traits2::*;
-pub use traits_initial::*;
+pub use traits::*;

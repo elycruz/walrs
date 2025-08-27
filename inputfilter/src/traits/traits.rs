@@ -52,3 +52,12 @@ where
 
   fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
 }
+
+pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
+
+/// Allows serialization of properties that can be used for html form control contexts.
+pub trait ToAttributesList {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    None
+  }
+}
