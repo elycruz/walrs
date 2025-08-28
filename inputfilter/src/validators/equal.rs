@@ -5,6 +5,11 @@ use crate::traits::ToAttributesList;
 
 /// Validator for performing equality checks against contained value.
 ///
+/// Note:  Use this only for Sized values (unsized values can/will cause lifetime issues
+///   when validating reference values).
+///
+/// @todo Create a separate `EqualityRefValidator` for unsized values.
+///
 /// ```rust
 ///  use walrs_inputfilter::{
 ///    EqualityValidator,
@@ -46,6 +51,37 @@ where
 
   #[builder(default = "&equal_vldr_not_equal_msg")]
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
+}
+
+impl<'a, T> EqualityValidator<'a, T>
+where
+  T: InputValue,
+{
+  /// Creates new instance of `EqualityValidator` with given rhs value, and
+  ///  optional custom not equal message function.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   EqualityValidator,
+  ///   EqualityValidatorBuilder,
+  ///   equal_vldr_not_equal_msg
+  /// };
+  ///
+  /// let vldtr = EqualityValidator::<&str>::new("foo");
+  ///
+  /// assert_eq!(vldtr.rhs_value, "foo");
+  /// assert_eq!(
+  ///   (vldtr.not_equal_msg)(&vldtr, "bar"),
+  ///   equal_vldr_not_equal_msg(&vldtr, "bar")
+  /// );
+  /// ```
+  ///
+  pub fn new(rhs_value: T) -> Self {
+    Self {
+      rhs_value,
+      not_equal_msg: &equal_vldr_not_equal_msg
+    }
+  }
 }
 
 impl<T> Validate<T> for EqualityValidator<'_, T>
