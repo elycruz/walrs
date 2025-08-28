@@ -1,7 +1,29 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
+use crate::{ScalarValue, Validate, ValidateRef, ValidatorResult, Violation, ViolationType};
 
+/// A validator for checking that a scalar value falls within a specified range.
+///
+/// ```rust
+///  use walrs_inputfilter::{RangeValidator, RangeValidatorBuilder, Validate};
+///
+///  let mut vldtr = RangeValidatorBuilder::default()
+///  .min(1)
+///  .max(10)
+///  .build()
+///  .unwrap();
+///
+///  assert_eq!(vldtr.min, Some(1));
+///  assert_eq!(vldtr.max, Some(10));
+///  assert_eq!(vldtr.validate(5), Ok(()));
+///  assert_eq!(vldtr(5), Ok(()));
+///
+///  assert!(vldtr.validate(0).is_err());
+///  assert!(vldtr(0).is_err());
+///  assert!(vldtr.validate(11).is_err());
+///  assert!(vldtr(11).is_err());
+/// ```
+///
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct RangeValidator<'a, T: ScalarValue> {

@@ -1,6 +1,5 @@
-use crate::traits::NumberValue;
 use crate::{
-  ToAttributesList, Validate, ValidatorResult, Violation, ViolationType,
+  NumberValue, Validate, ValidatorResult, Violation, ViolationType,
   ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
 };
 use std::fmt::{Display, Formatter};
@@ -8,6 +7,7 @@ use std::fmt::{Display, Formatter};
 // @todo Validator should support `break_on_failure` feature.
 
 use serde_json::value::to_value as to_json_value;
+use crate::traits::ToAttributesList;
 
 pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
@@ -38,7 +38,7 @@ impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ViolationType> {
+  fn _validate_number(&self, v: T) -> Option<ViolationType> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -91,7 +91,7 @@ where
   T: NumberValue,
 {
   fn validate(&self, value: T) -> ValidatorResult {
-    if let Some(violation) = self._validate_integer(value) {
+    if let Some(violation) = self._validate_number(value) {
       return Err(Violation(
         violation,
         self._get_violation_msg(violation, value),

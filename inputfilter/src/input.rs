@@ -1,9 +1,10 @@
 use crate::{
-  FilterFn, FilterForSized, ValidatorForSized, Violation, ViolationMessage,
+  FilterForSized, ValidatorForSized, Violation, ViolationMessage,
   ViolationType::ValueMissing, Violations,
 };
 
 use std::fmt::{Debug, Display, Formatter};
+use crate::traits::FilterFn;
 
 /// Returns a generic message for "Value is missing" violation.
 ///

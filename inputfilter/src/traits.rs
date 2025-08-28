@@ -7,12 +7,15 @@ pub type ValidatorForSized<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync
 /// For referenced/Unsized values.
 pub type ValidatorForRef<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
 
+/// Individual filter functions set on `FilterFor*` implementors.
+pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
+
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.
 pub trait FilterForUnsized<'a, T, FT>: Display + Debug
 where
   T: ?Sized + 'a,
-  FT: From<&'a T>,
+  FT: From<&'a T>, // Filtered type - Returned by `Filter` components.
 {
   fn validate_ref_detailed(&self, x: &T) -> Result<(), Violations>;
 
@@ -31,6 +34,8 @@ where
   fn filter_ref_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
 }
 
+/// A trait for performing validations, and filtering (transformations), all in one,
+/// for sized types.
 pub trait FilterForSized<T, FT = T>: Display + Debug
 where
   T: Copy,
@@ -51,4 +56,11 @@ where
   fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations>;
 
   fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>>;
+}
+
+/// Allows serialization of properties that can be used for html form control contexts.
+pub trait ToAttributesList {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    None
+  }
 }

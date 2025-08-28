@@ -1,14 +1,32 @@
-use crate::{ToAttributesList, Validate};
+use crate::{Validate, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
-
-use crate::ValidatorResult;
-use crate::Violation;
+use crate::traits::ToAttributesList;
 use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
+/// A validator for checking that a string matches a specified regex pattern.
+///
+/// ```rust
+///  use walrs_inputfilter::{PatternValidator, PatternValidatorBuilder, Validate, ValidateRef};
+///  use regex::Regex;
+///  use std::borrow::Cow;
+///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+///  let vldtr = PatternValidatorBuilder::default()
+///    .pattern(Cow::Owned(rx))
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
+///  assert!(vldtr.validate_ref("!@#)(*").is_err());
+///
+///  // As a function (Fn* trait object).
+///  assert_eq!(vldtr("abc"), Ok(()));
+///  assert!(vldtr("!@#)(*").is_err());
+/// ```
 #[derive(Builder, Clone)]
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,
@@ -17,20 +35,74 @@ pub struct PatternValidator<'a> {
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
-impl PatternValidator<'_> {
-  pub fn new() -> Self {
-    PatternValidatorBuilder::default().build().unwrap()
+impl<'a> PatternValidator<'a> {
+  /// Returns a new instance of `PatternValidator` with passed in Regex value.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidator::new(Cow::Owned(rx));
+  ///
+  ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+  /// ```
+  ///
+  pub fn new(pattern: Cow<'a, Regex>) -> Self {
+    PatternValidatorBuilder::default()
+      .pattern(pattern)
+      .build()
+      .unwrap()
   }
 }
 
-impl Default for PatternValidator<'_> {
-  fn default() -> Self {
-    PatternValidatorBuilder::default().build().unwrap()
-  }
-}
+// @todo Should implement default - requires making `pattern` attrib. Maybe (Some|None),
+//   also requires 'validate*' methods update to take this into account.
 
 impl Validate<&str> for PatternValidator<'_> {
+  /// Validates input string against regex.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, Validate};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///    .pattern(Cow::Owned(rx))
+  ///    .build()
+  ///    .unwrap();
+  ///
+  ///  assert_eq!(vldtr.validate("abc"), Ok(()));
+  ///  assert!(vldtr.validate("!@#)(*").is_err());
+  /// ```
+  ///
   fn validate(&self, value: &str) -> ValidatorResult {
+    self.validate_ref(value)
+  }
+}
+
+impl ValidateRef<str> for PatternValidator<'_> {
+  /// Same as `validate` but exists to appease `ValidateRef` trait, which is [currently] required
+  /// in some special use cases.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, ValidateRef};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///    .pattern(Cow::Owned(rx))
+  ///    .build()
+  ///    .unwrap();
+  ///
+  ///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
+  ///  assert!(vldtr.validate_ref("!@#)(*").is_err());
+  /// ```
+  ///
+  fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
       false => Err(Violation(
         PatternMismatch,
@@ -42,6 +114,27 @@ impl Validate<&str> for PatternValidator<'_> {
 }
 
 impl ToAttributesList for PatternValidator<'_> {
+  /// Returns list of attributes to be used in HTML form input element.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///  .pattern(Cow::Owned(rx))
+  ///  .build()
+  ///  .unwrap();
+  ///
+  ///  let attrs = vldtr.to_attributes_list().unwrap();
+  ///
+  ///  assert_eq!(attrs.len(), 1);
+  ///  assert_eq!(attrs[0].0, "pattern");
+  ///  assert_eq!(attrs[0].1, r"^\w{2,55}$");
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![("pattern".into(), self.pattern.to_string().into())])
   }
@@ -51,19 +144,19 @@ impl FnOnce<(&str,)> for PatternValidator<'_> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
 impl FnMut<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
 impl Fn<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
@@ -77,6 +170,26 @@ impl Display for PatternValidator<'_> {
   }
 }
 
+/// Returns generic pattern mismatch message.
+///
+/// ```rust
+///  use walrs_inputfilter::{PatternValidatorBuilder, pattern_vldr_pattern_mismatch_msg};
+///  use regex::Regex;
+///  use std::borrow::Cow;
+///
+///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+///
+///  let vldtr = PatternValidatorBuilder::default()
+///    .pattern(Cow::Owned(rx))
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(
+///   pattern_vldr_pattern_mismatch_msg(&vldtr, "!@#)(*"),
+///   "`!@#)(*` does not match pattern `^\\w{2,55}$`."
+///  );
+/// ```
+///
 pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
   format!(
     "`{}` does not match pattern `{}`.",
@@ -142,8 +255,16 @@ mod test {
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
+      assert_eq!(instance.validate_ref(passing_value), Ok(()));
       assert_eq!(
         instance.validate(failing_value),
+        Err(Violation(
+          PatternMismatch,
+          (instance.pattern_mismatch)(&instance, failing_value)
+        ))
+      );
+      assert_eq!(
+        instance.validate_ref(failing_value),
         Err(Violation(
           PatternMismatch,
           (instance.pattern_mismatch)(&instance, failing_value)

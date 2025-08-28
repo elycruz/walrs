@@ -1,12 +1,46 @@
-use crate::traits::InputValue;
 use crate::violation::ViolationType;
-use crate::{ToAttributesList, Validate, ValidatorResult, Violation};
+use crate::{InputValue, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
+use crate::traits::ToAttributesList;
 
+/// Validator for performing equality checks against contained value.
+///
+/// ```rust
+///  use walrs_inputfilter::{
+///    EqualityValidator,
+///    EqualityValidatorBuilder,
+///    Validate,
+///    Violation,
+///    ViolationType,
+///    ValidatorResult,
+///    equal_vldr_not_equal_msg
+///  };
+///
+///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+///    .rhs_value("foo")
+///    .not_equal_msg(&equal_vldr_not_equal_msg)
+///    .build()
+///    .unwrap();
+///
+///  // Happy path
+///  assert!(vldtr.validate("foo").is_ok());
+///  assert!(vldtr("foo").is_ok());
+///
+///  // Sad path
+///  assert_eq!(
+///    vldtr.validate("bar"),
+///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
+///  );
+///  assert_eq!(
+///    vldtr("bar"),
+///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
+///  );
+/// ```
+///
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
 where
-  T: InputValue + Display,
+  T: InputValue + ?Sized,
 {
   pub rhs_value: T,
 
@@ -14,9 +48,40 @@ where
   pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
 }
 
+impl<'a, T> EqualityValidator<'a, T>
+where
+  T: InputValue + ?Sized,
+{
+  /// Creates new instance of `EqualityValidator` with given rhs value, and
+  ///  optional custom not equal message function.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   EqualityValidator,
+  ///   EqualityValidatorBuilder,
+  ///   equal_vldr_not_equal_msg
+  /// };
+  ///
+  /// let vldtr = EqualityValidator::<&str>::new("foo");
+  ///
+  /// assert_eq!(vldtr.rhs_value, "foo");
+  /// assert_eq!(
+  ///   (vldtr.not_equal_msg)(&vldtr, "bar"),
+  ///   equal_vldr_not_equal_msg(&vldtr, "bar")
+  /// );
+  /// ```
+  ///
+  pub fn new(rhs_value: T) -> Self {
+    Self {
+      rhs_value,
+      not_equal_msg: &equal_vldr_not_equal_msg
+    }
+  }
+}
+
 impl<T> Validate<T> for EqualityValidator<'_, T>
 where
-  T: InputValue + Display,
+  T: InputValue + ?Sized,
 {
   /// Validates implicitly sized type against contained constraints, and returns a result
   ///  of unit, and/or, a Vec of violation tuples.
@@ -29,8 +94,7 @@ where
   ///   equal_vldr_not_equal_msg,
   ///   Validate,
   ///   ValidatorResult,
-  ///   Violation,
-  ///   InputValue
+  ///   Violation
   /// };
   ///
   /// let input = EqualityValidatorBuilder::<&str>::default()
@@ -48,13 +112,14 @@ where
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// assert_eq!(
   ///   input("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// ```
+  ///
   fn validate(&self, x: T) -> ValidatorResult {
     if x == self.rhs_value {
       Ok(())
@@ -69,7 +134,7 @@ where
 
 impl<T> Display for EqualityValidator<'_, T>
 where
-  T: InputValue + Display,
+  T: InputValue + ?Sized,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -80,16 +145,35 @@ where
   }
 }
 
-impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> ToAttributesList for EqualityValidator<'_, T> {
+  /// Returns list of attributes to be used in HTML form input element.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{EqualityValidator, EqualityValidatorBuilder};
+  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+  ///  .rhs_value("foo")
+  ///  .build()
+  ///  .unwrap();
+  ///
+  ///  let attrs = vldtr.to_attributes_list().unwrap();
+  ///
+  ///  assert_eq!(attrs.len(), 1);
+  ///  assert_eq!(attrs[0].0, "rhs_value");
+  ///  assert_eq!(attrs[0].1, "foo");
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![(
-      "pattern".to_string(),
+      "rhs_value".to_string(),
       serde_json::to_value(self.rhs_value).unwrap(),
     )])
   }
 }
 
-impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -97,23 +181,36 @@ impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + Display> FnMut<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + Display> Fn<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(
-  _: &EqualityValidator<T>,
-  value: T,
+/// Returns generic not equal message.
+///
+/// ```rust
+///  use walrs_inputfilter::{EqualityValidator, EqualityValidatorBuilder, equal_vldr_not_equal_msg};
+///
+///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+///    .rhs_value("foo")
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(equal_vldr_not_equal_msg(&vldtr, "bar"), "Value must equal foo");
+/// ```
+///
+pub fn equal_vldr_not_equal_msg<T: InputValue + ?Sized>(
+  vldtr: &EqualityValidator<T>,
+  _: T,
 ) -> String {
-  format!("Value must equal {}", value)
+  format!("Value must equal {}", &vldtr.rhs_value)
 }
 
 #[cfg(test)]
