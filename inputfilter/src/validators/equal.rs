@@ -5,11 +5,6 @@ use crate::traits::ToAttributesList;
 
 /// Validator for performing equality checks against contained value.
 ///
-/// Note:  Use this only for Sized values (unsized values can/will cause lifetime issues
-///   when validating reference values).
-///
-/// @todo Create a separate `EqualityRefValidator` for unsized values.
-///
 /// ```rust
 ///  use walrs_inputfilter::{
 ///    EqualityValidator,
@@ -45,7 +40,7 @@ use crate::traits::ToAttributesList;
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   pub rhs_value: T,
 
@@ -55,7 +50,7 @@ where
 
 impl<'a, T> EqualityValidator<'a, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   /// Creates new instance of `EqualityValidator` with given rhs value, and
   ///  optional custom not equal message function.
@@ -86,7 +81,7 @@ where
 
 impl<T> Validate<T> for EqualityValidator<'_, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   /// Validates implicitly sized type against contained constraints, and returns a result
   ///  of unit, and/or, a Vec of violation tuples.
@@ -139,7 +134,7 @@ where
 
 impl<T> Display for EqualityValidator<'_, T>
 where
-  T: InputValue,
+  T: InputValue + ?Sized,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -150,7 +145,7 @@ where
   }
 }
 
-impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> ToAttributesList for EqualityValidator<'_, T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
@@ -178,7 +173,7 @@ impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -186,13 +181,13 @@ impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue> FnMut<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue + ?Sized> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
@@ -211,7 +206,7 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
 ///  assert_eq!(equal_vldr_not_equal_msg(&vldtr, "bar"), "Value must equal foo");
 /// ```
 ///
-pub fn equal_vldr_not_equal_msg<T: InputValue>(
+pub fn equal_vldr_not_equal_msg<T: InputValue + ?Sized>(
   vldtr: &EqualityValidator<T>,
   _: T,
 ) -> String {
