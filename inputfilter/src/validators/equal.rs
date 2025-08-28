@@ -47,13 +47,14 @@ where
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// assert_eq!(
   ///   input("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal abc".to_string()))
+  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// ```
+  ///
   fn validate(&self, x: T) -> ValidatorResult {
     if x == self.rhs_value {
       Ok(())
@@ -127,11 +128,24 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
+/// Returns generic not equal message.
+///
+/// ```rust
+///  use walrs_inputfilter::{EqualityValidator, EqualityValidatorBuilder, equal_vldr_not_equal_msg};
+///
+///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+///    .rhs_value("foo")
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(equal_vldr_not_equal_msg(&vldtr, "bar"), "Value must equal foo");
+/// ```
+///
 pub fn equal_vldr_not_equal_msg<T: InputValue>(
-  _: &EqualityValidator<T>,
-  value: T,
+  vldtr: &EqualityValidator<T>,
+  _: T,
 ) -> String {
-  format!("Value must equal {}", value)
+  format!("Value must equal {}", &vldtr.rhs_value)
 }
 
 #[cfg(test)]
