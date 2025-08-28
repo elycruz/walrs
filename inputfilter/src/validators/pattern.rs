@@ -16,12 +16,42 @@ pub struct PatternValidator<'a> {
 }
 
 impl PatternValidator<'_> {
+  /// Returns a new instance of `PatternValidator`.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///
+  ///  let mut vldtr = PatternValidator::new();
+  ///  vldtr.pattern = Cow::Owned(rx);
+  ///
+  ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+  /// ```
+  ///
   pub fn new() -> Self {
     PatternValidatorBuilder::default().build().unwrap()
   }
 }
 
 impl Default for PatternValidator<'_> {
+  /// Returns a new instance of `PatternValidator` with default settings.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///
+  ///  let mut vldtr = PatternValidator::default();
+  ///  vldtr.pattern = Cow::Owned(rx);
+  ///
+  ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+  /// ```
+  ///
   fn default() -> Self {
     PatternValidatorBuilder::default().build().unwrap()
   }
@@ -51,6 +81,24 @@ impl Validate<&str> for PatternValidator<'_> {
 }
 
 impl ValidateRef<str> for PatternValidator<'_> {
+  /// Same as `validate` but exists to appease `ValidateRef` trait, which is [currently] required
+  /// in some special use cases.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, ValidateRef};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///    .pattern(Cow::Owned(rx))
+  ///    .build()
+  ///    .unwrap();
+  ///
+  ///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
+  ///  assert!(vldtr.validate_ref("!@#)(*").is_err());
+  /// ```
+  ///
   fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
       false => Err(Violation(
@@ -63,6 +111,27 @@ impl ValidateRef<str> for PatternValidator<'_> {
 }
 
 impl ToAttributesList for PatternValidator<'_> {
+  /// Returns list of attributes to be used in HTML form input element.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///  .pattern(Cow::Owned(rx))
+  ///  .build()
+  ///  .unwrap();
+  ///
+  ///  let attrs = vldtr.to_attributes_list().unwrap();
+  ///
+  ///  assert_eq!(attrs.len(), 1);
+  ///  assert_eq!(attrs[0].0, "pattern");
+  ///  assert_eq!(attrs[0].1, r"^\w{2,55}$");
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![("pattern".into(), self.pattern.to_string().into())])
   }
