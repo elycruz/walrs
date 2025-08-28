@@ -1,10 +1,8 @@
-use crate::Validate;
+use crate::{Validate, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
 use crate::traits::ToAttributesList;
-use crate::ValidatorResult;
-use crate::Violation;
 use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
@@ -30,7 +28,30 @@ impl Default for PatternValidator<'_> {
 }
 
 impl Validate<&str> for PatternValidator<'_> {
+  /// Validates input string against regex.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, Validate};
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidatorBuilder::default()
+  ///    .pattern(Cow::Owned(rx))
+  ///    .build()
+  ///    .unwrap();
+  ///
+  ///  assert_eq!(vldtr.validate("abc"), Ok(()));
+  ///  assert!(vldtr.validate("!@#)(*").is_err());
+  /// ```
+  ///
   fn validate(&self, value: &str) -> ValidatorResult {
+    self.validate_ref(value)
+  }
+}
+
+impl ValidateRef<str> for PatternValidator<'_> {
+  fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
       false => Err(Violation(
         PatternMismatch,
@@ -51,19 +72,19 @@ impl FnOnce<(&str,)> for PatternValidator<'_> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
 impl FnMut<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
 impl Fn<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&str,)) -> Self::Output {
-    self.validate(args.0)
+    self.validate_ref(args.0)
   }
 }
 
@@ -142,8 +163,16 @@ mod test {
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
+      assert_eq!(instance.validate_ref(passing_value), Ok(()));
       assert_eq!(
         instance.validate(failing_value),
+        Err(Violation(
+          PatternMismatch,
+          (instance.pattern_mismatch)(&instance, failing_value)
+        ))
+      );
+      assert_eq!(
+        instance.validate_ref(failing_value),
         Err(Violation(
           PatternMismatch,
           (instance.pattern_mismatch)(&instance, failing_value)

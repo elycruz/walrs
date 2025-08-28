@@ -38,7 +38,7 @@ impl<T> NumberValidator<'_, T>
 where
   T: NumberValue,
 {
-  fn _validate_integer(&self, v: T) -> Option<ViolationType> {
+  fn _validate_number(&self, v: T) -> Option<ViolationType> {
     // Test Min
     if let Some(min) = self.min {
       if v < min {
@@ -91,7 +91,7 @@ where
   T: NumberValue,
 {
   fn validate(&self, value: T) -> ValidatorResult {
-    if let Some(violation) = self._validate_integer(value) {
+    if let Some(violation) = self._validate_number(value) {
       return Err(Violation(
         violation,
         self._get_violation_msg(violation, value),
