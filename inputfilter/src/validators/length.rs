@@ -81,43 +81,42 @@ validate_type_with_len!(VecDeque<T>, T);
 // /End of validator_types crate rip:
 // ====
 
-///
-/// Validates incoming value against contained constraints.
-///
-/// ```rust
-/// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-/// use walrs_inputfilter::{Violation, ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort}};
-/// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateRef};
-///
-/// let no_rules = LengthValidator::<str>::new();
-/// let len_one_to_ten = LengthValidatorBuilder::<str>::default()
-///   .min_length(1)
-///   .max_length(10)
-///   .build()
-///   .unwrap();
-///
-/// let too_long_str = "12345678901";
-/// let just_right_str = &too_long_str[1..];
-///
-/// let test_cases = vec![
-///   ("Default", &no_rules, "", Ok(())),
-///   ("Value too short", &len_one_to_ten, "", Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, ""))
-///   )),
-///   ("Value too long", &len_one_to_ten, too_long_str, Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
-///   )),
-///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
-///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
-/// ];
-///
-/// for (name, rules, value, expected) in test_cases {
-///  assert_eq!(rules.validate_ref(value), expected, "{}", name);
-///  assert_eq!(rules(value), expected, "{}", name);
-/// }
-/// ```
 impl<'a, T> ValidateRef<T> for LengthValidator<'a, T>
 where
   T: WithLength + ?Sized,
 {
+  /// Validates incoming value against contained constraints.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
+  /// use walrs_inputfilter::{Violation, ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort}};
+  /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateRef};
+  ///
+  /// let no_rules = LengthValidator::<str>::new();
+  /// let len_one_to_ten = LengthValidatorBuilder::<str>::default()
+  ///   .min_length(1)
+  ///   .max_length(10)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// let too_long_str = "12345678901";
+  /// let just_right_str = &too_long_str[1..];
+  ///
+  /// let test_cases = vec![
+  ///   ("Default", &no_rules, "", Ok(())),
+  ///   ("Value too short", &len_one_to_ten, "", Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, ""))
+  ///   )),
+  ///   ("Value too long", &len_one_to_ten, too_long_str, Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
+  ///   )),
+  ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
+  ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
+  /// ];
+  ///
+  /// for (name, rules, value, expected) in test_cases {
+  ///  assert_eq!(rules.validate_ref(value), expected, "{}", name);
+  ///  assert_eq!(rules(value), expected, "{}", name);
+  /// }
+  /// ```
   fn validate_ref(&self, value: &T) -> ValidatorResult {
     if let Some(len) = value.length() {
       if let Some(min_length) = self.min_length {
