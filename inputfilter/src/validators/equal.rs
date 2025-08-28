@@ -3,6 +3,40 @@ use crate::{InputValue, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
 use crate::traits::ToAttributesList;
 
+/// Validator for performing equality checks against contained value.
+///
+/// ```rust
+///  use walrs_inputfilter::{
+///    EqualityValidator,
+///    EqualityValidatorBuilder,
+///    Validate,
+///    Violation,
+///    ViolationType,
+///    ValidatorResult,
+///    equal_vldr_not_equal_msg
+///  };
+///
+///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+///    .rhs_value("foo")
+///    .not_equal_msg(&equal_vldr_not_equal_msg)
+///    .build()
+///    .unwrap();
+///
+///  // Happy path
+///  assert!(vldtr.validate("foo").is_ok());
+///  assert!(vldtr("foo").is_ok());
+///
+///  // Sad path
+///  assert_eq!(
+///    vldtr.validate("bar"),
+///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
+///  );
+///  assert_eq!(
+///    vldtr("bar"),
+///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
+///  );
+/// ```
+///
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
 where
