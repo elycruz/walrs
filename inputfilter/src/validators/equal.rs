@@ -6,7 +6,7 @@ use crate::traits::ToAttributesList;
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
 where
-  T: InputValue + Display,
+  T: InputValue,
 {
   pub rhs_value: T,
 
@@ -16,7 +16,7 @@ where
 
 impl<T> Validate<T> for EqualityValidator<'_, T>
 where
-  T: InputValue + Display,
+  T: InputValue,
 {
   /// Validates implicitly sized type against contained constraints, and returns a result
   ///  of unit, and/or, a Vec of violation tuples.
@@ -68,7 +68,7 @@ where
 
 impl<T> Display for EqualityValidator<'_, T>
 where
-  T: InputValue + Display,
+  T: InputValue,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -79,16 +79,35 @@ where
   }
 }
 
-impl<T: InputValue + Display> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
+  /// Returns list of attributes to be used in HTML form input element.
+  ///
+  /// ```rust
+  ///  use walrs_inputfilter::validators::{EqualityValidator, EqualityValidatorBuilder};
+  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
+  ///  .rhs_value("foo")
+  ///  .build()
+  ///  .unwrap();
+  ///
+  ///  let attrs = vldtr.to_attributes_list().unwrap();
+  ///
+  ///  assert_eq!(attrs.len(), 1);
+  ///  assert_eq!(attrs[0].0, "rhs_value");
+  ///  assert_eq!(attrs[0].1, "foo");
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     Some(vec![(
-      "pattern".to_string(),
+      "rhs_value".to_string(),
       serde_json::to_value(self.rhs_value).unwrap(),
     )])
   }
 }
 
-impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -96,19 +115,19 @@ impl<T: InputValue + Display> FnOnce<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + Display> FnMut<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + Display> Fn<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-pub fn equal_vldr_not_equal_msg<T: InputValue + Display>(
+pub fn equal_vldr_not_equal_msg<T: InputValue>(
   _: &EqualityValidator<T>,
   value: T,
 ) -> String {
