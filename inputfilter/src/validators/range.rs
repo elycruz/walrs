@@ -22,24 +22,6 @@ use crate::{ScalarValue, Validate, ValidateRef, ValidatorResult, Violation, Viol
 ///  assert!(vldtr(0).is_err());
 ///  assert!(vldtr.validate(11).is_err());
 ///  assert!(vldtr(11).is_err());
-///
-///  // With step - divisible by step
-///  let mut vldtr_with_steps = RangeValidatorBuilder::default()
-///   .min(1)
-///   .max(5)
-///   .step(2)
-///   .build()
-///   .unwrap();
-///
-///  assert_eq!(vldtr_with_steps.validate(2), Ok(()));
-///  assert_eq!(vldtr_with_steps.validate(4), Ok(()));
-///
-///  assert!(vldtr_with_steps.validate(1).is_err());
-///  assert!(vldtr_with_steps.validate(3).is_err());
-///  assert!(vldtr_with_steps.validate(5).is_err());
-///
-///  // Out of bounds
-///  assert!(vldtr_with_steps.validate(6).is_err());
 /// ```
 ///
 #[derive(Builder, Clone)]

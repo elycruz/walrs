@@ -7,6 +7,26 @@ use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
+/// A validator for checking that a string matches a specified regex pattern.
+///
+/// ```rust
+///  use walrs_inputfilter::{PatternValidator, PatternValidatorBuilder, Validate, ValidateRef};
+///  use regex::Regex;
+///  use std::borrow::Cow;
+///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+///  let vldtr = PatternValidatorBuilder::default()
+///    .pattern(Cow::Owned(rx))
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
+///  assert!(vldtr.validate_ref("!@#)(*").is_err());
+///
+///  // As a function (Fn* trait object).
+///  assert_eq!(vldtr("abc"), Ok(()));
+///  assert!(vldtr("!@#)(*").is_err());
+/// ```
 #[derive(Builder, Clone)]
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,
@@ -15,8 +35,8 @@ pub struct PatternValidator<'a> {
   pub pattern_mismatch: &'a PatternViolationCallback,
 }
 
-impl PatternValidator<'_> {
-  /// Returns a new instance of `PatternValidator`.
+impl<'a> PatternValidator<'a> {
+  /// Returns a new instance of `PatternValidator` with passed in Regex value.
   ///
   /// ```rust
   ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
@@ -24,38 +44,21 @@ impl PatternValidator<'_> {
   ///  use std::borrow::Cow;
   ///
   ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
-  ///
-  ///  let mut vldtr = PatternValidator::new();
-  ///  vldtr.pattern = Cow::Owned(rx);
+  ///  let vldtr = PatternValidator::new(Cow::Owned(rx));
   ///
   ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
   /// ```
   ///
-  pub fn new() -> Self {
-    PatternValidatorBuilder::default().build().unwrap()
+  pub fn new(pattern: Cow<'a, Regex>) -> Self {
+    PatternValidatorBuilder::default()
+      .pattern(pattern)
+      .build()
+      .unwrap()
   }
 }
 
-impl Default for PatternValidator<'_> {
-  /// Returns a new instance of `PatternValidator` with default settings.
-  ///
-  /// ```rust
-  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
-  ///  use regex::Regex;
-  ///  use std::borrow::Cow;
-  ///
-  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
-  ///
-  ///  let mut vldtr = PatternValidator::default();
-  ///  vldtr.pattern = Cow::Owned(rx);
-  ///
-  ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
-  /// ```
-  ///
-  fn default() -> Self {
-    PatternValidatorBuilder::default().build().unwrap()
-  }
-}
+// @todo Should implement default - requires making `pattern` attrib. Maybe (Some|None),
+//   also requires 'validate*' methods update to take this into account.
 
 impl Validate<&str> for PatternValidator<'_> {
   /// Validates input string against regex.
@@ -167,6 +170,26 @@ impl Display for PatternValidator<'_> {
   }
 }
 
+/// Returns generic pattern mismatch message.
+///
+/// ```rust
+///  use walrs_inputfilter::{PatternValidatorBuilder, pattern_vldr_pattern_mismatch_msg};
+///  use regex::Regex;
+///  use std::borrow::Cow;
+///
+///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+///
+///  let vldtr = PatternValidatorBuilder::default()
+///    .pattern(Cow::Owned(rx))
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(
+///   pattern_vldr_pattern_mismatch_msg(&vldtr, "!@#)(*"),
+///   "`!@#)(*` does not match pattern `^\\w{2,55}$`."
+///  );
+/// ```
+///
 pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
   format!(
     "`{}` does not match pattern `{}`.",
