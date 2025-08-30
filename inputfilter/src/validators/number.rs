@@ -12,6 +12,54 @@ use crate::traits::ToAttributesList;
 pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
 
+/// Validator for performing number range and step checks against given number.
+///
+/// ```rust
+/// use walrs_inputfilter::{
+///   NumberValidator,
+///   NumberValidatorBuilder,
+///   Validate,
+///   ValidatorResult,
+///   Violation,
+///   ViolationType::{RangeUnderflow, RangeOverflow, StepMismatch},
+///   validators::{ num_range_underflow_msg, num_range_overflow_msg, num_step_mismatch_msg }
+/// };
+///
+/// let vldtr = NumberValidatorBuilder::<usize>::default()
+///   .min(1)
+///   .max(100)
+///   .step(5)
+///   .build()
+///   .unwrap();
+///
+/// // Test `validate`, and `Fn*` trait
+/// // ----
+/// for (validator, value, expected) in [
+///   (&vldtr, 95usize, Ok(())),
+///   (&vldtr, 0, Err(RangeUnderflow)),
+///   (&vldtr, 101, Err(RangeOverflow)),
+///   (&vldtr, 26, Err(StepMismatch)),
+/// ] {
+///   match expected {
+///     Ok(_) => {
+///       assert_eq!(validator.validate(value), Ok(()));
+///       assert_eq!((&validator)(value), Ok(()));
+///     }
+///     Err(_enum) => {
+///       let violation_tuple = match _enum {
+///         StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
+///         RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
+///         RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
+///         _ => panic!("Unknown enum variant encountered"),
+///       };
+///
+///       assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
+///       assert_eq!((&validator)(value), Err(violation_tuple));
+///     }
+///   }
+/// }
+/// ```
+///
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct NumberValidator<'a, T: NumberValue> {
@@ -90,6 +138,7 @@ impl<T> Validate<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
+  /// Validates given number against contained constraints.
   fn validate(&self, value: T) -> ValidatorResult {
     if let Some(violation) = self._validate_number(value) {
       return Err(Violation(
@@ -106,6 +155,33 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
+  /// Returns the validator's ruleset as a list of key/value pairs suitable for
+  ///  use as HTML attribute-name/attribute-value pairs.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   NumberValidator,
+  ///   NumberValidatorBuilder,
+  ///   ToAttributesList
+  /// };
+  ///
+  /// let vldtr = NumberValidatorBuilder::<usize>::default()
+  ///   .min(1)
+  ///   .max(100)
+  ///   .step(5)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(
+  ///   vldtr.to_attributes_list(),
+  ///   Some(vec![
+  ///     ("min".to_string(), serde_json::Value::from(1)),
+  ///     ("max".to_string(), serde_json::Value::from(100)),
+  ///     ("step".to_string(), serde_json::Value::from(5)),
+  ///   ])
+  /// );
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     let mut attrs = Vec::<(String, serde_json::Value)>::new();
 
@@ -248,6 +324,20 @@ mod test {
         None,
       ),
       (
+        "Default 2",
+        NumberValidator::<usize>::new(),
+        None,
+        None,
+        None,
+      ),
+      (
+        "Default 3",
+        NumberValidator::<usize>::default(),
+        None,
+        None,
+        None,
+      ),
+      (
         "With Range",
         NumberValidatorBuilder::<usize>::default()
           .min(0)
@@ -381,4 +471,34 @@ mod test {
 
     Ok(())
   }
+
+  #[test]
+  fn test_to_attributes_list() {
+    // With non-empty fields
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(1)
+      .max(100)
+      .step(5)
+      .build()
+      .unwrap();
+
+    assert_eq!(
+      vldtr.to_attributes_list(),
+      Some(vec![
+        ("min".to_string(), serde_json::Value::from(1)),
+        ("max".to_string(), serde_json::Value::from(100)),
+        ("step".to_string(), serde_json::Value::from(5)),
+      ])
+    );
+
+    // With empty fields
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
+
+    assert_eq!(vldtr.to_attributes_list(), None);
+  }
+
+  // #[test]
+  // fn test_all_fn_trait_variants() {
+  //
+  // }
 }
