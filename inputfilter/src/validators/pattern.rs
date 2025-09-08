@@ -208,6 +208,9 @@ mod test {
   fn test_construction_and_validation() -> Result<(), Box<dyn Error>> {
     let _rx = Regex::new(r"^\w{2,55}$")?;
 
+    let standalone_instance = PatternValidator::new(Cow::Owned(_rx.clone()));
+    assert_eq!(standalone_instance.pattern.as_str(), r"^\w{2,55}$");
+
     fn on_custom_pattern_mismatch(_: &PatternValidator, _: &str) -> String {
       "custom pattern mismatch err message".into()
     }
@@ -271,6 +274,61 @@ mod test {
         ))
       );
     }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_fn_trait_variations() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    // As a function (Fn* trait object).
+    assert_eq!(vldtr("abc"), Ok(()));
+    assert!(vldtr("!@#)(*").is_err());
+
+    let vldtr_clone = vldtr.clone();
+    fn call_fn_once(v: impl FnOnce(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
+      v(s)
+    }
+    assert_eq!(call_fn_once(vldtr_clone, "abc"), Ok(()));
+
+    let mut vldtr_mut = vldtr.clone();
+    fn call_fn_mut(v: &mut impl FnMut(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
+      v(s)
+    }
+    assert_eq!(call_fn_mut(&mut vldtr_mut, "abc"), Ok(()));
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_to_attributes_list() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    let attrs = vldtr.to_attributes_list().unwrap();
+
+    assert_eq!(attrs.len(), 1);
+    assert_eq!(attrs[0].0, "pattern");
+    assert_eq!(attrs[0].1, r"^\w{2,55}$");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_display() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    let disp = format!("{}", vldtr);
+    assert_eq!(disp, "PatternValidator {pattern: ^\\w{2,55}$}");
 
     Ok(())
   }
