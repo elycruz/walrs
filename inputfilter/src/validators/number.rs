@@ -497,8 +497,54 @@ mod test {
     assert_eq!(vldtr.to_attributes_list(), None);
   }
 
-  // #[test]
-  // fn test_all_fn_trait_variants() {
-  //
-  // }
+  #[test]
+  fn test_all_fn_trait_variants() {
+    // FnMut
+    // ----
+    let mut vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(1)
+      .max(100)
+      .step(5)
+      .build()
+      .unwrap();
+
+    vldtr.max = Some(50usize);
+
+    assert_eq!((&vldtr)(25usize), Ok(()));
+    assert_eq!((&vldtr)(&25usize), Ok(()));
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_mut(v: &mut impl FnMut(usize) -> ValidatorResult) -> ValidatorResult {
+      v(25usize)
+    }
+
+    fn call_fn_mut_with_ref(v: &mut impl FnMut(&usize) -> ValidatorResult) -> ValidatorResult {
+      v(&25usize)
+    }
+
+    assert_eq!(call_fn_mut(&mut vldtr), Ok(()));
+    assert_eq!(call_fn_mut_with_ref(&mut vldtr), Ok(()));
+
+    // FnOnce
+    // ----
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .build()
+      .unwrap();
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_once(v: impl FnOnce(usize) -> ValidatorResult) -> ValidatorResult {
+      v(25usize)
+    }
+    assert_eq!(call_fn_once(vldtr), Ok(()));
+
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .build()
+      .unwrap();
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_once_with_ref(v: impl FnOnce(&usize) -> ValidatorResult) -> ValidatorResult {
+      v(&25usize)
+    }
+    assert_eq!(call_fn_once_with_ref(vldtr), Ok(()));
+  }
 }
