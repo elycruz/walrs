@@ -1,7 +1,4 @@
-use crate::{
-  NumberValue, Validate, ValidatorResult, Violation, ViolationType,
-  ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
-};
+use crate::{NumberValue, Validate, ValidatorResult, Violation, ViolationType, ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch}};
 use std::fmt::{Display, Formatter};
 
 // @todo Validator should support `break_on_failure` feature.
@@ -460,7 +457,7 @@ mod test {
             StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
             RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
             RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
-            _ => panic!("Unknown enum variant encountered"),
+            _ => unreachable!("Unknown enum variant encountered"),
           };
 
           assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
