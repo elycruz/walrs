@@ -1,6 +1,8 @@
 use crate::{ValidateRef, ValidatorResult, Violation, ViolationMessage, ViolationType};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
+/// Trait used by `LengthValidator` to get the length of a value.
+/// Inspired by implementation in `validator_types` crate.
 pub trait WithLength {
   fn length(&self) -> usize;
 }
@@ -76,6 +78,16 @@ where
 }
 
 impl<'a, T: WithLength + ?Sized> LengthValidator<'a, T> {
+  /// Creates a `LengthValidator` with no constraints.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::LengthValidator;
+  ///
+  /// let default_vldtr = LengthValidator::<str>::new();
+  ///
+  /// assert!(default_vldtr.min_length.is_none());
+  /// assert!(default_vldtr.max_length.is_none());
+  /// ```
   pub fn new() -> Self {
     LengthValidatorBuilder::default().build().unwrap()
   }
@@ -226,6 +238,20 @@ impl<'a, T: WithLength + ?Sized> Default for LengthValidator<'a, T> {
   }
 }
 
+/// Returns default "too short" violation message.
+///
+/// ```rust
+///  use walrs_inputfilter::{len_too_short_msg, LengthValidator, LengthValidatorBuilder};
+///
+///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
+///    .min_length(1)
+///    .max_length(10)
+///    .too_short_msg(&len_too_short_msg) // optional
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(len_too_short_msg(&len_one_to_ten, ""), "Value length `0` is less than allowed minimum `1`.");
+/// ```
 pub fn len_too_short_msg<'a, T: WithLength + ?Sized>(
   rules: &LengthValidator<'a, T>,
   xs: &T,
@@ -237,6 +263,20 @@ pub fn len_too_short_msg<'a, T: WithLength + ?Sized>(
   )
 }
 
+/// Returns default "too long" violation message.
+///
+/// ```rust
+///  use walrs_inputfilter::{len_too_long_msg, LengthValidator, LengthValidatorBuilder};
+///
+///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
+///    .min_length(1)
+///    .max_length(10)
+///    .too_long_msg(&len_too_long_msg) // optional
+///    .build()
+///    .unwrap();
+///
+///  assert_eq!(len_too_long_msg(&len_one_to_ten, "this string is way too long"), "Value length `27` is greater than allowed maximum `10`.");
+/// ```
 pub fn len_too_long_msg<'a, T: WithLength + ?Sized>(
   rules: &LengthValidator<'a, T>,
   xs: &T,
@@ -365,9 +405,7 @@ mod test {
 
   #[test]
   fn test_fn_traits() {
-    let mut vldtr = LengthValidatorBuilder::<str>::default()
-      .build()
-      .unwrap();
+    let mut vldtr = LengthValidatorBuilder::<str>::default().build().unwrap();
 
     fn call_fn_once(v: impl FnOnce(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
       v(s)
