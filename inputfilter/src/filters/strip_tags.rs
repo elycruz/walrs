@@ -102,9 +102,9 @@ impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
     match self.ammonia {
       None => Cow::Owned(
         DEFAULT_AMMONIA_BUILDER
-            .get_or_init(ammonia::Builder::default)
-            .clean(&input)
-            .to_string(),
+          .get_or_init(ammonia::Builder::default)
+          .clean(&input)
+          .to_string(),
       ),
       Some(ref sanitizer) => Cow::Owned(sanitizer.clean(&input).to_string()),
     }

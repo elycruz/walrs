@@ -1,7 +1,7 @@
+use crate::traits::ToAttributesList;
 use crate::violation::ViolationType;
 use crate::{InputValue, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
-use crate::traits::ToAttributesList;
 
 /// Validator for performing equality checks against contained value.
 ///
@@ -74,7 +74,7 @@ where
   pub fn new(rhs_value: T) -> Self {
     Self {
       rhs_value,
-      not_equal_msg: &equal_vldr_not_equal_msg
+      not_equal_msg: &equal_vldr_not_equal_msg,
     }
   }
 }

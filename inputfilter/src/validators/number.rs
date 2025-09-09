@@ -1,10 +1,13 @@
-use crate::{NumberValue, Validate, ValidatorResult, Violation, ViolationType, ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch}};
+use crate::{
+  NumberValue, Validate, ValidatorResult, Violation, ViolationType,
+  ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
+};
 use std::fmt::{Display, Formatter};
 
 // @todo Validator should support `break_on_failure` feature.
 
-use serde_json::value::to_value as to_json_value;
 use crate::traits::ToAttributesList;
+use serde_json::value::to_value as to_json_value;
 
 pub type NumberVldrViolationCallback<'a, T> =
   (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
@@ -524,9 +527,7 @@ mod test {
 
     // FnOnce
     // ----
-    let vldtr = NumberValidatorBuilder::<usize>::default()
-      .build()
-      .unwrap();
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
 
     // Fn that consumes vldtr and a `usize`
     fn call_fn_once(v: impl FnOnce(usize) -> ValidatorResult) -> ValidatorResult {
@@ -534,9 +535,7 @@ mod test {
     }
     assert_eq!(call_fn_once(vldtr), Ok(()));
 
-    let vldtr = NumberValidatorBuilder::<usize>::default()
-      .build()
-      .unwrap();
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
 
     // Fn that consumes vldtr and a `usize`
     fn call_fn_once_with_ref(v: impl FnOnce(&usize) -> ValidatorResult) -> ValidatorResult {

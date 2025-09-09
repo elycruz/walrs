@@ -1,7 +1,7 @@
+use crate::Filter;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::sync::OnceLock;
-use crate::Filter;
 
 static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock::new();
 

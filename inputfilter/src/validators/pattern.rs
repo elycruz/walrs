@@ -1,9 +1,9 @@
+use crate::traits::ToAttributesList;
+use crate::ViolationType::PatternMismatch;
 use crate::{Validate, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::traits::ToAttributesList;
-use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 

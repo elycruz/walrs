@@ -300,9 +300,22 @@ mod test {
       ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
       ("Value just right", &len_one_to_ten, just_right_str, Ok(())),
       (">= 8 - pass", &gte_than_8, "12345678", Ok(())),
-      (">= 8 - fail", &gte_than_8, "1234567", Err(Violation(TooShort, len_too_short_msg(&gte_than_8, "1234567")))),
+      (
+        ">= 8 - fail",
+        &gte_than_8,
+        "1234567",
+        Err(Violation(
+          TooShort,
+          len_too_short_msg(&gte_than_8, "1234567"),
+        )),
+      ),
       ("No rules - empty str", &no_rules, "", Ok(())),
-      ("No rules - long str", &no_rules, "this string is way too long", Ok(())),
+      (
+        "No rules - long str",
+        &no_rules,
+        "this string is way too long",
+        Ok(()),
+      ),
     ];
 
     for (name, rules, value, expected) in test_cases {
@@ -353,18 +366,14 @@ mod test {
   #[test]
   fn test_fn_traits() {
     let mut vldtr = LengthValidatorBuilder::<str>::default()
-      .min_length(2)
-      .max_length(5)
       .build()
       .unwrap();
 
-    fn call_fn_once(v: impl FnOnce(&str) -> ValidatorResult, s: &str) -> ValidatorResult
-    {
+    fn call_fn_once(v: impl FnOnce(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
       v(s)
     }
 
-    fn call_fn_mut(v: &mut impl FnMut(&str) -> ValidatorResult, s: &str) -> ValidatorResult
-    {
+    fn call_fn_mut(v: &mut impl FnMut(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
       v(s)
     }
 

@@ -1,4 +1,4 @@
-use crate::{Violation};
+use crate::Violation;
 
 pub type ValidatorResult = Result<(), Violation>;
 
