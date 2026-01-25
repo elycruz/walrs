@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::BufReader;
-
-use serde_derive::{Deserialize, Serialize};
 
 use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
 use walrs_graph::digraph::symbol_digraph::DisymGraph;
+
+use crate::acl_data::AclData;
 
 pub type Role = String;
 pub type Resource = String;
@@ -889,23 +888,6 @@ impl Acl {
 impl Default for Acl {
   fn default() -> Self {
     Self::new()
-  }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AclData {
-  pub roles: Option<Vec<(String, Option<Vec<String>>)>>,
-  pub resources: Option<Vec<(String, Option<Vec<String>>)>>,
-  pub allow: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
-  pub deny: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
-}
-
-impl<'a> From<&'a mut File> for AclData {
-  fn from(file: &mut File) -> Self {
-    // let mut contents = String::new();
-    // file.read_to_string(&mut contents);
-    let buf = BufReader::new(file);
-    serde_json::from_reader(buf).unwrap()
   }
 }
 
@@ -1794,7 +1776,7 @@ mod test_acl {
       acl.add_resource(users_resource, None);
     };
 
-    // Ensure default expected default rule is set
+    // Ensure default expected rule is set
     assert_eq!(
       Acl::new()
         ._rules
