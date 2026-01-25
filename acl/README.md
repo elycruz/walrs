@@ -4,9 +4,34 @@ Basic Access Control List (ACL) structure for adding role/permissions based acce
 
 ## How does it work?
 
-The ACL control is designed to manage relationships between resources, roles, privileges and rules and their interrelationships to each of their set (roles inheriting from other roles etc.).
+The ACL control is meant to be used as a fact forest:  Each entity in the domain ([role, resource, privilege]) can be represented by a tree which can be queried upon:  E.g., 
 
-@todo
+- role tree/directional-graph.
+- resource "".
+- privilege "". Optional.
+
+Essentially the component enables the possibility for resource, role, privilege and rule, relationships to be managed and queried all from one place.
+
+## Runtime model
+
+1.  Load the ACL tree from external source (text file, json, DB, etc.) into memory.
+2.  Convert the loaded tree into fact forest structure (`*Acl` structure)j.
+3.  Access the structure to check user permissions, from app middleware.
+
+@todo example.
+
+## Domain Model
+
+*Definitions:*
+
+- {entity} - One of role, resource, and/or privilege
+- `type Symbol = str;` - Referential type from `*Acl` struct(ure).
+
+*{entity} Structure:*
+
+- `{entity}_(slug|alias): &Symbol` - Primary key, Not null.
+- `{entity}_name: String` - Human Readable Name. Not null.
+- `{entity}_description: Option<String>`.
 
 ## Usage
 
@@ -21,20 +46,20 @@ Next tie the interface into your application's frontend/action controller/dispat
 
 ## Todos
 
-- [ ] `simple`
-  - [x] `PrivilegeRules`
+- [ ] `Simple` Implementation (symbol/string based implementation).
+  - [x] `PrivilegeRules` - Provides access to related hash map/tree.
     - [x] `new()`
     - [x] `get_rule()`
     - [x] `set_rule()`
-  - [x] `RolePrivilegeRules`
+  - [x] `RolePrivilegeRules` - Provides access to related hash map/tree.
     - [x] `new()`
     - [x] `get_privilege_rules()`
     - [x] `set_privilege_rules()`
-  - [x] `ResourceRoleRules`
+  - [x] `ResourceRoleRules` - ""
     - [x] `new()`
     - [x] `get_role_privilege_rules()`
     - [x] `set_role_privilege_rules()`
-  - [ ] `Acl`
+  - [ ] `Acl` - Forest like structure.
     - [x] `add_resource()`
     - [x] `add_role()`
     - [x] `allow()`
@@ -50,17 +75,27 @@ Next tie the interface into your application's frontend/action controller/dispat
     - [x] `new()`
     - [x] `resource_count()`
     - [x] `role_count()`
-  - [ ] Acl related:
-    - [ ] Ensure all public API methods, with a complexity higher than 1-2, have doc tests. (`is_allowed`, `is_allowed_any` etc.).   
+    - [ ] Ensure all public API methods, with a complexity higher than 1-2, have doc tests. (`is_allowed`, `is_allowed_any` etc.).
     - [ ] Internal symbol (role, resource, or privilege) storage should be on the heap - We don't know how long passed in symbols will live so need to own the ones that are added/tracked.
-  - [x] `AclData` - Provides a data parseable struct, when loading data from files, for `Acl` struct. 
+    - [ ] Control should be thread safe - Add related tests.
+  - [x] `AclData` - Provides a data parseable struct, when loading data from files, for `Acl` struct.
   - [x] `impl From<... File> for AclData`
-    - [ ] Write companion tests against json representation, of an Acl. 
+    - [ ] Write companion tests against json representation, of an Acl.
   - [x] `impl From<... AclData> for Acl`
-    - [ ] Write companion tests against json representation, of an Acl. 
-  - [ ] Control should function be thread safe - Add test showing this case.
-  - [ ] Language in acl, and API, should be changed to match 'privilege' instead of 'access to privilege' since, we're effectively saying the same thing (lol).
-  - [ ] Cleanup API - Remove un-required methods etc., in rule structs, etc..
+    - [ ] Write companion tests against json representation, of an Acl.
+
+- [ ] Usage examples
+  - [ ] "From DB" example (use sqlite).
+  - [ ] "From JSON" example.
+  - [ ] "From Text file" example.
+- [ ] Documentation and Doc tests.
+- [ ] Tests.
+- [ ] e2e Tests, where applicable.
+
+### Other
+- [ ] Language in acl, and API, should be changed to match 'privilege' instead of 'access to privilege' since, we're effectively saying the same thing (lol).
+- [ ] Cleanup API - Remove un-required methods etc., in rule structs, etc..
+
 
 ### About Access Control Lists (ACLs)
 
