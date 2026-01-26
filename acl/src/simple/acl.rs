@@ -17,9 +17,18 @@ use crate::simple::role_privilege_rules::RolePrivilegeRules;
 // for more.
 // ----
 
-/// Access Control List (ACL) control - Provides queryable structure that
-/// can be queried for allow/deny rules for given roles, resources, and privilege, combinations.
+/// Lite-weight Access Control List (ACL) structure - Provides a structure
+/// that can be queried for allow/deny rules for given roles, resources, and privilege,
+/// combinations.
+///
+/// Note: This implementation does not expose any `*remove*` methods as both 'allow', and 'deny',
+/// rules can be set for any given role, resource, and/or privilege, and, additionally, any
+/// conditional logic can be performed at declaration time.
+///
+/// Note: If you require the above-mentioned functionality please open an issue ticket for it.
+///
 /// ```rust
+/// // TODO.
 /// ```
 #[derive(Debug)]
 pub struct Acl {
@@ -160,6 +169,7 @@ impl Acl {
   }
 
   /// Adds a `Resource` to acl.
+  ///
   /// ```rust
   /// use std::ops::Deref;
   /// use walrs_acl::{ simple::Acl };
@@ -285,7 +295,7 @@ impl Acl {
   ///  // Roles
   /// let guest_role = "guest";
   /// let user_role = "user"; // will inherit from "guest"
-  /// let admin_role = "admin"; // will inherits from "user"
+  /// let admin_role = "admin"; // will inherit from "user"
   ///
   /// // Resources
   /// let index_resource = "index"; // guest can access
@@ -303,13 +313,13 @@ impl Acl {
   /// // Add Roles
   /// // ----
   /// acl
-  ///   .add_role(guest_role, None)
+  ///   .add_role(guest_role, None) // Inherits from none.
   ///   .add_role(user_role, Some(&[guest_role])) // 'user' role inherits rules applied to 'guest' role
   ///   .add_role(admin_role, Some(&[user_role])) // ...
   ///
   ///   // Add Resources
   ///   // ----
-  ///   .add_resource(index_resource, None)
+  ///   .add_resource(index_resource, None) // 'index' resource has inherits from none.
   ///   .add_resource(blog_resource, Some(&[index_resource])) // 'blog' resource inherits rules applied to 'index' resource
   ///   .add_resource(account_resource, None)
   ///   .add_resource(users_resource, None)
@@ -403,9 +413,11 @@ impl Acl {
   }
 
   /// Returns a boolean indicating whether given role is allowed access to given privilege on given resource.
-  /// If any of methods arguments are `None` the "all" variant is checked, for that `None` given value;  E.g.,
-  /// @todo Consider renaming this, or adding a proxy method `has_privilege`, since when talking about/reading code about
-  /// roles, resources, privileges, the `has_privilege` gives more meaning to the API.
+  /// If any of the args are `None` the "all" variant is checked for that `None` value;  E.g.,
+  ///
+  /// ```rust
+  ///
+  /// ```
   pub fn is_allowed(
     &self,
     role: Option<&str>,
@@ -478,7 +490,12 @@ impl Acl {
       .unwrap()
   }
 
-  /// Same as `is_allowed` but checks all given role, resource, and privilege, combinations.
+  /// Same as `is_allowed` but checks all given role, resource, and privilege, combinations
+  ///  for a match.
+  ///
+  /// ```rust
+  ///
+  /// ```
   pub fn is_allowed_any(
     &self,
     roles: Option<&[&str]>,
@@ -633,56 +650,6 @@ impl Acl {
         });
       }
     }
-    self
-  }
-
-  /// @todo Should remove rules for given roles, resources, and privileges - Finish implementation.
-  fn _remove_rule<'a>(
-    &mut self,
-    rule_type: Rule,
-    roles: Option<&[&'a str]>,
-    resources: Option<&[&'a str]>,
-    privileges: Option<&[&'a str]>,
-  ) -> &mut Self {
-    // Filter out non-existent roles, and return `vec![None]` if result is empty list, else `None`.
-    let _roles: Vec<Option<String>> = self._get_keys_in_graph(&self._roles, roles);
-
-    // Filter out non-existent resources, and return `vec![None]` if result is empty list, else `None`
-    let _resources: Vec<Option<String>> = self._get_keys_in_graph(&self._resources, resources);
-
-    // @todo complete implementation.
-
-    /*
-      for resource in _resources.to_owned() {
-        for role in _roles.to_owned() {
-          // Get role rules
-          let role_rules = self._get_role_rules_mut(resource, role, false);
-
-          // If all three rule parts are `None` set `all_privileges` rule for global role rules
-          if privileges.is_none() && resource.is_none() && role.is_none() {
-            role_rules.for_all_privileges = Rule::Deny;
-          }
-          // Else if not all three rule parts are `None` removing the matching rule
-          // else if role_rules.all_privileges.rule_type == rule_type {
-          //
-          // }
-          // Else loop through `privileges`, and remove rule type for each
-          else {
-            // If resolved `role_rules` contains `by_privilege_id` map
-            if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
-              // Loop through privileges and resolve removals/updates
-              for p in privileges.unwrap().iter() {
-                // Remove matching privilege rules from map
-                if let Some(p_rule) = p_map.get(p) {
-                  if *p_rule == rule_type {
-                    p_map.remove(*p);
-                  }
-                }
-              }
-            }
-          }
-        }
-    }*/
     self
   }
 }
