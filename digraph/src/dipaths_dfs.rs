@@ -80,6 +80,7 @@ impl DigraphDipathsDFS {
 
 #[cfg(test)]
 mod test {
+  use std::num::NonZeroUsize;
   use crate::math::triangular_num;
   use crate::symbol_digraph::DisymGraph;
 
@@ -211,17 +212,19 @@ mod test {
       }
 
       // Check "vertices reachable from `i`" count
+      // ----
+      let expected_count = NonZeroUsize::new(v_len - i).unwrap().into();
       assert_eq!(
         dfs_rslt.count(),
-        v_len - i,
+        expected_count,
         "`dfs_rslt.count()` should be equal to `{}` (1)",
-        v_len - i
+        expected_count
       );
       assert_eq!(
         dfs_rslt_2.count(),
-        v_len - i,
+        expected_count,
         "`dfs_rslt.count()` should be equal to `{}` (2)",
-        v_len - i
+        expected_count
       );
 
       // Check out of bounds vert
