@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader, Lines};
+use std::io::{BufRead, BufReader};
 
 use crate::utils::extract_vert_and_edge_counts_from_bufreader;
 
@@ -64,6 +64,27 @@ impl Digraph {
     Ok(&self._adj_lists[v])
   }
 
+  /// Returns outdegree of given vertex `v`.
+  ///
+  /// Example:
+  /// ```rust
+  /// use walrs_digraph::digraph::Digraph;
+  /// use walrs_digraph::invalid_vertex_msg;
+  ///
+  /// let mut digraph = Digraph::new(3);
+  ///
+  /// // Add edges
+  /// digraph.add_edge(0, 1).unwrap();
+  /// digraph.add_edge(0, 2).unwrap();
+  ///
+  /// // Returns outdegree for valid vertices
+  /// assert_eq!(digraph.outdegree(1), Ok(0));
+  /// assert_eq!(digraph.outdegree(2), Ok(0));
+  /// assert_eq!(digraph.outdegree(0), Ok(2));
+  ///
+  /// // Returns `Err(String)` for invalid vertex
+  /// assert_eq!(digraph.outdegree(3), Err(invalid_vertex_msg(3, 2)));
+  /// ```
   pub fn outdegree(&self, v: usize) -> Result<usize, String> {
     if let Err(err) = self.validate_vertex(v) {
       return Err(err);
@@ -133,104 +154,80 @@ impl Digraph {
     }
     for v in 0..v_count {
       for w in &self._adj_lists[v] {
-        if let Err(err) = out.add_edge(*w, v) {
-          return Err(err);
-        }
+        out.add_edge(*w, v)?;
       }
     }
     Ok(out)
   }
-
-  /// Populates digraph instance from incoming lines.  @note Returns Error string if not all
-  /// vertices are in graph (use `#.add_vertex(...)` to enter the max vertex (expected vertex count)
-  /// into the graph before digesting buffer lines.
-  pub fn digest_lines<R: std::io::Read>(
-    &mut self,
-    lines: Lines<&mut BufReader<R>>,
-  ) -> Result<&Self, Box<dyn std::error::Error>> {
-    // Loop through lines
-    for line in lines {
-      // For each edge definition, enter them into graph
-      match line {
-        // If line
-        Ok(_line) => {
-          // Split and parse edge values to integers
-          let verts: Vec<usize> = _line
-            .split_ascii_whitespace()
-            .map(|x| x.parse::<usize>().unwrap())
-            .collect();
-
-          // Add edge, and panic if unable to add it
-          if let Err(err) = self.add_edge(verts[0], verts[1]) {
-            return Err(err.into());
-          }
-        }
-
-        // Catch "error reading line"
-        Err(err) => {
-          return Err(Box::new(err));
-        }
-      }
-    }
-
-    Ok(self)
-  }
 }
 
-// @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.
+impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
+  type Error = Box<dyn std::error::Error>;
 
-impl<R: std::io::Read> From<&mut BufReader<R>> for Digraph {
-  ///  Creates a Digraph from a buffer reader representing a text file formatted as;  E.g.,
+  ///  Creates a Digraph from a buffer reader representing a text file formatted as:
+  ///
   ///  ```text
-  ///  num_verts
-  ///  num_edges
-  ///  vertex weight
-  ///  vertex weight weight
+  ///  {num_verts}
+  ///  {num_edges}
+  ///  {vertex} {weight}
+  ///  {vertex} {weight} {weight} ...
   ///  ...
   ///  ```
   /// `weight` here is a vertex/weight reachable from vertex `vertex`.
   ///
-  fn from(reader: &mut BufReader<R>) -> Self {
+  fn try_from(reader: &mut BufReader<R>) -> Result<Self, Self::Error> {
     // Extract vert count, and move cursor passed edge count line, for reader
-    let vert_count = match extract_vert_and_edge_counts_from_bufreader(reader) {
-      Ok((vc, _)) => vc,
-      Err(err) => panic!("{:?}", err),
-    };
+    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader).unwrap().0;
 
     // Construct digraph
     let mut dg = Digraph::new(vert_count);
 
     // Populate graph from buffer lines
-    if let Err(err) = dg.digest_lines(reader.lines()) {
-      panic!("{:?}", err);
+    for line in  reader.lines() {
+      // For each edge definition, enter them into graph
+      let _line = line?;
+      // Split and parse edge values to integers
+      let verts: Vec<usize> = _line
+          .split_ascii_whitespace()
+          .map(|x| x.parse::<usize>().unwrap())
+          .collect();
+
+      // Add edge, and panic if unable to add it
+      dg.add_edge(verts[0], verts[1])?;
     }
 
     // Return graph
-    dg
+    Ok(dg)
   }
 }
 
-impl<R: std::io::Read> From<BufReader<R>> for Digraph {
-  fn from(mut reader: BufReader<R>) -> Self {
-    Digraph::from(&mut reader)
+impl<R: std::io::Read> TryFrom<BufReader<R>> for Digraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(mut reader: BufReader<R>) -> Result<Self, Self::Error> {
+    Digraph::try_from(&mut reader)
   }
 }
 
-impl From<&File> for Digraph {
-  fn from(file_struct: &File) -> Self {
-    (&mut BufReader::new(file_struct)).into()
+impl TryFrom<&File> for Digraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: &File) -> Result<Self, Self::Error> {
+    Digraph::try_from(&mut BufReader::new(file_struct))
   }
 }
 
-impl From<File> for Digraph {
-  fn from(file_struct: File) -> Self {
-    (&mut BufReader::new(file_struct)).into()
+impl TryFrom<File> for Digraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: File) -> Result<Self, Self::Error> {
+    Digraph::try_from(&mut BufReader::new(file_struct))
   }
 }
 
 #[cfg(test)]
 mod test {
-  use crate::Digraph;
+  use crate::{invalid_vertex_msg, Digraph};
 
   /// Some usize vec;  Note not meant to be generic;  Defined only this `test` module.
   pub fn usize_vec_sum(us: &Vec<usize>) -> usize {
@@ -261,10 +258,7 @@ mod test {
 
       // Test for valid adjacency sets
       for i in 0..num_verts {
-        match g.adj(i) {
-          Ok(rslt) => assert_eq!(rslt.len(), 0),
-          Err(err) => panic!("{}", err),
-        }
+        assert_eq!(g.adj(i).unwrap().len(), 0);
       }
     }
   }
@@ -289,9 +283,7 @@ mod test {
         // For each vertex from `0` to `limit` add edges subsequent vertices.
         for i in 0..graph_size {
           for j in (i + 1)..graph_size {
-            if let Err(err) = g.add_edge(i, j) {
-              panic!("{}", err);
-            }
+            g.add_edge(i, j).expect("Error should never occur here");
           }
         }
       }
@@ -336,18 +328,20 @@ mod test {
         };
         assert_eq!(
           g.indegree(i)?,
-          expected_indegree,
-          "{}",
-          format!("`#.indegree({})` should return {}", i, expected_indegree)
+          expected_indegree
         );
         assert_eq!(
           g.outdegree(i)?,
-          expected_outdegree,
-          "{}",
-          format!("`#.outdegree({})` should return {}", i, expected_outdegree)
+          expected_outdegree
         );
       }
     }
+
+    let g = Digraph::new(3);
+
+    // Returns `Err(String)` for invalid vertex
+    assert_eq!(g.outdegree(99), Err(invalid_vertex_msg(99, 2)));
+    assert_eq!(g.indegree(99), Err(invalid_vertex_msg(99, 2)));
 
     Ok(())
   }
@@ -356,9 +350,7 @@ mod test {
   #[should_panic(expected = "Vertex 99 is out of index range 0-0")]
   pub fn test_adj_invalid() {
     let g = Digraph::new(0);
-    if let Err(err) = g.adj(99) {
-      panic!("{}", err);
-    }
+    g.adj(99).unwrap();
   }
 
   #[test]
@@ -411,14 +403,9 @@ mod test {
         // println!("`#.indegree({})` should return {}", i, expected_indegree);
         assert_eq!(
           g.indegree(i)?,
-          expected_indegree,
-          "{}",
-          format!("`#.indegree({})` should return {}", i, expected_indegree)
+          expected_indegree
         );
       }
-
-      // Ensure messages are separate for each test.
-      // println!();
 
       assert_eq!(
         g.edge_count(),
@@ -428,6 +415,18 @@ mod test {
       assert_eq!(g.vert_count(), graph_size, "Vert count is invalid");
     }
 
+    // Test error cases
+    // ----
+    let mut dg = Digraph::new(2);
+    assert_eq!(
+      dg.add_edge(0, 99).unwrap_err(),
+      invalid_vertex_msg(99, 1)
+    );
+    assert_eq!(
+      dg.add_edge(99, 0).unwrap_err(),
+      invalid_vertex_msg(99, 1)
+    );
+
     Ok(())
   }
 
@@ -435,18 +434,14 @@ mod test {
   #[should_panic(expected = "Vertex 99 is out of index range 0-0")]
   pub fn test_validate_vertex_invalid() {
     let g = Digraph::new(0);
-    if let Err(err) = g.validate_vertex(99) {
-      panic!("{}", err);
-    }
+    g.validate_vertex(99).unwrap();
   }
 
   #[test]
   #[should_panic(expected = "Vertex 99 is out of index range 0-2")]
   pub fn test_validate_vertex_invalid_2() {
     let g = Digraph::new(3);
-    if let Err(err) = g.validate_vertex(99) {
-      panic!("{}", err);
-    }
+    g.validate_vertex(99).unwrap();
   }
 
   #[test]
@@ -455,9 +450,7 @@ mod test {
 
     // Call validate_vertex for valid indices;  Shouldn't panic:
     for i in 0..2 {
-      if let Err(err) = g.validate_vertex(i) {
-        panic!("{}", err);
-      }
+      g.validate_vertex(i).unwrap();
     }
   }
 

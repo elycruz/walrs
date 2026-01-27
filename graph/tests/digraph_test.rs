@@ -13,7 +13,7 @@ mod test {
     let f = File::open(&file_path)?;
 
     // Create graph
-    let _: Digraph = (&f).into();
+    let _: Digraph = (&f).try_into().unwrap();
 
     // println!("{:?}", dg);
 
@@ -29,7 +29,7 @@ mod test {
     let mut reader = BufReader::new(f);
 
     // Create graph (impls for `From<BufReader<R: std::io::Read>>` and `From<File>` are defined for `Digraph` struct
-    let dg: Digraph = (&mut reader).into();
+    let dg: Digraph = (&mut reader).try_into()?;
 
     // println!("{:?}", dg);
 
@@ -94,7 +94,7 @@ mod test {
     let f = File::open(&file_path)?;
 
     // Create graph
-    let _: Digraph = BufReader::new(f).into();
+    let _: Digraph = BufReader::new(f).try_into().unwrap();
 
     // println!("{:?}", dg);
 
