@@ -49,10 +49,11 @@ impl DigraphDipathsDFS {
   }
 
   /// Returns an `Option` indicating path to vertex `v`;  Returns `None` if `v` is equal to
-  /// `source_path` (initially passed to struct)..
-  /// @note - Panics if `v` is out of bounds.
+  /// `source_path` (initially passed to struct).  Additionally, method returns `None` when `v` is
+  /// out of bounds.
   pub fn path_to(&self, v: usize) -> Option<Vec<usize>> {
-    if !self.has_path_to(v).unwrap() {
+    let path_exists = self.has_path_to(v);
+    if path_exists.is_err() || (path_exists.is_ok() && !path_exists.unwrap()) {
       return None;
     }
     let s = self._source_vertex;
@@ -63,10 +64,7 @@ impl DigraphDipathsDFS {
         break;
       }
       path.push(x);
-      x = match self._edge_to[x] {
-        Some(index) => index,
-        _ => s,
-      }
+      x = self._edge_to[x].unwrap();
     }
     path.push(s);
     Some(path)
@@ -208,6 +206,12 @@ mod test {
           i,
           i,
           i
+        );
+        // `None` case
+        assert_eq!(
+          dfs_rslt_2.path_to(99).is_none(),
+          true,
+          "out-of-bounds vert (`99`) param should result in `None` return",
         );
       }
 
