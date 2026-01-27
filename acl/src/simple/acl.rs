@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 
 use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::symbol_digraph::DisymGraph;
+use walrs_graph::digraph::disymgraph::DisymGraph;
 
 use crate::simple::acl_data::AclData;
 use crate::simple::rule::{Rule};

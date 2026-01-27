@@ -80,7 +80,7 @@ impl DigraphDipathsDFS {
 mod test {
   use std::num::NonZeroUsize;
   use crate::math::triangular_num;
-  use crate::symbol_digraph::DisymGraph;
+  use crate::disymgraph::DisymGraph;
 
   use super::*;
 

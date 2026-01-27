@@ -210,7 +210,7 @@ impl Default for DisymGraph {
 /// `From` trait usage example.
 ///
 /// ```rust
-/// use walrs_digraph::symbol_digraph::DisymGraph;
+/// use walrs_digraph::disymgraph::DisymGraph;
 /// use std::io::{BufRead, BufReader, Lines};
 /// use std::fs::File;
 ///
@@ -250,7 +250,7 @@ mod test {
   use std::fs::File;
   use std::io::BufReader;
 
-  use crate::symbol_digraph::DisymGraph;
+  use crate::disymgraph::DisymGraph;
 
   #[test]
   fn test_new() -> Result<(), String> {
