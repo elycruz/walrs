@@ -10,7 +10,7 @@ pub fn test_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
   let mut f = File::open(&file_path)?;
 
   let acl_data = AclData::try_from(&mut f)?;
-  let acl: Acl = Acl::from(&acl_data);
+  let acl: Acl = Acl::try_from(&acl_data)?;
 
   // Tests
   // ----

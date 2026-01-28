@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::convert::TryFrom;
 use std::fs::File;
 
+use serde_json;
 use walrs_graph::digraph::digraph_dfs::{DigraphDFS, DigraphDFSShape};
 use walrs_graph::digraph::disymgraph::DisymGraph;
 
@@ -705,9 +706,10 @@ impl Default for Acl {
   }
 }
 
-// @todo Convert to `TryFrom` impl.
-impl<'a> From<&'a AclData> for Acl {
-  fn from(data: &'a AclData) -> Self {
+impl<'a> TryFrom<&'a AclData> for Acl {
+  type Error = String;
+
+  fn try_from(data: &'a AclData) -> Result<Self, Self::Error> {
     let mut acl: Acl = Acl::new();
 
     // Add `roles` to `acl`
@@ -770,21 +772,29 @@ impl<'a> From<&'a AclData> for Acl {
 
     // println!("{:#?}", &acl);
 
-    acl
+    Ok(acl)
   }
 }
 
-// @todo Convert to `TryFrom` impl.
-impl From<AclData> for Acl {
-  fn from(data: AclData) -> Self {
-    data.into()
+impl TryFrom<AclData> for Acl {
+  type Error = String;
+
+  fn try_from(data: AclData) -> Result<Self, Self::Error> {
+    Acl::try_from(&data)
   }
 }
 
-// @todo Convert to `TryFrom` impl.
-impl<'a> From<&'a mut File> for Acl {
-  fn from(file: &mut File) -> Self {
-    AclData::try_from(file).unwrap().into()
+impl<'a> TryFrom<&'a mut File> for Acl {
+  type Error = serde_json::Error;
+
+  fn try_from(file: &mut File) -> Result<Self, Self::Error> {
+    AclData::try_from(file).and_then(|data| {
+      Acl::try_from(&data).map_err(|e| {
+        serde_json::Error::io(
+          std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+        )
+      })
+    })
   }
 }
 
