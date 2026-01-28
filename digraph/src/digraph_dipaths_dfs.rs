@@ -1,5 +1,5 @@
 use crate::Digraph;
-use crate::dfs::{DigraphDFSShape, vertex_marked};
+use crate::digraph_dfs::{DigraphDFSShape, vertex_marked};
 
 pub struct DigraphDipathsDFS {
   _marked: Vec<bool>,
@@ -43,7 +43,7 @@ impl DigraphDipathsDFS {
     Ok(self)
   }
 
-  /// Result indicating whether there is a path from `source_vertex` to vertex `i`.
+  /// Returns result indicating whether there is a path from `source_vertex` to vertex `i` or not.
   pub fn has_path_to(&self, i: usize) -> Result<bool, String> {
     self.marked(i)
   }
@@ -231,7 +231,7 @@ mod test {
         expected_count
       );
 
-      // Check out of bounds vert
+      // Check out-of-bounds vert
       assert_eq!(
         dfs_rslt.marked(99).is_err(),
         true,

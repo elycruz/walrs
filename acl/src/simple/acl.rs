@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::fs::File;
 
-use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
+use walrs_graph::digraph::digraph_dfs::{DigraphDFS, DigraphDFSShape};
 use walrs_graph::digraph::disymgraph::DisymGraph;
 
 use crate::simple::acl_data::AclData;
@@ -238,6 +238,8 @@ impl Acl {
   /// assert!(acl.inherits_resource_safe(&admin, &guest).unwrap(), "\"admin\" resource should inherit \"guest\" resource");
   /// assert!(acl.inherits_resource_safe(&super_admin, &guest).unwrap(), "\"super_admin\" resource should inherit \"guess\" resource");
   /// ```
+  ///
+  /// @todo Remove '*_safe' suffix.
   pub fn inherits_resource_safe(&self, resource: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self
       ._resources

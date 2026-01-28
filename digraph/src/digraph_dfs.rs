@@ -21,11 +21,6 @@ pub fn vertex_marked(_marked: &[bool], i: usize) -> Result<bool, String> {
 ///
 /// This implementation uses depth-first search.
 ///
-/// The constructor takes &Theta;(`V` + `E`) time in the  worst case, where `V` is
-/// the number of vertices and `E`  is the number of edges.
-/// Each instance method takes &Theta;(1) time.
-/// It uses &Theta;(`V`) extra space (not including the digraph).
-///
 #[derive(Debug)]
 pub struct DigraphDFS {
   _marked: Vec<bool>,
