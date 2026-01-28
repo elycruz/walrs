@@ -2,11 +2,14 @@ use std::io::{BufRead, BufReader};
 
 use crate::Digraph;
 
+pub fn invalid_vert_symbol_msg(v: &str) -> String {
+  format!("Invalid vertex symbol '{}' not found in graph.", v)
+}
+
 /// `DisymGraph` A Directed Acyclic Graph (B-DAG) data structure.
-/// @todo Consider renaming struct to `SymbolDigraph`.
 ///
 /// ```rust
-/// // @todo
+/// // TODO
 /// ```
 #[derive(Debug, Clone)]
 pub struct DisymGraph {
@@ -34,11 +37,13 @@ impl DisymGraph {
   }
 
   /// Returns the number of edges from this vertex to other vertices.
+  /// @todo Return `Option<usize>` instead.
   pub fn outdegree(&self, n: usize) -> Result<usize, String> {
     self._graph.outdegree(n)
   }
 
   /// Returns the number edges pointing from other vertices to the given one.
+  /// @todo Return `Option<usize>` instead.
   pub fn indegree(&self, n: usize) -> Result<usize, String> {
     self._graph.indegree(n)
   }
@@ -59,10 +64,7 @@ impl DisymGraph {
   /// Returns given vertex' index adjacency list - A list containing adjacent indexes.
   pub fn adj_indices(&self, symbol_name: &str) -> Option<&Vec<usize>> {
     if let Some(i) = self.index(symbol_name) {
-      match &self._graph.adj(i) {
-        Ok(list) => Some(list),
-        _ => None,
-      }
+      self._graph.adj(i).unwrap().into()
     } else {
       None
     }
@@ -130,17 +132,13 @@ impl DisymGraph {
 
   /// Checks if graph contains vertex
   pub fn validate_vertex(&self, v: &str) -> Result<&Self, String> {
-    if let Some(v) = self.index(v) {
-      return match self._graph.validate_vertex(v) {
-        Ok(_) => Ok(self),
-        Err(err) => Err(err),
-      };
+    match self.index(v) {
+      Some(_) => Ok(self),
+      None => Err(invalid_vert_symbol_msg(v)),
     }
-    Ok(self)
   }
 
   /// Adds edge to graph
-  /// @todo Method should not return `Result`, it should fail on failure.
   /// @todo Should accept `ToString`.
   pub fn add_edge(&mut self, vertex: &str, weights: &[&str]) -> Result<&mut Self, String> {
     let v1 = self.add_vertex(vertex);
@@ -163,36 +161,6 @@ impl DisymGraph {
       _vertices: self._vertices.clone(),
       _graph,
     })
-  }
-
-  /// Populates digraph instance from incoming lines.  @note Returns Error string if not all
-  /// vertices are in graph (use `#.add_vertex(...)` to enter the max vertex (expected vertex count)
-  /// into the graph before digesting buffer lines.
-  pub fn digest_lines<R: std::io::Read>(
-    &mut self,
-    lines: std::io::Lines<&mut BufReader<R>>,
-  ) -> Result<&Self, Box<dyn std::error::Error>> {
-    // Loop through lines
-    for line in lines {
-      // For each edge definition, enter them into graph
-      match line {
-        // If line
-        Ok(_line) => {
-          // Split and parse edge values to integers
-          let verts: Vec<&str> = _line.split_ascii_whitespace().collect();
-
-          // Add edge, and panic if unable to add it
-          self.add_edge(verts[0], &verts[1..])?;
-        }
-
-        // Catch "error reading line"
-        Err(err) => {
-          return Err(Box::new(err));
-        }
-      }
-    }
-
-    Ok(self)
   }
 }
 
@@ -221,22 +189,31 @@ impl Default for DisymGraph {
 ///  let mut reader = BufReader::new(f);
 ///
 ///  // Create graph
-///  let dg: DisymGraph = (&mut reader).into();
+///  let dg: DisymGraph = (&mut reader).try_into().unwrap();
 ///
 ///  println!("{:?}", dg);
 /// ```
-impl<R: std::io::Read> From<&mut BufReader<R>> for DisymGraph {
-  fn from(reader: &mut BufReader<R>) -> Self {
+impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for DisymGraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(reader: &mut BufReader<R>) -> Result<DisymGraph, Self::Error> {
     // Construct graph
     let mut dg = DisymGraph::new();
-
+    let lines = reader.lines();
     // Populate graph from buffer lines
-    if let Err(err) = dg.digest_lines(reader.lines()) {
-      panic!("{:?}", err);
+    for line in lines {
+      // For each edge definition, enter them into graph
+      let _line = line?;
+
+      // Split and parse edge values to integers
+      let verts: Vec<&str> = _line.split_ascii_whitespace().collect();
+
+      // Add edge, and panic if unable to add it
+      dg.add_edge(verts[0], &verts[1..])?;
     }
 
     // Return graph
-    dg
+    Ok(dg)
   }
 }
 
@@ -246,6 +223,7 @@ mod test {
   use std::io::BufReader;
 
   use crate::disymgraph::DisymGraph;
+  use crate::{invalid_vert_symbol_msg};
 
   #[test]
   fn test_new() -> Result<(), String> {
@@ -259,6 +237,14 @@ mod test {
     dsg.add_edge(&admin, &[&user])?;
 
     Ok(())
+  }
+
+  #[test]
+  fn test_default() {
+    let dsg = DisymGraph::default();
+
+    assert_eq!(dsg.vert_count(), 0);
+    assert_eq!(dsg.edge_count(), 0);
   }
 
   #[test]
@@ -343,6 +329,42 @@ mod test {
   }
 
   #[test]
+  fn test_adj() -> Result<(), String> {
+    let mut dsg = DisymGraph::new();
+    assert!(dsg.adj("unknonwn-symbol").is_none());
+
+    // Add edges and assert [adjacency] lists
+    // ----
+    let vowels: Vec<&str> = "a e i o u".split_ascii_whitespace().collect();
+
+    for (i, v) in vowels.iter().enumerate() {
+      let weights = &vowels[i + 1..];
+      dsg.add_edge(v, weights)?;
+
+      let adj = dsg.adj(v).unwrap();
+      assert_eq!(
+        adj.len(),
+        weights.len(),
+        "vertices adjacent to \"{}\" have an invalid length",
+        v
+      );
+
+      // Verify vertices adjacent to `v` are found in `weights`
+      adj.iter().for_each(|name| {
+        assert!(
+          weights.contains(name),
+          "vertices adjacent to \"{}\" are invalid",
+          v
+        );
+      });
+    }
+
+    assert!(dsg.adj("unknonwn-symbol").is_none());
+
+    Ok(())
+  }
+
+  #[test]
   fn test_adj_indices() -> Result<(), String> {
     let mut dsg = DisymGraph::new();
     assert_eq!(
@@ -356,27 +378,23 @@ mod test {
       let weights = &vowels[i + 1..];
       dsg.add_edge(v, weights)?;
 
-      match dsg.adj_indices(v) {
-        Some(adj_indices) => {
-          assert_eq!(
-            adj_indices.len(),
-            weights.len(),
-            "vertices adjacent to \"{}\" have an invalid length",
-            v
-          );
+      let adj_indices = dsg.adj_indices(v).unwrap();
+      assert_eq!(
+        adj_indices.len(),
+        weights.len(),
+        "vertices adjacent to \"{}\" have an invalid length",
+        v
+      );
 
-          // Verify vertices adjacent to `v` are found in `weights`
-          adj_indices.iter().for_each(|x| {
-            let name = dsg.name(*x).unwrap();
-            assert!(
-              weights.contains(&name.as_str()),
-              "vertices adjacent to \"{}\" are invalid",
-              v
-            );
-          });
-        }
-        None => panic!("Expected vertices adjacent to \"{}\";  Received `None`", v),
-      };
+      // Verify vertices adjacent to `v` are found in `weights`
+      adj_indices.iter().for_each(|x| {
+        let name = dsg.name(*x).unwrap();
+        assert!(
+          weights.contains(&name.as_str()),
+          "vertices adjacent to \"{}\" are invalid",
+          v
+        );
+      });
     }
 
     Ok(())
@@ -489,6 +507,36 @@ mod test {
     );
     assert_eq!(
       dsg.name(1).unwrap(),
+      v2,
+      "index for vertex \"{}\" should equal {}",
+      v2,
+      1
+    );
+  }
+
+  #[test]
+  fn test_name_as_ref() {
+    let mut dsg = DisymGraph::new();
+    assert_eq!(
+      dsg.name_as_ref(0).is_none(),
+      true,
+      "Empty graphs shouldn't contain symbols for non-existent indices"
+    );
+
+    let v1 = "abc";
+    let v2 = "efg";
+    dsg.add_vertex(v1);
+    dsg.add_vertex(v2);
+
+    assert_eq!(
+      dsg.name_as_ref(0).unwrap(),
+      v1,
+      "index for vertex \"{}\" should equal {}",
+      v1,
+      0
+    );
+    assert_eq!(
+      dsg.name_as_ref(1).unwrap(),
       v2,
       "index for vertex \"{}\" should equal {}",
       v2,
@@ -628,11 +676,12 @@ mod test {
       dsg.add_edge(s, weights)?;
 
       assert_eq!(dsg.indegree(i)?, i, "Expected indegree to equal `{}`", i);
+      let outdegree_idx = symbol_limit - i;
       assert_eq!(
         dsg.outdegree(i)?,
-        symbol_limit - i,
+        outdegree_idx,
         "Expected outdegree to equal `{}`",
-        symbol_limit - i
+        outdegree_idx
       );
     }
 
@@ -710,6 +759,27 @@ mod test {
   }
 
   #[test]
+  fn test_validate_vertex() -> Result<(), String> {
+    let mut dsg = DisymGraph::new();
+    let v1 = "abc";
+    let v2 = "efg";
+    dsg.add_vertex(v1);
+    dsg.add_vertex(v2);
+
+    // Validate existing vertices
+    dsg.validate_vertex(v1)?;
+    dsg.validate_vertex(v2)?;
+
+    // Validate non-existing vertex
+    assert_eq!(
+      dsg.validate_vertex("non-existent").unwrap_err(),
+      invalid_vert_symbol_msg("non-existent")
+    );
+
+    Ok(())
+  }
+
+  #[test]
   fn test_from_mut_bufreader_impl() -> Result<(), Box<dyn std::error::Error>> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
@@ -720,7 +790,7 @@ mod test {
     let mut reader = BufReader::new(f);
 
     // Create graph
-    let _: DisymGraph = (&mut reader).into();
+    let _: DisymGraph = (&mut reader).try_into()?;
 
     // println!("{:?}", dg);
 
