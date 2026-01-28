@@ -38,13 +38,11 @@ impl DisymGraph {
   }
 
   /// Returns the number of edges from this vertex to other vertices.
-  /// @todo Return `Option<usize>` instead.
   pub fn outdegree(&self, n: usize) -> Result<usize, String> {
     self._graph.outdegree(n)
   }
 
   /// Returns the number edges pointing from other vertices to the given one.
-  /// @todo Return `Option<usize>` instead.
   pub fn indegree(&self, n: usize) -> Result<usize, String> {
     self._graph.indegree(n)
   }
@@ -72,6 +70,7 @@ impl DisymGraph {
   }
 
   /// Returns a reference to contained vertex index graph.
+  /// @todo Consider returning a copy here.
   pub fn graph(&self) -> &Digraph {
     &self._graph
   }
@@ -115,7 +114,6 @@ impl DisymGraph {
 
   /// Adds a symbol vertex to the graph.
   pub fn add_vertex(&mut self, v: &str) -> usize {
-    // @todo should accept `ToString`
     if let Some(i) = self.index(v) {
       i
     } else {
@@ -140,7 +138,6 @@ impl DisymGraph {
   }
 
   /// Adds edge to graph
-  /// @todo Should accept `ToString`.
   pub fn add_edge(&mut self, vertex: &str, weights: &[&str]) -> Result<&mut Self, String> {
     let v1 = self.add_vertex(vertex);
 

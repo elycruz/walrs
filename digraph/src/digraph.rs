@@ -63,8 +63,7 @@ impl Digraph {
   }
 
   /// Returns outdegree of given vertex `v`.
-  /// @todo Should return `Option<usize>` instead.
-  /// Example:
+  ///
   /// ```rust
   /// use walrs_digraph::digraph::Digraph;
   /// use walrs_digraph::invalid_vertex_msg;
@@ -89,8 +88,7 @@ impl Digraph {
   }
 
   /// Returns indegree of given vertex `v`.
-  /// @todo Should return `Option<usize>` instead.
-  /// Example:
+  ///
   /// ```rust
   /// use walrs_digraph::digraph::Digraph;
   /// use walrs_digraph::invalid_vertex_msg;
