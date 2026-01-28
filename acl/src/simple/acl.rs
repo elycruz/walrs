@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fs::File;
 
 use walrs_graph::digraph::digraph_dfs::{DigraphDFS, DigraphDFSShape};
@@ -783,7 +784,7 @@ impl From<AclData> for Acl {
 // @todo Convert to `TryFrom` impl.
 impl<'a> From<&'a mut File> for Acl {
   fn from(file: &mut File) -> Self {
-    AclData::from(file).into()
+    AclData::try_from(file).unwrap().into()
   }
 }
 

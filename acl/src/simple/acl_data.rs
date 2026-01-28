@@ -1,5 +1,6 @@
 // acl_data.rs
 use serde_derive::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::fs::File;
 use std::io::BufReader;
 
@@ -11,12 +12,11 @@ pub struct AclData {
   pub deny: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
 }
 
-// @todo Convert to `TryFrom` impl.
-impl<'a> From<&'a mut File> for AclData {
-    fn from(file: &mut File) -> Self {
-        // let mut contents = String::new();
-        // file.read_to_string(&mut contents);
+impl<'a> TryFrom<&'a mut File> for AclData {
+    type Error = serde_json::Error;
+
+    fn try_from(file: &mut File) -> Result<Self, Self::Error> {
         let buf = BufReader::new(file);
-        serde_json::from_reader(buf).unwrap()
+        serde_json::from_reader(buf)
     }
 }
