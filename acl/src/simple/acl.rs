@@ -3,8 +3,11 @@ use std::convert::TryFrom;
 use std::fs::File;
 
 use serde_json;
-use walrs_graph::digraph::digraph_dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::disymgraph::DisymGraph;
+use walrs_graph::digraph::{
+  DigraphDFSShape,
+  DigraphDFS,
+  DisymGraph
+};
 
 use crate::simple::acl_data::AclData;
 use crate::simple::rule::{Rule};

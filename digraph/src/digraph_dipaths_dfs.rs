@@ -1,5 +1,5 @@
-use crate::Digraph;
-use crate::digraph_dfs::{DigraphDFSShape, vertex_marked};
+use crate::{Digraph, DigraphDFSShape};
+use crate::digraph_dfs::{vertex_marked};
 
 pub struct DigraphDipathsDFS {
   _marked: Vec<bool>,

@@ -820,7 +820,7 @@ mod test {
   }
 
   #[test]
-  pub fn test_try_from_file_ref() -> Result<(), std::io::Error> {
+  fn test_try_from_file_ref() -> Result<(), std::io::Error> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
@@ -833,7 +833,7 @@ mod test {
   }
 
   #[test]
-  pub fn test_try_from_file() -> Result<(), std::io::Error> {
+  fn test_try_from_file() -> Result<(), std::io::Error> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
@@ -846,7 +846,7 @@ mod test {
   }
 
   #[test]
-  pub fn test_try_from_mut_buf_reader() -> Result<(), Box<dyn std::error::Error>> {
+  fn test_try_from_mut_buf_reader() -> Result<(), Box<dyn std::error::Error>> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
@@ -868,7 +868,7 @@ mod test {
   }
 
   #[test]
-  pub fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
+  fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
