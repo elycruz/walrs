@@ -1,3 +1,4 @@
+use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 use crate::Digraph;
@@ -217,10 +218,34 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for DisymGraph {
   }
 }
 
+impl<R: std::io::Read> TryFrom<BufReader<R>> for DisymGraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(mut reader: BufReader<R>) -> Result<Self, Self::Error> {
+    DisymGraph::try_from(&mut reader)
+  }
+}
+
+impl TryFrom<&File> for DisymGraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: &File) -> Result<Self, Self::Error> {
+    DisymGraph::try_from(&mut BufReader::new(file_struct))
+  }
+}
+
+impl TryFrom<File> for DisymGraph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: File) -> Result<Self, Self::Error> {
+    DisymGraph::try_from(&mut BufReader::new(file_struct))
+  }
+}
+
 #[cfg(test)]
 mod test {
   use std::fs::File;
-  use std::io::BufReader;
+  use std::io::{BufReader};
 
   use crate::disymgraph::DisymGraph;
   use crate::{invalid_vert_symbol_msg};
@@ -780,7 +805,7 @@ mod test {
   }
 
   #[test]
-  fn test_from_mut_bufreader_impl() -> Result<(), Box<dyn std::error::Error>> {
+  fn test_from_mut_bufreader() -> Result<(), Box<dyn std::error::Error>> {
     let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
 
     // Get graph 'symbol' data
@@ -793,6 +818,67 @@ mod test {
     let _: DisymGraph = (&mut reader).try_into()?;
 
     // println!("{:?}", dg);
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_file_ref() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
+
+    // Get digraph data
+    let f = File::open(file_path)?;
+
+    // Create graph
+    let _: DisymGraph = (&f).try_into().unwrap();
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_file() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
+
+    // Get digraph data
+    let f = File::open(file_path)?;
+
+    // Create graph
+    let _: DisymGraph = f.try_into().unwrap();
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_mut_buf_reader() -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
+
+    // Get digraph data
+    let f = File::open(file_path)?;
+    let mut reader = BufReader::new(f);
+
+    // Create graph (impls for `From<BufReader<R: std::io::Read>>` and `From<File>` are defined for `DisymGraph` struct
+    let dg: DisymGraph = (&mut reader).try_into()?;
+
+    assert!(dg.vert_count() > 0,
+      "Vert count is invalid"
+    );
+    assert!(
+      dg.edge_count() > 0,
+      "Edge count is invalid"
+    );
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/symbol_graph_test_routes.txt";
+
+    // Get digraph data
+    let f = File::open(file_path)?;
+
+    // Create graph
+    let _: DisymGraph = BufReader::new(f).try_into().unwrap();
 
     Ok(())
   }
