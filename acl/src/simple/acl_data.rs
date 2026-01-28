@@ -11,6 +11,7 @@ pub struct AclData {
   pub deny: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
 }
 
+// @todo Convert to `TryFrom` impl.
 impl<'a> From<&'a mut File> for AclData {
     fn from(file: &mut File) -> Self {
         // let mut contents = String::new();

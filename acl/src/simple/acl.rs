@@ -63,6 +63,7 @@ impl Acl {
   /// use walrs_acl::{ simple::Acl };
   ///
   /// let mut acl = Acl::new() as Acl;
+  ///
   /// let admin = "admin";
   /// let super_admin = "super_admin";
   /// let tester = "tester";
@@ -70,7 +71,8 @@ impl Acl {
   ///
   /// // Add roles, and their relationships to the acl:
   /// acl .add_role(developer, Some(&[tester]))
-  ///     .add_role(admin, Some(&[super_admin]));
+  ///     .add_role(admin, Some(&[developer]))
+  ///     .add_role(super_admin, Some(&[admin]));
   ///
   /// // Assert existence
   /// for r in [admin, super_admin, tester, developer] {
@@ -78,8 +80,8 @@ impl Acl {
   /// }
   ///
   /// // Assert inheritance
-  /// assert_eq!(acl.inherits_role_safe(admin, super_admin).unwrap(), true,
-  ///   "{:?} should have `child -> parent` relationship`with {:?}", admin, super_admin);
+  /// assert_eq!(acl.inherits_role_safe(super_admin, admin).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", super_admin, admin);
   ///
   /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
   ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
@@ -91,6 +93,46 @@ impl Acl {
       }
     }
     self._roles.add_vertex(role);
+    self
+  }
+
+  /// Adds multiple `Role`s to acl at once.
+  ///
+  /// Example:
+  /// ```rust
+  /// use std::ops::Deref;
+  /// use walrs_acl::{ simple::Acl };
+  ///
+  /// let mut acl = Acl::new() as Acl;
+  ///
+  /// let admin = "admin";
+  /// let super_admin = "super_admin";
+  /// let tester = "tester";
+  /// let developer = "developer";
+  ///
+  /// // Add roles, and their relationships to the acl:
+  /// acl.add_roles(&[
+  ///     (developer, Some(&[tester])),
+  ///     (admin, Some(&[developer])),
+  ///     (super_admin, Some(&[admin])),
+  /// ]);
+  ///
+  /// // Assert existence
+  /// for r in [admin, super_admin, tester, developer] {
+  ///     assert!(acl.has_role(r), "Should contain {:?} role", r);
+  /// }
+  ///
+  /// // Assert inheritance
+  /// assert_eq!(acl.inherits_role_safe(super_admin, admin).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", super_admin, admin);
+  ///
+  /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
+  /// ```
+  pub fn add_roles(&mut self, roles: &[(&str, Option<&[&str]>)]) -> &mut Self {
+    for &(role, parents) in roles {
+      self.add_role(role, parents);
+    }
     self
   }
 
@@ -662,6 +704,7 @@ impl Default for Acl {
   }
 }
 
+// @todo Convert to `TryFrom` impl.
 impl<'a> From<&'a AclData> for Acl {
   fn from(data: &'a AclData) -> Self {
     let mut acl: Acl = Acl::new();
@@ -730,12 +773,14 @@ impl<'a> From<&'a AclData> for Acl {
   }
 }
 
+// @todo Convert to `TryFrom` impl.
 impl From<AclData> for Acl {
   fn from(data: AclData) -> Self {
     data.into()
   }
 }
 
+// @todo Convert to `TryFrom` impl.
 impl<'a> From<&'a mut File> for Acl {
   fn from(file: &mut File) -> Self {
     AclData::from(file).into()
