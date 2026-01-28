@@ -48,7 +48,7 @@ impl DisymGraph {
     if let Some(indices) = self.adj_indices(symbol_name) {
       return Some(
         indices
-          .into_iter()
+          .iter()
           .map(|x| self._vertices[*x].as_str())
           .collect(),
       );
@@ -150,10 +150,7 @@ impl DisymGraph {
       let v2 = self.add_vertex(w);
 
       // Add edges
-      if let Err(err) = self._graph.add_edge(v1, v2) {
-        // @todo Should `panic!` here, on failure
-        return Err(err);
-      }
+      self._graph.add_edge(v1, v2)?;
     }
 
     Ok(self)
@@ -185,9 +182,7 @@ impl DisymGraph {
           let verts: Vec<&str> = _line.split_ascii_whitespace().collect();
 
           // Add edge, and panic if unable to add it
-          if let Err(err) = self.add_edge(verts[0], &verts[1..]) {
-            return Err(err.into());
-          }
+          self.add_edge(verts[0], &verts[1..])?;
         }
 
         // Catch "error reading line"

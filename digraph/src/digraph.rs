@@ -58,9 +58,7 @@ impl Digraph {
   ///
   /// // ..
   pub fn adj(&self, v: usize) -> Result<&Vec<usize>, String> {
-    if let Err(err) = self.validate_vertex(v) {
-      return Err(err);
-    }
+    self.validate_vertex(v)?;
     Ok(&self._adj_lists[v])
   }
 
@@ -86,16 +84,12 @@ impl Digraph {
   /// assert_eq!(digraph.outdegree(3), Err(invalid_vertex_msg(3, 2)));
   /// ```
   pub fn outdegree(&self, v: usize) -> Result<usize, String> {
-    if let Err(err) = self.validate_vertex(v) {
-      return Err(err);
-    }
+    self.validate_vertex(v)?;
     Ok(self._adj_lists[v].len())
   }
 
   pub fn indegree(&self, v: usize) -> Result<usize, String> {
-    if let Err(err) = self.validate_vertex(v) {
-      return Err(err);
-    }
+    self.validate_vertex(v)?;
     Ok(self._in_degree[v])
   }
 
@@ -119,12 +113,10 @@ impl Digraph {
 
   /// Adds an edges from vertex `v` to vertex `w`, to the graph.
   pub fn add_edge(&mut self, v: usize, w: usize) -> Result<&mut Self, String> {
-    if let Err(err) = self
+    self
       .validate_vertex(v)
-      .and_then(|_| self.validate_vertex(w))
-    {
-      return Err(err);
-    }
+      .and_then(|_| self.validate_vertex(w))?;
+
     let adj = &mut self._adj_lists[v];
     adj.push(w);
     adj.sort_unstable();
@@ -137,10 +129,7 @@ impl Digraph {
   pub fn validate_vertex(&self, v: usize) -> Result<&Self, String> {
     let len = self._adj_lists.len();
     if v >= len {
-      return Err(format!(
-        "{}",
-        invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 })
-      ));
+      return Err(invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 }));
     }
     Ok(self)
   }
