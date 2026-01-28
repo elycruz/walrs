@@ -63,7 +63,7 @@ impl Digraph {
   }
 
   /// Returns outdegree of given vertex `v`.
-  ///
+  /// @todo Should return `Option<usize>` instead.
   /// Example:
   /// ```rust
   /// use walrs_digraph::digraph::Digraph;
@@ -88,6 +88,27 @@ impl Digraph {
     Ok(self._adj_lists[v].len())
   }
 
+  /// Returns indegree of given vertex `v`.
+  /// @todo Should return `Option<usize>` instead.
+  /// Example:
+  /// ```rust
+  /// use walrs_digraph::digraph::Digraph;
+  /// use walrs_digraph::invalid_vertex_msg;
+  ///
+  /// let mut digraph = Digraph::new(3);
+  ///
+  /// // Add edges
+  /// digraph.add_edge(0, 1).unwrap();
+  /// digraph.add_edge(2, 1).unwrap();
+  ///
+  /// // Returns indegree for valid vertices
+  /// assert_eq!(digraph.indegree(0), Ok(0));
+  /// assert_eq!(digraph.indegree(2), Ok(0));
+  /// assert_eq!(digraph.indegree(1), Ok(2));
+  ///
+  /// // Returns `Err(String)` for invalid vertex
+  /// assert_eq!(digraph.indegree(3), Err(invalid_vertex_msg(3, 2)));
+  /// ```
   pub fn indegree(&self, v: usize) -> Result<usize, String> {
     self.validate_vertex(v)?;
     Ok(self._in_degree[v])
@@ -134,7 +155,7 @@ impl Digraph {
     Ok(self)
   }
 
-  // Returns a copy of given Digraph "reversed".
+  /// Returns a copy of given Digraph "reversed".
   pub fn reverse(&self) -> Result<Self, String> {
     let v_count = self.vert_count();
     let mut out = Digraph::new(v_count);
