@@ -86,10 +86,15 @@ impl DirectedPathsDFS {
 #[cfg(test)]
 mod test {
   use std::num::NonZeroUsize;
-  use crate::math::triangular_num;
   use crate::disymgraph::DisymGraph;
 
   use super::*;
+
+  /// Calculates nth triangular number for natural number.
+  /// See https://www.geeksforgeeks.org/maths/triangular-number-sequence/
+  fn triangular_num(n: usize) -> usize {
+    n * (n + 1) / 2
+  }
 
   #[test]
   pub fn test_dipaths_dfs_with_symbol_dag() -> Result<(), Box<dyn std::error::Error>> {
