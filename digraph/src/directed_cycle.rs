@@ -12,31 +12,31 @@ use crate::Digraph;
 ///
 /// Based on the DirectedCycle implementation from Algorithms, 4th Edition by Robert Sedgewick
 /// and Kevin Wayne.
-pub struct DigraphDicycle {
+pub struct DirectedCycle {
   _marked: Vec<bool>,
   _edge_to: Vec<Option<usize>>,
   _on_stack: Vec<bool>,
   _cycle: Option<Vec<usize>>,
 }
 
-impl DigraphDicycle {
+impl DirectedCycle {
   /// Determines whether the given digraph has a directed cycle and, if so, finds such a cycle.
   ///
   /// ```rust
   /// use walrs_digraph::Digraph;
-  /// use walrs_digraph::DigraphDicycle;
+  /// use walrs_digraph::DirectedCycle;
   ///
   /// let mut g = Digraph::new(3);
   /// g.add_edge(0, 1).unwrap()
   ///  .add_edge(1, 2).unwrap()
   ///  .add_edge(2, 0).unwrap(); // Creates a cycle
   ///
-  /// let finder = DigraphDicycle::new(&g);
+  /// let finder = DirectedCycle::new(&g);
   /// assert_eq!(finder.has_cycle(), true);
   /// ```
   pub fn new(g: &Digraph) -> Self {
     let vert_count = g.vert_count();
-    let mut out = DigraphDicycle {
+    let mut out = DirectedCycle {
       _marked: vec![false; vert_count],
       _on_stack: vec![false; vert_count],
       _edge_to: vec![None; vert_count],
@@ -93,13 +93,13 @@ impl DigraphDicycle {
   ///
   /// ```rust
   /// use walrs_digraph::Digraph;
-  /// use walrs_digraph::DigraphDicycle;
+  /// use walrs_digraph::DirectedCycle;
   ///
   /// let mut g = Digraph::new(3);
   /// g.add_edge(0, 1).unwrap();
   /// g.add_edge(1, 2).unwrap();
   ///
-  /// let finder = DigraphDicycle::new(&g);
+  /// let finder = DirectedCycle::new(&g);
   /// assert_eq!(finder.has_cycle(), false);
   /// ```
   pub fn has_cycle(&self) -> bool {
@@ -112,14 +112,14 @@ impl DigraphDicycle {
   ///
   /// ```rust
   /// use walrs_digraph::Digraph;
-  /// use walrs_digraph::DigraphDicycle;
+  /// use walrs_digraph::DirectedCycle;
   ///
   /// let mut g = Digraph::new(3);
   /// g.add_edge(0, 1).unwrap();
   /// g.add_edge(1, 2).unwrap();
   /// g.add_edge(2, 0).unwrap();
   ///
-  /// let finder = DigraphDicycle::new(&g);
+  /// let finder = DirectedCycle::new(&g);
   /// let cycle = finder.cycle();
   /// assert!(cycle.is_some());
   /// ```
@@ -160,7 +160,7 @@ mod test {
     g.add_edge(1, 2).unwrap();
     g.add_edge(2, 0).unwrap(); // Creates cycle
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), true, "Should detect cycle");
     assert!(finder.cycle().is_some(), "Should return cycle");
 
@@ -180,7 +180,7 @@ mod test {
     g.add_edge(0, 1).unwrap();
     g.add_edge(1, 2).unwrap();
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), false, "Should not detect cycle in DAG");
     assert!(finder.cycle().is_none(), "Should return None for DAG");
   }
@@ -191,7 +191,7 @@ mod test {
     let mut g = Digraph::new(3);
     g.add_edge(0, 0).unwrap();
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), true, "Should detect self-loop as cycle");
   }
 
@@ -222,21 +222,21 @@ mod test {
     g.add_edge(11, 12).unwrap();
     g.add_edge(12, 9).unwrap();
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), true, "Should detect cycle in complex graph");
   }
 
   #[test]
   fn test_directed_cycle_empty_graph() {
     let g = Digraph::new(0);
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), false, "Empty graph should have no cycle");
   }
 
   #[test]
   fn test_directed_cycle_single_vertex() {
     let g = Digraph::new(1);
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.has_cycle(), false, "Single vertex with no edges should have no cycle");
   }
 
@@ -247,7 +247,7 @@ mod test {
     g.add_edge(1, 2).unwrap();
     g.add_edge(2, 0).unwrap();
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.check(), true, "Valid cycle should pass check");
   }
 
@@ -258,7 +258,7 @@ mod test {
     g.add_edge(0, 1).unwrap();
     g.add_edge(1, 2).unwrap();
 
-    let mut finder = DigraphDicycle::new(&g);
+    let mut finder = DirectedCycle::new(&g);
     // Manually create an invalid state with empty cycle for testing
     finder._cycle = Some(Vec::new());
 
@@ -273,7 +273,7 @@ mod test {
     g.add_edge(1, 2).unwrap();
     g.add_edge(2, 0).unwrap();
 
-    let mut finder = DigraphDicycle::new(&g);
+    let mut finder = DirectedCycle::new(&g);
     // Manually create an invalid cycle with mismatched endpoints for testing
     finder._cycle = Some(vec![0, 1, 2]); // Should start and end with same vertex
 
@@ -287,7 +287,7 @@ mod test {
     g.add_edge(0, 1).unwrap();
     g.add_edge(1, 2).unwrap();
 
-    let finder = DigraphDicycle::new(&g);
+    let finder = DirectedCycle::new(&g);
     assert_eq!(finder.check(), true, "No cycle should pass check");
   }
 }

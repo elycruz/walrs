@@ -8,23 +8,23 @@ pub fn vertex_marked(_marked: &[bool], i: usize) -> Result<bool, String> {
   Ok(_marked[i])
 }
 
-pub struct DigraphDipathsDFS {
+pub struct DirectedPathsDFS {
   _marked: Vec<bool>,
   _count: usize,
   _edge_to: Vec<Option<usize>>,
   _source_vertex: usize,
 }
 
-impl DigraphDFSShape for DigraphDipathsDFS {
+impl DigraphDFSShape for DirectedPathsDFS {
   /// Returns a `Result` indicating whether  a path from 'source vertex' to 'i' exists.
   fn marked(&self, i: usize) -> Result<bool, String> {
     vertex_marked(&self._marked, i)
   }
 }
 
-impl DigraphDipathsDFS {
+impl DirectedPathsDFS {
   pub fn new(g: &Digraph, source_vertex: usize) -> Result<Self, String> {
-    let mut out = DigraphDipathsDFS {
+    let mut out = DirectedPathsDFS {
       _marked: vec![false; g.vert_count()],
       _edge_to: vec![None; g.vert_count()],
       _source_vertex: source_vertex,
@@ -145,8 +145,8 @@ mod test {
     // For each vertex in graph check that each left adjacent vertex is reachable from itself
     for i in 0..v_len {
       // println!("i: {}", i);
-      let dfs_rslt = DigraphDipathsDFS::new(sym_graph.graph(), i)?;
-      let dfs_rslt_2 = DigraphDipathsDFS::new(sym_graph_2.graph(), i)?;
+      let dfs_rslt = DirectedPathsDFS::new(sym_graph.graph(), i)?;
+      let dfs_rslt_2 = DirectedPathsDFS::new(sym_graph_2.graph(), i)?;
 
       for j in i + 1..v_len {
         // println!("j: {}", i);

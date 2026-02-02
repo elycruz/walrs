@@ -200,7 +200,7 @@ impl Graph {
 
 /// Returns panic message for invalid vertices;  Exported for use in testing.
 pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
-  format!("Vertex {} is out of index range 0-{}", v, max_v)
+  format!("Vertex {} is outside defined range 0-{}", v, max_v)
 }
 
 // @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.

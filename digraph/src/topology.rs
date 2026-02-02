@@ -1,13 +1,4 @@
-use crate::{DepthFirstOrder, Digraph, DigraphDicycle};
-
-/// Returns error message for invalid vertices in `Topological`.
-pub fn topological_invalid_vertex_msg(v: usize, max_v: usize) -> String {
-    format!(
-        "vertex {} is not between 0 and {}",
-        v,
-        if max_v > 0 { max_v - 1 } else { 0 }
-    )
-}
+use crate::{invalid_vertex_msg, DepthFirstOrder, Digraph, DirectedCycle};
 
 /// The `Topological` struct represents a data type for determining a
 /// topological order of a *directed acyclic graph* (DAG).
@@ -28,7 +19,7 @@ pub fn topological_invalid_vertex_msg(v: usize, max_v: usize) -> String {
 ///
 /// ```rust
 /// use walrs_digraph::Digraph;
-/// use walrs_digraph::Topological;
+/// use walrs_digraph::Topology;
 ///
 /// // Create a simple DAG
 /// let mut g = Digraph::new(4);
@@ -37,7 +28,7 @@ pub fn topological_invalid_vertex_msg(v: usize, max_v: usize) -> String {
 /// g.add_edge(1, 3).unwrap();
 /// g.add_edge(2, 3).unwrap();
 ///
-/// let topo = Topological::new(&g);
+/// let topo = Topology::new(&g);
 /// assert!(topo.has_order());
 ///
 /// // Get the topological order
@@ -48,30 +39,30 @@ pub fn topological_invalid_vertex_msg(v: usize, max_v: usize) -> String {
 ///     assert_eq!(order_vec.len(), 4);
 /// }
 /// ```
-pub struct Topological {
+pub struct Topology {
     /// topological order (None if digraph has a cycle)
     _order: Option<Vec<usize>>,
     /// rank[v] = rank of vertex v in order (None if digraph has a cycle)
     _rank: Option<Vec<usize>>,
 }
 
-impl Topological {
+impl Topology {
     /// Determines whether the digraph has a topological order and, if so,
     /// finds such a topological order.
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     /// assert!(topo.has_order());
     /// ```
     pub fn new(g: &Digraph) -> Self {
-        let finder = DigraphDicycle::new(g);
+        let finder = DirectedCycle::new(g);
 
         if !finder.has_cycle() {
             let dfs = DepthFirstOrder::new(g);
@@ -83,12 +74,12 @@ impl Topological {
                 rank[v] = i;
             }
 
-            Topological {
+            Topology {
                 _order: Some(order),
                 _rank: Some(rank),
             }
         } else {
-            Topological {
+            Topology {
                 _order: None,
                 _rank: None,
             }
@@ -100,14 +91,14 @@ impl Topological {
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// // DAG
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     /// assert!(topo.order().is_some());
     ///
     /// // Graph with cycle
@@ -116,7 +107,7 @@ impl Topological {
     /// cyclic.add_edge(1, 2).unwrap();
     /// cyclic.add_edge(2, 0).unwrap();
     ///
-    /// let topo_cyclic = Topological::new(&cyclic);
+    /// let topo_cyclic = Topology::new(&cyclic);
     /// assert!(topo_cyclic.order().is_none());
     /// ```
     pub fn order(&self) -> Option<&[usize]> {
@@ -127,14 +118,14 @@ impl Topological {
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// // DAG
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     /// assert!(topo.has_order());
     ///
     /// // Graph with cycle
@@ -143,7 +134,7 @@ impl Topological {
     /// cyclic.add_edge(1, 2).unwrap();
     /// cyclic.add_edge(2, 0).unwrap();
     ///
-    /// let topo_cyclic = Topological::new(&cyclic);
+    /// let topo_cyclic = Topology::new(&cyclic);
     /// assert!(!topo_cyclic.has_order());
     /// ```
     pub fn has_order(&self) -> bool {
@@ -156,13 +147,13 @@ impl Topological {
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     /// assert!(topo.is_dag());
     /// ```
     pub fn is_dag(&self) -> bool {
@@ -173,13 +164,13 @@ impl Topological {
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     ///
     /// // For linear chain, rank should reflect topological order
     /// assert_eq!(topo.rank(0), Ok(Some(0)));
@@ -193,7 +184,7 @@ impl Topological {
         match &self._rank {
             Some(rank) => {
                 if v >= rank.len() {
-                    Err(topological_invalid_vertex_msg(v, rank.len()))
+                    Err(invalid_vertex_msg(v, rank.len()))
                 } else {
                     Ok(Some(rank[v]))
                 }
@@ -206,13 +197,13 @@ impl Topological {
     ///
     /// ```rust
     /// use walrs_digraph::Digraph;
-    /// use walrs_digraph::Topological;
+    /// use walrs_digraph::Topology;
     ///
     /// let mut g = Digraph::new(3);
     /// g.add_edge(0, 1).unwrap();
     /// g.add_edge(1, 2).unwrap();
     ///
-    /// let topo = Topological::new(&g);
+    /// let topo = Topology::new(&g);
     ///
     /// if let Some(iter) = topo.order_iter() {
     ///     for v in iter {
@@ -253,7 +244,7 @@ mod tests {
     #[test]
     fn test_topological_dag() {
         let g = create_tiny_dag();
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(topo.has_order());
         assert!(topo.is_dag());
@@ -270,7 +261,7 @@ mod tests {
         g.add_edge(1, 2).unwrap();
         g.add_edge(2, 0).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(!topo.has_order());
         assert!(!topo.is_dag());
@@ -285,7 +276,7 @@ mod tests {
         g.add_edge(1, 2).unwrap();
         g.add_edge(0, 2).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
         assert!(topo.has_order());
 
         let order = topo.order().unwrap();
@@ -308,7 +299,7 @@ mod tests {
         g.add_edge(0, 1).unwrap();
         g.add_edge(1, 2).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         // For linear chain, topological order is 0, 1, 2
         assert_eq!(topo.rank(0), Ok(Some(0)));
@@ -323,7 +314,7 @@ mod tests {
         g.add_edge(1, 2).unwrap();
         g.add_edge(2, 0).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         // For cyclic graph, rank returns Ok(None)
         assert_eq!(topo.rank(0), Ok(None));
@@ -337,7 +328,7 @@ mod tests {
         g.add_edge(0, 1).unwrap();
         g.add_edge(1, 2).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         // Invalid vertex should return error
         assert!(topo.rank(5).is_err());
@@ -346,7 +337,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         let g = Digraph::new(0);
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(topo.has_order());
         assert!(topo.is_dag());
@@ -356,7 +347,7 @@ mod tests {
     #[test]
     fn test_single_vertex() {
         let g = Digraph::new(1);
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(topo.has_order());
         assert_eq!(topo.order().unwrap(), &[0]);
@@ -370,7 +361,7 @@ mod tests {
         g.add_edge(0, 1).unwrap();
         g.add_edge(2, 3).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(topo.has_order());
         let order = topo.order().unwrap();
@@ -392,7 +383,7 @@ mod tests {
         g.add_edge(0, 1).unwrap();
         g.add_edge(1, 2).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         let order_vec: Vec<usize> = topo.order_iter().unwrap().cloned().collect();
         assert_eq!(order_vec, topo.order().unwrap().to_vec());
@@ -405,7 +396,7 @@ mod tests {
         g.add_edge(1, 2).unwrap();
         g.add_edge(2, 0).unwrap();
 
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         assert!(topo.order_iter().is_none());
     }
@@ -413,7 +404,7 @@ mod tests {
     #[test]
     fn test_rank_consistency_with_order() {
         let g = create_tiny_dag();
-        let topo = Topological::new(&g);
+        let topo = Topology::new(&g);
 
         let order = topo.order().unwrap();
 

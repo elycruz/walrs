@@ -1,12 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
-use crate::utils::extract_vert_and_edge_counts_from_bufreader;
-
-/// Returns panic message for invalid vertices;  Exported for use in testing.
-pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
-  format!("Vertex {} is out of index range 0-{}", v, max_v)
-}
+use crate::utils::{extract_vert_and_edge_counts_from_bufreader, invalid_vertex_msg};
 
 #[derive(Clone, Debug)]
 pub struct Digraph {
@@ -357,7 +352,7 @@ mod test {
   }
 
   #[test]
-  #[should_panic(expected = "Vertex 99 is out of index range 0-0")]
+  #[should_panic(expected = "Vertex 99 is outside defined range 0-0")]
   pub fn test_adj_invalid() {
     let g = Digraph::new(0);
     g.adj(99).unwrap();
@@ -441,14 +436,14 @@ mod test {
   }
 
   #[test]
-  #[should_panic(expected = "Vertex 99 is out of index range 0-0")]
+  #[should_panic(expected = "Vertex 99 is outside defined range 0-0")]
   pub fn test_validate_vertex_invalid() {
     let g = Digraph::new(0);
     g.validate_vertex(99).unwrap();
   }
 
   #[test]
-  #[should_panic(expected = "Vertex 99 is out of index range 0-2")]
+  #[should_panic(expected = "Vertex 99 is outside defined range 0-2")]
   pub fn test_validate_vertex_invalid_2() {
     let g = Digraph::new(3);
     g.validate_vertex(99).unwrap();

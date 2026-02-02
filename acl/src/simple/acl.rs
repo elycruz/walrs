@@ -5,7 +5,7 @@ use std::fs::File;
 use serde_json;
 use walrs_graph::digraph::{
   DigraphDFSShape,
-  DigraphDipathsDFS,
+  DirectedPathsDFS,
   DisymGraph
 };
 
@@ -175,7 +175,7 @@ impl Acl {
   /// ```
   pub fn inherits_role_safe(&self, role: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self._roles.index(role).zip(self._roles.index(inherits)) {
-      return DigraphDipathsDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.marked(v2));
+      return DirectedPathsDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.marked(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }
@@ -293,7 +293,7 @@ impl Acl {
       .index(resource)
       .zip(self._resources.index(inherits))
     {
-      return DigraphDipathsDFS::new(self._resources.graph(), v1).and_then(|dfs| dfs.marked(v2));
+      return DirectedPathsDFS::new(self._resources.graph(), v1).and_then(|dfs| dfs.marked(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }

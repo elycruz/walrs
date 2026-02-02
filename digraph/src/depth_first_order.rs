@@ -1,13 +1,4 @@
-use crate::Digraph;
-
-/// Returns panic message for invalid vertices in `DepthFirstOrder`.
-pub fn depth_first_order_invalid_vertex_msg(v: usize, max_v: usize) -> String {
-    format!(
-        "vertex {} is not between 0 and {}",
-        v,
-        if max_v > 0 { max_v - 1 } else { 0 }
-    )
-}
+use crate::{invalid_vertex_msg, Digraph};
 
 /// The `DepthFirstOrder` struct represents a data type for determining
 /// depth-first search ordering of the vertices in a digraph, including
@@ -287,7 +278,7 @@ impl DepthFirstOrder {
     fn validate_vertex(&self, v: usize) -> Result<(), String> {
         let n = self._marked.len();
         if v >= n {
-            return Err(depth_first_order_invalid_vertex_msg(v, n));
+            return Err(invalid_vertex_msg(v, if n > 0 { n - 1 } else { 0 }));
         }
         Ok(())
     }
@@ -479,7 +470,7 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(
             result.unwrap_err(),
-            "vertex 10 is not between 0 and 4"
+            invalid_vertex_msg(10, 4)
         );
     }
 }

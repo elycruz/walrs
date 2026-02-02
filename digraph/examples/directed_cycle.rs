@@ -1,6 +1,6 @@
 use std::env;
 use std::fs::File;
-use walrs_digraph::{Digraph, DigraphDicycle};
+use walrs_digraph::{Digraph, DirectedCycle};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<String> = env::args().collect();
@@ -15,7 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let file = File::open(filename)?;
     let digraph = Digraph::try_from(&file)?;
 
-    let finder = DigraphDicycle::new(&digraph);
+    let finder = DirectedCycle::new(&digraph);
 
     if finder.has_cycle() {
         print!("Directed cycle: ");
