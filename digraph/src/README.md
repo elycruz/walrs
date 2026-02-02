@@ -47,11 +47,6 @@ Reference implementations: Algorithms 4th Ed. - Chapter on digraphs: https://alg
 
 - [ ] Consider making `DisymGraph` generic - Will allow arbitrary types to function with the structure.
 
-- [x] `DigraphDFS`
-  - [x] `dfs()`
-  - [x] `marked()`
-  - [x] `count()`
-  
 - [x] `DigraphDipathsDFS`
   - [x] `dfs()`
   - [x] `marked()`
@@ -59,7 +54,7 @@ Reference implementations: Algorithms 4th Ed. - Chapter on digraphs: https://alg
   - [x] `has_path_to()`
   - [x] `path_to()`
   
-- [ ] `DigraphMultiSourceDFS`  + `DigraphMultiSourceDirectedPathsDFS` (`DigraphMultiSourceDFS`).
+- [ ] `DigraphMultiSourceDirectedPathsDFS` (`DigraphMultiSourceDFS`).
 
 ## General Todos:
 

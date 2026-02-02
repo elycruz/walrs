@@ -1,6 +1,6 @@
 pub mod digraph;
-pub mod digraph_dicycle;
-pub mod digraph_dipaths_dfs;
+pub mod directed_cycle;
+pub mod directed_paths_dfs;
 pub mod depth_first_order;
 pub mod topological;
 pub mod math;
@@ -9,8 +9,8 @@ pub mod utils;
 pub mod traits;
 
 pub use digraph::*;
-pub use digraph_dicycle::*;
-pub use digraph_dipaths_dfs::*;
+pub use directed_cycle::*;
+pub use directed_paths_dfs::*;
 pub use depth_first_order::*;
 pub use topological::*;
 pub use math::*;
