@@ -1,5 +1,12 @@
 use crate::{Digraph, DigraphDFSShape};
-use crate::digraph_dfs::{vertex_marked};
+
+/// Isolated "vertex marked" declaration (helps DRY up code a bit).
+pub fn vertex_marked(_marked: &[bool], i: usize) -> Result<bool, String> {
+  if i >= _marked.len() {
+    return Err(format!("{} is out of range", i));
+  }
+  Ok(_marked[i])
+}
 
 pub struct DigraphDipathsDFS {
   _marked: Vec<bool>,
