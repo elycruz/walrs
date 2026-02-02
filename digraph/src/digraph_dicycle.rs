@@ -250,4 +250,44 @@ mod test {
     let finder = DigraphDicycle::new(&g);
     assert_eq!(finder.check(), true, "Valid cycle should pass check");
   }
+
+  #[test]
+  fn test_check_with_empty_cycle() {
+    // Test the edge case where cycle is empty (line 137)
+    let mut g = Digraph::new(3);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+
+    let mut finder = DigraphDicycle::new(&g);
+    // Manually create an invalid state with empty cycle for testing
+    finder._cycle = Some(Vec::new());
+
+    assert_eq!(finder.check(), false, "Empty cycle should fail check");
+  }
+
+  #[test]
+  fn test_check_with_mismatched_endpoints() {
+    // Test the edge case where first != last (line 143)
+    let mut g = Digraph::new(3);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+    g.add_edge(2, 0).unwrap();
+
+    let mut finder = DigraphDicycle::new(&g);
+    // Manually create an invalid cycle with mismatched endpoints for testing
+    finder._cycle = Some(vec![0, 1, 2]); // Should start and end with same vertex
+
+    assert_eq!(finder.check(), false, "Cycle with mismatched endpoints should fail check");
+  }
+
+  #[test]
+  fn test_check_with_no_cycle() {
+    // Test when there's no cycle at all
+    let mut g = Digraph::new(3);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+
+    let finder = DigraphDicycle::new(&g);
+    assert_eq!(finder.check(), true, "No cycle should pass check");
+  }
 }
