@@ -10,6 +10,21 @@ The ACL control is meant to be used as a fact forest:  Each entity in the domain
 - resource "".
 - privilege "". Optional.
 
+Visual representation of structure: 
+
+```rust
+// ResourceRoleRules {
+//     for_all_resources: RolePrivilegeRules {
+//       for_all_roles: PrivilegeRules {
+//         for_all_privileges: Rule
+//         by_privilege_id: Option<HashMap<Privilege}, Rule>>
+//       }
+//       by_role_id: Option<HashMap<Role, PrivilegeRules>>
+//     }
+//     by_resource_id: HashMap<Resource, RolePrivilegeRules>
+// }
+```
+
 Essentially the component enables the possibility for resource, role, privilege and rule, relationships to be managed and queried all from one place.
 
 ## Runtime model

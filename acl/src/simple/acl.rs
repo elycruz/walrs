@@ -1,224 +1,39 @@
 use std::collections::HashMap;
+use std::convert::TryFrom;
 use std::fs::File;
-use std::io::BufReader;
 
-use serde_derive::{Deserialize, Serialize};
+use serde_json;
+use walrs_graph::digraph::{
+  DigraphDFSShape,
+  DirectedPathsDFS,
+  DisymGraph
+};
 
-use walrs_graph::digraph::dfs::{DigraphDFS, DigraphDFSShape};
-use walrs_graph::digraph::symbol_digraph::DisymGraph;
+use crate::simple::acl_data::AclData;
+use crate::simple::rule::{Rule};
+use crate::simple::privilege_rules::PrivilegeRules;
+use crate::simple::resource_role_rules::ResourceRoleRules;
+use crate::simple::role_privilege_rules::RolePrivilegeRules;
 
-pub type Role = String;
-pub type Resource = String;
-pub type Privilege = String;
-
-// ## Rule structs
-// Rules structure: Resources contain roles, roles contain privileges
-// privileges contain allow/deny rules, and/or, assertion functions
-// Privilege, Role, and Resource Ids  are string slices.
+// Note: Rules structure:
+// Resources contain roles, roles contain privileges,
+// privileges contain allow/deny rules, and/or, assertion functions,
+// Privilege, Role, and Resource Ids  are string slices - See relevant imports
+// for more.
 // ----
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum Rule {
-  Allow = 0,
-  Deny = 1,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-enum RuleContextScope {
-  PerSymbol,
-  ForAllSymbols,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct PrivilegeRules {
-  for_all_privileges: Rule,
-  by_privilege_id: Option<HashMap<Privilege, Rule>>,
-}
-
-impl PrivilegeRules {
-  pub fn new(create_privilege_map: bool) -> Self {
-    PrivilegeRules {
-      for_all_privileges: Rule::Deny,
-      by_privilege_id: if create_privilege_map {
-        Some(HashMap::new())
-      } else {
-        None
-      },
-    }
-  }
-
-  /// Returns set rule for privilege id.
-  pub fn get_rule(&self, privilege_id: Option<&str>) -> &Rule {
-    privilege_id
-      .zip(self.by_privilege_id.as_ref())
-      .and_then(|(privilege_id, privilege_map)| privilege_map.get(privilege_id))
-      .unwrap_or(&self.for_all_privileges)
-  }
-
-  pub fn set_rule(&mut self, privilege_ids: Option<&[&str]>, rule: Rule) -> RuleContextScope {
-    if let Some(ps) = privilege_ids {
-      if !ps.is_empty() {
-        ps.iter().for_each(|p| {
-          self
-            .by_privilege_id
-            .get_or_insert(HashMap::new())
-            .insert(p.to_string(), rule);
-        });
-      } else {
-        self.for_all_privileges = rule;
-        return RuleContextScope::ForAllSymbols;
-      }
-      RuleContextScope::PerSymbol
-    } else {
-      self.for_all_privileges = rule;
-      RuleContextScope::ForAllSymbols
-    }
-  }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct RolePrivilegeRules {
-  for_all_roles: PrivilegeRules,
-  by_role_id: Option<HashMap<Role, PrivilegeRules>>,
-}
-
-impl RolePrivilegeRules {
-  pub fn new(create_child_maps: bool) -> Self {
-    RolePrivilegeRules {
-      for_all_roles: PrivilegeRules::new(create_child_maps),
-      by_role_id: if create_child_maps {
-        Some(HashMap::new())
-      } else {
-        None
-      },
-    }
-  }
-
-  pub fn get_privilege_rules(&self, role: Option<&str>) -> &PrivilegeRules {
-    role
-      .zip(self.by_role_id.as_ref())
-      .and_then(|(role, role_map)| role_map.get(role))
-      .unwrap_or(&self.for_all_roles)
-  }
-
-  pub fn get_privilege_rules_mut(&mut self, role: Option<&str>) -> &mut PrivilegeRules {
-    role
-      .zip(self.by_role_id.as_mut())
-      .and_then(|(role, role_map)| role_map.get_mut(role))
-      .unwrap_or(&mut self.for_all_roles)
-  }
-
-  pub fn set_privilege_rules_for_role_ids(
-    &mut self,
-    role_ids: &[&str],
-    privilege_rules: PrivilegeRules,
-  ) -> RuleContextScope {
-    if role_ids.is_empty() {
-      self.for_all_roles = privilege_rules;
-      RuleContextScope::ForAllSymbols
-    } else {
-      role_ids.iter().for_each(|role_id| {
-        self
-          .by_role_id
-          .get_or_insert(HashMap::new())
-          .insert(role_id.to_string(), privilege_rules.clone());
-      });
-      RuleContextScope::PerSymbol
-    }
-  }
-
-  pub fn set_privilege_rules(
-    &mut self,
-    role_ids: Option<&[&str]>,
-    privilege_rules: Option<PrivilegeRules>,
-  ) -> RuleContextScope {
-    if role_ids.is_some() && privilege_rules.is_some() {
-      privilege_rules
-        .zip(role_ids)
-        .map(|(privilege_rules, role_ids)| {
-          self.set_privilege_rules_for_role_ids(role_ids, privilege_rules)
-        })
-        .unwrap()
-    } else if privilege_rules.is_some() && role_ids.is_none() {
-      self.for_all_roles = privilege_rules.unwrap();
-      RuleContextScope::ForAllSymbols
-    } else if privilege_rules.is_none() && role_ids.is_some() {
-      self.set_privilege_rules_for_role_ids(role_ids.unwrap(), PrivilegeRules::new(false))
-    } else {
-      self.for_all_roles = PrivilegeRules::new(false);
-      RuleContextScope::ForAllSymbols
-    }
-  }
-}
-
-#[derive(Debug, PartialEq, Clone)]
-struct ResourceRoleRules {
-  for_all_resources: RolePrivilegeRules,
-  by_resource_id: HashMap<Resource, RolePrivilegeRules>, // @todo Investigate whether it make sense to use `Option<...>` here
-}
-
-impl ResourceRoleRules {
-  pub fn new() -> Self {
-    ResourceRoleRules {
-      for_all_resources: RolePrivilegeRules::new(true),
-      by_resource_id: HashMap::new(),
-    }
-  }
-
-  pub fn get_role_privilege_rules(&self, resource: Option<&str>) -> &RolePrivilegeRules {
-    resource
-      .and_then(|resource| self.by_resource_id.get(resource))
-      .unwrap_or(&self.for_all_resources)
-  }
-
-  pub fn get_role_privilege_rules_mut(
-    &mut self,
-    resource: Option<&str>,
-  ) -> &mut RolePrivilegeRules {
-    resource
-      .and_then(|resource| self.by_resource_id.get_mut(resource))
-      .unwrap_or(&mut self.for_all_resources)
-  }
-
-  pub fn get_or_create_role_privilege_rules_mut(
-    &mut self,
-    resource: Option<&str>,
-  ) -> &mut RolePrivilegeRules {
-    resource
-      .and_then(|resource| self.by_resource_id.get_mut(resource))
-      .unwrap_or(&mut self.for_all_resources)
-  }
-
-  pub fn set_role_privilege_rules(
-    &mut self,
-    resources: Option<&[&str]>,
-    role_privilege_rules: Option<RolePrivilegeRules>,
-  ) -> RuleContextScope {
-    let _role_privilege_rules = role_privilege_rules.unwrap_or(RolePrivilegeRules::new(false));
-    match resources {
-      Some(resource_ids) => {
-        if !resource_ids.is_empty() {
-          resource_ids.iter().for_each(|r_id| {
-            self
-              .by_resource_id
-              .insert(r_id.to_string(), _role_privilege_rules.clone());
-          });
-        } else {
-          self.for_all_resources = _role_privilege_rules;
-        }
-        RuleContextScope::PerSymbol
-      }
-      _ => {
-        self.for_all_resources = _role_privilege_rules;
-        RuleContextScope::ForAllSymbols
-      }
-    }
-  }
-}
-
-/// Access Control List (ACL) control - Provides queryable structure that
-/// can be queried for allow/deny rules for given roles, resources, and privilege, combinations.
+/// Lite-weight Access Control List (ACL) structure - Provides a structure
+/// that can be queried for allow/deny rules for given roles, resources, and privilege,
+/// combinations.
+///
+/// Note: This implementation does not expose any `*remove*` methods as both 'allow', and 'deny',
+/// rules can be set for any given role, resource, and/or privilege, and, additionally, any
+/// conditional logic can be performed at declaration time.
+///
+/// Note: If you require the above-mentioned functionality please open an issue ticket for it.
+///
 /// ```rust
+/// // TODO.
 /// ```
 #[derive(Debug)]
 pub struct Acl {
@@ -253,6 +68,7 @@ impl Acl {
   /// use walrs_acl::{ simple::Acl };
   ///
   /// let mut acl = Acl::new() as Acl;
+  ///
   /// let admin = "admin";
   /// let super_admin = "super_admin";
   /// let tester = "tester";
@@ -260,7 +76,8 @@ impl Acl {
   ///
   /// // Add roles, and their relationships to the acl:
   /// acl .add_role(developer, Some(&[tester]))
-  ///     .add_role(admin, Some(&[super_admin]));
+  ///     .add_role(admin, Some(&[developer]))
+  ///     .add_role(super_admin, Some(&[admin]));
   ///
   /// // Assert existence
   /// for r in [admin, super_admin, tester, developer] {
@@ -268,8 +85,8 @@ impl Acl {
   /// }
   ///
   /// // Assert inheritance
-  /// assert_eq!(acl.inherits_role_safe(admin, super_admin).unwrap(), true,
-  ///   "{:?} should have `child -> parent` relationship`with {:?}", admin, super_admin);
+  /// assert_eq!(acl.inherits_role_safe(super_admin, admin).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", super_admin, admin);
   ///
   /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
   ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
@@ -281,6 +98,46 @@ impl Acl {
       }
     }
     self._roles.add_vertex(role);
+    self
+  }
+
+  /// Adds multiple `Role`s to acl at once.
+  ///
+  /// Example:
+  /// ```rust
+  /// use std::ops::Deref;
+  /// use walrs_acl::{ simple::Acl };
+  ///
+  /// let mut acl = Acl::new() as Acl;
+  ///
+  /// let admin = "admin";
+  /// let super_admin = "super_admin";
+  /// let tester = "tester";
+  /// let developer = "developer";
+  ///
+  /// // Add roles, and their relationships to the acl:
+  /// acl.add_roles(&[
+  ///     (developer, Some(&[tester])),
+  ///     (admin, Some(&[developer])),
+  ///     (super_admin, Some(&[admin])),
+  /// ]);
+  ///
+  /// // Assert existence
+  /// for r in [admin, super_admin, tester, developer] {
+  ///     assert!(acl.has_role(r), "Should contain {:?} role", r);
+  /// }
+  ///
+  /// // Assert inheritance
+  /// assert_eq!(acl.inherits_role_safe(super_admin, admin).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", super_admin, admin);
+  ///
+  /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
+  ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
+  /// ```
+  pub fn add_roles(&mut self, roles: &[(&str, Option<&[&str]>)]) -> &mut Self {
+    for &(role, parents) in roles {
+      self.add_role(role, parents);
+    }
     self
   }
 
@@ -318,7 +175,7 @@ impl Acl {
   /// ```
   pub fn inherits_role_safe(&self, role: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self._roles.index(role).zip(self._roles.index(inherits)) {
-      return DigraphDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.marked(v2));
+      return DirectedPathsDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.marked(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }
@@ -359,6 +216,7 @@ impl Acl {
   }
 
   /// Adds a `Resource` to acl.
+  ///
   /// ```rust
   /// use std::ops::Deref;
   /// use walrs_acl::{ simple::Acl };
@@ -427,13 +285,15 @@ impl Acl {
   /// assert!(acl.inherits_resource_safe(&admin, &guest).unwrap(), "\"admin\" resource should inherit \"guest\" resource");
   /// assert!(acl.inherits_resource_safe(&super_admin, &guest).unwrap(), "\"super_admin\" resource should inherit \"guess\" resource");
   /// ```
+  ///
+  /// @todo Remove '*_safe' suffix.
   pub fn inherits_resource_safe(&self, resource: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self
       ._resources
       .index(resource)
       .zip(self._resources.index(inherits))
     {
-      return DigraphDFS::new(self._resources.graph(), v1).and_then(|dfs| dfs.marked(v2));
+      return DirectedPathsDFS::new(self._resources.graph(), v1).and_then(|dfs| dfs.marked(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }
@@ -484,7 +344,7 @@ impl Acl {
   ///  // Roles
   /// let guest_role = "guest";
   /// let user_role = "user"; // will inherit from "guest"
-  /// let admin_role = "admin"; // will inherits from "user"
+  /// let admin_role = "admin"; // will inherit from "user"
   ///
   /// // Resources
   /// let index_resource = "index"; // guest can access
@@ -502,13 +362,13 @@ impl Acl {
   /// // Add Roles
   /// // ----
   /// acl
-  ///   .add_role(guest_role, None)
+  ///   .add_role(guest_role, None) // Inherits from none.
   ///   .add_role(user_role, Some(&[guest_role])) // 'user' role inherits rules applied to 'guest' role
   ///   .add_role(admin_role, Some(&[user_role])) // ...
   ///
   ///   // Add Resources
   ///   // ----
-  ///   .add_resource(index_resource, None)
+  ///   .add_resource(index_resource, None) // 'index' resource has inherits from none.
   ///   .add_resource(blog_resource, Some(&[index_resource])) // 'blog' resource inherits rules applied to 'index' resource
   ///   .add_resource(account_resource, None)
   ///   .add_resource(users_resource, None)
@@ -602,9 +462,11 @@ impl Acl {
   }
 
   /// Returns a boolean indicating whether given role is allowed access to given privilege on given resource.
-  /// If any of methods arguments are `None` the "all" variant is checked, for that `None` given value;  E.g.,
-  /// @todo Consider renaming this, or adding a proxy method `has_privilege`, since when talking about/reading code about
-  /// roles, resources, privileges, the `has_privilege` gives more meaning to the API.
+  /// If any of the args are `None` the "all" variant is checked for that `None` value;  E.g.,
+  ///
+  /// ```rust
+  ///
+  /// ```
   pub fn is_allowed(
     &self,
     role: Option<&str>,
@@ -677,7 +539,12 @@ impl Acl {
       .unwrap()
   }
 
-  /// Same as `is_allowed` but checks all given role, resource, and privilege, combinations.
+  /// Same as `is_allowed` but checks all given role, resource, and privilege, combinations
+  ///  for a match.
+  ///
+  /// ```rust
+  ///
+  /// ```
   pub fn is_allowed_any(
     &self,
     roles: Option<&[&str]>,
@@ -834,56 +701,6 @@ impl Acl {
     }
     self
   }
-
-  /// @todo Should remove rules for given roles, resources, and privileges - Finish implementation.
-  fn _remove_rule<'a>(
-    &mut self,
-    rule_type: Rule,
-    roles: Option<&[&'a str]>,
-    resources: Option<&[&'a str]>,
-    privileges: Option<&[&'a str]>,
-  ) -> &mut Self {
-    // Filter out non-existent roles, and return `vec![None]` if result is empty list, else `None`.
-    let _roles: Vec<Option<String>> = self._get_keys_in_graph(&self._roles, roles);
-
-    // Filter out non-existent resources, and return `vec![None]` if result is empty list, else `None`
-    let _resources: Vec<Option<String>> = self._get_keys_in_graph(&self._resources, resources);
-
-    // @todo complete implementation.
-
-    /*
-      for resource in _resources.to_owned() {
-        for role in _roles.to_owned() {
-          // Get role rules
-          let role_rules = self._get_role_rules_mut(resource, role, false);
-
-          // If all three rule parts are `None` set `all_privileges` rule for global role rules
-          if privileges.is_none() && resource.is_none() && role.is_none() {
-            role_rules.for_all_privileges = Rule::Deny;
-          }
-          // Else if not all three rule parts are `None` removing the matching rule
-          // else if role_rules.all_privileges.rule_type == rule_type {
-          //
-          // }
-          // Else loop through `privileges`, and remove rule type for each
-          else {
-            // If resolved `role_rules` contains `by_privilege_id` map
-            if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
-              // Loop through privileges and resolve removals/updates
-              for p in privileges.unwrap().iter() {
-                // Remove matching privilege rules from map
-                if let Some(p_rule) = p_map.get(p) {
-                  if *p_rule == rule_type {
-                    p_map.remove(*p);
-                  }
-                }
-              }
-            }
-          }
-        }
-    }*/
-    self
-  }
 }
 
 impl Default for Acl {
@@ -892,25 +709,10 @@ impl Default for Acl {
   }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AclData {
-  pub roles: Option<Vec<(String, Option<Vec<String>>)>>,
-  pub resources: Option<Vec<(String, Option<Vec<String>>)>>,
-  pub allow: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
-  pub deny: Option<Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>>,
-}
+impl<'a> TryFrom<&'a AclData> for Acl {
+  type Error = String;
 
-impl<'a> From<&'a mut File> for AclData {
-  fn from(file: &mut File) -> Self {
-    // let mut contents = String::new();
-    // file.read_to_string(&mut contents);
-    let buf = BufReader::new(file);
-    serde_json::from_reader(buf).unwrap()
-  }
-}
-
-impl<'a> From<&'a AclData> for Acl {
-  fn from(data: &'a AclData) -> Self {
+  fn try_from(data: &'a AclData) -> Result<Self, Self::Error> {
     let mut acl: Acl = Acl::new();
 
     // Add `roles` to `acl`
@@ -973,544 +775,37 @@ impl<'a> From<&'a AclData> for Acl {
 
     // println!("{:#?}", &acl);
 
-    acl
+    Ok(acl)
   }
 }
 
-impl From<AclData> for Acl {
-  fn from(data: AclData) -> Self {
-    data.into()
+impl TryFrom<AclData> for Acl {
+  type Error = String;
+
+  fn try_from(data: AclData) -> Result<Self, Self::Error> {
+    Acl::try_from(&data)
   }
 }
 
-impl<'a> From<&'a mut File> for Acl {
-  fn from(file: &mut File) -> Self {
-    AclData::from(file).into()
-  }
-}
+impl<'a> TryFrom<&'a mut File> for Acl {
+  type Error = serde_json::Error;
 
-#[cfg(test)]
-mod test_privilege_rules {
-  use super::PrivilegeRules;
-  use super::Rule;
-
-  fn test_default_state(prs: &PrivilegeRules, with_created_maps: bool) {
-    // Tests default generation/non-generation of internal hashmaps
-    assert_eq!(
-      prs.by_privilege_id.is_some(),
-      with_created_maps,
-      "Expected `prs.by_privilege_id.is_some()` to equal `{}`",
-      with_created_maps
-    );
-
-    // Test default rule `for_all_roles`
-    assert_eq!(
-      prs.for_all_privileges,
-      Rule::Deny,
-      "Expected `prs.for_all_privileges` to equal `Rule::Deny`"
-    );
-  }
-
-  #[test]
-  fn test_new() {
-    for with_created_maps in [false, true] {
-      let prs = PrivilegeRules::new(with_created_maps.into());
-      test_default_state(&prs, with_created_maps);
-    }
-  }
-
-  #[test]
-  fn test_get_rule() {
-    // Test empty, "default", PrivilegeRules results
-    // ----
-    for with_created_maps in [false, true] {
-      let prs = PrivilegeRules::new(with_created_maps.into());
-      test_default_state(&prs, with_created_maps);
-    }
-
-    // Test populated `PrivilegeRules` instances
-    // ----
-    let account_index_privilege = "account-index";
-    let index_privilege = "index";
-
-    let mut privilege_rules = PrivilegeRules::new(true);
-
-    for (privilege, expected_rule) in [
-      (index_privilege, Rule::Allow),
-      (account_index_privilege, Rule::Deny),
-    ] {
-      // Set privilege rules
-      privilege_rules
-        .by_privilege_id
-        .as_mut()
-        .and_then(|privilege_id_map| {
-          privilege_id_map.insert(privilege.to_string(), expected_rule);
-          Some(())
-        })
-        .expect("Expecting a `privilege_id_map`;  None found");
-
-      // Test for expected (1)
-      assert_eq!(
-        &privilege_rules.get_rule(Some(privilege)),
-        privilege_rules
-          .by_privilege_id
-          .as_ref()
-          .unwrap()
-          .get(privilege)
-          .as_ref()
-          .unwrap(),
-        "Expected returned `RuleType` to equal {:?}",
-        expected_rule
-      );
-
-      assert_eq!(
-        privilege_rules.get_rule(Some(privilege)),
-        &expected_rule,
-        "Expected returned `RuleType` to equal `{:#?}`, for \"{:?}\"",
-        expected_rule,
-        privilege
-      );
-    }
-  }
-
-  #[test]
-  fn test_set_rule() {
-    let account_index_privilege = "account-index";
-    let index_privilege = "index";
-    let create = "create";
-    let read = "read";
-    let update = "update";
-    let delete = "delete";
-    for (create_internal_map, privileges_ids, expected_rule) in [
-      (false, vec![index_privilege], Rule::Allow),
-      (false, vec![account_index_privilege], Rule::Deny),
-      (true, vec![index_privilege], Rule::Allow),
-      (true, vec![account_index_privilege], Rule::Deny),
-      (true, vec![create, read, update, delete], Rule::Deny),
-    ] {
-      let mut prs = PrivilegeRules::new(create_internal_map.into());
-      test_default_state(&prs, create_internal_map);
-
-      prs.set_rule(Some(&privileges_ids), expected_rule);
-
-      // Test for expected (1)
-      privileges_ids.iter().for_each(|pid| {
-        assert_eq!(
-          prs.get_rule(Some(pid)),
-          prs.by_privilege_id.as_ref().unwrap().get(*pid).unwrap(),
-          "Expected returned `RuleType` to equal {:?}",
-          expected_rule
-        );
-
-        assert_eq!(
-          prs.get_rule(Some(pid)),
-          &expected_rule,
-          "Expected returned `RuleType` to equal `{:#?}`, for \"{:?}\"",
-          expected_rule,
-          privileges_ids
-        );
-      });
-    }
-
-    // Test scenario where Priv*Rules contains allowed, and denied, rules
-    // ----
-    let mut prs = PrivilegeRules::new(true);
-    let mut prs_2 = PrivilegeRules::new(false);
-    let denied_privileges = vec!["create", "read", "update", "delete"];
-    let allowed_privileges = vec!["index"];
-
-    // Set rules for rule set with "initiated" internal map
-    prs.set_rule(Some(&denied_privileges), Rule::Deny);
-    prs.set_rule(Some(&allowed_privileges), Rule::Allow);
-
-    // Set rules on rule set with "uninitiated" internal map
-    prs_2.set_rule(Some(&denied_privileges), Rule::Deny);
-    prs_2.set_rule(Some(&allowed_privileges), Rule::Allow);
-
-    // Test results for each rule set
-    for (privilege_ids, rule) in [
-      (&denied_privileges, Rule::Deny),
-      (&allowed_privileges, Rule::Allow),
-    ] {
-      privilege_ids.iter().for_each(|pid| {
-        assert_eq!(prs.get_rule(Some(pid)), &rule, "Mismatching `Rule`");
-        assert_eq!(prs_2.get_rule(Some(pid)), &rule, "Mismatching `Rule`");
-      });
-    }
-  }
-}
-
-#[cfg(test)]
-mod test_role_privilege_rules {
-  use std::collections::HashMap;
-
-  use super::{PrivilegeRules, RolePrivilegeRules, Rule};
-
-  fn test_constructed_defaults(rprs: &RolePrivilegeRules, with_child_maps: bool) {
-    assert_eq!(
-      rprs.by_role_id.is_some(),
-      with_child_maps,
-      "Expected `rprs.by_role_id.is_some()` to equal `{}`",
-      with_child_maps
-    );
-  }
-
-  // Tests setter, and getter results
-  fn test_when_roles_and_privileges(
-    r_ids: &[&str],
-    p_ids: &[&str],
-    rpr: &RolePrivilegeRules,
-    expected_rule: &Rule,
-  ) {
-    p_ids.iter().for_each(|p_id| {
-      r_ids.iter().for_each(|r_id| {
-        let found_privilege_rules = rpr.by_role_id.as_ref().unwrap().get(*r_id).unwrap();
-        let found_rule = found_privilege_rules
-          .by_privilege_id
-          .as_ref()
-          .unwrap()
-          .get(*p_id)
-          .unwrap();
-        assert_eq!(
-          found_rule, expected_rule,
-          "Found rule is not equal to expected"
-        );
-        assert_eq!(
-          rpr.get_privilege_rules(Some(r_id)),
-          found_privilege_rules,
-          "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-          Some(r_id),
-          found_privilege_rules
-        );
-      });
-    });
-  }
-
-  // Tests setter, and getter results
-  fn test_when_only_roles(r_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-    if r_ids.is_empty() {
-      panic!("Expected role IDs list with greater than `0` length");
-    }
-    r_ids.iter().for_each(|r_id| {
-      let found_privilege_rules = rpr.by_role_id.as_ref().unwrap().get(*r_id).unwrap();
-      let found_rule = &found_privilege_rules.for_all_privileges;
-      assert_eq!(
-        found_rule, expected_rule,
-        "Found rule is not equal to expected"
-      );
-      assert_eq!(
-        rpr.get_privilege_rules(Some(r_id)),
-        found_privilege_rules,
-        "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-        Some(r_id),
-        found_privilege_rules
-      );
-    });
-  }
-
-  // Tests setter, and getter results
-  fn test_when_only_privileges(p_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-    if p_ids.is_empty() {
-      panic!("Expected privilege IDs list with greater than `0` length");
-    }
-    p_ids.iter().for_each(|p_id| {
-      assert_eq!(
-        rpr
-          .for_all_roles
-          .by_privilege_id
-          .as_ref()
-          .unwrap()
-          .get(*p_id)
-          .unwrap(),
-        expected_rule
-      );
-    });
-    assert_eq!(
-      rpr.get_privilege_rules(None),
-      &rpr.for_all_roles,
-      "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-      None as Option<&Rule>,
-      &rpr.for_all_roles
-    );
-  }
-
-  // Tests setter and getter results
-  fn test_when_no_roles_no_privileges(rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-    assert_eq!(&rpr.for_all_roles.for_all_privileges, expected_rule);
-    assert_eq!(rpr.get_privilege_rules(None), &rpr.for_all_roles);
-  }
-
-  #[test]
-  fn test_new() {
-    for create_child_maps in [false, true] {
-      let rprs = RolePrivilegeRules::new(create_child_maps.into());
-      test_constructed_defaults(&rprs, create_child_maps);
-    }
-  }
-
-  #[test]
-  fn test_get_and_set_privilege_rules() {
-    let role_privileges = RolePrivilegeRules::new(true);
-    assert_eq!(
-      role_privileges.get_privilege_rules(None),
-      &role_privileges.for_all_roles,
-      "Expecting returned value to equal privilege rules \"for all roles\""
-    );
-
-    assert_eq!(
-      role_privileges.get_privilege_rules(Some("hello")),
-      &role_privileges.for_all_roles,
-      "Expecting returned value to equal privilege rules \"for all roles\""
-    );
-
-    // Role, and privilege, Ids
-    let admin_role = "admin";
-    let user_role = "user";
-    let guest_role = "guest";
-    let user_privilege = "create";
-    let guest_privilege = "index";
-    let admin_privilege = "delete";
-
-    // Privilege lists
-    let guest_privileges = vec![guest_privilege];
-    let user_privileges = vec![user_privilege, guest_privilege];
-    let admin_privileges = vec![admin_privilege, user_privilege, guest_privilege];
-
-    // Role lists
-    let guest_roles = vec![guest_role];
-    let user_roles = vec![user_role];
-    let admin_roles = vec![admin_role];
-
-    // Run tests
-    for (role_ids, privilege_ids, expected_rule) in [
-      (None, None, Rule::Deny),
-      (Some(vec![].as_slice()), Some(vec![].as_slice()), Rule::Deny),
-      (None, None, Rule::Allow),
-      (
-        Some(vec![].as_slice()),
-        Some(vec![].as_slice()),
-        Rule::Allow,
-      ),
-      (Some(guest_roles.as_slice()), None, Rule::Allow),
-      (None, Some(guest_privileges.as_slice()), Rule::Allow),
-      (Some(guest_roles.as_slice()), None, Rule::Deny),
-      (None, Some(guest_privileges.as_slice()), Rule::Deny),
-      (
-        Some(guest_roles.as_slice()),
-        Some(guest_privileges.as_slice()),
-        Rule::Allow,
-      ),
-      (
-        Some(user_roles.as_slice()),
-        Some(user_privileges.as_slice()),
-        Rule::Allow,
-      ),
-      (
-        Some(admin_roles.as_slice()),
-        Some(admin_privileges.as_slice()),
-        Rule::Allow,
-      ),
-      (
-        Some(guest_roles.as_slice()),
-        Some(guest_privileges.as_slice()),
-        Rule::Deny,
-      ),
-      (
-        Some(user_roles.as_slice()),
-        Some(user_privileges.as_slice()),
-        Rule::Deny,
-      ),
-      (
-        Some(admin_roles.as_slice()),
-        Some(admin_privileges.as_slice()),
-        Rule::Deny,
-      ),
-    ] {
-      let mut role_privilege_rules = RolePrivilegeRules::new(false);
-      test_constructed_defaults(&role_privilege_rules, false);
-
-      let mut role_privilege_rules_2 = RolePrivilegeRules::new(true);
-      test_constructed_defaults(&role_privilege_rules_2, true);
-
-      // Add privilege rules, either "for all roles", or for given roles (per role)
-      let mut privilege_rules = PrivilegeRules::new(false);
-      let privilege_rules = match privilege_ids.as_ref() {
-        Some(p_ids) => {
-          if !p_ids.is_empty() {
-            p_ids.iter().for_each(|p_id| {
-              privilege_rules
-                .by_privilege_id
-                .get_or_insert(HashMap::new())
-                .insert(p_id.to_string(), expected_rule);
-            });
-          } else {
-            privilege_rules.for_all_privileges = expected_rule;
-          }
-          Some(privilege_rules)
-        }
-        _ => {
-          privilege_rules.for_all_privileges = expected_rule;
-          Some(privilege_rules)
-        }
-      };
-
-      // Set side-effects
-      role_privilege_rules.set_privilege_rules(role_ids, privilege_rules.clone());
-      role_privilege_rules_2.set_privilege_rules(role_ids, privilege_rules.clone());
-
-      // Log iteration name
-      // println!(
-      //   "\n#RolePrivilegeRules.set_privilege_rules for ({:?}, {:?}, {:?})",
-      //   &role_ids, &privilege_ids, &expected_rule
-      // );
-
-      // Test assertions
-      // ----
-      // If role_ids and privilege_ids
-      if role_ids.is_some() && privilege_ids.is_some() {
-        role_ids.zip(privilege_ids).map(|(r_ids, p_ids)| {
-          let p_ids_len = p_ids.len();
-          let r_ids_len = r_ids.len();
-
-          // if role ids len, and privilege ids len
-          if r_ids_len > 0 && p_ids_len > 0 {
-            test_when_roles_and_privileges(r_ids, p_ids, &role_privilege_rules, &expected_rule);
-            test_when_roles_and_privileges(r_ids, p_ids, &role_privilege_rules_2, &expected_rule);
-          }
-          // If only role IDs len
-          else if r_ids_len > 0 && p_ids_len == 0 {
-            test_when_only_roles(r_ids, &role_privilege_rules, &expected_rule);
-            test_when_only_roles(r_ids, &role_privilege_rules_2, &expected_rule);
-          }
-          // If only privilege IDs len
-          else if r_ids_len == 0 && p_ids_len > 0 {
-            test_when_only_privileges(p_ids, &role_privilege_rules, &expected_rule);
-            test_when_only_privileges(p_ids, &role_privilege_rules_2, &expected_rule);
-          }
-          // If no ID lengths
-          else if r_ids_len == 0 && p_ids_len == 0 {
-            test_when_no_roles_no_privileges(&role_privilege_rules, &expected_rule);
-            test_when_no_roles_no_privileges(&role_privilege_rules_2, &expected_rule);
-          }
-        });
-      } else if role_ids.is_some() {
-        test_when_only_roles(
-          role_ids.as_ref().unwrap(),
-          &role_privilege_rules,
-          &expected_rule,
-        );
-        test_when_only_roles(
-          role_ids.as_ref().unwrap(),
-          &role_privilege_rules_2,
-          &expected_rule,
-        );
-      } else if privilege_ids.is_some() {
-        test_when_only_privileges(
-          privilege_ids.as_ref().unwrap(),
-          &role_privilege_rules,
-          &expected_rule,
-        );
-        test_when_only_privileges(
-          privilege_ids.as_ref().unwrap(),
-          &role_privilege_rules_2,
-          &expected_rule,
-        );
-      } else {
-        test_when_no_roles_no_privileges(&role_privilege_rules, &expected_rule);
-        test_when_no_roles_no_privileges(&role_privilege_rules_2, &expected_rule);
-      }
-    }
-  }
-}
-
-#[cfg(test)]
-mod test_resource_role_rules {
-  use crate::simple::{ResourceRoleRules, RolePrivilegeRules};
-
-  #[test]
-  fn test_get_and_set_role_privilege_rules() {
-    // Role IDs
-    let guest_role = "guest";
-    let user_role = "user";
-    let admin_role = "admin";
-
-    // Resource IDs
-    let users_resource = "users"; // only admin should have access
-    let account_resource = "account"; // user, and inheritors of user, should have access
-    let posts_resource = "posts"; // guests, and inheritors, guests, should have access
-    let new_rpr = |create_internal_maps: bool| Some(RolePrivilegeRules::new(create_internal_maps));
-
-    for (resources, role_priv_rules) in [
-      (None, None),
-      (Some([].as_slice()), None),
-      (Some([posts_resource].as_slice()), None),
-      (Some([posts_resource, account_resource].as_slice()), None),
-      (Some([posts_resource].as_slice()), new_rpr(false)),
-      (
-        Some([posts_resource, account_resource].as_slice()),
-        new_rpr(false),
-      ),
-      (Some([posts_resource].as_slice()), new_rpr(true)),
-      (
-        Some([posts_resource, account_resource].as_slice()),
-        new_rpr(true),
-      ),
-    ]
-    .into_iter()
-    {
-      let mut ctrl = ResourceRoleRules::new();
-
-      ctrl.set_role_privilege_rules(resources.as_deref(), role_priv_rules.clone());
-
-      // Ensure we have a result to compare internals to;  `ResourceRoleRules` struct's internals
-      // sets actual `RolePrivilegeRule` objects when incoming role_priv_rules are `None`,
-      // hence resolution here.
-      let role_rules = role_priv_rules
-        .as_ref()
-        .map(|rules| rules.clone())
-        .or(Some(RolePrivilegeRules::new(false)));
-
-      // Set state
-      resources
-        .and_then(|resources| {
-          resources.iter().for_each(|r| {
-            assert_eq!(
-              ctrl.by_resource_id.get(*r),
-              role_rules.as_ref(),
-              "resource \"{}\" role rules not equal to expected",
-              r
-            );
-            assert_eq!(
-              ctrl.get_role_privilege_rules(Some(r)),
-              role_rules.as_ref().unwrap(),
-              "resource \"{}\" role rules not equal to expected",
-              r
-            );
-          });
-          if resources.is_empty() {
-            assert_eq!(&ctrl.for_all_resources, role_rules.as_ref().unwrap());
-            assert_eq!(
-              ctrl.get_role_privilege_rules(None),
-              role_rules.as_ref().unwrap()
-            );
-          }
-          Some(resources)
-        })
-        .or_else(|| {
-          assert_eq!(&ctrl.for_all_resources, role_rules.as_ref().unwrap());
-          assert_eq!(
-            ctrl.get_role_privilege_rules(None),
-            role_rules.as_ref().unwrap()
-          );
-          None
-        });
-    }
+  fn try_from(file: &mut File) -> Result<Self, Self::Error> {
+    AclData::try_from(file).and_then(|data| {
+      Acl::try_from(&data).map_err(|e| {
+        serde_json::Error::io(
+          std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+        )
+      })
+    })
   }
 }
 
 #[cfg(test)]
 mod test_acl {
-  use crate::simple::{Acl, PrivilegeRules, Rule};
+  use crate::simple::acl::{Acl};
+  use crate::simple::privilege_rules::PrivilegeRules;
+  use crate::simple::rule::Rule;
 
   #[test]
   fn test_has_resource() {
@@ -1794,7 +1089,7 @@ mod test_acl {
       acl.add_resource(users_resource, None);
     };
 
-    // Ensure default expected default rule is set
+    // Ensure default expected rule is set
     assert_eq!(
       Acl::new()
         ._rules

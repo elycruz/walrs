@@ -1,15 +1,16 @@
+use std::convert::TryFrom;
 use std::fs::File;
 use walrs_acl::simple::{Acl, AclData};
 
 #[test]
-pub fn test_from_file_ref() -> Result<(), std::io::Error> {
+pub fn test_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
   let file_path = "./test-fixtures/example-acl.json";
 
   // Get digraph data
   let mut f = File::open(&file_path)?;
 
-  let acl_data = AclData::from(&mut f);
-  let acl: Acl = Acl::from(&acl_data);
+  let acl_data = AclData::try_from(&mut f)?;
+  let acl: Acl = Acl::try_from(&acl_data)?;
 
   // Tests
   // ----

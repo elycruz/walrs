@@ -16,4 +16,3 @@ Direct rips from the following (with rust idiom modifications):
 - [ ] `Graph`
 - [ ] `SymbolGraph` - Should be renamed to `SymGraph`.
 - [ ] @todo List remainder of `graph::*` structures here.
-
