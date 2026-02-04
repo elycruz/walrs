@@ -70,6 +70,8 @@ impl ResourceRoleRules {
 
 #[cfg(test)]
 mod test_resource_role_rules {
+    use crate::simple::PrivilegeRules;
+    use crate::simple::rule::Rule;
     use super::*;
 
     #[test]
@@ -150,5 +152,124 @@ mod test_resource_role_rules {
                     None
                 });
         }
+    }
+
+    #[test]
+    fn test_get_role_privilege_rules_mut() {
+        let role = "admin";
+        let resource = "existent";
+        let non_existent_resource = "non-existent";
+
+        let mut ctrl = ResourceRoleRules::new();
+
+        // Test non-existent resource
+        let mut rules_mut = ctrl.get_role_privilege_rules_mut(Some(non_existent_resource));
+        assert_eq!(&rules_mut.for_all_roles.for_all_privileges, &Rule::Deny);
+        assert!(rules_mut.for_all_roles.by_privilege_id.as_ref().unwrap().is_empty(), "by_resource_id map should be empty");
+        assert!(rules_mut.by_role_id.as_ref().unwrap().is_empty(), "by_role_id map should be empty");
+
+        // Test existing resource
+        // ----
+        // Initial state
+        rules_mut = ctrl.get_role_privilege_rules_mut(Some(resource));
+        assert_eq!(&rules_mut.for_all_roles.for_all_privileges, &Rule::Deny);
+
+        // Update rules for "existing" resource
+        let mut new_role_rules = RolePrivilegeRules::new(true);
+        {
+            // Set privileges
+            let mut new_privileges = PrivilegeRules::new(true);
+            // Allow all privileges
+            new_privileges.set_rule(None, Rule::Allow);
+
+            // Set privilege rules for role
+            let mut priv_rules_map = HashMap::new();
+            priv_rules_map.insert(role.to_string(), new_privileges);
+            new_role_rules.by_role_id = Some(priv_rules_map);
+        }
+
+        ctrl.set_role_privilege_rules(Some(&[resource]), Some(new_role_rules));
+
+        // Verify resource update
+        let role_rules = ctrl.by_resource_id.get_mut(resource).unwrap();
+        assert_eq!(role_rules.by_role_id.as_ref().unwrap().get(role).unwrap().for_all_privileges, Rule::Allow, "resource update should've taken effect");
+
+        // Test mut rules getter
+        let rules_mut = ctrl.get_role_privilege_rules_mut(Some(resource));
+        assert_eq!(rules_mut.clone(), ctrl.by_resource_id.get(resource).unwrap().clone(), "mut rules getter should return the same object as the resource's rules");
+    }
+
+    #[test]
+    fn test_get_or_create_role_privilege_rules_mut() {
+        let role = "admin";
+        let resource = "existent";
+        let non_existent_resource = "non-existent";
+
+        let mut ctrl = ResourceRoleRules::new();
+
+        // Test with non-existent resource - currently returns for_all_resources (doesn't create)
+        {
+            let rules_mut = ctrl.get_or_create_role_privilege_rules_mut(Some(non_existent_resource));
+            assert_eq!(&rules_mut.for_all_roles.for_all_privileges, &Rule::Deny);
+            assert!(rules_mut.for_all_roles.by_privilege_id.as_ref().unwrap().is_empty(), "by_privilege_id map should be empty");
+            assert!(rules_mut.by_role_id.as_ref().unwrap().is_empty(), "by_role_id map should be empty");
+
+            // Modify to verify we're modifying for_all_resources
+            rules_mut.for_all_roles.for_all_privileges = Rule::Allow;
+        }
+        assert_eq!(ctrl.for_all_resources.for_all_roles.for_all_privileges, Rule::Allow,
+            "For non-existent resource, modification should affect for_all_resources");
+
+        // Reset control
+        ctrl = ResourceRoleRules::new();
+
+        // Test with None resource - should return for_all_resources
+        {
+            let rules_mut = ctrl.get_or_create_role_privilege_rules_mut(None);
+            assert_eq!(&rules_mut.for_all_roles.for_all_privileges, &Rule::Deny);
+            rules_mut.for_all_roles.for_all_privileges = Rule::Allow;
+        }
+        assert_eq!(ctrl.for_all_resources.for_all_roles.for_all_privileges, Rule::Allow,
+            "For None resource, modification should affect for_all_resources");
+
+        // Reset for_all_resources
+        ctrl = ResourceRoleRules::new();
+
+        // Test existing resource
+        // ----
+        // Create a resource entry first
+        let mut new_role_rules = RolePrivilegeRules::new(true);
+        {
+            // Set privileges
+            let mut new_privileges = PrivilegeRules::new(true);
+            // Allow all privileges
+            new_privileges.set_rule(None, Rule::Allow);
+
+            // Set privilege rules for role
+            let mut priv_rules_map = HashMap::new();
+            priv_rules_map.insert(role.to_string(), new_privileges);
+            new_role_rules.by_role_id = Some(priv_rules_map);
+        }
+
+        ctrl.set_role_privilege_rules(Some(&[resource]), Some(new_role_rules));
+
+        // Verify resource update
+        {
+            let role_rules = ctrl.by_resource_id.get_mut(resource).unwrap();
+            assert_eq!(role_rules.by_role_id.as_ref().unwrap().get(role).unwrap().for_all_privileges, Rule::Allow,
+                "resource update should've taken effect");
+        }
+
+        // Test get_or_create_role_privilege_rules_mut with existing resource
+        {
+            let rules_mut = ctrl.get_or_create_role_privilege_rules_mut(Some(resource));
+            assert_eq!(rules_mut.by_role_id.as_ref().unwrap().get(role).unwrap().for_all_privileges, Rule::Allow,
+                "get_or_create should return existing resource rules");
+        }
+
+        // Verify resource rules match expected
+        let rules_mut = ctrl.get_or_create_role_privilege_rules_mut(Some(resource));
+        assert_eq!(rules_mut.clone(), ctrl.by_resource_id.get(resource).unwrap().clone(),
+            "get_or_create should return the same object as the resource's rules");
     }
 }
