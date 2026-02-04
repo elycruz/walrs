@@ -114,8 +114,8 @@ mod test_role_privilege_rules {
                 assert_eq!(
                     rpr.get_privilege_rules(Some(r_id)),
                     found_privilege_rules,
-                    "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-                    Some(r_id),
+                    "`#RolePrivilegeRules.get_privilege_rule(Some({:?})) != {:?}`",
+                    r_id,
                     found_privilege_rules
                 );
             });
@@ -124,21 +124,18 @@ mod test_role_privilege_rules {
 
     // Tests setter, and getter results
     fn test_when_only_roles(r_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-        if r_ids.is_empty() {
-            panic!("Expected role IDs list with greater than `0` length");
-        }
         r_ids.iter().for_each(|r_id| {
             let found_privilege_rules = rpr.by_role_id.as_ref().unwrap().get(*r_id).unwrap();
             let found_rule = &found_privilege_rules.for_all_privileges;
             assert_eq!(
                 found_rule, expected_rule,
-                "Found rule is not equal to expected"
+                "Found rule is not equal to 'expected' rule"
             );
             assert_eq!(
                 rpr.get_privilege_rules(Some(r_id)),
                 found_privilege_rules,
-                "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-                Some(r_id),
+                "`#RolePrivilegeRules.get_privilege_rule(Some({:?})) != {:?}`",
+                r_id,
                 found_privilege_rules
             );
         });
@@ -146,9 +143,6 @@ mod test_role_privilege_rules {
 
     // Tests setter, and getter results
     fn test_when_only_privileges(p_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-        if p_ids.is_empty() {
-            panic!("Expected privilege IDs list with greater than `0` length");
-        }
         p_ids.iter().for_each(|p_id| {
             assert_eq!(
                 rpr
@@ -164,9 +158,7 @@ mod test_role_privilege_rules {
         assert_eq!(
             rpr.get_privilege_rules(None),
             &rpr.for_all_roles,
-            "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-            None as Option<&Rule>,
-            &rpr.for_all_roles
+            "`#RolePrivilegeRules.get_privilege_rule(None) != &rpr.for_all_roles`",
         );
     }
 
@@ -259,6 +251,28 @@ mod test_role_privilege_rules {
             (
                 Some(admin_roles.as_slice()),
                 Some(admin_privileges.as_slice()),
+                Rule::Deny,
+            ),
+            // Cases to trigger lines 317-320: non-empty roles, empty privileges
+            (
+                Some(guest_roles.as_slice()),
+                Some(vec![].as_slice()),
+                Rule::Allow,
+            ),
+            (
+                Some(user_roles.as_slice()),
+                Some(vec![].as_slice()),
+                Rule::Deny,
+            ),
+            // Cases to trigger lines 322-325: empty roles, non-empty privileges
+            (
+                Some(vec![].as_slice()),
+                Some(guest_privileges.as_slice()),
+                Rule::Allow,
+            ),
+            (
+                Some(vec![].as_slice()),
+                Some(user_privileges.as_slice()),
                 Rule::Deny,
             ),
         ] {
