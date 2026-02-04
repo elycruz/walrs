@@ -75,9 +75,9 @@ impl Acl {
   /// let developer = "developer";
   ///
   /// // Add roles, and their relationships to the acl:
-  /// acl .add_role(developer, Some(&[tester]))
-  ///     .add_role(admin, Some(&[developer]))
-  ///     .add_role(super_admin, Some(&[admin]));
+  /// acl .add_role(developer, Some(&[tester]))?
+  ///     .add_role(admin, Some(&[developer]))?
+  ///     .add_role(super_admin, Some(&[admin]))?;
   ///
   /// // Assert existence
   /// for r in [admin, super_admin, tester, developer] {
@@ -90,15 +90,14 @@ impl Acl {
   ///
   /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
   ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
+  /// # Ok::<(), String>(())
   /// ```
-  pub fn add_role(&mut self, role: &str, parents: Option<&[&str]>) -> &mut Self {
+  pub fn add_role(&mut self, role: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
     if let Some(parents) = parents {
-      if let Err(err) = self._roles.add_edge(role, parents) {
-        panic!("{}", err);
-      }
+      self._roles.add_edge(role, parents)?;
     }
     self._roles.add_vertex(role);
-    self
+    Ok(self)
   }
 
   /// Adds multiple `Role`s to acl at once.
@@ -120,7 +119,7 @@ impl Acl {
   ///     (developer, Some(&[tester])),
   ///     (admin, Some(&[developer])),
   ///     (super_admin, Some(&[admin])),
-  /// ]);
+  /// ])?;
   ///
   /// // Assert existence
   /// for r in [admin, super_admin, tester, developer] {
@@ -133,12 +132,13 @@ impl Acl {
   ///
   /// assert_eq!(acl.inherits_role_safe(developer, tester).unwrap(), true,
   ///   "{:?} should have `child -> parent` relationship`with {:?}", developer, tester);
+  /// # Ok::<(), String>(())
   /// ```
-  pub fn add_roles(&mut self, roles: &[(&str, Option<&[&str]>)]) -> &mut Self {
+  pub fn add_roles(&mut self, roles: &[(&str, Option<&[&str]>)]) -> Result<&mut Self, String> {
     for &(role, parents) in roles {
-      self.add_role(role, parents);
+      self.add_role(role, parents)?;
     }
-    self
+    Ok(self)
   }
 
   /// Returns a boolean indicating whether Acl contains given role or not.
@@ -158,9 +158,9 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add roles, and their relationships to the acl:
-  /// acl.add_role(&guest, None)
-  ///     .add_role(&admin, Some(&[&guest]))
-  ///     .add_role(&super_admin, Some(&[&admin]));
+  /// acl.add_role(&guest, None)?
+  ///     .add_role(&admin, Some(&[&guest]))?
+  ///     .add_role(&super_admin, Some(&[&admin]))?;
   ///
   /// // Test created relationships (DAG edges)
   /// assert_eq!(acl.inherits_role_safe(&guest, &admin).is_ok(), true, "result should be `Ok(...)`");
@@ -172,6 +172,7 @@ impl Acl {
   ///
   /// assert!(acl.inherits_role_safe(&admin, &guest).unwrap(), "\"admin\" role should inherit \"guest\" role");
   /// assert!(acl.inherits_role_safe(&super_admin, &guest).unwrap(), "\"super_admin\" role should inherit \"guess\" role");
+  /// # Ok::<(), String>(())
   /// ```
   pub fn inherits_role_safe(&self, role: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self._roles.index(role).zip(self._roles.index(inherits)) {
@@ -194,9 +195,9 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add roles, and their relationships
-  /// acl.add_role(&guest, None)
-  ///     .add_role(&admin, Some(&[&guest]))
-  ///     .add_role(&super_admin, Some(&[&admin]));
+  /// acl.add_role(&guest, None)?
+  ///     .add_role(&admin, Some(&[&guest]))?
+  ///     .add_role(&super_admin, Some(&[&admin]))?;
   ///
   /// // Test relationships
   /// assert_eq!(acl.inherits_role(&guest, &admin), false,
@@ -207,6 +208,7 @@ impl Acl {
   /// assert!(acl.inherits_role(&admin, &guest), "\"{}\" role should inherit \"{}\" role", &admin, &guest);
   /// assert!(acl.inherits_role(&super_admin, &guest), "\"{}\" role should inherit \"{}\" role", &super_admin, &guest);
   /// assert!(acl.inherits_role(&super_admin, &admin), "\"{}\" role should inherit \"{}\" role", &super_admin, &admin);
+  /// # Ok::<(), String>(())
   /// ```
   pub fn inherits_role(&self, role: &str, inherits: &str) -> bool {
     match self.inherits_role_safe(role, inherits) {
@@ -362,9 +364,9 @@ impl Acl {
   /// // Add Roles
   /// // ----
   /// acl
-  ///   .add_role(guest_role, None) // Inherits from none.
-  ///   .add_role(user_role, Some(&[guest_role])) // 'user' role inherits rules applied to 'guest' role
-  ///   .add_role(admin_role, Some(&[user_role])) // ...
+  ///   .add_role(guest_role, None)? // Inherits from none.
+  ///   .add_role(user_role, Some(&[guest_role]))? // 'user' role inherits rules applied to 'guest' role
+  ///   .add_role(admin_role, Some(&[user_role]))? // ...
   ///
   ///   // Add Resources
   ///   // ----
@@ -434,6 +436,7 @@ impl Acl {
   ///     "Privilege \"{}\" should not be allowed for roles, on all resource",
   ///     "non-existent"
   /// );
+  /// # Ok::<(), String>(())
   /// ```
   ///
   /// ## On `None`, and/or empty list, argument values
@@ -718,15 +721,15 @@ impl<'a> TryFrom<&'a AclData> for Acl {
     // Add `roles` to `acl`
     if let Some(roles) = data.roles.as_ref() {
       // Loop through role entries
-      roles.iter().for_each(|(role, parents)| {
+      for (role, parents) in roles.iter() {
         // Convert `parents` to `Option<&[&str]>`
         let parents = parents
           .as_deref()
           .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
 
         // Add role(s);  If parent roles aren't in the acl, they get added via `acl.add_role`
-        acl.add_role(role, parents.as_deref());
-      });
+        acl.add_role(role, parents.as_deref())?;
+      }
     }
 
     // Add `resources` to `acl`
@@ -865,7 +868,7 @@ mod test_acl {
     let non_existent_role = "non-existent-role";
 
     // Add roles, and their relationships to the acl:
-    acl.add_role(admin, Some([super_admin].as_slice()));
+    acl.add_role(admin, Some([super_admin].as_slice())).unwrap();
 
     assert!(acl.has_role(admin), "Should contain {:?} role", admin);
     assert!(
@@ -947,9 +950,9 @@ mod test_acl {
 
     let populate_acl_symbols = |acl: &mut Acl| {
       // Add Roles
-      acl.add_role(guest_role, None);
-      acl.add_role(user_role, Some(&[guest_role]));
-      acl.add_role(admin_role, Some(&[user_role]));
+      acl.add_role(guest_role, None).unwrap();
+      acl.add_role(user_role, Some(&[guest_role])).unwrap();
+      acl.add_role(admin_role, Some(&[user_role])).unwrap();
 
       // Add Resources
       acl.add_resource(index_resource, None);
@@ -1100,9 +1103,9 @@ mod test_acl {
 
     let populate_acl_symbols = |acl: &mut Acl| {
       // Add Roles
-      acl.add_role(guest_role, None);
-      acl.add_role(user_role, Some(&[guest_role]));
-      acl.add_role(admin_role, Some(&[user_role]));
+      acl.add_role(guest_role, None).unwrap();
+      acl.add_role(user_role, Some(&[guest_role])).unwrap();
+      acl.add_role(admin_role, Some(&[user_role])).unwrap();
 
       // Add Resources
       acl.add_resource(index_resource, None);
@@ -1192,7 +1195,7 @@ mod test_acl {
   #[should_panic(expected = "d is not in symbol graph")]
   fn test_inherits_role() {
     let mut acl = Acl::new();
-    acl.add_role("a", Some(["b", "c"].as_slice()));
+    acl.add_role("a", Some(["b", "c"].as_slice())).unwrap();
     assert!(acl.inherits_role("a", "b"));
     assert!(acl.inherits_role("a", "c"));
     assert!(acl.inherits_role("a", "d"));
