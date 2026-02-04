@@ -199,4 +199,31 @@ mod test_privilege_rules {
       });
     }
   }
+
+  #[test]
+  fn test_set_rule_for_all_privileges() {
+    // Test setting rule with `None` (sets for_all_privileges)
+    let mut prs = PrivilegeRules::new(false);
+    assert_eq!(prs.for_all_privileges, Rule::Deny, "Default should be Deny");
+
+    let scope = prs.set_rule(None, Rule::Allow);
+    assert_eq!(prs.for_all_privileges, Rule::Allow, "for_all_privileges should be Allow after set_rule(None, Allow)");
+    assert_eq!(scope, crate::simple::rule::RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope");
+
+    // Test setting rule with empty slice (also sets for_all_privileges)
+    let mut prs2 = PrivilegeRules::new(true);
+    assert_eq!(prs2.for_all_privileges, Rule::Deny, "Default should be Deny");
+
+    let empty_slice: &[&str] = &[];
+    let scope2 = prs2.set_rule(Some(empty_slice), Rule::Allow);
+    assert_eq!(prs2.for_all_privileges, Rule::Allow, "for_all_privileges should be Allow after set_rule(Some(&[]), Allow)");
+    assert_eq!(scope2, crate::simple::rule::RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope");
+
+    // Test that get_rule returns the for_all_privileges rule when privilege_id is None
+    assert_eq!(prs.get_rule(None), &Rule::Allow, "get_rule(None) should return for_all_privileges");
+    assert_eq!(prs2.get_rule(None), &Rule::Allow, "get_rule(None) should return for_all_privileges");
+
+    // Test that get_rule returns for_all_privileges for non-existent privilege
+    assert_eq!(prs.get_rule(Some("non-existent")), &Rule::Allow, "get_rule for non-existent should return for_all_privileges");
+  }
 }

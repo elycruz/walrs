@@ -1,0 +1,69 @@
+{
+  "roles": [
+    ["guest", null],
+    ["user", ["guest"]],
+    ["admin", ["user"]],
+    ["special-user", null],
+    ["super-admin", ["admin", "special-user"]]
+  ],
+  "resources": [
+    ["index", null],
+    ["blog", ["index"]],
+    ["account", null],
+    ["user", null],
+    ["users", null],
+    ["rest-resource", null],
+    ["non/conforming/pathname", null]
+  ],
+  "allow": [
+    ["index", null],
+    [
+      "user",
+      [
+        ["guest", ["index", "read"]],
+        ["user", ["update"]],
+        ["admin", ["create"]],
+        ["super-admin", ["delete"]]
+      ]
+    ],
+    [
+      "account",
+      [
+        ["guest", ["index", "read"]],
+        ["user", ["index", "read", "update"]],
+        ["admin", ["index", "create", "read", "update"]],
+        ["super-admin", ["delete"]]
+      ]
+    ],
+    [
+      "blog",
+      [
+        ["guest", ["index", "read"]],
+        ["user", null]
+      ]
+    ],
+    [
+      "users",
+      [
+        ["admin", null]
+      ]
+    ],
+    ["non/conforming/pathname", [["special-user", ["further/sub/path"]]]],
+    ["rest-resource", [
+      ["guest", ["get"]],
+      ["special-user", ["get"]],
+      ["user", ["post"]],
+      ["admin", ["put"]],
+      ["super-admin", ["delete"]]
+    ]]
+  ],
+  "deny": [
+    [
+      "users",
+      [
+        ["guest", null],
+        ["user", null]
+      ]
+    ]
+  ]
+}

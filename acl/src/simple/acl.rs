@@ -771,6 +771,28 @@ impl<'a> TryFrom<&'a AclData> for Acl {
         });
     }
 
+    // Add `deny` rules to `acl`, if any
+    if let Some(deny) = data.deny.as_ref() {
+      deny
+          .iter()
+          .for_each(|(resource, roles_and_privileges_assoc_list)| {
+            if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
+              rs_and_ps_list.iter().for_each(|(role, privileges)| {
+                let ps: Option<Vec<&str>> = privileges
+                    .as_deref()
+                    .map(|ps| ps.iter().map(|p| &**p).collect());
+                acl.deny(
+                  Some([role.as_str()].as_slice()),
+                  Some([resource.as_str()].as_slice()),
+                  ps.as_deref(),
+                );
+              });
+            } else {
+              acl.deny(None, Some([resource.as_str()].as_slice()), None);
+            }
+          });
+    }
+
     // @todo Test non existent roles and resources for no inheritance, and allow rules against such
 
     // println!("{:#?}", &acl);
