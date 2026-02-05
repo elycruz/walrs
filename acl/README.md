@@ -4,7 +4,7 @@ Basic Access Control List (ACL) structure for adding role/permissions based acce
 
 ## How does it work?
 
-The ACL control is meant to be used as a fact forest:  Each entity in the domain ([role, resource, privilege]) can be represented by a tree which can be queried upon:  E.g., 
+The ACL control is meant to be used as a fact forest:  Each entity in the domain ([role, resource, privilege]) can be represented by a tree which can be queried upon:
 
 - role tree/directional-graph.
 - resource "".
@@ -25,7 +25,7 @@ Visual representation of structure:
 // }
 ```
 
-Essentially the component enables the possibility for resource, role, privilege and rule, relationships to be managed and queried all from one place.
+Essentially, the component enables the possibility for resource, role, privilege and rule, relationships to be managed and queried all from one place.
 
 ## Runtime model
 

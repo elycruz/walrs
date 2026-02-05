@@ -254,13 +254,14 @@ impl Acl {
     self
   }
 
-  /// Returns a `bool` indicating whether Acl contains given resource symbol or not.
+  /// Returns a `bool` indicating whether Acl contains given "resource" symbol or not.
   pub fn has_resource(&self, resource: &str) -> bool {
     self._resources.contains(resource)
   }
 
-  /// Returns a `Result` containing a boolean indicating whether `resource` inherits `inherits` (... extends it etc.).
-  /// Returns `Result::Err` if any of the given vertices do not exists in the `Acl`.
+  /// Returns a `Result` containing a boolean indicating whether `resource` inherits
+  /// `inherits` (... extends it etc.). Returns `Result::Err` if any of the given vertices
+  /// do not exists in the `Acl`.
   ///
   /// ```rust
   /// use std::ops::Deref;
@@ -301,8 +302,8 @@ impl Acl {
   }
 
   /// Returns a boolean indicating whether `resource` inherits `inherits` (... extends it etc.).
-  /// Note: This method panics if `resource`, and/or `inherits`, don't exists in the ACL; For safe version use
-  ///  `#Acl.inherits_resource_safe`.
+  /// Note: This method panics if `resource`, and/or `inherits`, don't exist in the ACL;
+  /// For non "panic" version use `#Acl.inherits_resource_safe`.
   ///
   /// ```rust
   /// use std::ops::Deref;
