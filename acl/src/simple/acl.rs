@@ -229,9 +229,9 @@ impl Acl {
   /// let post_categories = "post_categories";
   ///
   /// // Add resources, and their relationships
-  /// acl.add_resource(&term, None)
-  ///     .add_resource(&post, Some(&[&term]))
-  ///     .add_resource(&post_categories, Some(&[&term]));  ///
+  /// acl.add_resource(&term, None)?
+  ///     .add_resource(&post, Some(&[&term]))?
+  ///     .add_resource(&post_categories, Some(&[&term]))?;
   ///
   /// // Test existence resources
   /// assert!(acl.has_resource(&term), "Should contain {:?} resource", &term);
@@ -243,15 +243,14 @@ impl Acl {
   ///   "{:?} should have `child -> parent` relationship`with {:?}", &post, &term);
   /// assert!(acl.inherits_resource(&post_categories, &term),
   ///   "{:?} should have `child -> parent` relationship`with {:?}", &post_categories, &term);
+  /// # Ok::<(), String>(())
   /// ```
-  pub fn add_resource(&mut self, resource: &str, parents: Option<&[&str]>) -> &mut Self {
+  pub fn add_resource(&mut self, resource: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
     if let Some(parents) = parents {
-      if let Err(err) = self._resources.add_edge(resource, parents) {
-        panic!("{}", err);
-      }
+      self._resources.add_edge(resource, parents)?;
     }
     self._resources.add_vertex(resource);
-    self
+    Ok(self)
   }
 
   /// Returns a `bool` indicating whether Acl contains given "resource" symbol or not.
@@ -273,9 +272,9 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add resources, and their relationships
-  /// acl.add_resource(&guest, None)
-  ///     .add_resource(&admin, Some(&[&guest]))
-  ///     .add_resource(&super_admin, Some(&[&admin]));
+  /// acl.add_resource(&guest, None)?
+  ///     .add_resource(&admin, Some(&[&guest]))?
+  ///     .add_resource(&super_admin, Some(&[&admin]))?;
   ///
   /// // Test created relationships
   /// assert_eq!(acl.inherits_resource_safe(&guest, &admin).is_ok(), true, "result should be `Ok(...)`");
@@ -287,6 +286,7 @@ impl Acl {
   ///
   /// assert!(acl.inherits_resource_safe(&admin, &guest).unwrap(), "\"admin\" resource should inherit \"guest\" resource");
   /// assert!(acl.inherits_resource_safe(&super_admin, &guest).unwrap(), "\"super_admin\" resource should inherit \"guess\" resource");
+  /// # Ok::<(), String>(())
   /// ```
   ///
   /// @todo Remove '*_safe' suffix.
@@ -315,9 +315,9 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add resources, and their relationships
-  /// acl.add_resource(&guest, None)
-  ///     .add_resource(&admin, Some(&[&guest]))
-  ///     .add_resource(&super_admin, Some(&[&admin]));
+  /// acl.add_resource(&guest, None)?
+  ///     .add_resource(&admin, Some(&[&guest]))?
+  ///     .add_resource(&super_admin, Some(&[&admin]))?;
   ///
   /// // Test created relationships
   /// assert_eq!(acl.inherits_resource(&guest, &admin), false,
@@ -328,6 +328,7 @@ impl Acl {
   ///
   /// assert!(acl.inherits_resource(&admin, &guest), "\"admin\" resource should inherit \"guest\" resource");
   /// assert!(acl.inherits_resource(&super_admin, &guest), "\"super_admin\" resource should inherit \"guess\" resource");
+  /// # Ok::<(), String>(())
   /// ```
   pub fn inherits_resource(&self, resource: &str, inherits: &str) -> bool {
     match self.inherits_resource_safe(resource, inherits) {
@@ -371,10 +372,10 @@ impl Acl {
   ///
   ///   // Add Resources
   ///   // ----
-  ///   .add_resource(index_resource, None) // 'index' resource has inherits from none.
-  ///   .add_resource(blog_resource, Some(&[index_resource])) // 'blog' resource inherits rules applied to 'index' resource
-  ///   .add_resource(account_resource, None)
-  ///   .add_resource(users_resource, None)
+  ///   .add_resource(index_resource, None)? // 'index' resource has inherits from none.
+  ///   .add_resource(blog_resource, Some(&[index_resource]))? // 'blog' resource inherits rules applied to 'index' resource
+  ///   .add_resource(account_resource, None)?
+  ///   .add_resource(users_resource, None)?
   ///
   ///   // Add 'allow' rules - **Note:** base rule is "deny all to all", E.g.,
   ///   // "deny all privileges to all roles on all resources" etc.
@@ -736,15 +737,15 @@ impl<'a> TryFrom<&'a AclData> for Acl {
     // Add `resources` to `acl`
     if let Some(resources) = data.resources.as_ref() {
       // Loop through resource entries
-      resources.iter().for_each(|(resource, parents)| {
+      for (resource, parents) in resources.iter() {
         // Convert `parents` to `Option<&[&str]>`
         let parents = parents
           .as_deref()
           .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
 
         // Add resource(s);  If parent resources aren't in the acl, they get added via `acl.add_resource`
-        acl.add_resource(resource, parents.as_deref());
-      });
+        acl.add_resource(resource, parents.as_deref())?;
+      }
     }
 
     // Add `allow` rules to `acl`, if any
@@ -841,7 +842,7 @@ mod test_acl {
     let non_existent_resource = "non-existent-resource";
 
     // Add resources, and their relationships to the acl:
-    acl.add_resource(users, Some([index].as_slice()));
+    acl.add_resource(users, Some([index].as_slice())).unwrap();
 
     assert!(
       acl.has_resource(index),
@@ -956,10 +957,10 @@ mod test_acl {
       acl.add_role(admin_role, Some(&[user_role])).unwrap();
 
       // Add Resources
-      acl.add_resource(index_resource, None);
-      acl.add_resource(blog_resource, Some(&[index_resource]));
-      acl.add_resource(account_resource, None);
-      acl.add_resource(users_resource, None);
+      acl.add_resource(index_resource, None).unwrap();
+      acl.add_resource(blog_resource, Some(&[index_resource])).unwrap();
+      acl.add_resource(account_resource, None).unwrap();
+      acl.add_resource(users_resource, None).unwrap();
     };
 
     // Ensure default expected default rule is set
