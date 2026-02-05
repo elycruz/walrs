@@ -3,11 +3,7 @@ use std::convert::TryFrom;
 use std::fs::File;
 
 use serde_json;
-use walrs_graph::digraph::{
-  DigraphDFSShape,
-  DirectedPathsDFS,
-  DisymGraph
-};
+use walrs_graph::digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
 use crate::simple::acl_data::AclData;
 use crate::simple::rule::{Rule};
@@ -18,7 +14,7 @@ use crate::simple::role_privilege_rules::RolePrivilegeRules;
 // Note: Rules structure:
 // Resources contain roles, roles contain privileges,
 // privileges contain allow/deny rules, and/or, assertion functions,
-// Privilege, Role, and Resource Ids  are string slices - See relevant imports
+// Privilege, Role, and Resource Ids are string slices - See relevant imports
 // for more.
 // ----
 
@@ -176,7 +172,7 @@ impl Acl {
   /// ```
   pub fn inherits_role_safe(&self, role: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self._roles.index(role).zip(self._roles.index(inherits)) {
-      return DirectedPathsDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.marked(v2));
+      return DirectedPathsDFS::new(self._roles.graph(), v1).and_then(|dfs| dfs.has_path_to(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }
@@ -288,7 +284,6 @@ impl Acl {
   /// assert!(acl.inherits_resource_safe(&super_admin, &guest).unwrap(), "\"super_admin\" resource should inherit \"guess\" resource");
   /// # Ok::<(), String>(())
   /// ```
-  ///
   /// @todo Remove '*_safe' suffix.
   pub fn inherits_resource_safe(&self, resource: &str, inherits: &str) -> Result<bool, String> {
     if let Some((v1, v2)) = self
@@ -335,6 +330,30 @@ impl Acl {
       Ok(is_inherited) => is_inherited,
       Err(err) => panic!("{}", err),
     }
+  }
+
+  pub fn check_roles_for_cycles(&self) -> Result<(), String> {
+    if let Some(cycles) = DirectedCycle::new(self._roles.graph()).cycle() {
+      let cycles_repr = self._roles.names(cycles).unwrap()
+          .join(" <- ");
+      return Err(format!("Acl contains cyclic edges in \"roles\" graph: {:?}", cycles_repr));
+    }
+    Ok(())
+  }
+
+  pub fn check_resources_for_cycles(&self) -> Result<(), String> {
+    if let Some(cycles) = DirectedCycle::new(self._resources.graph()).cycle() {
+      let cycles_repr = self._resources.names(cycles).unwrap()
+          .join(" <- ");
+      return Err(format!("Acl contains cycles in 'resources' graph: {:?}", cycles_repr));
+    }
+    Ok(())
+  }
+
+  pub fn check_for_cycles(&self) -> Result<(), String> {
+    self.check_roles_for_cycles()?;
+    self.check_resources_for_cycles()?;
+    Ok(())
   }
 
   /// Sets the 'allow' rule for given roles, resources, and/or, privileges, combinations; E.g.,
@@ -732,6 +751,7 @@ impl<'a> TryFrom<&'a AclData> for Acl {
         // Add role(s);  If parent roles aren't in the acl, they get added via `acl.add_role`
         acl.add_role(role, parents.as_deref())?;
       }
+      acl.check_roles_for_cycles()?;
     }
 
     // Add `resources` to `acl`
@@ -746,6 +766,7 @@ impl<'a> TryFrom<&'a AclData> for Acl {
         // Add resource(s);  If parent resources aren't in the acl, they get added via `acl.add_resource`
         acl.add_resource(resource, parents.as_deref())?;
       }
+      acl.check_resources_for_cycles()?;
     }
 
     // Add `allow` rules to `acl`, if any
@@ -798,8 +819,6 @@ impl<'a> TryFrom<&'a AclData> for Acl {
           });
     }
 
-    // @todo Test non existent roles and resources for no inheritance, and allow rules against such
-
     // println!("{:#?}", &acl);
 
     Ok(acl)
@@ -833,6 +852,19 @@ mod test_acl {
   use crate::simple::acl::{Acl};
   use crate::simple::privilege_rules::PrivilegeRules;
   use crate::simple::rule::Rule;
+
+  #[test]
+  fn test_default_and_new() {
+    let acl = Acl::default();
+    assert_eq!(acl.has_resource("index"), false);
+    assert_eq!(acl.has_role("admin"), false);
+    assert_eq!(acl._rules.for_all_resources.for_all_roles.for_all_privileges, Rule::Deny);
+
+    let acl2 = Acl::new();
+    assert_eq!(acl2.has_resource("index"), false);
+    assert_eq!(acl2.has_role("admin"), false);
+    assert_eq!(acl2._rules.for_all_resources.for_all_roles.for_all_privileges, Rule::Deny);
+  }
 
   #[test]
   fn test_has_resource() {
@@ -1211,5 +1243,358 @@ mod test_acl {
     assert!(acl.inherits_resource("a", "b"));
     assert!(acl.inherits_resource("a", "c"));
     assert!(acl.inherits_resource("a", "d"));
+  }
+
+  #[test]
+  fn test_add_roles_basic() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add multiple roles without parents
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", None),
+      ("admin", None),
+    ])?;
+
+    // Verify all roles were added
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+    assert_eq!(acl.role_count(), 3, "ACL should contain exactly 3 roles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_with_single_parent() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add roles with parent relationships
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", Some(&["guest"])),
+      ("admin", Some(&["user"])),
+    ])?;
+
+    // Verify all roles were added
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+
+    // Verify inheritance relationships
+    assert!(acl.inherits_role("user", "guest"), "user should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "admin should inherit from user");
+    assert!(acl.inherits_role("admin", "guest"), "admin should transitively inherit from guest");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_with_multiple_parents() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add roles with multiple parent relationships
+    acl.add_roles(&[
+      ("viewer", None),
+      ("editor", None),
+      ("moderator", None),
+      ("admin", Some(&["editor", "moderator"])),
+      ("super-admin", Some(&["admin", "viewer"])),
+    ])?;
+
+    // Verify all roles were added
+    assert!(acl.has_role("viewer"), "ACL should contain 'viewer' role");
+    assert!(acl.has_role("editor"), "ACL should contain 'editor' role");
+    assert!(acl.has_role("moderator"), "ACL should contain 'moderator' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+    assert!(acl.has_role("super-admin"), "ACL should contain 'super-admin' role");
+    assert_eq!(acl.role_count(), 5, "ACL should contain exactly 5 roles");
+
+    // Verify inheritance relationships
+    assert!(acl.inherits_role("admin", "editor"), "admin should inherit from editor");
+    assert!(acl.inherits_role("admin", "moderator"), "admin should inherit from moderator");
+    assert!(acl.inherits_role("super-admin", "admin"), "super-admin should inherit from admin");
+    assert!(acl.inherits_role("super-admin", "viewer"), "super-admin should inherit from viewer");
+
+    // Verify transitive inheritance
+    assert!(acl.inherits_role("super-admin", "editor"), "super-admin should transitively inherit from editor");
+    assert!(acl.inherits_role("super-admin", "moderator"), "super-admin should transitively inherit from moderator");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_empty_list() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add empty list of roles - should succeed
+    acl.add_roles(&[])?;
+
+    assert_eq!(acl.role_count(), 0, "ACL should contain 0 roles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_chaining() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Test method chaining
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", Some(&["guest"])),
+    ])?
+        .add_roles(&[
+          ("admin", Some(&["user"])),
+          ("super-admin", Some(&["admin"])),
+        ])?;
+
+    // Verify all roles were added
+    assert_eq!(acl.role_count(), 4, "ACL should contain exactly 4 roles");
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+    assert!(acl.has_role("super-admin"), "ACL should contain 'super-admin' role");
+
+    // Verify inheritance chain
+    assert!(acl.inherits_role("super-admin", "admin"), "super-admin should inherit from admin");
+    assert!(acl.inherits_role("super-admin", "user"), "super-admin should transitively inherit from user");
+    assert!(acl.inherits_role("super-admin", "guest"), "super-admin should transitively inherit from guest");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_duplicate_roles() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add roles first time
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", Some(&["guest"])),
+    ])?;
+
+    // Attempt adding same roles again - should succeed (idempotent behavior;
+    //  E.g., roles are only added once):
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", Some(&["guest"])),
+    ])?;
+
+    // Verify roles exist and count is still correct
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert_eq!(acl.role_count(), 2);
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_with_nonexistent_parent() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add a role with a parent that doesn't exist yet
+    // The system automatically creates the parent role (first)
+    acl.add_roles(&[
+      ("user", Some(&["nonexistent-parent"])),
+    ])?;
+
+    // Both the role and its parent should now exist
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("nonexistent-parent"), "ACL should automatically create 'nonexistent-parent' role");
+    assert!(acl.inherits_role("user", "nonexistent-parent"), "user should inherit from nonexistent-parent");
+
+    // Assert role count
+    assert_eq!(acl.role_count(), 2, "ACL should contain exactly 2 roles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_mixed_with_and_without_parents() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add a mix of roles with and without parents
+    acl.add_roles(&[
+      ("guest", None),
+      ("special", None),
+      ("user", Some(&["guest"])),
+      ("moderator", None),
+      ("admin", Some(&["user", "moderator"])),
+    ])?;
+
+    // Verify all roles exist
+    assert_eq!(acl.role_count(), 5, "ACL should contain exactly 5 roles");
+
+    // Verify specific roles
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("special"), "ACL should contain 'special' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("moderator"), "ACL should contain 'moderator' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+
+    // Verify inheritance
+    assert!(acl.inherits_role("user", "guest"), "user should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "admin should inherit from user");
+    assert!(acl.inherits_role("admin", "moderator"), "admin should inherit from moderator");
+
+    // Verify non-inheritance
+    assert!(!acl.inherits_role("special", "guest"), "special should not inherit from guest");
+    assert!(!acl.inherits_role("moderator", "guest"), "moderator should not inherit from guest");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_out_of_order_dependencies() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add roles in "reverse" order - children before parents
+    // This works because disymgraph auto-creates parent vertices (first)
+    acl.add_roles(&[
+      ("super-admin", Some(&["admin"])),  // admin doesn't exist yet
+      ("admin", Some(&["user"])),         // user doesn't exist yet
+      ("user", Some(&["guest"])),         // guest doesn't exist yet
+      ("guest", None),                    // finally add the base role
+    ])?;
+
+    // All roles should exist
+    assert_eq!(acl.role_count(), 4, "ACL should contain exactly 4 roles");
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("admin"), "ACL should contain 'admin' role");
+    assert!(acl.has_role("super-admin"), "ACL should contain 'super-admin' role");
+
+    // Verify inheritance chain works correctly
+    assert!(acl.inherits_role("user", "guest"), "user should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "admin should inherit from user");
+    assert!(acl.inherits_role("super-admin", "admin"), "super-admin should inherit from admin");
+
+    // Verify transitive inheritance
+    assert!(acl.inherits_role("super-admin", "guest"), "super-admin should transitively inherit from guest");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_self_reference_in_parents() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Try to add a role that references itself as a parent
+    // This creates a self-loop which would be a cycle
+    acl.add_roles(&[
+      ("recursive-role", Some(&["recursive-role"])),
+    ])?;
+
+    // The role should exist and count should be `1`
+    assert!(acl.has_role("recursive-role"), "ACL should contain 'recursive-role'");
+    assert_eq!(acl.role_count(), 1);
+
+    // Should return error as the [digraph] edge for 'recursive-role' -> 'recursive-role' will not
+    // be added to the graph.
+    assert!(acl.inherits_role("recursive-role", "recursive-role"),
+            "recursive-role should inherit from itself (self-loop)");
+
+    // Check for [roles] cycle
+    let rslt = acl.check_roles_for_cycles();
+    eprintln!("{}", rslt.as_ref().unwrap_err());
+    assert!(rslt.is_err(), "ACL should contain a cycle");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_circular_dependency() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a circular dependency: A -> B -> C -> A
+    // First add them individually
+    acl.add_role("role-a", Some(&["role-b"]))?;
+    acl.add_role("role-b", Some(&["role-c"]))?;
+
+    // This would create a cycle, but the system allows it (user is expected to
+    //  run `acl.check_for_cycles()` before using the structure for validation (currently)).
+    // Note: In a proper ACL, cycles might be problematic for permission resolution
+    acl.add_role("role-c", Some(&["role-a"]))?;
+
+    // All roles should exist
+    assert!(acl.has_role("role-a"), "ACL should contain 'role-a'");
+    assert!(acl.has_role("role-b"), "ACL should contain 'role-b'");
+    assert!(acl.has_role("role-c"), "ACL should contain 'role-c'");
+
+    // Due to the cycle, each role should inherit from all others
+    assert!(acl.inherits_role("role-a", "role-b"), "role-a should inherit from role-b");
+    assert!(acl.inherits_role("role-b", "role-c"), "role-b should inherit from role-c");
+    assert!(acl.inherits_role("role-c", "role-a"), "role-c should inherit from role-a");
+
+    // Due to transitivity through the cycle
+    assert!(acl.inherits_role("role-a", "role-c"), "role-a should inherit from role-c (via cycle)");
+    assert!(acl.inherits_role("role-b", "role-a"), "role-b should inherit from role-a (via cycle)");
+    assert!(acl.inherits_role("role-c", "role-b"), "role-c should inherit from role-b (via cycle)");
+
+    // Check for [roles] cycle
+    let rslt = acl.check_roles_for_cycles();
+    eprintln!("{}", rslt.as_ref().unwrap_err());
+    assert!(rslt.is_err(), "ACL should contain a cycle");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_adding_parent_to_existing_role() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add a role without parents
+    acl.add_role("user", None)?;
+    assert_eq!(acl.role_count(), 1, "ACL should contain 1 role");
+
+    // Now add the same role again with parents
+    // This should add the parent relationship to the existing role
+    acl.add_roles(&[
+      ("guest", None),
+      ("user", Some(&["guest"])),
+    ])?;
+
+    // Verify both roles exist (role count should be 2, not 3)
+    assert_eq!(acl.role_count(), 2, "ACL should contain exactly 2 roles");
+    assert!(acl.has_role("user"), "ACL should contain 'user' role");
+    assert!(acl.has_role("guest"), "ACL should contain 'guest' role");
+
+    // Verify the inheritance was added
+    assert!(acl.inherits_role("user", "guest"), "user should now inherit from guest");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_roles_complex_diamond_inheritance() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a diamond inheritance pattern:
+    //        root
+    //       /    \
+    //   branch-a  branch-b
+    //       \    /
+    //        leaf
+    acl.add_roles(&[
+      ("root", None),
+      ("branch-a", Some(&["root"])),
+      ("branch-b", Some(&["root"])),
+      ("leaf", Some(&["branch-a", "branch-b"])),
+    ])?;
+
+    // Verify all roles exist
+    assert_eq!(acl.role_count(), 4, "ACL should contain exactly 4 roles");
+
+    // Verify direct inheritance
+    assert!(acl.inherits_role("branch-a", "root"), "branch-a should inherit from root");
+    assert!(acl.inherits_role("branch-b", "root"), "branch-b should inherit from root");
+    assert!(acl.inherits_role("leaf", "branch-a"), "leaf should inherit from branch-a");
+    assert!(acl.inherits_role("leaf", "branch-b"), "leaf should inherit from branch-b");
+
+    // Verify transitive inheritance (leaf inherits from root through both branches)
+    assert!(acl.inherits_role("leaf", "root"), "leaf should transitively inherit from root");
+
+    Ok(())
   }
 }
