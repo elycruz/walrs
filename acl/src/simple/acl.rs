@@ -476,6 +476,32 @@ impl Acl {
   }
 
   /// Sets `Deny` rule for given `roles`, `resources`, and `privileges`, combinations.
+  ///
+  /// ```rust
+  /// use walrs_acl::{ simple::Acl };
+  ///
+  /// let mut acl = Acl::new();
+  ///
+  /// // Setup roles and resources
+  /// acl.add_role("guest", None)?;
+  /// acl.add_role("admin", None)?;
+  /// acl.add_resource("blog", None)?;
+  /// acl.add_resource("secret", None)?;
+  ///
+  /// // Allow guest to read blog
+  /// acl.allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]));
+  /// assert!(acl.is_allowed(Some("guest"), Some("blog"), Some("read")));
+  ///
+  /// // Explicitly deny guest from accessing secret resource
+  /// acl.deny(Some(&["guest"]), Some(&["secret"]), None);
+  /// assert!(!acl.is_allowed(Some("guest"), Some("secret"), Some("read")));
+  /// assert!(!acl.is_allowed(Some("guest"), Some("secret"), None));
+  ///
+  /// // Deny admin from deleting blog
+  /// acl.deny(Some(&["admin"]), Some(&["blog"]), Some(&["delete"]));
+  /// assert!(!acl.is_allowed(Some("admin"), Some("blog"), Some("delete")));
+  /// # Ok::<(), String>(())
+  /// ```
   pub fn deny(
     &mut self,
     roles: Option<&[&str]>,
@@ -635,10 +661,103 @@ impl Acl {
   }
 
   /// Same as `is_allowed` but checks all given role, resource, and privilege, combinations
-  ///  for a match.
+  ///  for a match. Returns `true` if any of the combinations are allowed, `false` otherwise.
+  ///
+  /// This method is useful when you want to check if a user with any of several roles has access
+  /// to any of several resources with any of several privileges. It short-circuits on the first
+  /// allowed combination.
   ///
   /// ```rust
-  /// // TODO.
+  /// use walrs_acl::{ simple::Acl };
+  ///
+  /// let mut acl = Acl::new();
+  ///
+  /// // Define roles
+  /// let guest = "guest";
+  /// let user = "user";
+  /// let admin = "admin";
+  ///
+  /// // Add roles with inheritance: admin -> user -> guest
+  /// acl.add_roles(&[
+  ///   (guest, None),
+  ///   (user, Some(&[guest])),
+  ///   (admin, Some(&[user]))
+  /// ])?;
+  ///
+  /// // Define resources
+  /// let blog = "blog";
+  /// let account = "account";
+  /// let admin_panel = "admin-panel";
+  ///
+  /// acl.add_resource(blog, None)?;
+  /// acl.add_resource(account, None)?;
+  /// acl.add_resource(admin_panel, None)?;
+  ///
+  /// // Define privileges
+  /// let read = "read";
+  /// let write = "write";
+  /// let delete = "delete";
+  ///
+  /// // Set up permissions
+  /// // Guest can read blog
+  /// acl.allow(Some(&[guest]), Some(&[blog]), Some(&[read]));
+  ///
+  /// // User can write to blog and account
+  /// acl.allow(Some(&[user]), Some(&[blog, account]), Some(&[write]));
+  ///
+  /// // Admin has delete privilege on admin-panel
+  /// acl.allow(Some(&[admin]), Some(&[admin_panel]), Some(&[delete]));
+  ///
+  /// // Test 1: Check if any of the guest/user roles can read blog (should be true - guest can)
+  /// assert!(
+  ///   acl.is_allowed_any(Some(&[guest, user]), Some(&[blog]), Some(&[read])),
+  ///   "Guest or user should be able to read blog"
+  /// );
+  ///
+  /// // Test 2: Check if user can do read OR write on blog (should be true - user can write)
+  /// assert!(
+  ///   acl.is_allowed_any(Some(&[user]), Some(&[blog]), Some(&[read, write])),
+  ///   "User should have read or write privilege on blog"
+  /// );
+  ///
+  /// // Test 3: Check if admin can access any of blog/account/admin-panel with any privilege
+  /// // (should be true - admin inherits blog/account write, plus has admin-panel delete)
+  /// assert!(
+  ///   acl.is_allowed_any(Some(&[admin]), Some(&[blog, account, admin_panel]), Some(&[read, write, delete])),
+  ///   "Admin should have some access to the resources"
+  /// );
+  ///
+  /// // Test 4: Check if guest can delete anything (should be false)
+  /// assert!(
+  ///   !acl.is_allowed_any(Some(&[guest]), Some(&[blog, account, admin_panel]), Some(&[delete])),
+  ///   "Guest should not have delete privilege on any resource"
+  /// );
+  ///
+  /// // Test 5: Check non-existent combinations (should be false)
+  /// assert!(
+  ///   !acl.is_allowed_any(Some(&[guest]), Some(&[admin_panel]), Some(&[read])),
+  ///   "Guest should not have access to admin-panel"
+  /// );
+  ///
+  /// // Test 6: Empty arrays (should be false - no combinations to check)
+  /// assert!(
+  ///   !acl.is_allowed_any(Some(&[]), Some(&[blog]), Some(&[read])),
+  ///   "Empty roles array should return false"
+  /// );
+  ///
+  /// // Test 7: Multiple roles where only one has access
+  /// assert!(
+  ///   acl.is_allowed_any(Some(&[guest, admin]), Some(&[admin_panel]), Some(&[delete])),
+  ///   "Admin (one of the roles) should have delete privilege on admin-panel"
+  /// );
+  ///
+  /// // Test 8: Check with None privilege (any privilege)
+  /// acl.allow(Some(&[user]), Some(&[account]), None); // Give user all privileges on account
+  /// assert!(
+  ///   acl.is_allowed_any(Some(&[user]), Some(&[account]), None),
+  ///   "User should have any privilege on account"
+  /// );
+  /// # Ok::<(), String>(())
   /// ```
   pub fn is_allowed_any(
     &self,
@@ -1294,6 +1413,155 @@ mod test_acl {
         false
       );
     }
+  }
+
+  #[test]
+  fn test_acl_deny_comprehensive() -> Result<(), String> {
+    let mut acl = Acl::new();
+
+    // Define roles with inheritance
+    let guest = "guest";
+    let user = "user";
+    let moderator = "moderator";
+    let admin = "admin";
+
+    acl.add_roles(&[
+      (guest, None),
+      (user, Some(&[guest])),
+      (moderator, Some(&[user])),
+      (admin, Some(&[moderator]))
+    ])?;
+
+    // Define resources
+    let blog = "blog";
+    let account = "account";
+    let admin_panel = "admin-panel";
+    let secret = "secret";
+
+    acl.add_resource(blog, None)?;
+    acl.add_resource(account, None)?;
+    acl.add_resource(admin_panel, None)?;
+    acl.add_resource(secret, None)?;
+
+    // Define privileges
+    let read = "read";
+    let write = "write";
+    let delete = "delete";
+    let publish = "publish";
+
+    // Test 1: Deny specific privilege on specific resource for specific role
+    acl.deny(Some(&[guest]), Some(&[admin_panel]), Some(&[read]));
+    assert!(
+      !acl.is_allowed(Some(guest), Some(admin_panel), Some(read)),
+      "Guest should be denied read access to admin-panel"
+    );
+
+    // Test 2: Deny all privileges on a resource (None for privileges)
+    acl.deny(Some(&[user]), Some(&[secret]), None);
+    assert!(
+      !acl.is_allowed(Some(user), Some(secret), Some(read)),
+      "User should be denied all access to secret resource"
+    );
+    assert!(
+      !acl.is_allowed(Some(user), Some(secret), Some(write)),
+      "User should be denied all access to secret resource"
+    );
+    assert!(
+      !acl.is_allowed(Some(user), Some(secret), None),
+      "User should be denied all access to secret resource"
+    );
+
+    // Test 3: Deny multiple privileges at once
+    acl.deny(Some(&[guest]), Some(&[blog]), Some(&[write, delete, publish]));
+    assert!(
+      !acl.is_allowed(Some(guest), Some(blog), Some(write)),
+      "Guest should be denied write on blog"
+    );
+    assert!(
+      !acl.is_allowed(Some(guest), Some(blog), Some(delete)),
+      "Guest should be denied delete on blog"
+    );
+    assert!(
+      !acl.is_allowed(Some(guest), Some(blog), Some(publish)),
+      "Guest should be denied publish on blog"
+    );
+
+    // Test 4: Deny across multiple roles
+    acl.deny(Some(&[guest, user]), Some(&[admin_panel]), None);
+    assert!(
+      !acl.is_allowed(Some(guest), Some(admin_panel), None),
+      "Guest should be denied all access to admin-panel"
+    );
+    assert!(
+      !acl.is_allowed(Some(user), Some(admin_panel), Some(write)),
+      "User should be denied all access to admin-panel"
+    );
+
+    // Test 5: Deny across multiple resources
+    acl.deny(Some(&[moderator]), Some(&[secret, admin_panel]), Some(&[delete]));
+    assert!(
+      !acl.is_allowed(Some(moderator), Some(secret), Some(delete)),
+      "Moderator should be denied delete on secret"
+    );
+    assert!(
+      !acl.is_allowed(Some(moderator), Some(admin_panel), Some(delete)),
+      "Moderator should be denied delete on admin-panel"
+    );
+
+    // Test 6: Allow and then deny for the same role (explicit deny takes precedence)
+    acl.allow(Some(&[user]), Some(&[blog]), Some(&[write]));
+    assert!(
+      acl.is_allowed(Some(user), Some(blog), Some(write)),
+      "User should be allowed to write to blog"
+    );
+
+    // Now explicitly deny user from writing to blog
+    acl.deny(Some(&[user]), Some(&[blog]), Some(&[write]));
+    assert!(
+      !acl.is_allowed(Some(user), Some(blog), Some(write)),
+      "User should now be denied write access to blog (deny overrides allow)"
+    );
+
+    // Test 7: Deny all roles on a resource (None for roles)
+    acl.deny(None, Some(&[secret]), Some(&[read]));
+    assert!(
+      !acl.is_allowed(Some(guest), Some(secret), Some(read)),
+      "All roles (including guest) should be denied read on secret"
+    );
+    assert!(
+      !acl.is_allowed(Some(admin), Some(secret), Some(read)),
+      "All roles (including admin) should be denied read on secret"
+    );
+
+    // Test 8: Deny role on all resources (None for resources)
+    acl.deny(Some(&[guest]), None, Some(&[delete]));
+    assert!(
+      !acl.is_allowed(Some(guest), Some(blog), Some(delete)),
+      "Guest should be denied delete on all resources (blog)"
+    );
+    assert!(
+      !acl.is_allowed(Some(guest), Some(account), Some(delete)),
+      "Guest should be denied delete on all resources (account)"
+    );
+
+    // Test 9: Method chaining
+    acl.deny(Some(&[user]), Some(&[account]), Some(&[delete]))
+       .deny(Some(&[user]), Some(&[blog]), Some(&[publish]))
+       .deny(Some(&[moderator]), Some(&[secret]), None);
+
+    assert!(!acl.is_allowed(Some(user), Some(account), Some(delete)));
+    assert!(!acl.is_allowed(Some(user), Some(blog), Some(publish)));
+    assert!(!acl.is_allowed(Some(moderator), Some(secret), Some(read)));
+
+    // Test 10: Empty arrays behave like None (all)
+    acl.deny(Some(&[]), Some(&[admin_panel]), Some(&[write]));
+    // Empty roles array means "all roles"
+    assert!(
+      !acl.is_allowed(Some(admin), Some(admin_panel), Some(write)),
+      "Empty roles array should deny all roles"
+    );
+
+    Ok(())
   }
 
   #[test]
