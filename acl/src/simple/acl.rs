@@ -489,7 +489,78 @@ impl Acl {
   /// If any of the args are `None` the "all" variant is checked for that `None` value;  E.g.,
   ///
   /// ```rust
+  /// use walrs_acl::{ simple::Acl };
   ///
+  /// // Acl struct
+  /// let mut acl = Acl::new();
+  ///
+  /// // Roles
+  /// let guest = "guest";
+  /// let user = "user";
+  /// let special = "special";
+  /// let admin = "admin";
+  ///
+  /// acl.add_roles(&[
+  ///   (guest, None),
+  ///   (user, Some(&[guest])),
+  ///   (special, None),
+  ///   (admin, Some(&[user, special]))
+  /// ]);
+  ///
+  /// // Resources
+  /// let index = "index";
+  /// let protected = "protected";
+  ///
+  /// acl.add_resource(index, None);
+  /// acl.add_resource(protected, None);
+  ///
+  /// // Privilege
+  /// let read = "read";
+  ///
+  /// // All access is "denied" by default
+  /// for role in [guest, user, special, admin] {
+  ///   assert_eq!(
+  ///     acl.is_allowed(Some(role), Some(index), None), // Checks "all privileges" access on "index"
+  ///     false,
+  ///     "\"{}\" role should not have privileges on \"index\" resource",
+  ///     role
+  ///   );
+  /// }
+  ///
+  /// // Add "read" privilege for "guest" role, on "index" resource
+  /// acl.allow(Some(&[guest]), Some(&[index]), Some(&[read]));
+  /// // Perform check
+  /// assert_eq!(acl.is_allowed(Some(guest), Some(index), Some(read)), true, "Has \"read\" privilege on \"index\"");
+  ///
+  /// // Add "all privileges" for "user", on "index" resource
+  /// acl.allow(Some(&[user]), Some(&[index]), None);
+  ///
+  /// // Checks
+  /// assert!(acl.is_allowed(Some(user), Some(index), None));
+  /// assert!(acl.is_allowed(Some(admin), Some(index), None)); // inherits access from "user" role
+  ///
+  /// // Check random resource and priv, on "admin"
+  /// assert!(!acl.is_allowed(Some(admin), Some(protected), Some("GET")));
+  ///
+  /// // Add "all privileges" for "admin", on all resources
+  /// acl.allow(Some(&[admin]), None, None);
+  ///
+  /// // Checks
+  /// assert!(acl.is_allowed(Some(admin), Some(index), Some(read)), "Should have \"read\" privilege on \"index\"");
+  /// assert!(acl.is_allowed(Some(admin), Some(index), None), "Should have all privileges on \"index\"");
+  /// assert!(acl.is_allowed(Some(admin), Some(protected), Some("GET")));
+  /// assert!(acl.is_allowed(Some(admin), Some(protected), Some("POST")));
+  /// assert!(acl.is_allowed(Some(admin), Some(protected), Some("PUT")));
+  /// assert!(acl.is_allowed(Some(admin), Some(protected), None));
+  ///
+  /// // "special" checks
+  /// assert_eq!(acl.is_allowed(Some(special), Some(index), Some(read)), false, "Should not \"read\" privileges on \"index\"");
+  /// assert_eq!(acl.is_allowed(Some(special), Some(index), None), false, "Should not have any privileges on \"index\"");
+  ///
+  /// acl.allow(Some(&[special]), Some(&[index]), Some(&["report"]));
+  ///
+  /// // Checks
+  /// assert!(acl.is_allowed(Some(special), Some(index), Some("report")), "Should have \"report\" privilege on \"index\"");
   /// ```
   pub fn is_allowed(
     &self,
@@ -567,7 +638,7 @@ impl Acl {
   ///  for a match.
   ///
   /// ```rust
-  ///
+  /// // TODO.
   /// ```
   pub fn is_allowed_any(
     &self,
