@@ -22,11 +22,12 @@ use crate::simple::role_privilege_rules::RolePrivilegeRules;
 /// that can be queried for allow/deny rules for given roles, resources, and privilege,
 /// combinations.
 ///
-/// Note: This implementation does not expose any `*remove*` methods as both 'allow', and 'deny',
+/// Note: This implementation does not expose any `*remove*` methods as both 'allow' and 'deny',
 /// rules can be set for any given role, resource, and/or privilege, and, additionally, any
 /// conditional logic can be performed at declaration time.
 ///
-/// Note: If you require the above-mentioned functionality please open an issue ticket for it.
+/// Note: If you require `*remove*`/`*delete*` functionality please
+/// open an issue ticket/pull-request for it.
 ///
 /// ```rust
 /// // TODO.
@@ -48,12 +49,12 @@ impl Acl {
     }
   }
 
-  /// Returns the number roles in the Acl.
+  /// Returns the number of roles in the Acl.
   pub fn role_count(&self) -> usize {
     self._roles.vert_count()
   }
 
-  /// Returns the number resources in the Acl.
+  /// Returns the number of resources in the Acl.
   pub fn resource_count(&self) -> usize {
     self._resources.vert_count()
   }
@@ -69,14 +70,16 @@ impl Acl {
   /// let super_admin = "super_admin";
   /// let tester = "tester";
   /// let developer = "developer";
+  /// let special = "special";
   ///
-  /// // Add roles, and their relationships to the acl:
+  /// // Add roles, and the parents they inherit from:
   /// acl .add_role(developer, Some(&[tester]))?
   ///     .add_role(admin, Some(&[developer]))?
+  ///     .add_role(special, None)?
   ///     .add_role(super_admin, Some(&[admin]))?;
   ///
   /// // Assert existence
-  /// for r in [admin, super_admin, tester, developer] {
+  /// for r in [admin, super_admin, special, tester, developer] {
   ///     assert!(acl.has_role(r), "Should contain {:?} role", r);
   /// }
   ///
@@ -137,7 +140,7 @@ impl Acl {
     Ok(self)
   }
 
-  /// Returns a boolean indicating whether Acl contains given role or not.
+  /// Returns a boolean indicating whether the Acl contains a given role or not.
   pub fn has_role(&self, role: &str) -> bool {
     self._roles.has_vertex(role.as_ref())
   }
@@ -332,6 +335,8 @@ impl Acl {
     }
   }
 
+  /// Checks roles graph for directed cycles; If `Ok(())` then no cycles are found, else returns
+  /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_roles_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._roles.graph()).cycle() {
       let cycles_repr = self._roles.names(cycles).unwrap()
@@ -341,6 +346,8 @@ impl Acl {
     Ok(())
   }
 
+  /// Checks resources graph for directed cycles; If `Ok(())` then no cycles are found, else returns
+  /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_resources_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._resources.graph()).cycle() {
       let cycles_repr = self._resources.names(cycles).unwrap()
@@ -350,6 +357,9 @@ impl Acl {
     Ok(())
   }
 
+  /// Checks Acl for cycles; E.g., if Acl contains cycles, then it is not possible to determine
+  /// whether a given role/resource/privilege rule combination is allowed or not so the method
+  /// should be used before using the [acl] structure for validating "allowed" rules.
   pub fn check_for_cycles(&self) -> Result<(), String> {
     self.check_roles_for_cycles()?;
     self.check_resources_for_cycles()?;
