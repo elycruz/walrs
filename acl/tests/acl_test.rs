@@ -91,7 +91,7 @@ pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
   println!("Check \"allow\" rules...");
   if let Some(allow) = acl_data.allow {
     allow.iter().for_each(|(resource, role_privileges)| {
-      role_privileges.as_deref().iter().map(|rps| {
+      let _ = role_privileges.as_deref().iter().map(|rps| {
         rps.iter().for_each(|(role, privileges)| {
           if let Some(_privileges) = privileges.as_deref() {
             _privileges.iter().for_each(|xs| {
@@ -111,7 +111,7 @@ pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
     });
   }
 
-  // Check "deny" rules
+  // @todo Check "deny" rules
 
   // println!("{:?}", &acl);
 

@@ -1245,6 +1245,10 @@ mod test_acl {
     assert!(acl.inherits_resource("a", "d"));
   }
 
+  // ============================
+  // Tests for add_roles
+  // ============================
+
   #[test]
   fn test_add_roles_basic() -> Result<(), Box<dyn std::error::Error>> {
     let mut acl = Acl::new();
@@ -1594,6 +1598,382 @@ mod test_acl {
 
     // Verify transitive inheritance (leaf inherits from root through both branches)
     assert!(acl.inherits_role("leaf", "root"), "leaf should transitively inherit from root");
+
+    Ok(())
+  }
+
+  // ============================
+  // Tests for add_resource
+  // ============================
+
+  #[test]
+  fn test_add_resource_without_parents() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add a resource without parents
+    acl.add_resource("blog", None)?;
+
+    // Verify resource was added
+    assert!(acl.has_resource("blog"), "ACL should contain the 'blog' resource");
+    assert_eq!(acl.resource_count(), 1, "ACL should have exactly 1 resource");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_resource_with_single_parent() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add parent resource first
+    acl.add_resource("cms", None)?;
+
+    // Add child resource with parent
+    acl.add_resource("blog", Some(&["cms"]))?;
+
+    // Verify both resources were added
+    assert!(acl.has_resource("cms"), "ACL should contain 'cms' resource");
+    assert!(acl.has_resource("blog"), "ACL should contain 'blog' resource");
+    assert_eq!(acl.resource_count(), 2, "ACL should have exactly 2 resources");
+
+    // Verify inheritance relationship
+    assert!(acl.inherits_resource("blog", "cms"), "blog should inherit from cms");
+    assert!(!acl.inherits_resource("cms", "blog"), "cms should not inherit from blog");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_resource_with_multiple_parents() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add parent resources
+    acl.add_resource("readable", None)?;
+    acl.add_resource("writable", None)?;
+
+    // Add child resource with multiple parents
+    acl.add_resource("document", Some(&["readable", "writable"]))?;
+
+    // Verify all resources were added
+    assert_eq!(acl.resource_count(), 3, "ACL should have exactly 3 resources");
+
+    // Verify inheritance relationships
+    assert!(acl.inherits_resource("document", "readable"), "document should inherit from readable");
+    assert!(acl.inherits_resource("document", "writable"), "document should inherit from writable");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_resource_with_transitive_inheritance() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a hierarchy: base -> intermediate -> leaf
+    acl.add_resource("base", None)?;
+    acl.add_resource("intermediate", Some(&["base"]))?;
+    acl.add_resource("leaf", Some(&["intermediate"]))?;
+
+    // Verify transitive inheritance
+    assert!(acl.inherits_resource("leaf", "intermediate"), "leaf should inherit from intermediate");
+    assert!(acl.inherits_resource("leaf", "base"), "leaf should inherit from base (transitively)");
+    assert!(acl.inherits_resource("intermediate", "base"), "intermediate should inherit from base");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_resource_chained_calls() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Test method chaining
+    acl
+        .add_resource("guest", None)?
+        .add_resource("user", Some(&["guest"]))?
+        .add_resource("admin", Some(&["user"]))?
+        .add_resource("super-admin", Some(&["admin"]))?;
+
+    // Verify all resources were added
+    assert_eq!(acl.resource_count(), 4, "ACL should have exactly 4 resources");
+
+    // Verify inheritance chain
+    assert!(acl.inherits_resource("super-admin", "admin"), "super-admin should inherit from admin");
+    assert!(acl.inherits_resource("super-admin", "user"), "super-admin should inherit from user (transitively)");
+    assert!(acl.inherits_resource("super-admin", "guest"), "super-admin should inherit from guest (transitively)");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_add_resource_duplicate_without_error() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add same resource multiple times
+    acl.add_resource("blog", None)?;
+    acl.add_resource("blog", None)?;
+
+    // Should still have only 1 unique resource
+    assert_eq!(acl.resource_count(), 1, "ACL should have exactly 1 resource");
+
+    Ok(())
+  }
+
+  // ============================
+  // Tests for check_resources_for_cycles
+  // ============================
+
+  #[test]
+  fn test_check_resources_for_cycles_no_cycles() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a valid DAG structure
+    acl.add_resource("guest", None)?;
+    acl.add_resource("user", Some(&["guest"]))?;
+    acl.add_resource("admin", Some(&["user"]))?;
+
+    // Should not detect any cycles
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_ok(), "Should not detect cycles in valid DAG");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_empty_acl() -> Result<(), Box<dyn std::error::Error>> {
+    let acl = Acl::new();
+
+    // Empty ACL should not have cycles
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_ok(), "Empty ACL should not have cycles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_single_resource() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    acl.add_resource("blog", None)?;
+
+    // Single resource should not have cycles
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_ok(), "Single resource should not have cycles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_detects_simple_cycle() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create vertices first
+    acl.add_resource("a", None)?;
+    acl.add_resource("b", None)?;
+
+    // Create a simple cycle: a -> b -> a
+    acl.add_resource("a", Some(&["b"]))?;
+    acl.add_resource("b", Some(&["a"]))?;
+
+    // Should detect the cycle
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_err(), "Should detect simple cycle");
+
+    if let Err(msg) = result {
+      assert!(msg.contains("cycles"), "Error message should mention cycles");
+      assert!(msg.contains("resources"), "Error message should mention resources");
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_detects_self_cycle() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a self-referencing resource
+    acl.add_resource("self-ref", None)?;
+    acl.add_resource("self-ref", Some(&["self-ref"]))?;
+
+    // Should detect the self-cycle
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_err(), "Should detect self-referencing cycle");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_detects_complex_cycle() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a complex cycle: a -> b -> c -> d -> b
+    acl.add_resource("a", None)?;
+    acl.add_resource("b", None)?;
+    acl.add_resource("c", None)?;
+    acl.add_resource("d", None)?;
+
+    acl.add_resource("a", Some(&["b"]))?;
+    acl.add_resource("b", Some(&["c"]))?;
+    acl.add_resource("c", Some(&["d"]))?;
+    acl.add_resource("d", Some(&["b"]))?; // Creates cycle
+
+    // Should detect the cycle
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_err(), "Should detect complex cycle");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_resources_for_cycles_with_diamond_structure() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a diamond structure (not a cycle)
+    //       top
+    //      /   \
+    //   left   right
+    //      \   /
+    //     bottom
+    acl.add_resource("top", None)?;
+    acl.add_resource("left", Some(&["top"]))?;
+    acl.add_resource("right", Some(&["top"]))?;
+    acl.add_resource("bottom", Some(&["left", "right"]))?;
+
+    // Diamond structure is valid (no cycles)
+    let result = acl.check_resources_for_cycles();
+    assert!(result.is_ok(), "Diamond structure should not be detected as a cycle");
+
+    Ok(())
+  }
+
+  // ============================
+  // Tests for check_for_cycles
+  // ============================
+
+  #[test]
+  fn test_check_for_cycles_no_cycles() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add valid roles and resources
+    acl.add_role("guest", None)?;
+    acl.add_role("user", Some(&["guest"]))?;
+    acl.add_role("admin", Some(&["user"]))?;
+
+    acl.add_resource("index", None)?;
+    acl.add_resource("blog", Some(&["index"]))?;
+    acl.add_resource("admin-panel", Some(&["blog"]))?;
+
+    // Should not detect any cycles in either graph
+    let result = acl.check_for_cycles();
+    assert!(result.is_ok(), "Should not detect cycles in valid ACL");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_for_cycles_empty_acl() -> Result<(), Box<dyn std::error::Error>> {
+    let acl = Acl::new();
+
+    // Empty ACL should not have cycles
+    let result = acl.check_for_cycles();
+    assert!(result.is_ok(), "Empty ACL should not have cycles");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_for_cycles_detects_role_cycle() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add valid resources
+    acl.add_resource("blog", None)?;
+
+    // Create a cycle in roles
+    acl.add_role("role-a", None)?;
+    acl.add_role("role-b", None)?;
+    acl.add_role("role-a", Some(&["role-b"]))?;
+    acl.add_role("role-b", Some(&["role-a"]))?;
+
+    // Should detect cycle in roles
+    let result = acl.check_for_cycles();
+    assert!(result.is_err(), "Should detect cycle in roles");
+
+    if let Err(msg) = result {
+      assert!(msg.contains("roles"), "Error message should mention roles");
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_for_cycles_detects_resource_cycle() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Add valid roles
+    acl.add_role("user", None)?;
+
+    // Create a cycle in resources
+    acl.add_resource("res-a", None)?;
+    acl.add_resource("res-b", None)?;
+    acl.add_resource("res-a", Some(&["res-b"]))?;
+    acl.add_resource("res-b", Some(&["res-a"]))?;
+
+    // Should detect cycle in resources
+    let result = acl.check_for_cycles();
+    assert!(result.is_err(), "Should detect cycle in resources");
+
+    if let Err(msg) = result {
+      assert!(msg.contains("resources"), "Error message should mention resources");
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_for_cycles_detects_both_cycles() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create a cycle in roles
+    acl.add_role("role-a", None)?;
+    acl.add_role("role-b", None)?;
+    acl.add_role("role-a", Some(&["role-b"]))?;
+    acl.add_role("role-b", Some(&["role-a"]))?;
+
+    // Create a cycle in resources
+    acl.add_resource("res-a", None)?;
+    acl.add_resource("res-b", None)?;
+    acl.add_resource("res-a", Some(&["res-b"]))?;
+    acl.add_resource("res-b", Some(&["res-a"]))?;
+
+    // Should detect cycle (roles are checked first)
+    let result = acl.check_for_cycles();
+    assert!(result.is_err(), "Should detect cycles");
+
+    // Should fail on roles first (since check_for_cycles checks roles before resources)
+    if let Err(msg) = result {
+      assert!(msg.contains("roles"), "Error message should mention roles (checked first)");
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_check_for_cycles_with_complex_valid_structure() -> Result<(), Box<dyn std::error::Error>> {
+    let mut acl = Acl::new();
+
+    // Create complex valid role hierarchy
+    acl.add_role("guest", None)?;
+    acl.add_role("member", Some(&["guest"]))?;
+    acl.add_role("moderator", Some(&["member"]))?;
+    acl.add_role("admin", Some(&["moderator"]))?;
+    acl.add_role("super-admin", Some(&["admin"]))?;
+
+    // Create complex valid resource hierarchy with multiple inheritance
+    acl.add_resource("base", None)?;
+    acl.add_resource("read-only", Some(&["base"]))?;
+    acl.add_resource("write-enabled", Some(&["base"]))?;
+    acl.add_resource("full-access", Some(&["read-only", "write-enabled"]))?;
+
+    // Should not detect any cycles
+    let result = acl.check_for_cycles();
+    assert!(result.is_ok(), "Should not detect cycles in complex valid structure");
 
     Ok(())
   }
