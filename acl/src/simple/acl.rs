@@ -34,9 +34,9 @@ use crate::simple::role_privilege_rules::RolePrivilegeRules;
 /// ```
 #[derive(Debug)]
 pub struct Acl {
-  _roles: DisymGraph,
-  _resources: DisymGraph,
-  _rules: ResourceRoleRules,
+  pub(crate) _roles: DisymGraph,
+  pub(crate) _resources: DisymGraph,
+  pub(crate) _rules: ResourceRoleRules,
 }
 
 impl Acl {
@@ -46,6 +46,16 @@ impl Acl {
       _roles: DisymGraph::new(),
       _resources: DisymGraph::new(),
       _rules: ResourceRoleRules::new(),
+    }
+  }
+
+  /// Creates an Acl instance from its constituent parts.
+  /// This is primarily used by `AclBuilder`.
+  pub(crate) fn from_parts(roles: DisymGraph, resources: DisymGraph, rules: ResourceRoleRules) -> Self {
+    Acl {
+      _roles: roles,
+      _resources: resources,
+      _rules: rules,
     }
   }
 
@@ -604,15 +614,39 @@ impl Acl {
     resource: Option<&str>,
     privilege: Option<&str>,
   ) -> bool {
-    // Select given `role`'s inherited symbols lists
-    let _roles = role
-      .and_then(|_role| self._roles.adj(_role))
-      .and_then(|xs| if xs.is_empty() { None } else { Some(xs) });
+    // Get ALL inherited roles (including transitive parents) using DFS
+    let _roles = role.and_then(|_role| {
+      let role_idx = self._roles.index(_role)?;
+      let dfs = DirectedPathsDFS::new(self._roles.graph(), role_idx).ok()?;
 
-    // Select given `resource`'s inherited symbols list
-    let _resources = resource
-      .and_then(|_resource| self._resources.adj(_resource))
-      .and_then(|xs| if xs.is_empty() { None } else { Some(xs) });
+      let mut inherited = Vec::new();
+      for i in 0..self._roles.vert_count() {
+        if i != role_idx && dfs.marked(i).unwrap_or(false) {
+          if let Some(name) = self._roles.name_as_ref(i) {
+            inherited.push(name);
+          }
+        }
+      }
+
+      if inherited.is_empty() { None } else { Some(inherited) }
+    });
+
+    // Get ALL inherited resources (including transitive parents) using DFS
+    let _resources = resource.and_then(|_resource| {
+      let resource_idx = self._resources.index(_resource)?;
+      let dfs = DirectedPathsDFS::new(self._resources.graph(), resource_idx).ok()?;
+
+      let mut inherited = Vec::new();
+      for i in 0..self._resources.vert_count() {
+        if i != resource_idx && dfs.marked(i).unwrap_or(false) {
+          if let Some(name) = self._resources.name_as_ref(i) {
+            inherited.push(name);
+          }
+        }
+      }
+
+      if inherited.is_empty() { None } else { Some(inherited) }
+    });
 
     // Callback for returning `allow` check result, or checking if current parameter set has `allow` permission
     //  Helps dry up the code, below, a bit
@@ -838,9 +872,33 @@ impl Acl {
     resource: Option<&str>,
     privilege: Option<&str>,
   ) -> bool {
+    // First check the specific resource (if provided)
+    if resource.is_some() {
+      let specific_rule = self
+        ._rules
+        .get_role_privilege_rules(resource)
+        .get_privilege_rules(role)
+        .get_rule(privilege);
+
+      // If we found an explicit Allow, return true
+      if specific_rule == &Rule::Allow {
+        return true;
+      }
+
+      // Also check for_all_resources for this role (global rules)
+      let global_rule = self
+        ._rules
+        .for_all_resources
+        .get_privilege_rules(role)
+        .get_rule(privilege);
+
+      return global_rule == &Rule::Allow;
+    }
+
+    // If no specific resource, just check for_all_resources
     self
       ._rules
-      .get_role_privilege_rules(resource)
+      .for_all_resources
       .get_privilege_rules(role)
       .get_rule(privilege)
       == &Rule::Allow
