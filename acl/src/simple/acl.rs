@@ -80,7 +80,7 @@ impl Acl {
   /// let special = "special";
   ///
   /// // Add roles, and the parents they inherit from:
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_role(developer, Some(&[tester]))?
   ///     .add_role(admin, Some(&[developer]))?
   ///     .add_role(special, None)?
@@ -120,7 +120,7 @@ impl Acl {
   /// let developer = "developer";
   ///
   /// // Add roles, and their relationships to the acl:
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_roles(&[
   ///         (developer, Some(&[tester])),
   ///         (admin, Some(&[developer])),
@@ -163,7 +163,7 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add roles, and their relationships to the acl:
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_role(&guest, None)?
   ///     .add_role(&admin, Some(&[&guest]))?
   ///     .add_role(&super_admin, Some(&[&admin]))?
@@ -200,7 +200,7 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add roles, and their relationships
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_role(&guest, None)?
   ///     .add_role(&admin, Some(&[&guest]))?
   ///     .add_role(&super_admin, Some(&[&admin]))?
@@ -234,7 +234,7 @@ impl Acl {
   /// let post_categories = "post_categories";
   ///
   /// // Add resources, and their relationships
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_resource(&term, None)?
   ///     .add_resource(&post, Some(&[&term]))?
   ///     .add_resource(&post_categories, Some(&[&term]))?
@@ -277,7 +277,7 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add resources, and their relationships
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_resource(&guest, None)?
   ///     .add_resource(&admin, Some(&[&guest]))?
   ///     .add_resource(&super_admin, Some(&[&admin]))?
@@ -319,7 +319,7 @@ impl Acl {
   /// let super_admin = "super_admin";
   ///
   /// // Add resources, and their relationships
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_resource(&guest, None)?
   ///     .add_resource(&admin, Some(&[&guest]))?
   ///     .add_resource(&super_admin, Some(&[&admin]))?
@@ -399,7 +399,7 @@ impl Acl {
   ///
   /// // Build ACL with roles, resources, and rules
   /// // ----
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///   .add_role(guest_role, None)? // Inherits from none.
   ///   .add_role(user_role, Some(&[guest_role]))? // 'user' role inherits rules applied to 'guest' role
   ///   .add_role(admin_role, Some(&[user_role]))? // ...
@@ -495,7 +495,7 @@ impl Acl {
   /// use walrs_acl::simple::AclBuilder;
   ///
   /// // Build ACL with roles, resources, and rules
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///     .add_role("guest", None)?
   ///     .add_role("admin", None)?
   ///     .add_resource("blog", None)?
@@ -523,8 +523,9 @@ impl Acl {
     self._add_rule(Rule::Deny, roles, resources, privileges)
   }
 
-  /// Returns a boolean indicating whether given role is allowed access to given privilege on given resource.
-  /// If any of the args are `None` the "all" variant is checked for that `None` value;  E.g.,
+  /// Returns a boolean indicating whether the given "role" is allowed access to
+  /// the given "privilege" on the given "resource".  If any of the args are `None` the "all"
+  /// variant is checked for that `None` value; E.g.,
   ///
   /// ```rust
   /// use walrs_acl::simple::AclBuilder;
@@ -543,15 +544,18 @@ impl Acl {
   /// let read = "read";
   ///
   /// // Build ACL
-  /// let mut builder = AclBuilder::new()
+  /// let mut builder = AclBuilder::default()
+  ///   // Second 'arg' is role inheritance, which is optional
   ///   .add_roles(&[
   ///     (guest, None),
   ///     (user, Some(&[guest])),
   ///     (special, None),
   ///     (admin, Some(&[user, special]))
   ///   ])?
-  ///   .add_resource(index, None)?
-  ///   .add_resource(protected, None)?;
+  ///   .add_resources(&[
+  ///     (index, None),
+  ///     (protected, None)
+  ///   ])?;
   ///
   /// let acl = builder.build()?;
   ///
@@ -566,15 +570,7 @@ impl Acl {
   /// }
   ///
   /// // Add "read" privilege for "guest" role, on "index" resource
-  /// let acl = AclBuilder::new()
-  ///   .add_roles(&[
-  ///     (guest, None),
-  ///     (user, Some(&[guest])),
-  ///     (special, None),
-  ///     (admin, Some(&[user, special]))
-  ///   ])?
-  ///   .add_resource(index, None)?
-  ///   .add_resource(protected, None)?
+  /// let acl = AclBuilder::try_from(acl)?
   ///   .allow(Some(&[guest]), Some(&[index]), Some(&[read]))?
   ///   .build()?;
   ///
@@ -582,16 +578,7 @@ impl Acl {
   /// assert_eq!(acl.is_allowed(Some(guest), Some(index), Some(read)), true, "Has \"read\" privilege on \"index\"");
   ///
   /// // Add "all privileges" for "user", on "index" resource
-  /// let acl = AclBuilder::new()
-  ///   .add_roles(&[
-  ///     (guest, None),
-  ///     (user, Some(&[guest])),
-  ///     (special, None),
-  ///     (admin, Some(&[user, special]))
-  ///   ])?
-  ///   .add_resource(index, None)?
-  ///   .add_resource(protected, None)?
-  ///   .allow(Some(&[guest]), Some(&[index]), Some(&[read]))?
+  /// let acl = AclBuilder::try_from(acl)?
   ///   .allow(Some(&[user]), Some(&[index]), None)?
   ///   .build()?;
   ///
@@ -603,17 +590,7 @@ impl Acl {
   /// assert!(!acl.is_allowed(Some(admin), Some(protected), Some("GET")));
   ///
   /// // Add "all privileges" for "admin", on all resources
-  /// let acl = AclBuilder::new()
-  ///   .add_roles(&[
-  ///     (guest, None),
-  ///     (user, Some(&[guest])),
-  ///     (special, None),
-  ///     (admin, Some(&[user, special]))
-  ///   ])?
-  ///   .add_resource(index, None)?
-  ///   .add_resource(protected, None)?
-  ///   .allow(Some(&[guest]), Some(&[index]), Some(&[read]))?
-  ///   .allow(Some(&[user]), Some(&[index]), None)?
+  /// let acl = AclBuilder::try_from(acl)?
   ///   .allow(Some(&[admin]), None, None)?
   ///   .build()?;
   ///
@@ -629,18 +606,7 @@ impl Acl {
   /// assert_eq!(acl.is_allowed(Some(special), Some(index), Some(read)), false, "Should not \"read\" privileges on \"index\"");
   /// assert_eq!(acl.is_allowed(Some(special), Some(index), None), false, "Should not have any privileges on \"index\"");
   ///
-  /// let acl = AclBuilder::new()
-  ///   .add_roles(&[
-  ///     (guest, None),
-  ///     (user, Some(&[guest])),
-  ///     (special, None),
-  ///     (admin, Some(&[user, special]))
-  ///   ])?
-  ///   .add_resource(index, None)?
-  ///   .add_resource(protected, None)?
-  ///   .allow(Some(&[guest]), Some(&[index]), Some(&[read]))?
-  ///   .allow(Some(&[user]), Some(&[index]), None)?
-  ///   .allow(Some(&[admin]), None, None)?
+  /// let acl = AclBuilder::try_from(acl)?
   ///   .allow(Some(&[special]), Some(&[index]), Some(&["report"]))?
   ///   .build()?;
   ///
@@ -770,7 +736,7 @@ impl Acl {
   /// let delete = "delete";
   ///
   /// // Build ACL with roles, resources, and permissions
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///   // Add roles with inheritance: admin -> user -> guest
   ///   .add_roles(&[
   ///     (guest, None),
@@ -832,7 +798,7 @@ impl Acl {
   /// );
   ///
   /// // Test 8: Check with None privilege (any privilege)
-  /// let acl = AclBuilder::new()
+  /// let acl = AclBuilder::default()
   ///   .add_roles(&[
   ///     (guest, None),
   ///     (user, Some(&[guest])),
