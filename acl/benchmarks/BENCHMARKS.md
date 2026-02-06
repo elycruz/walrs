@@ -1,8 +1,8 @@
-# ACL Benchmarking Suite - Complete Overview
+# ACL Benchmarking Suite Overview
 
 ## 📊 All Benchmarks Summary
 
-Successfully created a comprehensive benchmarking suite with **two complementary benchmarks** demonstrating ACL performance in different contexts.
+Contains a comprehensive benchmarking suite with **two complementary benchmarks** demonstrating ACL performance in different contexts.
 
 ---
 
@@ -12,6 +12,7 @@ Successfully created a comprehensive benchmarking suite with **two complementary
 **Focus**: Raw ACL performance with extensive dataset
 
 ### What It Tests
+
 - Random permission checks (1 to 100,000 iterations)
 - Role inheritance validation
 - Resource hierarchy checks
@@ -19,6 +20,7 @@ Successfully created a comprehensive benchmarking suite with **two complementary
 - Memory usage estimation
 
 ### Key Results
+
 ```
 Performance: 1.3M checks/sec @ ~750ns per check
 Memory:      ~50 KB for 46 roles + 79 resources + 300+ rules
@@ -26,6 +28,7 @@ Loading:     ~7.5ms including cycle detection
 ```
 
 ### Use Case
+
 Understanding baseline ACL performance without web framework overhead.
 
 ---
@@ -36,6 +39,7 @@ Understanding baseline ACL performance without web framework overhead.
 **Focus**: Real-world web application integration
 
 ### What It Tests
+ 
 - ACL middleware overhead in HTTP requests
 - Concurrent request handling
 - Thread-safe Arc<Acl> sharing
@@ -43,6 +47,7 @@ Understanding baseline ACL performance without web framework overhead.
 - Production deployment patterns
 
 ### Key Results
+
 ```
 Performance: 1.5M - 3.9M checks/sec @ 256-640ns per check
 Overhead:    <1µs per HTTP request (<0.01% of total latency)
@@ -51,6 +56,7 @@ Memory:      ~50 KB shared across all workers
 ```
 
 ### Use Case
+
 Demonstrating production-ready web application authorization.
 
 ---
