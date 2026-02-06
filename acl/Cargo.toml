@@ -10,3 +10,16 @@ walrs_graph = { path = '../graph' }
 serde = "1.0.103"
 serde_json = "1.0.80"
 serde_derive = "1.0.103"
+
+[dev-dependencies]
+rand = "0.8"
+actix-web = "4"
+tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "benchmark_extensive_acl"
+path = "benchmark/benchmark_extensive_acl.rs"
+
+[[example]]
+name = "benchmark_actix_middleware"
+path = "benchmark/benchmark_actix_middleware.rs"
