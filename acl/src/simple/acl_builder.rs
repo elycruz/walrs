@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use walrs_graph::digraph::DisymGraph;
 use crate::simple::{Acl, ResourceRoleRules, Rule};
 
@@ -325,6 +326,48 @@ impl AclBuilder {
 impl Default for AclBuilder {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Converts an `Acl` instance into an `AclBuilder`.
+///
+/// This allows you to take an existing `Acl` and convert it back into a builder,
+/// which can be useful for modifying an existing ACL by adding new roles, resources,
+/// or rules before building it again.
+///
+/// # Example
+///
+/// ```rust
+/// use std::convert::TryFrom;
+/// use walrs_acl::simple::{Acl, AclBuilder};
+///
+/// // Create an ACL
+/// let acl = AclBuilder::new()
+///     .add_role("guest", None)?
+///     .add_resource("blog", None)?
+///     .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+///     .build()?;
+///
+/// // Convert it back to a builder
+/// let builder = AclBuilder::try_from(acl)?;
+///
+/// // Modify and rebuild
+/// let modified_acl = builder
+///     .add_role("admin", Some(&["guest"]))?
+///     .allow(Some(&["admin"]), None, None)?
+///     .build()?;
+///
+/// assert!(modified_acl.is_allowed(Some("admin"), Some("blog"), Some("write")));
+/// # Ok::<(), String>(())
+/// ```
+impl TryFrom<Acl> for AclBuilder {
+    type Error = String;
+
+    fn try_from(acl: Acl) -> Result<Self, Self::Error> {
+        // Create a new builder with the ACL's roles, resources, and rules
+        let builder = AclBuilder::from_parts(acl._roles, acl._resources, acl._rules);
+
+        Ok(builder)
     }
 }
 

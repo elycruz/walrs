@@ -63,6 +63,102 @@ fn test_acl_builder_basic() -> Result<(), String> {
 }
 
 #[test]
+fn test_acl_builder_try_from_acl() -> Result<(), String> {
+    use std::convert::TryFrom;
+
+    // First, create an ACL using the builder
+    let original_acl = AclBuilder::new()
+        .add_role("guest", None)?
+        .add_role("user", Some(&["guest"]))?
+        .add_role("admin", Some(&["user"]))?
+        .add_resource("blog", None)?
+        .add_resource("comment", Some(&["blog"]))?
+        .add_resource("admin_panel", None)?
+        .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "write"]))?
+        .allow(Some(&["user"]), Some(&["comment"]), Some(&["create"]))?
+        .deny(Some(&["user"]), Some(&["admin_panel"]), None)?
+        .allow(Some(&["admin"]), None, None)?
+        .build()?;
+
+    // Convert the ACL back to a builder
+    let builder = AclBuilder::try_from(original_acl)?;
+
+    // Build a new ACL from the builder
+    let rebuilt_acl = builder.build()?;
+
+    // Verify that the rebuilt ACL has the same behavior as the original
+
+    // Test guest permissions
+    assert!(
+        rebuilt_acl.is_allowed(Some("guest"), Some("blog"), Some("read")),
+        "Guest should be able to read blog"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("guest"), Some("blog"), Some("write")),
+        "Guest should not be able to write to blog"
+    );
+
+    // Test user permissions (inherits from guest)
+    assert!(
+        rebuilt_acl.is_allowed(Some("user"), Some("blog"), Some("read")),
+        "User should be able to read blog"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("user"), Some("blog"), Some("write")),
+        "User should be able to write to blog"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("user"), Some("comment"), Some("create")),
+        "User should be able to create comments"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("user"), Some("admin_panel"), Some("read")),
+        "User should not have access to admin panel"
+    );
+
+    // Test admin permissions (should have all privileges)
+    assert!(
+        rebuilt_acl.is_allowed(Some("admin"), Some("blog"), Some("read")),
+        "Admin should be able to read blog"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("admin"), Some("admin_panel"), Some("read")),
+        "Admin should have access to admin panel"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("admin"), Some("comment"), Some("delete")),
+        "Admin should be able to delete comments"
+    );
+
+    // Verify role inheritance
+    assert!(
+        rebuilt_acl.inherits_role("user", "guest"),
+        "User role should inherit from guest"
+    );
+    assert!(
+        rebuilt_acl.inherits_role("admin", "user"),
+        "Admin role should inherit from user"
+    );
+    assert!(
+        rebuilt_acl.inherits_role("admin", "guest"),
+        "Admin role should transitively inherit from guest"
+    );
+
+    // Verify resource inheritance
+    assert!(
+        rebuilt_acl.inherits_resource("comment", "blog"),
+        "Comment resource should inherit from blog"
+    );
+
+    // Verify role and resource counts
+    assert_eq!(rebuilt_acl.role_count(), 3, "Should have 3 roles");
+    assert_eq!(rebuilt_acl.resource_count(), 3, "Should have 3 resources");
+
+    Ok(())
+}
+
+#[test]
 fn test_acl_builder_with_deny_rules() -> Result<(), String> {
     let acl = AclBuilder::new()
         .add_role("user", None)?
