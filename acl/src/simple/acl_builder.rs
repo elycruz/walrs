@@ -371,4 +371,46 @@ impl TryFrom<Acl> for AclBuilder {
     }
 }
 
+/// Implements conversion from a reference to an `Acl` to an `AclBuilder`.
+/// 
+/// This allows building a new ACL based on an existing one without taking ownership.
+/// The internal graphs and rules are cloned from the source ACL.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_acl::simple::{AclBuilder, Acl};
+/// use std::convert::TryFrom;
+///
+/// let acl = AclBuilder::new()
+///     .add_role("guest", None)?
+///     .add_resource("blog", None)?
+///     .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+///     .build()?;
+///
+/// // Build upon the existing ACL
+/// let builder = AclBuilder::try_from(&acl)?;
+/// let modified_acl = builder
+///     .add_role("admin", Some(&["guest"]))?
+///     .allow(Some(&["admin"]), Some(&["blog"]), Some(&["write"]))?
+///     .build()?;
+///
+/// // Original ACL is still available
+/// assert!(acl.is_allowed(Some("guest"), Some("blog"), Some("read")));
+/// assert!(modified_acl.is_allowed(Some("admin"), Some("blog"), Some("write")));
+/// # Ok::<(), String>(())
+/// ```
+impl TryFrom<&Acl> for AclBuilder {
+    type Error = String;
 
+    fn try_from(acl: &Acl) -> Result<Self, Self::Error> {
+        // Clone the internal graphs and rules to create a new builder
+        let builder = AclBuilder::from_parts(
+            acl._roles.clone(),
+            acl._resources.clone(),
+            acl._rules.clone()
+        );
+
+        Ok(builder)
+    }
+}
