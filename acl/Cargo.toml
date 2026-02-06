@@ -18,8 +18,8 @@ tokio = { version = "1", features = ["full"] }
 
 [[example]]
 name = "benchmark_extensive_acl"
-path = "benchmark/benchmark_extensive_acl.rs"
+path = "benchmarks/benchmark_extensive_acl.rs"
 
 [[example]]
 name = "benchmark_actix_middleware"
-path = "benchmark/benchmark_actix_middleware.rs"
+path = "benchmarks/benchmark_actix_middleware.rs"

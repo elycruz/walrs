@@ -1,23 +1,27 @@
 # walrs_acl 
 
-Access Control List (ACL) structure for granting privileges on resources, by roles or for all respectively.
+Access Control List (ACL) structure for granting privileges on resources, by roles, or for all (roles or resources) in an application context.
+
+## Usage
+
+Instantiate your `Acl` struct - add `Role`s, `Resource`s, and allow/deny rules as required and then query it from a middleware/application context.
+
+```rust
+// @todo
+```
 
 ## How does it work?
 
-The ACL control is meant to be used as a fact forest:  Each entity in the domain ([role, resource, privilege]) can be represented by a tree which can be queried upon:
+The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [used to define the "allow" and "deny" rules on given resources, roles, and privileges, see below for more].
 
-- role tree/directional-graph.
-- resource "".
-- privilege "". Optional.
-
-Visual representation of structure: 
+Internal `rules` structure: 
 
 ```rust
-// ResourceRoleRules {
+//  {
 //     for_all_resources: RolePrivilegeRules {
 //       for_all_roles: PrivilegeRules {
 //         for_all_privileges: Rule
-//         by_privilege_id: Option<HashMap<Privilege}, Rule>>
+//         by_privilege_id: Option<HashMap<Privilege, Rule>>
 //       }
 //       by_role_id: Option<HashMap<Role, PrivilegeRules>>
 //     }
@@ -30,53 +34,23 @@ Essentially, the component enables the possibility for resource, role, privilege
 ## Runtime model
 
 1.  Load the ACL tree from external source (text file, json, DB, etc.) into memory.
-2.  Convert the loaded tree into fact forest structure (`*Acl` structure).
-3.  Access the structure to check user permissions, from app middleware.
+2.  Convert the loaded tree into an acl structure.
+3.  Access the structure from app middle to check user privileges.
 
-@todo example.
-
-## Domain Model
+## Domain Models
 
 *Definitions:*
 
 - {entity} - One of `role`, `resource`, and/or `privilege`
 - `type Symbol = str;` - Referential type used in `*Acl` structure.
 
+Example of what this [domain] model would like in a database:
+
 *{entity} Structure:*
 
 - `{entity}_(slug|alias): &Symbol` - Primary key, Not null.
 - `{entity}_name: String` - Human Readable Name. Not null.
 - `{entity}_description: Option<String>` - Nullable description.
-
-## Usage
-
-@todo
-
-Instantiate your `Acl` struct - add `Role`s, `Resource`s, and allow/deny rules to it
-Next tie the interface into your application's frontend/action controller/dispatcher, check permissions and rules and allow/deny access to resources as needed.
-
-```rust
-// @todo
-```
-
-### About Access Control Lists (ACLs)
-
-ACL's can be defined either in a domain model, or as one, or more, text files.
-
-ACLs are made up of the following entities:
-
-- Resources - Named internet resources (internal, or otherwise).
-- Roles - Roles a user may take in an application.
-- Group - Group of Roles.
-- Role and Groups - List of groups of roles.
-- Privileges - A subset, action, and/or a subset entrypoint to a resource.
-- Access Control Lists (ACLs).
-
-Additionally, ACLs can be made up of the following data structures:
-
-1.  A roles/role-groups graph - Allows nodes to inherit from each other.
-2.  A resources graph - "".
-3.  An ACL.
 
 #### Storage Mechanisms
 
@@ -197,35 +171,6 @@ Here roles inherit from other roles, and resources, from other resources.
 Where ever you see `null` those we represent as `Option<...>`, in data struct.
 
 For `rules.allow` resources allow access to roles on privileges, if `null` means all privileges ('read', 'update', etc.).
-
-## Brainstorm
-
-Distill rules structure:
-
-```rust
-
-enum RuleType {
-  Allow = 0,
-  Deny = 1,
-}
-
-type PrivilegeRule = RuleType;
-
-struct PrivilegeRules<'a> {
-  fpr_all_privileges: PrivilegeRule,
-  by_privilege_id: Option<HashMap<&'a str, PrivilegeRule>>,
-}
-
-struct RoleRules<'a> {
-  for_all_roles: PrivilegeRules<'a>,
-  by_role_id: Option<HashMap<&'a str, PrivilegeRules<'a>>>,
-}
-
-struct ResourceRules<'a> {
-  for_all_resources: RoleRules<'a>,
-  by_resource_id: HashMap<&'a str, RoleRules<'a>>,
-}
-```
 
 ## Prior Art:
 - MS Windows Registry: https://docs.microsoft.com/en-us/windows/win32/sysinfo/structure-of-the-registry#:~:text=The%20registry%20is%20a%20hierarchical,tree%20is%20called%20a%20key.&text=Value%20names%20and%20data%20can%20include%20the%20backslash%20character.
