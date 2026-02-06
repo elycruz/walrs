@@ -471,3 +471,581 @@ fn test_acl_builder_complex_scenario() -> Result<(), String> {
 
     Ok(())
 }
+
+// ============================
+// Tests for add_role
+// ============================
+
+#[test]
+fn test_acl_builder_add_role_without_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_role("guest", None)?
+        .add_resource("blog", None)?
+        .build()?;
+
+    assert!(acl.has_role("guest"), "Should have guest role");
+    assert_eq!(acl.role_count(), 1, "Should have exactly 1 role");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_role_with_single_parent() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_role("guest", None)?
+        .add_role("user", Some(&["guest"]))?
+        .build()?;
+
+    assert!(acl.has_role("guest"), "Should have guest role");
+    assert!(acl.has_role("user"), "Should have user role");
+    assert!(acl.inherits_role("user", "guest"), "User should inherit from guest");
+    assert_eq!(acl.role_count(), 2, "Should have exactly 2 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_role_with_multiple_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_role("viewer", None)?
+        .add_role("editor", None)?
+        .add_role("admin", Some(&["viewer", "editor"]))?
+        .build()?;
+
+    assert!(acl.has_role("viewer"), "Should have viewer role");
+    assert!(acl.has_role("editor"), "Should have editor role");
+    assert!(acl.has_role("admin"), "Should have admin role");
+    assert!(acl.inherits_role("admin", "viewer"), "Admin should inherit from viewer");
+    assert!(acl.inherits_role("admin", "editor"), "Admin should inherit from editor");
+    assert_eq!(acl.role_count(), 3, "Should have exactly 3 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_role_with_nonexistent_parent() -> Result<(), String> {
+    // Parent role doesn't exist yet - it should be auto-created
+    let acl = AclBuilder::new()
+        .add_role("user", Some(&["nonexistent-parent"]))?
+        .build()?;
+
+    assert!(acl.has_role("user"), "Should have user role");
+    assert!(acl.has_role("nonexistent-parent"), "Should auto-create nonexistent-parent role");
+    assert!(acl.inherits_role("user", "nonexistent-parent"), "User should inherit from nonexistent-parent");
+    assert_eq!(acl.role_count(), 2, "Should have exactly 2 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_role_duplicate() -> Result<(), String> {
+    // Adding same role twice should be idempotent
+    let acl = AclBuilder::new()
+        .add_role("guest", None)?
+        .add_role("guest", None)?
+        .build()?;
+
+    assert!(acl.has_role("guest"), "Should have guest role");
+    assert_eq!(acl.role_count(), 1, "Should have exactly 1 role (not duplicated)");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_role_chaining() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_role("guest", None)?
+        .add_role("user", Some(&["guest"]))?
+        .add_role("admin", Some(&["user"]))?
+        .add_role("super_admin", Some(&["admin"]))?
+        .build()?;
+
+    // Verify all roles exist
+    assert_eq!(acl.role_count(), 4, "Should have exactly 4 roles");
+
+    // Verify inheritance chain
+    assert!(acl.inherits_role("user", "guest"), "User should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "Admin should inherit from user");
+    assert!(acl.inherits_role("super_admin", "admin"), "Super admin should inherit from admin");
+
+    // Verify transitive inheritance
+    assert!(acl.inherits_role("super_admin", "guest"), "Super admin should transitively inherit from guest");
+
+    Ok(())
+}
+
+// ============================
+// Tests for add_roles
+// ============================
+
+#[test]
+fn test_acl_builder_add_roles_basic() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("guest", None),
+            ("user", None),
+            ("admin", None),
+        ])?
+        .build()?;
+
+    assert!(acl.has_role("guest"), "Should have guest role");
+    assert!(acl.has_role("user"), "Should have user role");
+    assert!(acl.has_role("admin"), "Should have admin role");
+    assert_eq!(acl.role_count(), 3, "Should have exactly 3 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_with_single_parent() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("guest", None),
+            ("user", Some(&["guest"])),
+            ("admin", Some(&["user"])),
+        ])?
+        .build()?;
+
+    assert!(acl.inherits_role("user", "guest"), "User should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "Admin should inherit from user");
+    assert!(acl.inherits_role("admin", "guest"), "Admin should transitively inherit from guest");
+    assert_eq!(acl.role_count(), 3);
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_with_multiple_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("viewer", None),
+            ("editor", None),
+            ("moderator", None),
+            ("admin", Some(&["editor", "moderator"])),
+            ("super_admin", Some(&["admin", "viewer"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.role_count(), 5, "Should have exactly 5 roles");
+    assert!(acl.inherits_role("admin", "editor"), "Admin should inherit from editor");
+    assert!(acl.inherits_role("admin", "moderator"), "Admin should inherit from moderator");
+    assert!(acl.inherits_role("super_admin", "admin"), "Super admin should inherit from admin");
+    assert!(acl.inherits_role("super_admin", "viewer"), "Super admin should inherit from viewer");
+
+    // Verify transitive inheritance
+    assert!(acl.inherits_role("super_admin", "editor"), "Super admin should transitively inherit from editor");
+    assert!(acl.inherits_role("super_admin", "moderator"), "Super admin should transitively inherit from moderator");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_empty_list() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[])?
+        .build()?;
+
+    assert_eq!(acl.role_count(), 0, "Should have 0 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_out_of_order_dependencies() -> Result<(), String> {
+    // Add roles in reverse order - children before parents
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("super_admin", Some(&["admin"])),  // admin doesn't exist yet
+            ("admin", Some(&["user"])),         // user doesn't exist yet
+            ("user", Some(&["guest"])),         // guest doesn't exist yet
+            ("guest", None),                    // finally add the base role
+        ])?
+        .build()?;
+
+    assert_eq!(acl.role_count(), 4, "Should have exactly 4 roles");
+    assert!(acl.inherits_role("user", "guest"), "User should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "Admin should inherit from user");
+    assert!(acl.inherits_role("super_admin", "admin"), "Super admin should inherit from admin");
+    assert!(acl.inherits_role("super_admin", "guest"), "Super admin should transitively inherit from guest");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_duplicate_roles() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("guest", None),
+            ("user", Some(&["guest"])),
+        ])?
+        .add_roles(&[
+            ("guest", None),  // Duplicate
+            ("user", Some(&["guest"])),  // Duplicate
+        ])?
+        .build()?;
+
+    assert!(acl.has_role("guest"), "Should have guest role");
+    assert!(acl.has_role("user"), "Should have user role");
+    assert_eq!(acl.role_count(), 2, "Should have exactly 2 roles");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_mixed_with_and_without_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("guest", None),
+            ("special", None),
+            ("user", Some(&["guest"])),
+            ("moderator", None),
+            ("admin", Some(&["user", "moderator"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.role_count(), 5, "Should have exactly 5 roles");
+    assert!(acl.inherits_role("user", "guest"), "User should inherit from guest");
+    assert!(acl.inherits_role("admin", "user"), "Admin should inherit from user");
+    assert!(acl.inherits_role("admin", "moderator"), "Admin should inherit from moderator");
+    assert!(!acl.inherits_role("special", "guest"), "Special should not inherit from guest");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_roles_complex_diamond_inheritance() -> Result<(), String> {
+    // Create a diamond inheritance pattern:
+    //        root
+    //       /    \
+    //   branch_a  branch_b
+    //       \    /
+    //        leaf
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("root", None),
+            ("branch_a", Some(&["root"])),
+            ("branch_b", Some(&["root"])),
+            ("leaf", Some(&["branch_a", "branch_b"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.role_count(), 4, "Should have exactly 4 roles");
+    assert!(acl.inherits_role("branch_a", "root"), "Branch A should inherit from root");
+    assert!(acl.inherits_role("branch_b", "root"), "Branch B should inherit from root");
+    assert!(acl.inherits_role("leaf", "branch_a"), "Leaf should inherit from branch A");
+    assert!(acl.inherits_role("leaf", "branch_b"), "Leaf should inherit from branch B");
+    assert!(acl.inherits_role("leaf", "root"), "Leaf should transitively inherit from root");
+
+    Ok(())
+}
+
+// ============================
+// Tests for add_resource
+// ============================
+
+#[test]
+fn test_acl_builder_add_resource_without_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("blog", None)?
+        .build()?;
+
+    assert!(acl.has_resource("blog"), "Should have blog resource");
+    assert_eq!(acl.resource_count(), 1, "Should have exactly 1 resource");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resource_with_single_parent() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("cms", None)?
+        .add_resource("blog", Some(&["cms"]))?
+        .build()?;
+
+    assert!(acl.has_resource("cms"), "Should have cms resource");
+    assert!(acl.has_resource("blog"), "Should have blog resource");
+    assert_eq!(acl.resource_count(), 2, "Should have exactly 2 resources");
+    assert!(acl.inherits_resource("blog", "cms"), "Blog should inherit from cms");
+    assert!(!acl.inherits_resource("cms", "blog"), "CMS should not inherit from blog");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resource_with_multiple_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("readable", None)?
+        .add_resource("writable", None)?
+        .add_resource("document", Some(&["readable", "writable"]))?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 3, "Should have exactly 3 resources");
+    assert!(acl.inherits_resource("document", "readable"), "Document should inherit from readable");
+    assert!(acl.inherits_resource("document", "writable"), "Document should inherit from writable");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resource_with_transitive_inheritance() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("base", None)?
+        .add_resource("intermediate", Some(&["base"]))?
+        .add_resource("leaf", Some(&["intermediate"]))?
+        .build()?;
+
+    assert!(acl.inherits_resource("leaf", "intermediate"), "Leaf should inherit from intermediate");
+    assert!(acl.inherits_resource("leaf", "base"), "Leaf should inherit from base (transitively)");
+    assert!(acl.inherits_resource("intermediate", "base"), "Intermediate should inherit from base");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resource_chained_calls() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("level1", None)?
+        .add_resource("level2", Some(&["level1"]))?
+        .add_resource("level3", Some(&["level2"]))?
+        .add_resource("level4", Some(&["level3"]))?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 4, "Should have exactly 4 resources");
+    assert!(acl.inherits_resource("level4", "level3"), "Level4 should inherit from level3");
+    assert!(acl.inherits_resource("level4", "level2"), "Level4 should inherit from level2 (transitively)");
+    assert!(acl.inherits_resource("level4", "level1"), "Level4 should inherit from level1 (transitively)");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resource_duplicate() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resource("blog", None)?
+        .add_resource("blog", None)?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 1, "Should have exactly 1 resource (not duplicated)");
+
+    Ok(())
+}
+
+// ============================
+// Tests for add_resources
+// ============================
+
+#[test]
+fn test_acl_builder_add_resources_basic() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("blog", None),
+            ("forum", None),
+            ("wiki", None),
+        ])?
+        .build()?;
+
+    assert!(acl.has_resource("blog"), "Should have blog resource");
+    assert!(acl.has_resource("forum"), "Should have forum resource");
+    assert!(acl.has_resource("wiki"), "Should have wiki resource");
+    assert_eq!(acl.resource_count(), 3, "Should have exactly 3 resources");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_with_single_parent() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("content", None),
+            ("article", Some(&["content"])),
+            ("blog_post", Some(&["article"])),
+        ])?
+        .build()?;
+
+    assert!(acl.inherits_resource("article", "content"), "Article should inherit from content");
+    assert!(acl.inherits_resource("blog_post", "article"), "Blog post should inherit from article");
+    assert!(acl.inherits_resource("blog_post", "content"), "Blog post should transitively inherit from content");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_with_multiple_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("viewable", None),
+            ("editable", None),
+            ("deletable", None),
+            ("admin_resource", Some(&["viewable", "editable", "deletable"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 4, "Should have exactly 4 resources");
+    assert!(acl.inherits_resource("admin_resource", "viewable"), "Admin resource should inherit from viewable");
+    assert!(acl.inherits_resource("admin_resource", "editable"), "Admin resource should inherit from editable");
+    assert!(acl.inherits_resource("admin_resource", "deletable"), "Admin resource should inherit from deletable");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_empty_list() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[])?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 0, "Should have 0 resources");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_out_of_order_dependencies() -> Result<(), String> {
+    // Add resources in reverse order - children before parents
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("level4", Some(&["level3"])),
+            ("level3", Some(&["level2"])),
+            ("level2", Some(&["level1"])),
+            ("level1", None),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 4, "Should have exactly 4 resources");
+    assert!(acl.inherits_resource("level2", "level1"), "Level2 should inherit from level1");
+    assert!(acl.inherits_resource("level3", "level2"), "Level3 should inherit from level2");
+    assert!(acl.inherits_resource("level4", "level3"), "Level4 should inherit from level3");
+    assert!(acl.inherits_resource("level4", "level1"), "Level4 should transitively inherit from level1");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_duplicate() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("blog", None),
+            ("forum", None),
+        ])?
+        .add_resources(&[
+            ("blog", None),  // Duplicate
+            ("forum", None), // Duplicate
+        ])?
+        .build()?;
+
+    assert!(acl.has_resource("blog"), "Should have blog resource");
+    assert!(acl.has_resource("forum"), "Should have forum resource");
+    assert_eq!(acl.resource_count(), 2, "Should have exactly 2 resources");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_mixed_with_and_without_parents() -> Result<(), String> {
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("public", None),
+            ("private", None),
+            ("blog", Some(&["public"])),
+            ("secret", None),
+            ("admin_blog", Some(&["blog", "private"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 5, "Should have exactly 5 resources");
+    assert!(acl.inherits_resource("blog", "public"), "Blog should inherit from public");
+    assert!(acl.inherits_resource("admin_blog", "blog"), "Admin blog should inherit from blog");
+    assert!(acl.inherits_resource("admin_blog", "private"), "Admin blog should inherit from private");
+    assert!(!acl.inherits_resource("secret", "public"), "Secret should not inherit from public");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_complex_diamond_inheritance() -> Result<(), String> {
+    // Create a diamond inheritance pattern:
+    //        root
+    //       /    \
+    //   path_a  path_b
+    //       \    /
+    //        leaf
+    let acl = AclBuilder::new()
+        .add_resources(&[
+            ("root", None),
+            ("path_a", Some(&["root"])),
+            ("path_b", Some(&["root"])),
+            ("leaf", Some(&["path_a", "path_b"])),
+        ])?
+        .build()?;
+
+    assert_eq!(acl.resource_count(), 4, "Should have exactly 4 resources");
+    assert!(acl.inherits_resource("path_a", "root"), "Path A should inherit from root");
+    assert!(acl.inherits_resource("path_b", "root"), "Path B should inherit from root");
+    assert!(acl.inherits_resource("leaf", "path_a"), "Leaf should inherit from path A");
+    assert!(acl.inherits_resource("leaf", "path_b"), "Leaf should inherit from path B");
+    assert!(acl.inherits_resource("leaf", "root"), "Leaf should transitively inherit from root");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_add_resources_with_auto_parent_creation() -> Result<(), String> {
+    // Add a resource with a parent that doesn't exist yet
+    let acl = AclBuilder::new()
+        .add_resource("child", Some(&["nonexistent_parent"]))?
+        .build()?;
+
+    assert!(acl.has_resource("child"), "Should have child resource");
+    assert!(acl.has_resource("nonexistent_parent"), "Should auto-create nonexistent_parent resource");
+    assert!(acl.inherits_resource("child", "nonexistent_parent"), "Child should inherit from nonexistent_parent");
+    assert_eq!(acl.resource_count(), 2, "Should have exactly 2 resources");
+
+    Ok(())
+}
+
+// ============================
+// Tests for cycle detection
+// ============================
+
+#[test]
+fn test_acl_builder_detects_role_self_cycle() {
+    let result = AclBuilder::new()
+        .add_role("self_ref", None).unwrap()
+        .add_role("self_ref", Some(&["self_ref"])).unwrap()
+        .build();
+
+    assert!(result.is_err(), "Should detect self-referencing cycle in roles");
+}
+
+#[test]
+fn test_acl_builder_detects_role_circular_dependency() {
+    let result = AclBuilder::new()
+        .add_role("role_a", Some(&["role_b"])).unwrap()
+        .add_role("role_b", Some(&["role_c"])).unwrap()
+        .add_role("role_c", Some(&["role_a"])).unwrap()
+        .build();
+
+    assert!(result.is_err(), "Should detect circular dependency in roles");
+}
+
+#[test]
+fn test_acl_builder_detects_resource_self_cycle() {
+    let result = AclBuilder::new()
+        .add_resource("self_ref", None).unwrap()
+        .add_resource("self_ref", Some(&["self_ref"])).unwrap()
+        .build();
+
+    assert!(result.is_err(), "Should detect self-referencing cycle in resources");
+}
+
+#[test]
+fn test_acl_builder_detects_resource_circular_dependency() {
+    let result = AclBuilder::new()
+        .add_resource("res_a", Some(&["res_b"])).unwrap()
+        .add_resource("res_b", Some(&["res_c"])).unwrap()
+        .add_resource("res_c", Some(&["res_a"])).unwrap()
+        .build();
+
+    assert!(result.is_err(), "Should detect circular dependency in resources");
+}
+

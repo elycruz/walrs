@@ -250,6 +250,7 @@ impl Acl {
   /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_roles_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._roles.graph()).cycle() {
+      if cycles.is_empty() { return Ok(()); }
       let cycles_repr = self._roles.names(cycles).unwrap()
           .join(" <- ");
       return Err(format!("Acl contains cyclic edges in \"roles\" graph: {:?}", cycles_repr));
@@ -261,6 +262,7 @@ impl Acl {
   /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_resources_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._resources.graph()).cycle() {
+      if cycles.is_empty() { return Ok(()); }
       let cycles_repr = self._resources.names(cycles).unwrap()
           .join(" <- ");
       return Err(format!("Acl contains cycles in 'resources' graph: {:?}", cycles_repr));
