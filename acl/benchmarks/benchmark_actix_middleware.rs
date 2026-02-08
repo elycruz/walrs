@@ -14,7 +14,6 @@ use std::fs::File;
 use std::future::{ready, Ready};
 use std::sync::Arc;
 use std::time::Instant;
-use tokio::time::Duration;
 use walrs_acl::simple::{Acl, AclData};
 
 /// Shared application state containing the ACL
@@ -187,13 +186,6 @@ async fn main() -> std::io::Result<()> {
     println!("       http://127.0.0.1:8080/admin");
     println!();
 
-    // Spawn background task to run internal benchmarks
-    let acl_clone = acl.clone();
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(2)).await;
-        run_internal_benchmarks(acl_clone).await;
-    });
-
     // Start web server
     let server = HttpServer::new(move || {
         App::new()
@@ -208,62 +200,5 @@ async fn main() -> std::io::Result<()> {
     .bind(("127.0.0.1", 8080))?
     .run();
 
-    // Run server for 30 seconds then shutdown
-    let server_handle = server.handle();
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(30)).await;
-        println!("\n⏱️  30 seconds elapsed, shutting down server...");
-        server_handle.stop(true).await;
-    });
-
     server.await
-}
-
-/// Run internal benchmarks to simulate various request patterns
-async fn run_internal_benchmarks(acl: Arc<Acl>) {
-    println!("🔥 Running internal request simulation benchmarks...\n");
-
-    // Simulate different user scenarios
-    let scenarios = vec![
-        ("guest", "blog", "read", "Guest reading blog"),
-        ("user", "blog", "write", "User writing blog"),
-        ("editor", "blog", "delete", "Editor deleting blog post"),
-        ("admin", "admin_panel", "read", "Admin accessing panel"),
-        ("moderator", "forum", "edit", "Moderator editing forum"),
-        ("developer", "dev_deployment", "deploy_production", "Developer deploying"),
-        ("cfo", "finance_accounting", "read", "CFO reading financials"),
-    ];
-
-    println!("Simulating 10,000 requests per scenario:\n");
-
-    for (role, resource, privilege, description) in scenarios {
-        let start = Instant::now();
-        let mut allowed = 0;
-        let mut denied = 0;
-
-        for _ in 0..10_000 {
-            if acl.is_allowed(Some(role), Some(resource), Some(privilege)) {
-                allowed += 1;
-            } else {
-                denied += 1;
-            }
-        }
-
-        let duration = start.elapsed();
-        let avg = duration / 10_000;
-        let per_sec = 10_000.0 / duration.as_secs_f64();
-
-        println!("  {} ({}, {}, {})", description, role, resource, privilege);
-        println!("    Total: {:?} | Avg: {:?} | Rate: {:.0} checks/sec",
-                 duration, avg, per_sec);
-        println!("    Result: {} allowed, {} denied", allowed, denied);
-        println!();
-    }
-
-    println!("🎯 Internal benchmarks complete!\n");
-    println!("💡 For external load testing, use tools like:");
-    println!("   - wrk: https://github.com/wg/wrk");
-    println!("   - ab (Apache Bench): sudo apt install apache2-utils");
-    println!("   - hey: https://github.com/rakyll/hey");
-    println!();
 }

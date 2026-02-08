@@ -29,8 +29,6 @@ Internal `rules` structure:
 // }
 ```
 
-Essentially, the component enables the possibility for resource, role, privilege and rule, relationships to be managed and queried all from one place.
-
 ## Runtime model
 
 1.  Load the ACL tree from external source (text file, json, DB, etc.) into memory.
@@ -64,81 +62,9 @@ ACLs can be stored in any storage format that is accessible by a target applicat
 
 Common text based formats, that can easily be used to create an ACL representation, include (but are not limited to):
 
-- *.txt
 - *.json
 - *.yaml
 - etc.
-
-###### Plain Text Example:
-
-Here we'll demonstrate storing role, resource, and role-group, graphs alongside the ACL structure, in a plain text file.
-
-**General Structure:**
-
-```text
-# Role Graph
-
-{role} {[..., {role}]} 
-
-# Resource Graph
-
-{resource} {[..., {resource}]}
-
-# ACL
-
-{resource}
-  {[deny, allow]}
-    {privilege}
-      {user-group}
-```
-
-**Example:**
-
-```text
-# Roles
-# ----
-guest
-user guest
-admin user
-
-# Resources
-# ----
-index
-blog index
-products blog
-
-# Groups
-# ----
-app-guest guest
-app-user app-guest
-app-admin app-user
-cms-guest app-guest
-cms-user cms-guest
-cms-admin cms-user
-
-# ACL
-# ----
-all
-  deny
-    all
-index all
-  allow
-    index
-      guest
-blog index
-  allow
-    create
-      cms-user
-    read 
-      guest
-    update
-      cms-user
-    delete
-      cms-admin
-    disable
-      cms-user
-products blog
-```
 
 ###### JSON Example
 
@@ -172,7 +98,24 @@ Where ever you see `null` those we represent as `Option<...>`, in data struct.
 
 For `rules.allow` resources allow access to roles on privileges, if `null` means all privileges ('read', 'update', etc.).
 
+## RDBMS Example Relations
+
+*Definitions:*
+
+- {entity} - One of `role`, `resource`, and/or `privilege`
+- `type Symbol = str;` - Referential type used in `*Acl` structure.
+
+Example of what this [domain] model would like in a database:
+
+*{entity} Structure:*
+
+- `{entity}_(slug|alias): &Symbol` - Primary key, Not null.
+- `{entity}_name: String` - Human Readable Name. Not null.
+- `{entity}_description: Option<String>` - Nullable description.
+
+
 ## Prior Art:
+
 - MS Windows Registry: https://docs.microsoft.com/en-us/windows/win32/sysinfo/structure-of-the-registry#:~:text=The%20registry%20is%20a%20hierarchical,tree%20is%20called%20a%20key.&text=Value%20names%20and%20data%20can%20include%20the%20backslash%20character.
 - Laminas (previously Zend Framework) Permissions/Acl: https://github.com/laminas/laminas-permissions-acl
 - Registry module (Haskell): https://hackage.haskell.org/package/registry
