@@ -42,11 +42,11 @@ Iterations    Total Time    Avg/Check    Checks/sec
 
 **Apache Bench Results (on local machine):**
 
-| Test Scenario | Requests | Concurrency | Req/sec | Latency (mean) | p99 Latency |
-|---------------|----------|-------------|---------|----------------|-------------|
-| **Basic Load** | 10,000 | 100 | **11,027** | 9.07ms | 10ms |
-| **Admin Access** | 5,000 | 50 | **10,629** | 4.70ms | 5ms |
-| **High Concurrency** | 20,000 | 200 | **10,825** | 18.48ms | 21ms |
+| Test Scenario               | Requests | Concurrency | Req/sec | Latency (mean) | p99 Latency |
+|-----------------------------|----------|-------------|---------|----------------|-------------|
+| **Basic Load (mean)**       | 10,000 | 100 | **11,027** | 9.07ms | 10ms |
+| **Admin Access (mean)**     | 5,000 | 50 | **10,629** | 4.70ms | 5ms |
+| **High Concurrency (mean)** | 20,000 | 200 | **10,825** | 18.48ms | 21ms |
 
 **Notes:**
 
@@ -55,15 +55,15 @@ Iterations    Total Time    Avg/Check    Checks/sec
 
 **Metrics:**
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| **HTTP Throughput** | **~10,800 req/sec** | Measured with Apache Bench |
-| **ACL Check Time** | ~91-94µs | Per request (middleware overhead) |
-| **Total Request Time** | 4.7-18.5ms | Depends on concurrency level |
-| **Latency p50** | 5-18ms | Median response time |
-| **Latency p99** | 10-21ms | 99th percentile |
-| **Memory** | ~50 KB | Shared across workers |
-| **Failed Requests** | **0** | 100% success rate |
+| Metric                     | Value | Notes |
+|----------------------------|-------|-------|
+| **HTTP Throughput (mean)** | **~10,800 req/sec** | Measured with Apache Bench |
+| **ACL Check Time**         | ~91-94µs | Per request (middleware overhead) |
+| **Total Request Time**     | 4.7-18.5ms | Depends on concurrency level |
+| **Latency p50**            | 5-18ms | Median response time |
+| **Latency p99**            | 10-21ms | 99th percentile |
+| **Memory**                 | ~50 KB | Shared across workers |
+| **Failed Requests**        | **0** | 100% success rate |
 
 **Detailed Test Results:**
 
@@ -270,7 +270,7 @@ go install github.com/rakyll/hey@latest
 
 ---
 
-## 🎯 Takeaways
+## 🎯 Key Takeaways
 
 ### Performance 🚀
 - ✅ **Sub-microsecond ACL checks** (750ns standalone)
@@ -279,41 +279,9 @@ go install github.com/rakyll/hey@latest
 - ✅ **5-500x faster** than alternatives
 
 ### Memory 💾
-- ✅ **50 KB for extensive ACL** (46 roles + 79 resources + 300+ rules)
+- ✅ **Can handle extensive ACL** (memory used up is primarily the roles, resources, and rules defined in the ACL - data structures used memory is negligible)
 - ✅ **Predictable scaling** (linear with entities)
 - ✅ **Arc-based sharing** (zero-copy across workers)
 - ✅ **No runtime growth** (static after load)
-
-### Reliability 🔒
-- ✅ **100% success rate** (0 failed requests in 35K tests)
-- ✅ **Thread-safe** (`Arc<Acl>`)
-- ✅ **Production-ready** (comprehensive testing)
-- ✅ **No external dependencies** (pure Rust)
-
----
-
-## 📊 Comparison Summary
-
-| Feature                              | In-Memory ACL | Redis | Database | External Service |
-|--------------------------------------|-------------|-------|----------|------------------|
-| **Latency**                          | 91µs        | 500µs-1ms | 2-10ms | 20-50ms |
-| **Throughput (mean out of 100_000)** | 10,800+/sec | 2,000/sec | 500/sec | 50/sec |
-| **Infrastructure**                   | None        | Redis cluster | DB + cache | Service + LB |
-| **Availability**                     | 99.99%+     | 99.9% | 99.9% | 99.5% |
-| **Cost**                             | $0          | $$ | $$$ | $$$$ |
-
----
-
-## 🎉 Conclusion
-
-The ACL implementation demonstrates **production-ready performance** with:
-
-- 🚀 **Exceptional speed** - 10,800+ (mean) req/sec HTTP (out of 100_000), 1.3M+ checks/sec standalone
-- 💾 **Minimal footprint** - 50 KB for extensive ACL
-- 🔒 **High reliability** - 100% success rate, thread-safe
-- ⚡ **Orders of magnitude faster** - Than database/service alternatives
-- 📦 **Zero dependencies** - Pure Rust implementation
-
-**Ready for high-performance, large-scale production deployments!**
 
 ---

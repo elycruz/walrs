@@ -12,9 +12,7 @@ Instantiate your `Acl` struct - add `Role`s, `Resource`s, and allow/deny rules a
 
 ## How does it work?
 
-The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [used to define the "allow" and "deny" rules on given resources, roles, and privileges, see below for more].
-
-Internal `rules` structure: 
+The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [used to define the "allow" and "deny" rules on given resources, roles, and privileges].
 
 ```rust
 //  {
