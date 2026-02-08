@@ -7,7 +7,7 @@
 
 use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
-    middleware, web, App, Error, HttpResponse, HttpServer,
+    web, App, Error, HttpResponse, HttpServer,
 };
 use std::convert::TryFrom;
 use std::fs::File;
@@ -190,7 +190,7 @@ async fn main() -> std::io::Result<()> {
     let server = HttpServer::new(move || {
         App::new()
             .app_data(web::Data::new(app_state.clone()))
-            .wrap(middleware::Logger::default())
+            // .wrap(middleware::Logger::default())
             .wrap(AclMiddleware::new(acl.clone()))
             .route("/", web::get().to(index))
             .route("/api/status", web::get().to(api_endpoint))
