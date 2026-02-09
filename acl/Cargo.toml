@@ -7,14 +7,21 @@ edition = "2021"
 
 [dependencies]
 walrs_graph = { path = '../graph' }
-serde = "1.0.103"
-serde_json = "1.0.80"
-serde_derive = "1.0.103"
+serde = "1.0.228"
+serde_json = "1.0.149"
+serde_derive = "1.0.228"
 
 [dev-dependencies]
 rand = "0.8"
 actix-web = "4"
-tokio = { version = "1", features = ["full"] }
+
+[[example]]
+name = "acl_builder_example"
+path = "examples/acl_builder_example.rs"
+
+[[example]]
+name = "acl_try_from_json"
+path = "examples/acl_try_from_json.rs"
 
 [[example]]
 name = "benchmark_extensive_acl"
