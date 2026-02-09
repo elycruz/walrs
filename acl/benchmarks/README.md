@@ -4,11 +4,13 @@ Benchmarks demonstrating ACL performance in both standalone and web application 
 
 ---
 
-## Results
+## Benchmarks
 
-### Standalone ACL
+### 1. Standalone ACL Performance
 
-**Summary:**
+ACL structure raw performance with comprehensive dataset.
+
+#### Results Summary:
 
 ```
 Performance: 1.3M checks/sec @ ~750ns per check
@@ -38,7 +40,36 @@ Iterations    Total Time    Avg/Check    Checks/sec
 100,000       81ms          811ns        1,232,195
 ```
 
-### ACL in Web Server
+#### Run
+
+```bash
+cargo run --release --example benchmark_extensive_acl
+```
+
+**Measured:**
+- Random permission checks (1 to 100,000 iterations)
+- Role inheritance validation (9 levels deep)
+- Resource hierarchy checks
+- Deny rule evaluation
+- Memory usage analysis
+
+#### Process Flow
+
+```
+Load ACL from JSON (~7.5ms)
+    ↓
+Random Role + Resource + Privilege Selection
+    ↓
+ACL Check: is_allowed() (~750ns)
+    ↓
+Aggregate Statistics
+```
+
+### ACL Performance in Web Server
+
+HTTP server example, using actix, with ACL middleware for simulating thread safety, and load testing.
+
+#### Results Summary:
 
 **Apache Bench Results (on local machine):**
 
@@ -108,45 +139,6 @@ Test 3: High Concurrency (20,000 requests, 200 concurrent)
 | Database query | ~2-10ms | **20-100x slower** |
 | External auth service | ~20-50ms | **200-500x slower** |
 
----
-
-## 🚀 Benchmark details
-
-### 1. Standalone Performance Benchmark
-
-ACL structure raw performance with comprehensive dataset.
-
-#### Run
-
-```bash
-cargo run --release --example benchmark_extensive_acl
-```
-
-**Measured:**
-- Random permission checks (1 to 100,000 iterations)
-- Role inheritance validation (9 levels deep)
-- Resource hierarchy checks
-- Deny rule evaluation
-- Memory usage analysis
-
-### Process Flow
-
-```
-Load ACL from JSON (~7.5ms)
-    ↓
-Random Role + Resource + Privilege Selection
-    ↓
-ACL Check: is_allowed() (~750ns)
-    ↓
-Aggregate Statistics
-```
-
----
-
-### 2. Web Server Benchmark
-
-HTTP server example, using actix, with ACL middleware for simulating thread safety, and load testing.
-
 #### Run
 
 ```bash
@@ -175,7 +167,7 @@ cd benchmarks
 3. Display detailed performance results.
 4. Stops the server when it's done.
 
-Or: 
+Or:
 
 **Test with wrk:**
 ```bash
@@ -203,7 +195,7 @@ curl -H 'X-User-Role: moderator' \
      http://127.0.0.1:8080/protected
 ```
 
-## 🌐 Server Endpoints related
+#### 🌐 Server Endpoints related
 
 | Endpoint | Description |
 |----------|-------------|
@@ -212,7 +204,7 @@ curl -H 'X-User-Role: moderator' \
 | `GET /protected` | Protected resource |
 | `GET /admin` | Admin panel |
 
-### Authorization Headers
+#### Authorization Headers
 
 | Header | Description | Default |
 |--------|-------------|---------|
