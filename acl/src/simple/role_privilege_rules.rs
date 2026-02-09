@@ -114,8 +114,8 @@ mod test_role_privilege_rules {
                 assert_eq!(
                     rpr.get_privilege_rules(Some(r_id)),
                     found_privilege_rules,
-                    "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-                    Some(r_id),
+                    "`#RolePrivilegeRules.get_privilege_rule(Some({:?})) != {:?}`",
+                    r_id,
                     found_privilege_rules
                 );
             });
@@ -124,21 +124,18 @@ mod test_role_privilege_rules {
 
     // Tests setter, and getter results
     fn test_when_only_roles(r_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-        if r_ids.is_empty() {
-            panic!("Expected role IDs list with greater than `0` length");
-        }
         r_ids.iter().for_each(|r_id| {
             let found_privilege_rules = rpr.by_role_id.as_ref().unwrap().get(*r_id).unwrap();
             let found_rule = &found_privilege_rules.for_all_privileges;
             assert_eq!(
                 found_rule, expected_rule,
-                "Found rule is not equal to expected"
+                "Found rule is not equal to 'expected' rule"
             );
             assert_eq!(
                 rpr.get_privilege_rules(Some(r_id)),
                 found_privilege_rules,
-                "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-                Some(r_id),
+                "`#RolePrivilegeRules.get_privilege_rule(Some({:?})) != {:?}`",
+                r_id,
                 found_privilege_rules
             );
         });
@@ -146,9 +143,6 @@ mod test_role_privilege_rules {
 
     // Tests setter, and getter results
     fn test_when_only_privileges(p_ids: &[&str], rpr: &RolePrivilegeRules, expected_rule: &Rule) {
-        if p_ids.is_empty() {
-            panic!("Expected privilege IDs list with greater than `0` length");
-        }
         p_ids.iter().for_each(|p_id| {
             assert_eq!(
                 rpr
@@ -164,9 +158,7 @@ mod test_role_privilege_rules {
         assert_eq!(
             rpr.get_privilege_rules(None),
             &rpr.for_all_roles,
-            "`#RolePrivilegeRules.get_privilege_rule({:?}) != {:?}`",
-            None as Option<&Rule>,
-            &rpr.for_all_roles
+            "`#RolePrivilegeRules.get_privilege_rule(None) != &rpr.for_all_roles`",
         );
     }
 
@@ -259,6 +251,28 @@ mod test_role_privilege_rules {
             (
                 Some(admin_roles.as_slice()),
                 Some(admin_privileges.as_slice()),
+                Rule::Deny,
+            ),
+            // Cases to trigger lines 317-320: non-empty roles, empty privileges
+            (
+                Some(guest_roles.as_slice()),
+                Some(vec![].as_slice()),
+                Rule::Allow,
+            ),
+            (
+                Some(user_roles.as_slice()),
+                Some(vec![].as_slice()),
+                Rule::Deny,
+            ),
+            // Cases to trigger lines 322-325: empty roles, non-empty privileges
+            (
+                Some(vec![].as_slice()),
+                Some(guest_privileges.as_slice()),
+                Rule::Allow,
+            ),
+            (
+                Some(vec![].as_slice()),
+                Some(user_privileges.as_slice()),
                 Rule::Deny,
             ),
         ] {
@@ -355,6 +369,192 @@ mod test_role_privilege_rules {
                 test_when_no_roles_no_privileges(&role_privilege_rules, &expected_rule);
                 test_when_no_roles_no_privileges(&role_privilege_rules_2, &expected_rule);
             }
+        }
+    }
+
+    #[test]
+    fn test_get_privilege_rules_mut() {
+        // Test with no role (None) - should return for_all_roles
+        let mut rprs = RolePrivilegeRules::new(true);
+
+        // Verify initial state
+        assert_eq!(
+            rprs.get_privilege_rules_mut(None).for_all_privileges,
+            Rule::Deny,
+            "Default for_all_privileges should be Deny"
+        );
+
+        // Test mutation via returned mutable reference
+        rprs.get_privilege_rules_mut(None).for_all_privileges = Rule::Allow;
+        assert_eq!(
+            rprs.for_all_roles.for_all_privileges,
+            Rule::Allow,
+            "for_all_roles should be mutated to Allow"
+        );
+
+        // Test with role that doesn't exist in map - should return for_all_roles
+        let mut rprs2 = RolePrivilegeRules::new(true);
+        rprs2.get_privilege_rules_mut(Some("nonexistent")).for_all_privileges = Rule::Allow;
+        assert_eq!(
+            rprs2.for_all_roles.for_all_privileges,
+            Rule::Allow,
+            "Should fall back to for_all_roles when role not found"
+        );
+
+        // Test with role that exists in map
+        let mut rprs3 = RolePrivilegeRules::new(true);
+        let admin_role = "admin";
+
+        // First set up a role in the map
+        rprs3.set_privilege_rules_for_role_ids(&[admin_role], PrivilegeRules::new(true));
+
+        // Now get mutable reference and modify it
+        let admin_rules = rprs3.get_privilege_rules_mut(Some(admin_role));
+        admin_rules.for_all_privileges = Rule::Allow;
+
+        // Verify the role-specific rules were modified
+        let stored_rules = rprs3.by_role_id.as_ref().unwrap().get(admin_role).unwrap();
+        assert_eq!(
+            stored_rules.for_all_privileges,
+            Rule::Allow,
+            "Role-specific privilege rules should be mutated"
+        );
+
+        // Verify for_all_roles was NOT modified
+        assert_eq!(
+            rprs3.for_all_roles.for_all_privileges,
+            Rule::Deny,
+            "for_all_roles should remain unchanged"
+        );
+
+        // Test with None when by_role_id map is None
+        let mut rprs4 = RolePrivilegeRules::new(false);
+        rprs4.get_privilege_rules_mut(None).for_all_privileges = Rule::Allow;
+        assert_eq!(
+            rprs4.for_all_roles.for_all_privileges,
+            Rule::Allow,
+            "Should mutate for_all_roles when by_role_id is None"
+        );
+
+        // Test with Some role when by_role_id map is None - should return for_all_roles
+        let mut rprs5 = RolePrivilegeRules::new(false);
+        rprs5.get_privilege_rules_mut(Some("admin")).for_all_privileges = Rule::Allow;
+        assert_eq!(
+            rprs5.for_all_roles.for_all_privileges,
+            Rule::Allow,
+            "Should fall back to for_all_roles when by_role_id is None"
+        );
+    }
+
+    #[test]
+    fn test_set_privilege_rules_explicit_branches() {
+        use crate::simple::RuleContextScope;
+
+        // Branch 1: privilege_rules.is_some() && role_ids.is_none()
+        // This sets for_all_roles directly
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            let mut privilege_rules = PrivilegeRules::new(true);
+            privilege_rules.for_all_privileges = Rule::Allow;
+
+            let scope = rprs.set_privilege_rules(None, Some(privilege_rules.clone()));
+
+            assert_eq!(scope, RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope");
+            assert_eq!(
+                rprs.for_all_roles.for_all_privileges,
+                Rule::Allow,
+                "for_all_roles should be set to the provided privilege_rules"
+            );
+        }
+
+        // Branch 2: privilege_rules.is_none() && role_ids.is_some() (with non-empty roles)
+        // This creates default PrivilegeRules for the specified roles
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            let roles: &[&str] = &["admin", "user"];
+
+            let scope = rprs.set_privilege_rules(Some(roles), None);
+
+            assert_eq!(scope, RuleContextScope::PerSymbol, "Should return PerSymbol scope");
+
+            // Verify roles were added with default PrivilegeRules
+            for role in roles {
+                let stored = rprs.by_role_id.as_ref().unwrap().get(*role);
+                assert!(stored.is_some(), "Role '{}' should exist in by_role_id", role);
+                assert_eq!(
+                    stored.unwrap().for_all_privileges,
+                    Rule::Deny,
+                    "Default PrivilegeRules should have Deny rule"
+                );
+            }
+        }
+
+        // Branch 2 variant: privilege_rules.is_none() && role_ids.is_some() (with empty roles)
+        // This should set for_all_roles to default PrivilegeRules
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            // First set a non-default value
+            rprs.for_all_roles.for_all_privileges = Rule::Allow;
+
+            let empty_roles: &[&str] = &[];
+            let scope = rprs.set_privilege_rules(Some(empty_roles), None);
+
+            assert_eq!(scope, RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope for empty roles");
+            assert_eq!(
+                rprs.for_all_roles.for_all_privileges,
+                Rule::Deny,
+                "for_all_roles should be reset to default PrivilegeRules"
+            );
+        }
+
+        // Branch 3: Both None - resets for_all_roles to default
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            rprs.for_all_roles.for_all_privileges = Rule::Allow;
+
+            let scope = rprs.set_privilege_rules(None, None);
+
+            assert_eq!(scope, RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope");
+            assert_eq!(
+                rprs.for_all_roles.for_all_privileges,
+                Rule::Deny,
+                "for_all_roles should be reset to default"
+            );
+        }
+
+        // Branch 4: Both Some with non-empty role_ids
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            let mut privilege_rules = PrivilegeRules::new(true);
+            privilege_rules.for_all_privileges = Rule::Allow;
+            let roles: &[&str] = &["editor"];
+
+            let scope = rprs.set_privilege_rules(Some(roles), Some(privilege_rules.clone()));
+
+            assert_eq!(scope, RuleContextScope::PerSymbol, "Should return PerSymbol scope");
+            let stored = rprs.by_role_id.as_ref().unwrap().get("editor").unwrap();
+            assert_eq!(
+                stored.for_all_privileges,
+                Rule::Allow,
+                "Role-specific rules should be set"
+            );
+        }
+
+        // Branch 4 variant: Both Some with empty role_ids
+        {
+            let mut rprs = RolePrivilegeRules::new(true);
+            let mut privilege_rules = PrivilegeRules::new(true);
+            privilege_rules.for_all_privileges = Rule::Allow;
+            let empty_roles: &[&str] = &[];
+
+            let scope = rprs.set_privilege_rules(Some(empty_roles), Some(privilege_rules.clone()));
+
+            assert_eq!(scope, RuleContextScope::ForAllSymbols, "Should return ForAllSymbols scope for empty roles");
+            assert_eq!(
+                rprs.for_all_roles.for_all_privileges,
+                Rule::Allow,
+                "for_all_roles should be set when role_ids is empty"
+            );
         }
     }
 }

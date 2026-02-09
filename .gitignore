@@ -18,6 +18,7 @@
 # Dot files
 .env
 **/.local*
+**/.slingshot
 
 # Misc. file types
 *.log

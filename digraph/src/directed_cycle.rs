@@ -106,7 +106,7 @@ impl DirectedCycle {
     self._cycle.is_some()
   }
 
-  /// Returns a directed cycle if the digraph has a directed cycle, and `None` otherwise.
+  /// Returns a directed cycle if the graph has one, else `None` otherwise.
   ///
   /// # Examples
   ///

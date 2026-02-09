@@ -27,21 +27,19 @@
     ["user", ["term"]],
     ["view-module", ["term"]]
   ],
-  "rules": {
-    "allow": [
-      ["index", null],
-      ["dashboard", [
-        ["cms-guest", ["index"]],
-        ["cms-editor", null]
-      ]],
-      ["user", [
-        ["cms-guest", ["read", "update"]],
-        ["cms-super-admin", null]
-      ]],
-      ["term", [
-        ["cms-editor", ["index", "create", "read", "update", "delete"]]
-      ]]
-    ],
-    "deny": null
-  }
+  "allow": [
+    ["index", null],
+    ["dashboard", [
+      ["cms-guest", ["index"]],
+      ["cms-editor", null]
+    ]],
+    ["user", [
+      ["cms-guest", ["read", "update"]],
+      ["cms-super-admin", null]
+    ]],
+    ["term", [
+      ["cms-editor", ["index", "create", "read", "update", "delete"]]
+    ]]
+  ],
+  "deny": null
 }

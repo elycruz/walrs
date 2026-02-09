@@ -16,7 +16,7 @@ pub struct DirectedPathsDFS {
 }
 
 impl DigraphDFSShape for DirectedPathsDFS {
-  /// Returns a `Result` indicating whether  a path from 'source vertex' to 'i' exists.
+  /// Returns a `Result` indicating whether a path from 'source vertex' to 'i' exists.
   fn marked(&self, i: usize) -> Result<bool, String> {
     vertex_marked(&self._marked, i)
   }

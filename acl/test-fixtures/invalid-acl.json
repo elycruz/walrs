@@ -1,0 +1,6 @@
+{
+  "roles": {
+    "guest": null,
+    "user": "guest"
+  }
+}
