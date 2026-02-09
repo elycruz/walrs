@@ -8,7 +8,7 @@
 use std::fs::File;
 use std::time::Instant;
 use std::convert::TryFrom;
-use walrs_acl::simple::{Acl, AclData};
+use walrs_acl::simple::{Acl, AclBuilder, AclData};
 use rand::seq::SliceRandom;
 
 fn main() -> Result<(), String> {
@@ -27,7 +27,7 @@ fn main() -> Result<(), String> {
     // Estimate AclData size
     let acl_data_size = estimate_acl_data_size(&acl_data);
 
-    let acl = Acl::try_from(&acl_data)?;
+    let acl = AclBuilder::try_from(&acl_data)?.build()?;
 
     let load_duration = start.elapsed();
     println!("✓ ACL loaded in {:?}", load_duration);

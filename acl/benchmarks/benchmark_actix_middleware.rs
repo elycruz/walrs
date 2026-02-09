@@ -14,7 +14,7 @@ use std::fs::File;
 use std::future::{ready, Ready};
 use std::sync::Arc;
 use std::time::Instant;
-use walrs_acl::simple::{Acl, AclData};
+use walrs_acl::simple::{Acl, AclBuilder, AclData};
 
 /// Shared application state containing the ACL
 #[derive(Clone)]
@@ -143,8 +143,10 @@ async fn main() -> std::io::Result<()> {
     let acl_data: AclData = serde_json::from_reader(file)
         .expect("Failed to parse ACL JSON");
 
-    let acl = Acl::try_from(&acl_data)
-        .expect("Failed to create ACL");
+    let acl = AclBuilder::try_from(&acl_data)
+        .expect("Failed to create ACL from AclData")
+        .build()
+        .expect("Failed to build ACL");
 
     let acl = Arc::new(acl);
     let load_duration = start.elapsed();

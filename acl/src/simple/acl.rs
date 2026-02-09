@@ -1,11 +1,6 @@
 use std::collections::HashMap;
-use std::convert::TryFrom;
-use std::fs::File;
-
-use serde_json;
 use walrs_graph::digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
-use crate::simple::acl_data::AclData;
 use crate::simple::rule::{Rule};
 use crate::simple::privilege_rules::PrivilegeRules;
 use crate::simple::resource_role_rules::ResourceRoleRules;
@@ -908,115 +903,6 @@ impl Acl {
 impl Default for Acl {
   fn default() -> Self {
     Self::new()
-  }
-}
-
-impl<'a> TryFrom<&'a AclData> for Acl {
-  type Error = String;
-
-  fn try_from(data: &'a AclData) -> Result<Self, Self::Error> {
-    use crate::simple::AclBuilder;
-
-    let mut builder = AclBuilder::new();
-
-    // Add `roles` to builder
-    if let Some(roles) = data.roles.as_ref() {
-      // Loop through role entries
-      for (role, parents) in roles.iter() {
-        // Convert `parents` to `Option<&[&str]>`
-        let parents = parents
-          .as_deref()
-          .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
-
-        // Add role(s);  If parent roles aren't in the builder, they get added via `builder.add_role`
-        builder = builder.add_role(role, parents.as_deref())?;
-      }
-    }
-
-    // Add `resources` to builder
-    if let Some(resources) = data.resources.as_ref() {
-      // Loop through resource entries
-      for (resource, parents) in resources.iter() {
-        // Convert `parents` to `Option<&[&str]>`
-        let parents = parents
-          .as_deref()
-          .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
-
-        // Add resource(s);  If parent resources aren't in the builder, they get added via `builder.add_resource`
-        builder = builder.add_resource(resource, parents.as_deref())?;
-      }
-    }
-
-    // Add `allow` rules to builder, if any
-    if let Some(allow) = data.allow.as_ref() {
-      // For entry in allow rules
-      for (resource, roles_and_privileges_assoc_list) in allow.iter() {
-        // If `(roles, privileges)` associative list loop through it`
-        if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
-          // For each entry in `role -> privilege` list
-          for (role, privileges) in rs_and_ps_list.iter() {
-            let ps: Option<Vec<&str>> = privileges
-              .as_deref()
-              .map(|ps| ps.iter().map(|p| &**p).collect());
-            // Apply `allow` rule
-            builder = builder.allow(
-              Some([role.as_str()].as_slice()),
-              Some([resource.as_str()].as_slice()),
-              ps.as_deref(),
-            )?;
-          }
-        }
-        // Else add allow rule for all `roles`, on all `privileges`, for given `resource`
-        else {
-          builder = builder.allow(None, Some([resource.as_str()].as_slice()), None)?;
-        }
-      }
-    }
-
-    // Add `deny` rules to builder, if any
-    if let Some(deny) = data.deny.as_ref() {
-      for (resource, roles_and_privileges_assoc_list) in deny.iter() {
-        if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
-          for (role, privileges) in rs_and_ps_list.iter() {
-            let ps: Option<Vec<&str>> = privileges
-                .as_deref()
-                .map(|ps| ps.iter().map(|p| &**p).collect());
-            builder = builder.deny(
-              Some([role.as_str()].as_slice()),
-              Some([resource.as_str()].as_slice()),
-              ps.as_deref(),
-            )?;
-          }
-        } else {
-          builder = builder.deny(None, Some([resource.as_str()].as_slice()), None)?;
-        }
-      }
-    }
-
-    // Build the ACL (this also checks for cycles)
-    builder.build()
-  }
-}
-
-impl TryFrom<AclData> for Acl {
-  type Error = String;
-
-  fn try_from(data: AclData) -> Result<Self, Self::Error> {
-    Acl::try_from(&data)
-  }
-}
-
-impl<'a> TryFrom<&'a mut File> for Acl {
-  type Error = serde_json::Error;
-
-  fn try_from(file: &mut File) -> Result<Self, Self::Error> {
-    AclData::try_from(file).and_then(|data| {
-      Acl::try_from(&data).map_err(|e| {
-        serde_json::Error::io(
-          std::io::Error::new(std::io::ErrorKind::InvalidData, e)
-        )
-      })
-    })
   }
 }
 

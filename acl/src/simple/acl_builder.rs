@@ -1,6 +1,7 @@
 use std::convert::TryFrom;
+use std::fs::File;
 use walrs_graph::digraph::DisymGraph;
-use crate::simple::{Acl, ResourceRoleRules, Rule};
+use crate::simple::{Acl, AclData, ResourceRoleRules, Rule};
 
 /// Builder for constructing `Acl` instances with a fluent interface.
 ///
@@ -370,7 +371,7 @@ impl Default for AclBuilder {
     }
 }
 
-/// Converts an `Acl` instance into an `AclBuilder`.
+/// Attempts conversion of an `Acl` instance into an `AclBuilder`.
 ///
 /// This allows you to take an existing `Acl` and convert it back into a builder,
 /// which can be useful for modifying an existing ACL by adding new roles, resources,
@@ -412,10 +413,9 @@ impl TryFrom<Acl> for AclBuilder {
     }
 }
 
-/// Implements conversion from a reference to an `Acl` to an `AclBuilder`.
+/// Attempts conversion of an `Acl` reference to an `AclBuilder`.
 /// 
-/// This allows building a new ACL based on an existing one without taking ownership.
-/// The internal graphs and rules are cloned from the source ACL.
+/// Enables building ACLs based on existing ones without losing ownership.
 ///
 /// # Example
 ///
@@ -455,3 +455,182 @@ impl TryFrom<&Acl> for AclBuilder {
         Ok(builder)
     }
 }
+
+/// Attempts conversion of an `AclData` reference into an `AclBuilder` -
+///
+/// Effectively enables loading ACL configuration from JSON or other serialized format
+/// (into an `AclData`) and then parsing it into an `AclBuilder`.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_acl::simple::{AclBuilder, AclData};
+/// use std::convert::TryFrom;
+///
+/// let acl_data = AclData {
+///     roles: Some(vec![
+///         ("guest".to_string(), None),
+///         ("user".to_string(), Some(vec!["guest".to_string()])),
+///     ]),
+///     resources: Some(vec![
+///         ("blog".to_string(), None),
+///     ]),
+///     allow: Some(vec![
+///         ("blog".to_string(), Some(vec![
+///             ("guest".to_string(), Some(vec!["read".to_string()])),
+///         ])),
+///     ]),
+///     deny: None,
+/// };
+///
+/// let acl = AclBuilder::try_from(&acl_data)?
+///     .add_role("admin", Some(&["user"]))?
+///     .allow(Some(&["admin"]), None, None)?
+///     .build()?;
+///
+/// assert!(acl.is_allowed(Some("admin"), Some("blog"), Some("write")));
+/// # Ok::<(), String>(())
+/// ```
+impl<'a> TryFrom<&'a AclData> for AclBuilder {
+    type Error = String;
+
+    fn try_from(data: &'a AclData) -> Result<Self, Self::Error> {
+        let mut builder = AclBuilder::new();
+
+        // Add `roles` to builder
+        if let Some(roles) = data.roles.as_ref() {
+            // Loop through role entries
+            for (role, parents) in roles.iter() {
+                // Convert `parents` to `Option<&[&str]>`
+                let parents = parents
+                    .as_deref()
+                    .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
+
+                // Add role(s);  If parent roles aren't in the builder, they get added via `builder.add_role`
+                builder = builder.add_role(role, parents.as_deref())?;
+            }
+        }
+
+        // Add `resources` to builder
+        if let Some(resources) = data.resources.as_ref() {
+            // Loop through resource entries
+            for (resource, parents) in resources.iter() {
+                // Convert `parents` to `Option<&[&str]>`
+                let parents = parents
+                    .as_deref()
+                    .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
+
+                // Add resource(s);  If parent resources aren't in the builder, they get added via `builder.add_resource`
+                builder = builder.add_resource(resource, parents.as_deref())?;
+            }
+        }
+
+        // Add `allow` rules to builder, if any
+        if let Some(allow) = data.allow.as_ref() {
+            // For entry in allow rules
+            for (resource, roles_and_privileges_assoc_list) in allow.iter() {
+                // If `(roles, privileges)` associative list loop through it`
+                if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
+                    // For each entry in `role -> privilege` list
+                    for (role, privileges) in rs_and_ps_list.iter() {
+                        let ps: Option<Vec<&str>> = privileges
+                            .as_deref()
+                            .map(|ps| ps.iter().map(|p| &**p).collect());
+                        // Apply `allow` rule
+                        builder = builder.allow(
+                            Some([role.as_str()].as_slice()),
+                            Some([resource.as_str()].as_slice()),
+                            ps.as_deref(),
+                        )?;
+                    }
+                }
+                // Else add allow rule for all `roles`, on all `privileges`, for given `resource`
+                else {
+                    builder = builder.allow(None, Some([resource.as_str()].as_slice()), None)?;
+                }
+            }
+        }
+
+        // Add `deny` rules to builder, if any
+        if let Some(deny) = data.deny.as_ref() {
+            for (resource, roles_and_privileges_assoc_list) in deny.iter() {
+                if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
+                    for (role, privileges) in rs_and_ps_list.iter() {
+                        let ps: Option<Vec<&str>> = privileges
+                            .as_deref()
+                            .map(|ps| ps.iter().map(|p| &**p).collect());
+                        builder = builder.deny(
+                            Some([role.as_str()].as_slice()),
+                            Some([resource.as_str()].as_slice()),
+                            ps.as_deref(),
+                        )?;
+                    }
+                } else {
+                    builder = builder.deny(None, Some([resource.as_str()].as_slice()), None)?;
+                }
+            }
+        }
+
+        // Return the builder (without calling .build())
+        Ok(builder)
+    }
+}
+
+/// Attempts conversion of an `AclData` reference into an `AclBuilder`.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_acl::simple::{AclBuilder, AclData};
+/// use std::convert::TryFrom;
+/// use std::fs::File;
+///
+/// let file_path = "./test-fixtures/example-acl.json";
+/// let mut f = File::open(&file_path)?;
+/// let acl_data = AclData::try_from(&mut f)?;
+///
+/// let acl = AclBuilder::try_from(acl_data)?
+///     .add_role("extra_role", None)?
+///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+impl TryFrom<AclData> for AclBuilder {
+    type Error = String;
+
+    fn try_from(data: AclData) -> Result<Self, Self::Error> {
+        AclBuilder::try_from(&data)
+    }
+}
+
+/// Attempts conversion of a mutable file reference into an `AclBuilder`.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_acl::simple::AclBuilder;
+/// use std::convert::TryFrom;
+/// use std::fs::File;
+///
+/// let file_path = "./test-fixtures/example-acl.json";
+/// let mut f = File::open(&file_path)?;
+///
+/// let acl = AclBuilder::try_from(&mut f)?
+///     .add_role("extra_role", None)?
+///     .allow(Some(&["extra_role"]), None, None)?
+///     .build()?;
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+impl TryFrom<&mut File> for AclBuilder {
+    type Error = serde_json::Error;
+
+    fn try_from(file: &mut File) -> Result<Self, Self::Error> {
+        AclData::try_from(file).and_then(|data| {
+            AclBuilder::try_from(&data).map_err(|e| {
+                serde_json::Error::io(
+                    std::io::Error::new(std::io::ErrorKind::InvalidData, e)
+                )
+            })
+        })
+    }
+}
+

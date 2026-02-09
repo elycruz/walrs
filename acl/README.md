@@ -1,116 +1,107 @@
 # walrs_acl 
 
-Access Control List (ACL) structure for granting privileges on resources, by roles, or for all (roles or resources) in an application context.
+Access Control List (ACL) structure for granting privileges on resources, by roles, or for all [roles or resources] in an application context.
 
 ## Usage
 
-Instantiate your `Acl` struct - add `Role`s, `Resource`s, and allow/deny rules as required and then query it from a middleware/application context.
+Instantiate your [`Acl`](./examples) struct - add `Role`s, `Resource`s, and allow/deny rules - then query it from a middleware/application context.
+
+**Inline declaration:**
 
 ```rust
-// @todo
+fn main() -> Result<(), String> {
+    // Build ACL
+    let acl:Acl = AclBuilder::default()
+        // Add roles with inheritance
+        .add_roles(&[
+            ("guest", None),
+            ("user", Some(&["guest"])), // 'user' inherits rules from 'guest'
+            ("editor", Some(&["user"])),  // ...
+            ("admin", Some(&["editor"])), // ...
+        ])?
+        // Add resources
+        .add_resources(&[
+            ("public", None), // 'public' inherits from None 
+            ("blog", None), // ...
+            ("admin_panel", None), // ...
+        ])?
+        // Set allow rules
+        .allow(Some(&["guest"]), Some(&["public"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "comment"]))?
+        .allow(Some(&["editor"]), Some(&["blog"]), Some(&["write", "edit"]))?
+        .allow(Some(&["admin"]), None, None)? // has all privileges on all resources
+
+        // Set deny rules
+        .deny(Some(&["editor"]), Some(&["admin_panel"]), None)?
+
+        // Build the final ACL (checks for directed cycles and outputs final `Acl` structure)
+        .build()?;
+    
+    // In some application context...
+    acl.is_allowed(admin("guest"), Some("public"), Some("read"))? // true
+    // etc.
+}
 ```
 
-## How does it work?
+Note: if 'directed cycles' are detected the build step will result in `Err(String)`.
 
-The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [used to define the "allow" and "deny" rules on given resources, roles, and privileges].
+**From *.json representation:**
 
 ```rust
-//  {
-//     for_all_resources: RolePrivilegeRules {
-//       for_all_roles: PrivilegeRules {
-//         for_all_privileges: Rule
-//         by_privilege_id: Option<HashMap<Privilege, Rule>>
-//       }
-//       by_role_id: Option<HashMap<Role, PrivilegeRules>>
-//     }
-//     by_resource_id: HashMap<Resource, RolePrivilegeRules>
-// }
+use std::fs::File;
+use walrs_acl::{AclBuilder};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let file_path = "./test-fixtures/example-acl-allow-and-deny-rules.json";
+    let mut f = File::open(&file_path)?;
+    let acl = AclBuilder::try_from(&mut f)?.build()?;
+    // ...
+}
 ```
 
-## Runtime model
+### Construction
 
-1.  Load the ACL tree from external source (text file, json, DB, etc.) into memory.
-2.  Convert the loaded tree into an acl structure.
-3.  Access the structure from app middle to check user privileges.
+[The Acl] can be constructed: 
 
-## Domain Models
+- using the `AclBuilder` structure.
+- from a *.json representation, using `AclBuilder::try_from(&mut File)?.build()` (see docs for different `try_from` impls.).
+- from a *.json representation using `AclBuilder::try_from(AclData)?.build()` (`AclData` can also be constructed from a *.json representation using `AclData::try_from(&mut File)`) (see docs for different `try_from` impls.).
 
-*Definitions:*
+### JSON Representation
 
-- {entity} - One of `role`, `resource`, and/or `privilege`
-- `type Symbol = str;` - Referential type used in `*Acl` structure.
+This representation represents an [`AclData`](./src/simple/acl_data.rs) struct.
 
-Example of what this [domain] model would like in a database:
-
-*{entity} Structure:*
-
-- `{entity}_(slug|alias): &Symbol` - Primary key, Not null.
-- `{entity}_name: String` - Human Readable Name. Not null.
-- `{entity}_description: Option<String>` - Nullable description.
-
-#### Storage Mechanisms
-
-ACLs can be stored in any storage format that is accessible by a target application:
-
-- Relational DB.
-- Text files (*.txt, *.yaml, etc.).
-- etc.
-
-##### Text Representation
-
-Common text based formats, that can easily be used to create an ACL representation, include (but are not limited to):
-
-- *.json
-- *.yaml
-- etc.
-
-###### JSON Example
-
-**example-acl.json** (WIP)
-
-```json
+```json5
 {
-  "roles": [
-    ["guest", null],
-    ["user", ["guest"]],
-    ["admin", ["user"]]
+  "roles": [             // Represents "role" symbol graph
+    ["guest", null],     // `null` signals "no inheritance" 
+                         // in "roles", and "resources" symbol graphs
+    ["user", ["guest"]], // 'user' inherits [rules] from 'guest'
+    ["special", null],
+    ["admin", ["user", "special"]]
   ],
-  "resources": [
+  "resources": [         // Represents "resource" symbol graph
     ["index", null],
     ["blog", ["index"]],
     ["account", null],
     ["users", null]
   ],
-  "allow": [
-    ["index", [["guest", null]]],
+  "allow": [             // "allow" rules:
+                         // overrides symbol graphs (roles, resources)
+                         // inheritance.
+    ["index", [["guest", null]]], // `null` in 'rules' structure signals "all privileges"
     ["account", [["user", ["index", "update", "read"]]]],
     ["users", [["admin", null]]]
   ],
-  "deny": null
+  "deny": null           // "deny" rules (`null` at the top level fields means just null)
 }
 ```
 
-Here roles inherit from other roles, and resources, from other resources.
+## How it works?
 
-Where ever you see `null` those we represent as `Option<...>`, in data struct.
+The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [which is used to define, and query-for, "allow" and "deny" rules].
 
-For `rules.allow` resources allow access to roles on privileges, if `null` means all privileges ('read', 'update', etc.).
-
-## RDBMS Example Relations
-
-*Definitions:*
-
-- {entity} - One of `role`, `resource`, and/or `privilege`
-- `type Symbol = str;` - Referential type used in `*Acl` structure.
-
-Example of what this [domain] model would like in a database:
-
-*{entity} Structure:*
-
-- `{entity}_(slug|alias): &Symbol` - Primary key, Not null.
-- `{entity}_name: String` - Human Readable Name. Not null.
-- `{entity}_description: Option<String>` - Nullable description.
-
+See tests, [benchmarks](./benchmarks), and/or [examples](./examples) for more details.
 
 ## Prior Art:
 
@@ -119,4 +110,5 @@ Example of what this [domain] model would like in a database:
 - Registry module (Haskell): https://hackage.haskell.org/package/registry
 
 ## License
+
 Apache + GPL v3 Clause

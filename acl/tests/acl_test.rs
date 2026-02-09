@@ -1,6 +1,6 @@
 use std::convert::TryFrom;
 use std::fs::File;
-use walrs_acl::simple::{Acl, AclData};
+use walrs_acl::simple::{Acl, AclBuilder, AclData};
 use std::io::BufReader;
 
 #[test]
@@ -11,7 +11,7 @@ pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
   let mut f = File::open(&file_path)?;
 
   let acl_data = AclData::try_from(&mut f)?;
-  let acl: Acl = Acl::try_from(&acl_data)?;
+  let acl: Acl = AclBuilder::try_from(&acl_data)?.build()?;
 
   // Tests
   // ----
@@ -143,7 +143,7 @@ pub fn test_e2e_example_one() -> Result<(), Box<dyn std::error::Error>> {
   let acl_data: AclData = AclData::try_from(&mut f)?;
 
   // Convert AclData to Acl
-  let acl: Acl = Acl::try_from(acl_data)?;
+  let acl: Acl = AclBuilder::try_from(acl_data)?.build()?;
 
   // ----
   // Test roles are loaded correctly
