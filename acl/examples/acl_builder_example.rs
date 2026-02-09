@@ -24,7 +24,7 @@ fn main() -> Result<(), String> {
         .allow(Some(&["guest"]), Some(&["public"]), Some(&["read"]))?
         .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "comment"]))?
         .allow(Some(&["editor"]), Some(&["blog"]), Some(&["write", "edit"]))?
-        .allow(Some(&["admin"]), None, None)? // Admin has all privileges on all resources
+        .allow(Some(&["admin"]), None, None)? // all privileges on all resources
 
         // Set deny rules
         .deny(Some(&["editor"]), Some(&["admin_panel"]), None)?

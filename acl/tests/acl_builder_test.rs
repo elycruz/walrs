@@ -63,6 +63,262 @@ fn test_acl_builder_basic() -> Result<(), String> {
 }
 
 #[test]
+fn test_acl_builder_none_resources_clears_by_role_id() -> Result<(), String> {
+    // When resources=None is passed, the by_role_id entries for the given role
+    // should be cleared across all resources (per-resource rules for that role are removed)
+
+    let acl = AclBuilder::new()
+        .add_role("user", None)?
+        .add_resources(&[("doc1", None), ("doc2", None)])?
+        // Set specific privilege rules on specific resources for user
+        .allow(Some(&["user"]), Some(&["doc1"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["doc2"]), Some(&["write"]))?
+        // Now set a rule for all resources for this user - should clear per-resource rules
+        .deny(Some(&["user"]), None, Some(&["delete"]))?
+        .build()?;
+
+    // The per-resource rules for user were cleared, so now only the for_all_resources rule applies
+    // Since we only set delete denial, other privileges fall back to default (deny)
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc1"), Some("read")),
+        "User should be denied read on doc1 (per-resource rules cleared)"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc2"), Some("write")),
+        "User should be denied write on doc2 (per-resource rules cleared)"
+    );
+
+    // Delete should be denied on both (explicitly set via resources=None)
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc1"), Some("delete")),
+        "User should be denied delete on doc1"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc2"), Some("delete")),
+        "User should be denied delete on doc2"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_none_roles_clears_by_resource_id() -> Result<(), String> {
+    // When roles=None is passed for a specific resource, the by_role_id map
+    // for that resource should be cleared (per-role rules removed)
+
+    let acl = AclBuilder::new()
+        .add_roles(&[("user", None), ("admin", None)])?
+        .add_resource("document", None)?
+        // Set specific rules for specific roles on this resource
+        .allow(Some(&["user"]), Some(&["document"]), Some(&["read"]))?
+        .allow(Some(&["admin"]), Some(&["document"]), Some(&["write"]))?
+        // Now set a rule for all roles on this resource - should clear per-role rules
+        .deny(None, Some(&["document"]), Some(&["delete"]))?
+        .build()?;
+
+    // The per-role rules were cleared, so now only the for_all_roles rule applies
+    // Since we only set delete denial, other privileges fall back to default (deny)
+    assert!(
+        !acl.is_allowed(Some("user"), Some("document"), Some("read")),
+        "User should be denied read (per-role rules cleared)"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("document"), Some("write")),
+        "Admin should be denied write (per-role rules cleared)"
+    );
+
+    // Both should be denied delete (explicitly set via roles=None)
+    assert!(
+        !acl.is_allowed(Some("user"), Some("document"), Some("delete")),
+        "User should be denied delete"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("document"), Some("delete")),
+        "Admin should be denied delete"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_all_none_resets_rules() -> Result<(), String> {
+    // When all three parameters (roles, resources, privileges) are None,
+    // the entire _rules structure should be reset
+
+    let acl = AclBuilder::new()
+        .add_roles(&[("user", None), ("admin", None)])?
+        .add_resources(&[("doc1", None), ("doc2", None)])?
+        // Set various specific rules
+        .allow(Some(&["user"]), Some(&["doc1"]), Some(&["read"]))?
+        .allow(Some(&["admin"]), Some(&["doc2"]), Some(&["write"]))?
+        .deny(Some(&["user"]), Some(&["doc2"]), Some(&["delete"]))?
+        // Now reset everything by passing all None and deny
+        .deny(None, None, None)?
+        .build()?;
+
+    // All previous rules should be cleared, and the for_all_* deny rule should apply
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc1"), Some("read")),
+        "User should be denied read on doc1 (rules were reset)"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("doc2"), Some("write")),
+        "Admin should be denied write on doc2 (rules were reset)"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("doc2"), Some("delete")),
+        "User should be denied delete on doc2 (rules were reset)"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("doc1"), Some("anything")),
+        "Admin should be denied anything on doc1 (for_all deny)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_all_none_resets_rules_then_allow() -> Result<(), String> {
+    // Test that after resetting with all None, we can set new rules
+
+    let acl = AclBuilder::new()
+        .add_role("user", None)?
+        .add_resource("document", None)?
+        // Set some initial rules
+        .deny(Some(&["user"]), Some(&["document"]), Some(&["write"]))?
+        // Reset everything with allow
+        .allow(None, None, None)?
+        .build()?;
+
+    // Everything should be allowed now
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("read")),
+        "User should be allowed to read"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("write")),
+        "User should be allowed to write (deny was cleared by reset)"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("delete")),
+        "User should be allowed to delete"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_none_resources_with_all_privileges() -> Result<(), String> {
+    // Test combining resources=None with privileges=None
+
+    let acl = AclBuilder::new()
+        .add_role("editor", None)?
+        .add_resources(&[("article", None), ("comment", None)])?
+        // Set specific rules on specific resources
+        .allow(Some(&["editor"]), Some(&["article"]), Some(&["read", "write"]))?
+        .allow(Some(&["editor"]), Some(&["comment"]), Some(&["read"]))?
+        // Now deny all privileges on all resources for this role
+        .deny(Some(&["editor"]), None, None)?
+        .build()?;
+
+    // All privileges on all resources should now be denied for editor
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("read")),
+        "Editor should be denied read on article"
+    );
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("write")),
+        "Editor should be denied write on article"
+    );
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("comment"), Some("read")),
+        "Editor should be denied read on comment"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_none_roles_with_all_privileges() -> Result<(), String> {
+    // Test combining roles=None with privileges=None
+
+    let acl = AclBuilder::new()
+        .add_roles(&[("user", None), ("admin", None)])?
+        .add_resource("system", None)?
+        // Set specific rules for specific roles
+        .allow(Some(&["user"]), Some(&["system"]), Some(&["read"]))?
+        .allow(Some(&["admin"]), Some(&["system"]), Some(&["read", "write"]))?
+        // Now allow all roles all privileges on this resource
+        .allow(None, Some(&["system"]), None)?
+        .build()?;
+
+    // All roles should have all privileges on system
+    assert!(
+        acl.is_allowed(Some("user"), Some("system"), Some("read")),
+        "User should be allowed to read"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("system"), Some("write")),
+        "User should be allowed to write"
+    );
+    assert!(
+        acl.is_allowed(Some("admin"), Some("system"), Some("read")),
+        "Admin should be allowed to read"
+    );
+    assert!(
+        acl.is_allowed(Some("admin"), Some("system"), Some("delete")),
+        "Admin should be allowed to delete"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_complex_clearing_scenario() -> Result<(), String> {
+    // Complex test combining various clearing behaviors
+
+    let acl = AclBuilder::new()
+        .add_roles(&[("guest", None), ("user", Some(&["guest"])), ("admin", Some(&["user"]))])?
+        .add_resources(&[("blog", None), ("admin_panel", None)])?
+        // Set various specific rules
+        .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["blog"]), Some(&["write"]))?
+        .allow(Some(&["admin"]), Some(&["admin_panel"]), Some(&["manage"]))?
+        // Clear per-privilege rules for user on blog
+        .deny(Some(&["user"]), Some(&["blog"]), None)?
+        // Clear per-role rules for admin_panel
+        .allow(None, Some(&["admin_panel"]), Some(&["view"]))?
+        .build()?;
+
+    // User should be denied everything on blog (per-privilege rules cleared)
+    // except what they inherit from guest
+    assert!(
+        acl.is_allowed(Some("user"), Some("blog"), Some("read")),
+        "User should be allowed to read blog (inherited from guest)"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("blog"), Some("write")),
+        "User should be denied write on blog (cleared by deny-all)"
+    );
+
+    // All roles should be able to view admin_panel (roles=None)
+    assert!(
+        acl.is_allowed(Some("guest"), Some("admin_panel"), Some("view")),
+        "Guest should be allowed to view admin_panel"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("admin_panel"), Some("view")),
+        "User should be allowed to view admin_panel"
+    );
+    assert!(
+        acl.is_allowed(Some("admin"), Some("admin_panel"), Some("view")),
+        "Admin should be allowed to view admin_panel"
+    );
+
+    Ok(())
+}
+
+#[test]
 fn test_acl_builder_try_from_acl() -> Result<(), String> {
     use std::convert::TryFrom;
 
@@ -1047,5 +1303,258 @@ fn test_acl_builder_detects_resource_circular_dependency() {
         .build();
 
     assert!(result.is_err(), "Should detect circular dependency in resources");
+}
+
+#[test]
+fn test_acl_builder_allow_then_deny_all_privileges_overwrites() -> Result<(), String> {
+    // This test demonstrates that setting a "for all privileges" rule after setting
+    // per-privilege rules clears out the per-privilege rules.
+    // When privileges=None is passed, all per-privilege rules are removed.
+
+    let acl = AclBuilder::new()
+        .add_role("user", None)?
+        .add_resource("document", None)?
+        // First, allow specific privileges
+        .allow(Some(&["user"]), Some(&["document"]), Some(&["read", "write"]))?
+        // Then, deny all privileges (this sets for_all_privileges = Deny and clears by_privilege_id)
+        .deny(Some(&["user"]), Some(&["document"]), None)?
+        .build()?;
+
+    // The per-privilege allow rules for "read" and "write" are cleared,
+    // so the for_all_privileges deny rule now applies to all privileges
+    assert!(
+        !acl.is_allowed(Some("user"), Some("document"), Some("read")),
+        "User should be denied read (per-privilege rules were cleared)"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("document"), Some("write")),
+        "User should be denied write (per-privilege rules were cleared)"
+    );
+
+    // Other privileges also fall back to for_all_privileges deny rule
+    assert!(
+        !acl.is_allowed(Some("user"), Some("document"), Some("delete")),
+        "User should be denied delete (for_all_privileges deny rule)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_deny_then_allow_all_privileges_overwrites() -> Result<(), String> {
+    // This test demonstrates the opposite: deny specific privileges first,
+    // then allow all privileges - per-privilege deny rules should be cleared
+
+    let acl = AclBuilder::new()
+        .add_role("user", None)?
+        .add_resource("document", None)?
+        // First, deny specific privileges
+        .deny(Some(&["user"]), Some(&["document"]), Some(&["delete", "admin"]))?
+        // Then, allow all privileges (this sets for_all_privileges = Allow and clears by_privilege_id)
+        .allow(Some(&["user"]), Some(&["document"]), None)?
+        .build()?;
+
+    // The per-privilege deny rules for "delete" and "admin" are cleared,
+    // so the for_all_privileges allow rule now applies to all privileges
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("delete")),
+        "User should be allowed delete (per-privilege deny rules were cleared)"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("admin")),
+        "User should be allowed admin (per-privilege deny rules were cleared)"
+    );
+
+    // All other privileges should also be allowed
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("read")),
+        "User should be allowed to read (for_all_privileges allow rule)"
+    );
+    assert!(
+        acl.is_allowed(Some("user"), Some("document"), Some("write")),
+        "User should be allowed to write (for_all_privileges allow rule)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_multiple_per_privilege_rules_then_all_privileges() -> Result<(), String> {
+    // Test with multiple per-privilege rules set before setting for_all_privileges rule
+
+    let acl = AclBuilder::new()
+        .add_role("editor", None)?
+        .add_resource("article", None)?
+        // Allow some specific privileges
+        .allow(Some(&["editor"]), Some(&["article"]), Some(&["read", "write"]))?
+        // Deny another specific privilege
+        .deny(Some(&["editor"]), Some(&["article"]), Some(&["delete"]))?
+        // Now deny all privileges (should clear all the above per-privilege rules)
+        .deny(Some(&["editor"]), Some(&["article"]), None)?
+        .build()?;
+
+    // All per-privilege rules are cleared, so for_all_privileges deny applies
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("read")),
+        "Editor should be denied read (per-privilege rules cleared)"
+    );
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("write")),
+        "Editor should be denied write (per-privilege rules cleared)"
+    );
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("delete")),
+        "Editor should be denied delete (for_all_privileges deny)"
+    );
+    assert!(
+        !acl.is_allowed(Some("editor"), Some("article"), Some("publish")),
+        "Editor should be denied publish (for_all_privileges deny)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_overwrite_same_privilege_rule() -> Result<(), String> {
+    // Test that setting the same privilege rule multiple times overwrites the previous one
+
+    let acl = AclBuilder::new()
+        .add_role("user", None)?
+        .add_resource("file", None)?
+        // First allow read
+        .allow(Some(&["user"]), Some(&["file"]), Some(&["read"]))?
+        // Then deny read (should overwrite the allow)
+        .deny(Some(&["user"]), Some(&["file"]), Some(&["read"]))?
+        .build()?;
+
+    assert!(
+        !acl.is_allowed(Some("user"), Some("file"), Some("read")),
+        "User should be denied read (deny rule overwrites allow rule)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_all_privileges_then_per_privilege() -> Result<(), String> {
+    // Test setting for_all_privileges first, then adding per-privilege rules
+
+    let acl = AclBuilder::new()
+        .add_role("admin", None)?
+        .add_resource("system", None)?
+        // First deny all privileges
+        .deny(Some(&["admin"]), Some(&["system"]), None)?
+        // Then allow a specific privilege (this recreates by_privilege_id)
+        .allow(Some(&["admin"]), Some(&["system"]), Some(&["read"]))?
+        .build()?;
+
+    // The specific privilege "read" should be allowed
+    assert!(
+        acl.is_allowed(Some("admin"), Some("system"), Some("read")),
+        "Admin should be allowed to read (per-privilege rule)"
+    );
+
+    // Other privileges should fall back to for_all_privileges deny
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("system"), Some("write")),
+        "Admin should be denied write (for_all_privileges deny)"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("system"), Some("restart")),
+        "Admin should be denied restart (for_all_privileges deny)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_complex_allow_deny_interaction() -> Result<(), String> {
+    // Complex scenario with multiple roles and resources
+
+    let acl = AclBuilder::new()
+        .add_roles(&[
+            ("guest", None),
+            ("user", Some(&["guest"])),
+            ("moderator", Some(&["user"])),
+        ])?
+        .add_resource("post", None)?
+        // Guest: allow read
+        .allow(Some(&["guest"]), Some(&["post"]), Some(&["read"]))?
+        // User: allow read and comment
+        .allow(Some(&["user"]), Some(&["post"]), Some(&["read", "comment"]))?
+        // User: deny all privileges (clears the read and comment per-privilege rules)
+        .deny(Some(&["user"]), Some(&["post"]), None)?
+        // User: now allow only edit (re-adds a per-privilege rule)
+        .allow(Some(&["user"]), Some(&["post"]), Some(&["edit"]))?
+        // Moderator: allow edit and delete
+        .allow(Some(&["moderator"]), Some(&["post"]), Some(&["edit", "delete"]))?
+        .build()?;
+
+    // User should have edit permission (explicitly allowed after deny-all)
+    assert!(
+        acl.is_allowed(Some("user"), Some("post"), Some("edit")),
+        "User should be allowed to edit"
+    );
+    // User should have read permission (inherited from guest role)
+    assert!(
+        acl.is_allowed(Some("user"), Some("post"), Some("read")),
+        "User should be allowed to read (inherited from guest)"
+    );
+    // User should be denied comment (per-privilege rule was cleared and not in guest)
+    assert!(
+        !acl.is_allowed(Some("user"), Some("post"), Some("comment")),
+        "User should be denied comment (per-privilege rule was cleared)"
+    );
+
+    // Moderator should have edit and delete (plus inherited read from guest)
+    assert!(
+        acl.is_allowed(Some("moderator"), Some("post"), Some("edit")),
+        "Moderator should be allowed to edit"
+    );
+    assert!(
+        acl.is_allowed(Some("moderator"), Some("post"), Some("delete")),
+        "Moderator should be allowed to delete"
+    );
+    assert!(
+        acl.is_allowed(Some("moderator"), Some("post"), Some("read")),
+        "Moderator should be allowed to read (inherited from guest via user)"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_per_privilege_allow_initially_cleared_by_deny_all() -> Result<(), String> {
+    // This is the key test case requested: per-privilege allow rules should be
+    // cleared when a for_all_privileges deny rule is set
+
+    let acl = AclBuilder::new()
+        .add_role("developer", None)?
+        .add_resource("database", None)?
+        // Set initial allow rules for specific privileges
+        .allow(Some(&["developer"]), Some(&["database"]), Some(&["read", "write", "backup"]))?
+        // Now deny all privileges - this should clear the above per-privilege rules
+        .deny(Some(&["developer"]), Some(&["database"]), None)?
+        .build()?;
+
+    // All previously allowed privileges should now be denied
+    assert!(
+        !acl.is_allowed(Some("developer"), Some("database"), Some("read")),
+        "Developer should be denied read after deny-all clears per-privilege allow rules"
+    );
+    assert!(
+        !acl.is_allowed(Some("developer"), Some("database"), Some("write")),
+        "Developer should be denied write after deny-all clears per-privilege allow rules"
+    );
+    assert!(
+        !acl.is_allowed(Some("developer"), Some("database"), Some("backup")),
+        "Developer should be denied backup after deny-all clears per-privilege allow rules"
+    );
+    assert!(
+        !acl.is_allowed(Some("developer"), Some("database"), Some("delete")),
+        "Developer should be denied delete (for_all_privileges deny)"
+    );
+
+    Ok(())
 }
 

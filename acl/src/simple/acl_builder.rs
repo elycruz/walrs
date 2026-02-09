@@ -250,6 +250,15 @@ impl AclBuilder {
     ) {
         use std::collections::HashMap;
 
+        // Apply overwrite/clearing logic
+        // ----
+        // Special case: if all parameters are None, reset the entire rules structure
+        if roles.is_none() && resources.is_none() && privileges.is_none() {
+            self._rules = ResourceRoleRules::new();
+            self._rules.for_all_resources.for_all_roles.for_all_privileges = rule_type;
+            return;
+        }
+
         // Filter out non-existent roles, and return `vec![None]` if result is empty list, or `None`.
         let _roles: Vec<Option<String>> = self._get_only_keys_in_graph(&self._roles, roles);
 
@@ -257,16 +266,34 @@ impl AclBuilder {
         let _resources: Vec<Option<String>> = self._get_only_keys_in_graph(&self._resources, resources);
 
         for resource in _resources.iter() {
+            // If resources is None (for all resources), we need to handle role clearing
+            if resources.is_none() {
+                for role in _roles.iter() {
+                    if let Some(role_id) = role {
+                        // When setting a rule for "all resources" on a specific role,
+                        // clear the by_resource_id entries for this role across all resources
+                        for (_, resource_rules) in self._rules.by_resource_id.iter_mut() {
+                            if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
+                                by_role_map.remove(role_id);
+                            }
+                        }
+                    }
+                }
+            }
+
             for role in _roles.iter() {
                 // Get role rules for resource
                 let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
 
-                // If privileges is `None`, set rule type for "all privileges"
+                // If 'privileges' is `None`, set 'rule' for "all privileges"
+                // and clear any existing per-privilege rules
                 if privileges.is_none() {
                     role_rules.for_all_privileges = rule_type;
+                    // Clear out any per-privilege rules to avoid conflicts
+                    role_rules.by_privilege_id = None;
                     continue;
                 }
-                // Else loop through privileges, and insert rule type for each privilege
+                // Else loop through privileges, and insert 'rule' for each privilege
                 privileges.unwrap().iter().for_each(|privilege| {
                     // Get privilege map for role and insert rule
                     let p_map = role_rules.by_privilege_id.get_or_insert(HashMap::new());
@@ -275,6 +302,20 @@ impl AclBuilder {
                     p_map.insert(privilege.to_string(), rule_type);
                 });
             }
+
+            // If roles is None (e.g., for all roles rule), clear the 'by_role_id' map for this resource
+            if roles.is_none() && resource.is_some() {
+                let resource_rules = self._rules.by_resource_id.get_mut(resource.as_ref().unwrap());
+                if let Some(res_rules) = resource_rules {
+                    res_rules.by_role_id = None;
+                }
+            }
+        }
+        // If 'resources', and 'roles', are `None` clear the `by_resource_id`, and
+        // `by_role_id`, maps.
+        if resources.is_none() && roles.is_none() {
+            self._rules.by_resource_id.clear();
+            self._rules.for_all_resources.by_role_id = None;
         }
     }
 
