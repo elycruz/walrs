@@ -1,4 +1,9 @@
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
+
+use crate::prelude::ToString;
 use crate::simple::{Resource, RuleContextScope};
 use crate::simple::role_privilege_rules::RolePrivilegeRules;
 

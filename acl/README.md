@@ -103,6 +103,25 @@ The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and 
 
 See tests, [benchmarks](./benchmarks), and/or [examples](./examples) for more details.
 
+## WASM Support
+
+The crate also supports WASM (WebAssembly):
+
+TODO.
+
+### Features
+
+- **`std`** (default): Full standard library support with file I/O
+- **`wasm`**: WASM-compatible mode with `no_std` + `alloc`
+
+### Usage
+
+```toml
+# For WASM targets
+[dependencies]
+walrs_acl = { version = "0.1.0", default-features = false, features = ["wasm"] }
+```
+
 ## Prior Art:
 
 - MS Windows Registry: https://docs.microsoft.com/en-us/windows/win32/sysinfo/structure-of-the-registry#:~:text=The%20registry%20is%20a%20hierarchical,tree%20is%20called%20a%20key.&text=Value%20names%20and%20data%20can%20include%20the%20backslash%20character.

@@ -1,4 +1,9 @@
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
+
+use crate::prelude::{String, Vec, vec, format, ToString};
 use walrs_graph::digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
 use crate::simple::rule::{Rule};

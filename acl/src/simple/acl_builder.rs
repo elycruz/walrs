@@ -1,5 +1,9 @@
-use std::convert::TryFrom;
+use core::convert::TryFrom;
+use crate::prelude::{String, Vec, vec, ToString};
+
+#[cfg(feature = "std")]
 use std::fs::File;
+
 use walrs_graph::digraph::DisymGraph;
 use crate::simple::{Acl, AclData, ResourceRoleRules, Rule};
 
@@ -249,7 +253,10 @@ impl AclBuilder {
         resources: Option<&[&str]>,
         privileges: Option<&[&str]>,
     ) {
+        #[cfg(feature = "std")]
         use std::collections::HashMap;
+        #[cfg(not(feature = "std"))]
+        use alloc::collections::BTreeMap as HashMap;
 
         // Apply overwrite/clearing logic
         // ----
@@ -340,7 +347,11 @@ impl AclBuilder {
         resource: Option<&str>,
         role: Option<&str>,
     ) -> &mut crate::simple::PrivilegeRules {
+        #[cfg(feature = "std")]
         use std::collections::HashMap;
+        #[cfg(not(feature = "std"))]
+        use alloc::collections::BTreeMap as HashMap;
+
         use crate::simple::RolePrivilegeRules;
 
         // Get or create resource rules
@@ -620,6 +631,7 @@ impl TryFrom<AclData> for AclBuilder {
 ///     .build()?;
 /// # Ok::<(), Box<dyn std::error::Error>>(())
 /// ```
+#[cfg(feature = "std")]
 impl TryFrom<&mut File> for AclBuilder {
     type Error = serde_json::Error;
 
@@ -633,4 +645,3 @@ impl TryFrom<&mut File> for AclBuilder {
         })
     }
 }
-

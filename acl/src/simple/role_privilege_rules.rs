@@ -1,4 +1,9 @@
+#[cfg(feature = "std")]
 use std::collections::HashMap;
+#[cfg(not(feature = "std"))]
+use alloc::collections::BTreeMap as HashMap;
+
+use crate::prelude::ToString;
 use crate::simple::{PrivilegeRules, Role, RuleContextScope};
 
 #[derive(Debug, PartialEq, Clone)]
@@ -78,7 +83,11 @@ impl RolePrivilegeRules {
 
 #[cfg(test)]
 mod test_role_privilege_rules {
+    #[cfg(feature = "std")]
     use std::collections::HashMap;
+    #[cfg(not(feature = "std"))]
+    use alloc::collections::BTreeMap as HashMap;
+
     use crate::simple::Rule;
     use super::{PrivilegeRules, RolePrivilegeRules};
 
