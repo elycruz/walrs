@@ -105,9 +105,13 @@ See tests, [benchmarks](./benchmarks), and/or [examples](./examples) for more de
 
 ## WASM Support
 
-The crate also supports WASM (WebAssembly):
+The crate also supports WASM (WebAssembly) (see [WASM README](./WASM_README.md) for more details).
 
-TODO.
+### Build
+
+```bash
+$ sh ./ci-cd-wasm.sh
+```
 
 ### Features
 

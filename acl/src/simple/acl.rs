@@ -1,15 +1,8 @@
-#[cfg(feature = "std")]
-use std::collections::HashMap;
-#[cfg(not(feature = "std"))]
-use alloc::collections::BTreeMap as HashMap;
-
-use crate::prelude::{String, Vec, vec, format, ToString};
+use crate::prelude::{String, Vec, vec, format};
 use walrs_digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
 use crate::simple::rule::{Rule};
-use crate::simple::privilege_rules::PrivilegeRules;
 use crate::simple::resource_role_rules::ResourceRoleRules;
-use crate::simple::role_privilege_rules::RolePrivilegeRules;
 
 // Note: Rules structure:
 // Resources contain roles, roles contain privileges,
