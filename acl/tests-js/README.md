@@ -20,6 +20,12 @@ wasm-pack build --target nodejs --no-default-features --features wasm
 wasm-pack build --target web --no-default-features --features wasm
 ```
 
+or build and test in one step:
+
+```bash
+$ sh ../ci-cd-wasm.sh
+```
+
 ## Running Tests
 
 ```bash
@@ -74,7 +80,6 @@ describe('My Feature', () => {
 ## Test Fixtures
 
 The tests use JSON fixtures from `../test-fixtures/`:
-- `example-acl.json` - Valid ACL configuration
 - `invalid-acl.json` - Invalid ACL for error testing
 - `example-acl-allow-and-deny-rules.json` - ACL with both allow and deny rules
 - `example-extensive-acl-array.json` - Large ACL for performance testing
@@ -84,12 +89,7 @@ The tests use JSON fixtures from `../test-fixtures/`:
 To run tests in CI/CD:
 
 ```bash
-# Build WASM module
-wasm-pack build --target nodejs --no-default-features --features wasm
-
-# Run tests
-cd tests-js
-npm test
+$ sh ../ci-cd-wasm.sh
 ```
 
 ## Debugging Tests
@@ -120,4 +120,3 @@ The built-in test runner supports:
 - ✅ Multiple reporters (TAP, spec, dot)
 
 No need for external test frameworks like Jest or Mocha!
-
