@@ -5,7 +5,7 @@ use std::io::BufReader;
 
 #[test]
 pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
-  let file_path = "./test-fixtures/example-acl.json";
+  let file_path = "./test-fixtures/example-extensive-acl-array.json";
 
   // Get digraph data
   let mut f = File::open(&file_path)?;
@@ -120,7 +120,7 @@ pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
 
 #[test]
 pub fn test_acl_data_from_mut_file_ref() -> Result<(), Box<dyn std::error::Error>> {
-  let file_path = "./test-fixtures/example-acl.json";
+  let file_path = "./test-fixtures/example-extensive-acl-array.json";
 
   // Get digraph data
   let mut f = File::open(&file_path)?;

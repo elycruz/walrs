@@ -337,11 +337,8 @@ fn test_acl_builder_try_from_acl() -> Result<(), String> {
         .allow(Some(&["admin"]), None, None)?
         .build()?;
 
-    // Convert the ACL back to a builder
-    let builder = AclBuilder::try_from(original_acl)?;
-
-    // Build a new ACL from the builder
-    let rebuilt_acl = builder.build()?;
+    // Convert the ACL back to a builder and build new Acl from it
+    let rebuilt_acl = AclBuilder::try_from(original_acl)?.build()?;
 
     // Verify that the rebuilt ACL has the same behavior as the original
 
@@ -589,8 +586,7 @@ fn test_acl_builder_empty() -> Result<(), String> {
 
 #[test]
 fn test_acl_builder_default() {
-    let builder = AclBuilder::default();
-    let acl = builder.build();
+    let acl = AclBuilder::default().build();
 
     assert!(acl.is_ok(), "Default builder should build successfully");
 }

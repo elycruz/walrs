@@ -1,6 +1,7 @@
 //! WebAssembly bindings for walrs_acl
 //!
-//! This module provides JavaScript-compatible wrappers around the ACL functionality.
+//! This module provides JavaScript-compatible wrappers around the ACL structure from
+//! the walrs_acl crate.
 
 use wasm_bindgen::prelude::*;
 use crate::simple::{Acl, AclBuilder, AclData};
@@ -160,15 +161,13 @@ impl JsAclBuilder {
     /// * `role` - The role name
     /// * `parents` - Optional array of parent role names this role inherits from
     #[wasm_bindgen(js_name = addRole)]
-    pub fn add_role(mut self, role: &str, parents: Option<Vec<String>>) -> Result<JsAclBuilder, JsValue> {
+    pub fn add_role(&mut self, role: &str, parents: Option<Vec<String>>) {
         let parent_refs: Option<Vec<&str>> = parents.as_ref().map(|p| {
             p.iter().map(|s| s.as_str()).collect()
         });
 
-        self.inner = self.inner.add_role(role, parent_refs.as_deref())
-            .map_err(|e| JsValue::from_str(&e))?;
-
-        Ok(self)
+        self.inner.add_role(role, parent_refs.as_deref())
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 
     /// Adds multiple roles to the ACL
@@ -185,23 +184,21 @@ impl JsAclBuilder {
     /// ])
     /// ```
     #[wasm_bindgen(js_name = addRoles)]
-    pub fn add_roles(mut self, roles: Vec<JsValue>) -> Result<JsAclBuilder, JsValue> {
+    pub fn add_roles(&mut self, roles: Vec<JsValue>) {
         use serde_wasm_bindgen::from_value;
 
         // Parse the array of [string, string[] | null] tuples
         let roles_data: Vec<(String, Option<Vec<String>>)> = from_value(JsValue::from(roles))
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse roles array: {:?}", e)))?;
+            .unwrap_or_else(|e| panic!("Failed to parse 'roles' array: {:?}", e));
 
         for (role, parents) in roles_data {
             let parent_refs: Option<Vec<&str>> = parents.as_ref().map(|p| {
                 p.iter().map(|s| s.as_str()).collect()
             });
 
-            self.inner = self.inner.add_role(&role, parent_refs.as_deref())
-                .map_err(|e| JsValue::from_str(&e))?;
+            self.inner.add_role(&role, parent_refs.as_deref())
+                .unwrap_or_else(|e| panic!("{}", e));
         }
-
-        Ok(self)
     }
 
     /// Adds a resource to the ACL
@@ -210,15 +207,13 @@ impl JsAclBuilder {
     /// * `resource` - The resource name
     /// * `parents` - Optional array of parent resource names this resource inherits from
     #[wasm_bindgen(js_name = addResource)]
-    pub fn add_resource(mut self, resource: &str, parents: Option<Vec<String>>) -> Result<JsAclBuilder, JsValue> {
+    pub fn add_resource(&mut self, resource: &str, parents: Option<Vec<String>>) {
         let parent_refs: Option<Vec<&str>> = parents.as_ref().map(|p| {
             p.iter().map(|s| s.as_str()).collect()
         });
 
-        self.inner = self.inner.add_resource(resource, parent_refs.as_deref())
-            .map_err(|e| JsValue::from_str(&e))?;
-
-        Ok(self)
+        self.inner.add_resource(resource, parent_refs.as_deref())
+            .unwrap_or_else(|e| panic!("{}", e));
     }
 
     /// Adds multiple resources to the ACL
@@ -235,23 +230,21 @@ impl JsAclBuilder {
     /// ])
     /// ```
     #[wasm_bindgen(js_name = addResources)]
-    pub fn add_resources(mut self, resources: Vec<JsValue>) -> Result<JsAclBuilder, JsValue> {
+    pub fn add_resources(&mut self, resources: Vec<JsValue>) {
         use serde_wasm_bindgen::from_value;
 
         // Parse the array of [string, string[] | null] tuples
         let resources_data: Vec<(String, Option<Vec<String>>)> = from_value(JsValue::from(resources))
-            .map_err(|e| JsValue::from_str(&format!("Failed to parse resources array: {:?}", e)))?;
+            .unwrap_or_else(|e| panic!("Failed to parse 'resources' array: {:?}", e));
 
         for (resource, parents) in resources_data {
             let parent_refs: Option<Vec<&str>> = parents.as_ref().map(|p| {
                 p.iter().map(|s| s.as_str()).collect()
             });
 
-            self.inner = self.inner.add_resource(&resource, parent_refs.as_deref())
-                .map_err(|e| JsValue::from_str(&e))?;
+            self.inner.add_resource(&resource, parent_refs.as_deref())
+                .unwrap_or_else(|e| panic!("{}", e));
         }
-
-        Ok(self)
     }
 
     /// Adds an "allow" rule
@@ -262,11 +255,11 @@ impl JsAclBuilder {
     /// * `privileges` - Array of privilege names (null means "all privileges")
     #[wasm_bindgen(js_name = allow)]
     pub fn allow(
-        mut self,
+        &mut self,
         roles: Option<Vec<String>>,
         resources: Option<Vec<String>>,
         privileges: Option<Vec<String>>,
-    ) -> Result<JsAclBuilder, JsValue> {
+    ) {
         let role_refs: Option<Vec<&str>> = roles.as_ref().map(|r| {
             r.iter().map(|s| s.as_str()).collect()
         });
@@ -277,13 +270,11 @@ impl JsAclBuilder {
             p.iter().map(|s| s.as_str()).collect()
         });
 
-        self.inner = self.inner.allow(
+        self.inner.allow(
             role_refs.as_deref(),
             resource_refs.as_deref(),
             privilege_refs.as_deref(),
-        ).map_err(|e| JsValue::from_str(&e))?;
-
-        Ok(self)
+        ).unwrap_or_else(|e| panic!("{}", e));
     }
 
     /// Adds a "deny" rule
@@ -294,11 +285,11 @@ impl JsAclBuilder {
     /// * `privileges` - Array of privilege names (null means "all privileges")
     #[wasm_bindgen(js_name = deny)]
     pub fn deny(
-        mut self,
+        &mut self,
         roles: Option<Vec<String>>,
         resources: Option<Vec<String>>,
         privileges: Option<Vec<String>>,
-    ) -> Result<JsAclBuilder, JsValue> {
+    ) {
         let role_refs: Option<Vec<&str>> = roles.as_ref().map(|r| {
             r.iter().map(|s| s.as_str()).collect()
         });
@@ -309,18 +300,16 @@ impl JsAclBuilder {
             p.iter().map(|s| s.as_str()).collect()
         });
 
-        self.inner = self.inner.deny(
+        self.inner.deny(
             role_refs.as_deref(),
             resource_refs.as_deref(),
             privilege_refs.as_deref(),
-        ).map_err(|e| JsValue::from_str(&e))?;
-
-        Ok(self)
+        ).unwrap_or_else(|e| panic!("{}", e));
     }
 
     /// Builds the final ACL
     #[wasm_bindgen(js_name = build)]
-    pub fn build(self) -> Result<JsAcl, JsValue> {
+    pub fn build(&mut self) -> Result<JsAcl, JsValue> {
         let acl = self.inner.build()
             .map_err(|e| JsValue::from_str(&e))?;
 
@@ -345,4 +334,3 @@ pub fn check_permission(
     let acl = JsAcl::from_json(acl_json)?;
     Ok(acl.is_allowed(role, resource, privilege))
 }
-

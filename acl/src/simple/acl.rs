@@ -449,7 +449,7 @@ impl Acl {
   /// let read = "read";
   ///
   /// // Build ACL
-  /// let mut builder = AclBuilder::default()
+  /// let acl = AclBuilder::default()
   ///   // Second 'arg' is role inheritance, which is optional
   ///   .add_roles(&[
   ///     (guest, None),
@@ -460,9 +460,8 @@ impl Acl {
   ///   .add_resources(&[
   ///     (index, None),
   ///     (protected, None)
-  ///   ])?;
-  ///
-  /// let acl = builder.build()?;
+  ///   ])?
+  ///   .build()?;
   ///
   /// // All access is "denied" by default
   /// for role in [guest, user, special, admin] {
@@ -1054,14 +1053,15 @@ mod test_acl {
     let delete_privilege = "delete";
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
-      Ok(AclBuilder::new()
-        .add_role(guest_role, None)?
+      let mut builder = AclBuilder::new();
+      builder.add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
         .add_resource(blog_resource, Some(&[index_resource]))?
         .add_resource(account_resource, None)?
-        .add_resource(users_resource, None)?)
+        .add_resource(users_resource, None)?;
+      Ok(builder)
     };
 
     // Ensure default expected default rule is set
@@ -1165,7 +1165,7 @@ mod test_acl {
 
       // If we're testing for 'allow' set allow rule result to test
       if expected {
-        builder = builder.allow(roles, resources, privileges)?;
+        builder.allow(roles, resources, privileges)?;
       }
 
       let acl = builder.build()?;
@@ -1207,14 +1207,15 @@ mod test_acl {
     let delete_privilege = "delete";
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
-      Ok(AclBuilder::new()
-        .add_role(guest_role, None)?
+      let mut builder = AclBuilder::new();
+      builder.add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
         .add_resource(blog_resource, Some(&[index_resource]))?
         .add_resource(account_resource, None)?
-        .add_resource(users_resource, None)?)
+        .add_resource(users_resource, None)?;
+      Ok(builder)
     };
 
     // Ensure default expected rule is set
@@ -1318,8 +1319,9 @@ mod test_acl {
     let build_base_acl = |prev_acl: Option<&Acl>| -> Result<AclBuilder, String> {
       match prev_acl {
         Some(acl) => AclBuilder::try_from(acl),
-        None => Ok(AclBuilder::new()
-          .add_roles(&[
+        None => {
+          let mut builder = AclBuilder::new();
+          builder.add_roles(&[
             (guest, None),
             (user, Some(&[guest])),
             (moderator, Some(&[user])),
@@ -1328,7 +1330,9 @@ mod test_acl {
           .add_resource(blog, None)?
           .add_resource(account, None)?
           .add_resource(admin_panel, None)?
-          .add_resource(secret, None)?)
+          .add_resource(secret, None)?;
+          Ok(builder)
+        }
       }
     };
 

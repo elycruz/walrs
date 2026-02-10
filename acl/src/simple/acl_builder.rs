@@ -57,13 +57,13 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
+    /// let mut builder = AclBuilder::new()
     ///     .add_role("guest", None)?
     ///     .add_role("user", Some(&["guest"]))?
     ///     .add_role("admin", Some(&["user"]))?;
     /// # Ok::<(), String>(())
     /// ```
-    pub fn add_role(mut self, role: &str, parents: Option<&[&str]>) -> Result<Self, String> {
+    pub fn add_role(&mut self, role: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
         if let Some(parents) = parents {
             self._roles.add_edge(role, parents)?;
         }
@@ -82,15 +82,15 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
-    ///     .add_roles(&[
-    ///         ("guest", None),
-    ///         ("user", Some(&["guest"])),
-    ///         ("admin", Some(&["user"])),
-    ///     ])?;
+    /// let mut builder = AclBuilder::new()
+    ///   .add_roles(&[
+    ///     ("guest", None),
+    ///     ("user", Some(&["guest"])),
+    ///     ("admin", Some(&["user"])),
+    /// ])?;
     /// # Ok::<(), String>(())
     /// ```
-    pub fn add_roles(mut self, roles: &[(&str, Option<&[&str]>)]) -> Result<Self, String> {
+    pub fn add_roles(&mut self, roles: &[(&str, Option<&[&str]>)]) -> Result<&mut Self, String> {
         for &(role, parents) in roles {
             if let Some(parents) = parents {
                 self._roles.add_edge(role, parents)?;
@@ -112,13 +112,13 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
+    /// let mut builder = AclBuilder::new()
     ///     .add_resource("blog", None)?
     ///     .add_resource("blog_post", Some(&["blog"]))?
     ///     .add_resource("blog_comment", Some(&["blog"]))?;
     /// # Ok::<(), String>(())
     /// ```
-    pub fn add_resource(mut self, resource: &str, parents: Option<&[&str]>) -> Result<Self, String> {
+    pub fn add_resource(&mut self, resource: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
         if let Some(parents) = parents {
             self._resources.add_edge(resource, parents)?;
         }
@@ -137,15 +137,15 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
-    ///     .add_resources(&[
-    ///         ("blog", None),
-    ///         ("blog_post", Some(&["blog"])),
-    ///         ("blog_comment", Some(&["blog"])),
-    ///     ])?;
+    /// let mut builder = AclBuilder::new()
+    ///   .add_resources(&[
+    ///     ("blog", None),
+    ///     ("blog_post", Some(&["blog"])),
+    ///     ("blog_comment", Some(&["blog"])),
+    ///   ])?;
     /// # Ok::<(), String>(())
     /// ```
-    pub fn add_resources(mut self, resources: &[(&str, Option<&[&str]>)]) -> Result<Self, String> {
+    pub fn add_resources(&mut self, resources: &[(&str, Option<&[&str]>)]) -> Result<&mut Self, String> {
         for &(resource, parents) in resources {
             if let Some(parents) = parents {
                 self._resources.add_edge(resource, parents)?;
@@ -168,18 +168,18 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
+    /// let mut builder = AclBuilder::new()
     ///     .add_role("user", None)?
     ///     .add_resource("blog", None)?
     ///     .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "write"]))?;
     /// # Ok::<(), String>(())
     /// ```
     pub fn allow(
-        mut self,
+        &mut self,
         roles: Option<&[&str]>,
         resources: Option<&[&str]>,
         privileges: Option<&[&str]>,
-    ) -> Result<Self, String> {
+    ) -> Result<&mut Self, String> {
         self._add_rule(Rule::Allow, roles, resources, privileges);
         Ok(self)
     }
@@ -197,25 +197,25 @@ impl AclBuilder {
     /// ```rust
     /// use walrs_acl::simple::AclBuilder;
     ///
-    /// let builder = AclBuilder::new()
+    /// let acl = AclBuilder::new()
     ///     .add_role("user", None)?
     ///     .add_resource("admin_panel", None)?
     ///     .deny(Some(&["user"]), Some(&["admin_panel"]), None)?;
     /// # Ok::<(), String>(())
     /// ```
     pub fn deny(
-        mut self,
+        &mut self,
         roles: Option<&[&str]>,
         resources: Option<&[&str]>,
         privileges: Option<&[&str]>,
-    ) -> Result<Self, String> {
+    ) -> Result<&mut Self, String> {
         self._add_rule(Rule::Deny, roles, resources, privileges);
         Ok(self)
     }
 
     /// Builds and returns the final `Acl` instance.
     ///
-    /// This method consumes the builder and performs validation checks on the
+    /// This method clones the builder's internal state and performs validation checks on the
     /// constructed ACL (checking for cycles in roles and resources).
     ///
     /// # Example
@@ -232,8 +232,8 @@ impl AclBuilder {
     /// assert!(acl.is_allowed(Some("guest"), Some("blog"), Some("read")));
     /// # Ok::<(), String>(())
     /// ```
-    pub fn build(self) -> Result<Acl, String> {
-        let acl = Acl::from_parts(self._roles, self._resources, self._rules);
+    pub fn build(&mut self) -> Result<Acl, String> {
+        let acl = Acl::from_parts(self._roles.clone(), self._resources.clone(), self._rules.clone());
 
         // Validate the ACL structure
         acl.check_for_cycles()?;
@@ -401,11 +401,8 @@ impl Default for AclBuilder {
 ///     .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
 ///     .build()?;
 ///
-/// // Convert it back to a builder
-/// let builder = AclBuilder::try_from(acl)?;
-///
-/// // Modify and rebuild
-/// let modified_acl = builder
+/// // Convert it back to a builder, modify it, and rebuild it
+/// let modified_acl = AclBuilder::try_from(acl)?
 ///     .add_role("admin", Some(&["guest"]))?
 ///     .allow(Some(&["admin"]), None, None)?
 ///     .build()?;
@@ -441,8 +438,7 @@ impl TryFrom<Acl> for AclBuilder {
 ///     .build()?;
 ///
 /// // Build upon the existing ACL
-/// let builder = AclBuilder::try_from(&acl)?;
-/// let modified_acl = builder
+/// let modified_acl = AclBuilder::try_from(&acl)?
 ///     .add_role("admin", Some(&["guest"]))?
 ///     .allow(Some(&["admin"]), Some(&["blog"]), Some(&["write"]))?
 ///     .build()?;
@@ -518,7 +514,7 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                     .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
 
                 // Add role(s);  If parent roles aren't in the builder, they get added via `builder.add_role`
-                builder = builder.add_role(role, parents.as_deref())?;
+                builder.add_role(role, parents.as_deref())?;
             }
         }
 
@@ -532,7 +528,7 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                     .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
 
                 // Add resource(s);  If parent resources aren't in the builder, they get added via `builder.add_resource`
-                builder = builder.add_resource(resource, parents.as_deref())?;
+                builder.add_resource(resource, parents.as_deref())?;
             }
         }
 
@@ -548,7 +544,7 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                             .as_deref()
                             .map(|ps| ps.iter().map(|p| &**p).collect());
                         // Apply `allow` rule
-                        builder = builder.allow(
+                        builder.allow(
                             Some([role.as_str()].as_slice()),
                             Some([resource.as_str()].as_slice()),
                             ps.as_deref(),
@@ -557,7 +553,7 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                 }
                 // Else add allow rule for all `roles`, on all `privileges`, for given `resource`
                 else {
-                    builder = builder.allow(None, Some([resource.as_str()].as_slice()), None)?;
+                    builder.allow(None, Some([resource.as_str()].as_slice()), None)?;
                 }
             }
         }
@@ -570,14 +566,14 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                         let ps: Option<Vec<&str>> = privileges
                             .as_deref()
                             .map(|ps| ps.iter().map(|p| &**p).collect());
-                        builder = builder.deny(
+                        builder.deny(
                             Some([role.as_str()].as_slice()),
                             Some([resource.as_str()].as_slice()),
                             ps.as_deref(),
                         )?;
                     }
                 } else {
-                    builder = builder.deny(None, Some([resource.as_str()].as_slice()), None)?;
+                    builder.deny(None, Some([resource.as_str()].as_slice()), None)?;
                 }
             }
         }
