@@ -258,6 +258,8 @@ impl AclBuilder {
         #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeMap as HashMap;
 
+        // TODO: Consolidate/clean-up this implementation.
+
         // Apply overwrite/clearing logic
         // ----
         // Special case: if all parameters are None, reset the entire rules structure
@@ -284,6 +286,17 @@ impl AclBuilder {
                             if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
                                 by_role_map.remove(role_id);
                             }
+                        }
+                    }
+                }
+            } else {
+                // If resources is Some (specific resources), and we're setting a rule on specific roles,
+                // we need to clear the "for all resources" rule for those roles to avoid conflicts
+                for role in _roles.iter() {
+                    if let Some(role_id) = role {
+                        // Clear the "for all resources" rule for this specific role
+                        if let Some(for_all_by_role) = self._rules.for_all_resources.by_role_id.as_mut() {
+                            for_all_by_role.remove(role_id);
                         }
                     }
                 }

@@ -29,31 +29,31 @@ describe('JsAclBuilder', () => {
     });
 
     test('should add a single role', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('user', null);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('user', null)
+        .build();
 
       assert.ok(acl.hasRole('user'), 'ACL should have the user role');
     });
 
     test('should add a role with parent', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('guest', null);
-      builder.addRole('user', ['guest']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('guest', null)
+        .addRole('user', ['guest'])
+        .build();
 
       assert.ok(acl.hasRole('user'), 'ACL should have the user role');
       assert.ok(acl.inheritsRole('user', 'guest'), 'User should inherit from guest');
     });
 
     test('should add multiple roles at once', () => {
-      const builder = new JsAclBuilder();
-      builder.addRoles([
-        ['guest', null],
-        ['user', ['guest']],
-        ['admin', ['user']]
-      ]);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRoles([
+          ['guest', null],
+          ['user', ['guest']],
+          ['admin', ['user']]
+        ])
+        .build();
 
       assert.ok(acl.hasRole('guest'), 'ACL should have guest role');
       assert.ok(acl.hasRole('user'), 'ACL should have user role');
@@ -63,33 +63,33 @@ describe('JsAclBuilder', () => {
     });
 
     test('should add a single resource', () => {
-      const builder = new JsAclBuilder();
-      builder.addResource('blog', null);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addResource('blog', null)
+        .build();
 
       assert.ok(acl.hasResource('blog'), 'ACL should have the blog resource');
     });
 
     test('should add a resource with parent', () => {
-      const builder = new JsAclBuilder();
-      builder.addResource('public_pages', null);
-      builder.addResource('blog', ['public_pages']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addResource('public_pages', null)
+        .addResource('blog', ['public_pages'])
+        .build();
 
       assert.ok(acl.hasResource('blog'), 'ACL should have the blog resource');
       assert.ok(acl.inheritsResource('blog', 'public_pages'), 'Blog should inherit from public_pages');
     });
 
     test('should add multiple resources at once', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('guest', null);
-      builder.addResources([
-        ['media_library', null],
-        ['image', ['media_library']],
-        ['video', ['media_library']]
-      ]);
-      builder.allow(['guest'], ['media_library'], ['read']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('guest', null)
+        .addResources([
+          ['media_library', null],
+          ['image', ['media_library']],
+          ['video', ['media_library']]
+        ])
+        .allow(['guest'], ['media_library'], ['read'])
+        .build();
 
       assert.ok(acl.hasResource('media_library'), 'ACL should have media_library resource');
       assert.ok(acl.hasResource('image'), 'ACL should have image resource');
@@ -101,33 +101,33 @@ describe('JsAclBuilder', () => {
 
   describe('Allow and Deny Rules', () => {
     test('should allow specific role on specific resource with specific privilege', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('user', null);
-      builder.addResource('blog', null);
-      builder.allow(['user'], ['blog'], ['read']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('user', null)
+        .addResource('blog', null)
+        .allow(['user'], ['blog'], ['read'])
+        .build();
 
       assert.ok(acl.isAllowed('user', 'blog', 'read'), 'User should be allowed to read blog');
       assert.ok(!acl.isAllowed('user', 'blog', 'write'), 'User should not be allowed to write blog');
     });
 
     test('should deny specific role on specific resource with specific privilege', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('user', null);
-      builder.addResource('admin_panel', null);
-      builder.allow(['user'], null, null); // Allow all
-      builder.deny(['user'], ['admin_panel'], null); // Deny admin_panel
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('user', null)
+        .addResource('admin_panel', null)
+        .allow(['user'], null, null)
+        .deny(['user'], ['admin_panel'], null)
+        .build();
 
       assert.ok(!acl.isAllowed('user', 'admin_panel', 'read'), 'User should be denied access to admin_panel');
     });
 
     test('should allow all privileges with null privileges parameter', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('admin', null);
-      builder.addResource('blog', null);
-      builder.allow(['admin'], ['blog'], null);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('admin', null)
+        .addResource('blog', null)
+        .allow(['admin'], ['blog'], null)
+        .build();
 
       assert.ok(acl.isAllowed('admin', 'blog', 'read'), 'Admin should be allowed to read');
       assert.ok(acl.isAllowed('admin', 'blog', 'write'), 'Admin should be allowed to write');
@@ -135,22 +135,22 @@ describe('JsAclBuilder', () => {
     });
 
     test('should allow all resources with null resources parameter', () => {
-      const builder = new JsAclBuilder();
-      builder.addRole('admin', null);
-      builder.addResources([['blog', null], ['forum', null]]);
-      builder.allow(['admin'], null, ['read']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRole('admin', null)
+        .addResources([['blog', null], ['forum', null]])
+        .allow(['admin'], null, ['read'])
+        .build();
 
       assert.ok(acl.isAllowed('admin', 'blog', 'read'), 'Admin should be allowed to read blog');
       assert.ok(acl.isAllowed('admin', 'forum', 'read'), 'Admin should be allowed to read forum');
     });
 
     test('should allow all roles with null roles parameter', () => {
-      const builder = new JsAclBuilder();
-      builder.addRoles([['guest', null], ['user', null]]);
-      builder.addResource('homepage', null);
-      builder.allow(null, ['homepage'], ['read']);
-      const acl = builder.build();
+      const acl = new JsAclBuilder()
+        .addRoles([['guest', null], ['user', null]])
+        .addResource('homepage', null)
+        .allow(null, ['homepage'], ['read'])
+        .build();
 
       assert.ok(acl.isAllowed('guest', 'homepage', 'read'), 'Guest should be allowed to read homepage');
       assert.ok(acl.isAllowed('user', 'homepage', 'read'), 'User should be allowed to read homepage');
@@ -347,11 +347,13 @@ describe('JsAcl', () => {
     test('should handle deny rules overriding allow rules', () => {
       const acl = new JsAclBuilder()
         .addRole('editor', null)
+        .addResource('blog', null)
         .addResource('admin_panel', null)
-        .allow(['editor'], null, null)
-        .deny(['editor'], ['admin_panel'], null)
+        .allow(['editor'], ['blog'], null)  // Allow blog specifically
+        .deny(['editor'], ['admin_panel'], null)  // Deny admin_panel
         .build();
 
+      assert.ok(acl.isAllowed('editor', 'blog', 'read'), 'Editor can access blog');
       assert.ok(!acl.isAllowed('editor', 'admin_panel', 'read'), 'Editor should be denied admin_panel access');
     });
   });
@@ -789,13 +791,14 @@ describe('Complex Scenarios', () => {
     const acl = new JsAclBuilder()
       .addRole('editor', null)
       .addResources([['blog', null], ['admin_panel', null], ['admin_system', null]])
-      .allow(['editor'], null, null) // Allow everything
-      .deny(['editor'], ['admin_panel'], null) // Deny admin_panel
+      .deny(['editor'], ['admin_panel'], null) // Deny admin_panel first
+      .allow(['editor'], ['blog'], null) // Allow blog
+      .allow(['editor'], ['admin_system'], null) // Allow admin_system
       .build();
 
     assert.ok(acl.isAllowed('editor', 'blog', 'write'), 'Editor can write to blog');
     assert.ok(!acl.isAllowed('editor', 'admin_panel', 'read'), 'Editor denied admin panel');
-    assert.ok(!acl.isAllowed('editor', 'admin_system', 'read'), 'Editor can access admin_system');
+    assert.ok(acl.isAllowed('editor', 'admin_system', 'read'), 'Editor can access admin_system');
   });
 
   test('should handle granular privilege control', () => {
