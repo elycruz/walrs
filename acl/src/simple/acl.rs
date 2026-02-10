@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use alloc::collections::BTreeMap as HashMap;
 
 use crate::prelude::{String, Vec, vec, format, ToString};
-use walrs_graph::digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
+use walrs_digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
 use crate::simple::rule::{Rule};
 use crate::simple::privilege_rules::PrivilegeRules;

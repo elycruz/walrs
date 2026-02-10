@@ -4,7 +4,7 @@ use crate::prelude::{String, Vec, vec, ToString};
 #[cfg(feature = "std")]
 use std::fs::File;
 
-use walrs_graph::digraph::DisymGraph;
+use walrs_digraph::DisymGraph;
 use crate::simple::{Acl, AclData, ResourceRoleRules, Rule};
 
 /// Builder for constructing `Acl` instances with a fluent interface.

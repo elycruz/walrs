@@ -19,7 +19,7 @@ mod prelude {
     pub use std::vec;
     #[cfg(feature = "std")]
     pub use std::string::ToString;
-    
+
     #[cfg(not(feature = "std"))]
     pub use alloc::string::String;
     #[cfg(not(feature = "std"))]
@@ -33,3 +33,10 @@ mod prelude {
 }
 
 pub mod simple;
+
+#[cfg(feature = "wasm")]
+pub mod wasm;
+
+#[cfg(feature = "wasm")]
+pub use wasm::*;
+
