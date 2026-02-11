@@ -7,6 +7,8 @@ pub fn invalid_vert_symbol_msg(v: &str) -> String {
   format!("Invalid vertex symbol '{}' not found in graph.", v)
 }
 
+pub type DisymGraphData = Vec<(String, Option<Vec<String>>)>;
+
 /// `DisymGraph` A Directed Acyclic Graph (B-DAG) data structure.
 ///
 /// ```rust
@@ -165,6 +167,27 @@ impl DisymGraph {
 impl Default for DisymGraph {
   fn default() -> Self {
     Self::new()
+  }
+}
+
+impl TryFrom<DisymGraphData> for DisymGraph {
+  type Error = String;
+
+  fn try_from(data: DisymGraphData) -> Result<Self, Self::Error> {
+    let mut graph = DisymGraph::new();
+
+    for (vertex, edges) in data.iter() {
+      // Handle Option<Vec<String>> - if None, add vertex with no edges
+      if let Some(edge_list) = edges {
+        let edge_refs: Vec<&str> = edge_list.iter().map(|s| s.as_str()).collect();
+        graph.add_edge(vertex.as_str(), &edge_refs)?;
+      } else {
+        // Just add the vertex without any edges
+        graph.add_vertex(vertex.as_str());
+      }
+    }
+
+    Ok(graph)
   }
 }
 
@@ -876,6 +899,95 @@ mod test {
 
     // Create graph
     let _: DisymGraph = BufReader::new(f).try_into().unwrap();
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_try_from_disymgraph_data() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create test data: a simple graph with roles hierarchy
+    // Note: Using Option<Vec<String>> to represent edges - None means no edges
+    let data: DisymGraphData = vec![
+      ("admin".to_string(), Some(vec!["user".to_string(), "moderator".to_string()])),
+      ("user".to_string(), Some(vec!["guest".to_string()])),
+      ("moderator".to_string(), Some(vec!["user".to_string()])),
+      ("guest".to_string(), None), // No edges - leaf node
+    ];
+
+    // Convert to DisymGraph
+    let graph = DisymGraph::try_from(data)?;
+
+    // Verify the graph structure
+    assert_eq!(graph.vert_count(), 4, "Should have 4 vertices");
+    assert!(graph.has_vertex("admin"), "Should have admin vertex");
+    assert!(graph.has_vertex("user"), "Should have user vertex");
+    assert!(graph.has_vertex("moderator"), "Should have moderator vertex");
+    assert!(graph.has_vertex("guest"), "Should have guest vertex");
+
+    // Verify edges
+    let admin_adj = graph.adj("admin").expect("Admin should have adjacencies");
+    assert_eq!(admin_adj.len(), 2, "Admin should have 2 edges");
+    assert!(admin_adj.contains(&"user"), "Admin should be connected to user");
+    assert!(admin_adj.contains(&"moderator"), "Admin should be connected to moderator");
+
+    let user_adj = graph.adj("user").expect("User should have adjacencies");
+    assert_eq!(user_adj.len(), 1, "User should have 1 edge");
+    assert!(user_adj.contains(&"guest"), "User should be connected to guest");
+
+    let moderator_adj = graph.adj("moderator").expect("Moderator should have adjacencies");
+    assert_eq!(moderator_adj.len(), 1, "Moderator should have 1 edge");
+    assert!(moderator_adj.contains(&"user"), "Moderator should be connected to user");
+
+    let guest_adj = graph.adj("guest");
+    assert!(guest_adj.is_none() || guest_adj.unwrap().is_empty(), "Guest should have no edges");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_try_from_disymgraph_data_with_empty_graph() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create empty graph data
+    let data: DisymGraphData = vec![];
+
+    // Convert to DisymGraph
+    let graph = DisymGraph::try_from(data)?;
+
+    // Verify empty graph
+    assert_eq!(graph.vert_count(), 0, "Should have 0 vertices");
+    assert_eq!(graph.edge_count(), 0, "Should have 0 edges");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_try_from_disymgraph_data_with_only_isolated_vertices() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create graph with isolated vertices (all None edges)
+    let data: DisymGraphData = vec![
+      ("vertex1".to_string(), None),
+      ("vertex2".to_string(), None),
+      ("vertex3".to_string(), None),
+    ];
+
+    // Convert to DisymGraph
+    let graph = DisymGraph::try_from(data)?;
+
+    // Verify the graph structure
+    assert_eq!(graph.vert_count(), 3, "Should have 3 vertices");
+    assert_eq!(graph.edge_count(), 0, "Should have 0 edges");
+    assert!(graph.has_vertex("vertex1"), "Should have vertex1");
+    assert!(graph.has_vertex("vertex2"), "Should have vertex2");
+    assert!(graph.has_vertex("vertex3"), "Should have vertex3");
+
+    // Verify no edges
+    assert!(graph.adj("vertex1").is_none() || graph.adj("vertex1").unwrap().is_empty());
+    assert!(graph.adj("vertex2").is_none() || graph.adj("vertex2").unwrap().is_empty());
+    assert!(graph.adj("vertex3").is_none() || graph.adj("vertex3").unwrap().is_empty());
 
     Ok(())
   }
