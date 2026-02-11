@@ -515,58 +515,58 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
     type Error = String;
 
     fn try_from(data: &'a AclData) -> Result<Self, Self::Error> {
+        use walrs_digraph::DisymGraph;
+
         let mut builder = AclBuilder::new();
 
-        // Add `roles` to builder
+        // Add `roles` to builder using DisymGraph conversion
         if let Some(roles) = data.roles.as_ref() {
-            // Loop through role entries
-            for (role, parents) in roles.iter() {
-                // Convert `parents` to `Option<&[&str]>`
-                let parents = parents
-                    .as_deref()
-                    .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
-
-                // Add role(s);  If parent roles aren't in the builder, they get added via `builder.add_role`
-                builder.add_role(role, parents.as_deref())?;
-            }
+            builder._roles = DisymGraph::try_from(roles)
+                .map_err(|e| format!("Failed to create roles graph: {}", e))?;
         }
 
-        // Add `resources` to builder
+        // Add `resources` to builder using DisymGraph conversion
         if let Some(resources) = data.resources.as_ref() {
-            // Loop through resource entries
-            for (resource, parents) in resources.iter() {
-                // Convert `parents` to `Option<&[&str]>`
-                let parents = parents
-                    .as_deref()
-                    .map(|xs| -> Vec<&str> { xs.iter().map(|x: &String| x.as_str()).collect() });
-
-                // Add resource(s);  If parent resources aren't in the builder, they get added via `builder.add_resource`
-                builder.add_resource(resource, parents.as_deref())?;
-            }
+            builder._resources = DisymGraph::try_from(resources)
+                .map_err(|e| format!("Failed to create resources graph: {}", e))?;
         }
 
         // Add `allow` rules to builder, if any
         if let Some(allow) = data.allow.as_ref() {
             // For entry in allow rules
             for (resource, roles_and_privileges_assoc_list) in allow.iter() {
+                // Handle "*" as "all resources" (None)
+                let resource_slice: Option<&[&str]> = if resource == "*" {
+                    None
+                } else {
+                    Some(&[resource.as_str()])
+                };
+
                 // If `(roles, privileges)` associative list loop through it`
                 if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
                     // For each entry in `role -> privilege` list
                     for (role, privileges) in rs_and_ps_list.iter() {
+                        // Handle "*" as "all roles" (None)
+                        let role_slice: Option<&[&str]> = if role == "*" {
+                            None
+                        } else {
+                            Some(&[role.as_str()])
+                        };
+
                         let ps: Option<Vec<&str>> = privileges
                             .as_deref()
                             .map(|ps| ps.iter().map(|p| &**p).collect());
                         // Apply `allow` rule
                         builder.allow(
-                            Some([role.as_str()].as_slice()),
-                            Some([resource.as_str()].as_slice()),
+                            role_slice,
+                            resource_slice,
                             ps.as_deref(),
                         )?;
                     }
                 }
                 // Else add allow rule for all `roles`, on all `privileges`, for given `resource`
                 else {
-                    builder.allow(None, Some([resource.as_str()].as_slice()), None)?;
+                    builder.allow(None, resource_slice, None)?;
                 }
             }
         }
@@ -574,19 +574,33 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
         // Add `deny` rules to builder, if any
         if let Some(deny) = data.deny.as_ref() {
             for (resource, roles_and_privileges_assoc_list) in deny.iter() {
+                // Handle "*" as "all resources" (None)
+                let resource_slice: Option<&[&str]> = if resource == "*" {
+                    None
+                } else {
+                    Some(&[resource.as_str()])
+                };
+
                 if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
                     for (role, privileges) in rs_and_ps_list.iter() {
+                        // Handle "*" as "all roles" (None)
+                        let role_slice: Option<&[&str]> = if role == "*" {
+                            None
+                        } else {
+                            Some(&[role.as_str()])
+                        };
+
                         let ps: Option<Vec<&str>> = privileges
                             .as_deref()
                             .map(|ps| ps.iter().map(|p| &**p).collect());
                         builder.deny(
-                            Some([role.as_str()].as_slice()),
-                            Some([resource.as_str()].as_slice()),
+                            role_slice,
+                            resource_slice,
                             ps.as_deref(),
                         )?;
                     }
                 } else {
-                    builder.deny(None, Some([resource.as_str()].as_slice()), None)?;
+                    builder.deny(None, resource_slice, None)?;
                 }
             }
         }
@@ -619,6 +633,170 @@ impl TryFrom<AclData> for AclBuilder {
 
     fn try_from(data: AclData) -> Result<Self, Self::Error> {
         AclBuilder::try_from(&data)
+    }
+}
+
+// TODO finalize implementation (still in progress).
+impl TryFrom<&AclBuilder> for AclData {
+    type Error = String;
+
+    fn try_from(builder: &AclBuilder) -> Result<Self, Self::Error> {
+        #[cfg(feature = "std")]
+        use std::collections::HashMap;
+        #[cfg(not(feature = "std"))]
+        use alloc::collections::BTreeMap as HashMap;
+
+        use walrs_digraph::DisymGraphData;
+
+        // Extract roles with their parents using DisymGraph conversion
+        let roles = if builder._roles.vert_count() > 0 {
+            Some(DisymGraphData::try_from(&builder._roles)
+                .map_err(|e| format!("Failed to extract roles: {}", e))?)
+        } else {
+            None
+        };
+
+        // Extract resources with their parents using DisymGraph conversion
+        let resources = if builder._resources.vert_count() > 0 {
+            Some(DisymGraphData::try_from(&builder._resources)
+                .map_err(|e| format!("Failed to extract resources: {}", e))?)
+        } else {
+            None
+        };
+
+        // Helper to extract rules from RolePrivilegeRules
+        let extract_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules| -> Option<Vec<(String, Option<Vec<String>>)>> {
+            let mut role_rules = HashMap::new();
+
+            // Check "for all roles" rules
+            if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
+                if !by_priv.is_empty() {
+                    let privileges: Vec<String> = by_priv.keys().map(|k| k.to_string()).collect();
+                    if !privileges.is_empty() {
+                        role_rules.insert("*".to_string(), Some(privileges));
+                    }
+                }
+            } else if role_priv_rules.for_all_roles.for_all_privileges == crate::simple::Rule::Allow {
+                role_rules.insert("*".to_string(), None);
+            }
+
+            // Check per-role rules
+            if let Some(ref by_role) = role_priv_rules.by_role_id {
+                for (role, priv_rules) in by_role.iter() {
+                    if let Some(ref by_priv) = priv_rules.by_privilege_id {
+                        if !by_priv.is_empty() {
+                            let privileges: Vec<String> = by_priv.keys().map(|k| k.to_string()).collect();
+                            role_rules.insert(role.clone(), Some(privileges));
+                        }
+                    } else if priv_rules.for_all_privileges == crate::simple::Rule::Allow {
+                        role_rules.insert(role.clone(), None);
+                    }
+                }
+            }
+
+            if role_rules.is_empty() {
+                None
+            } else {
+                Some(role_rules.into_iter().collect())
+            }
+        };
+
+        // Extract allow rules
+        let mut allow_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
+
+        // Check "for all resources" allow rules
+        let for_all_allow = extract_rules(&builder._rules.for_all_resources);
+        if for_all_allow.is_some() {
+            allow_map.insert("*".to_string(), for_all_allow);
+        }
+
+        // Check per-resource allow rules
+        for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
+            let resource_allow = extract_rules(role_priv_rules);
+            if resource_allow.is_some() {
+                allow_map.insert(resource.clone(), resource_allow);
+            }
+        }
+
+        let allow = if allow_map.is_empty() {
+            None
+        } else {
+            Some(allow_map.into_iter().collect())
+        };
+
+        // Extract deny rules
+        // Note: The current structure primarily tracks Allow rules explicitly.
+        // Deny rules would need similar extraction logic based on Rule::Deny values.
+        let mut deny_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
+
+        // Helper to extract deny rules from RolePrivilegeRules
+        let extract_deny_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules| -> Option<Vec<(String, Option<Vec<String>>)>> {
+            let mut role_rules = HashMap::new();
+
+            // Check "for all roles" deny rules
+            if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
+                let deny_privileges: Vec<String> = by_priv.iter()
+                    .filter(|(_, rule)| **rule == crate::simple::Rule::Deny)
+                    .map(|(k, _)| k.to_string())
+                    .collect();
+                if !deny_privileges.is_empty() {
+                    role_rules.insert("*".to_string(), Some(deny_privileges));
+                }
+            } else if role_priv_rules.for_all_roles.for_all_privileges == crate::simple::Rule::Deny {
+                // Only include explicit denies, not default denies
+                // Skip this as it's the default state
+            }
+
+            // Check per-role deny rules
+            if let Some(ref by_role) = role_priv_rules.by_role_id {
+                for (role, priv_rules) in by_role.iter() {
+                    if let Some(ref by_priv) = priv_rules.by_privilege_id {
+                        let deny_privileges: Vec<String> = by_priv.iter()
+                            .filter(|(_, rule)| **rule == crate::simple::Rule::Deny)
+                            .map(|(k, _)| k.to_string())
+                            .collect();
+                        if !deny_privileges.is_empty() {
+                            role_rules.insert(role.clone(), Some(deny_privileges));
+                        }
+                    } else if priv_rules.for_all_privileges == crate::simple::Rule::Deny {
+                        role_rules.insert(role.clone(), None);
+                    }
+                }
+            }
+
+            if role_rules.is_empty() {
+                None
+            } else {
+                Some(role_rules.into_iter().collect())
+            }
+        };
+
+        // Check "for all resources" deny rules
+        let for_all_deny = extract_deny_rules(&builder._rules.for_all_resources);
+        if for_all_deny.is_some() {
+            deny_map.insert("*".to_string(), for_all_deny);
+        }
+
+        // Check per-resource deny rules
+        for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
+            let resource_deny = extract_deny_rules(role_priv_rules);
+            if resource_deny.is_some() {
+                deny_map.insert(resource.clone(), resource_deny);
+            }
+        }
+
+        let deny = if deny_map.is_empty() {
+            None
+        } else {
+            Some(deny_map.into_iter().collect())
+        };
+
+        Ok(AclData {
+            roles,
+            resources,
+            allow,
+            deny,
+        })
     }
 }
 

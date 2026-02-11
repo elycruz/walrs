@@ -1554,3 +1554,101 @@ fn test_acl_builder_per_privilege_allow_initially_cleared_by_deny_all() -> Resul
     Ok(())
 }
 
+#[test]
+fn test_acl_builder_to_acl_data_conversion() -> Result<(), String> {
+    use std::convert::TryFrom;
+    use walrs_acl::simple::AclData;
+
+    // Create a comprehensive ACL
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("guest", None)?
+        .add_role("user", Some(&["guest"]))?
+        .add_role("admin", Some(&["user"]))?
+        .add_resource("blog", None)?
+        .add_resource("blog_post", Some(&["blog"]))?
+        .add_resource("admin_panel", None)?
+        .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "write"]))?
+        .allow(Some(&["admin"]), None, None)?
+        .deny(Some(&["user"]), Some(&["admin_panel"]), None)?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify roles were extracted
+    let roles = acl_data.roles.as_ref().expect("Should have roles");
+    assert!(roles.iter().any(|(name, _)| name == "guest"), "Should contain guest role");
+    assert!(roles.iter().any(|(name, _)| name == "user"), "Should contain user role");
+    assert!(roles.iter().any(|(name, _)| name == "admin"), "Should contain admin role");
+
+    // Verify role hierarchies
+    let user_role = roles.iter().find(|(name, _)| name == "user").expect("Should find user role");
+    assert!(
+        user_role.1.as_ref().map(|parents| parents.contains(&"guest".to_string())).unwrap_or(false),
+        "User should inherit from guest"
+    );
+
+    // Verify resources were extracted
+    let resources = acl_data.resources.as_ref().expect("Should have resources");
+    assert!(resources.iter().any(|(name, _)| name == "blog"), "Should contain blog resource");
+    assert!(resources.iter().any(|(name, _)| name == "blog_post"), "Should contain blog_post resource");
+    assert!(resources.iter().any(|(name, _)| name == "admin_panel"), "Should contain admin_panel resource");
+
+    // Verify resource hierarchies
+    let blog_post = resources.iter().find(|(name, _)| name == "blog_post").expect("Should find blog_post resource");
+    assert!(
+        blog_post.1.as_ref().map(|parents| parents.contains(&"blog".to_string())).unwrap_or(false),
+        "blog_post should inherit from blog"
+    );
+
+    // Verify allow rules were extracted
+    assert!(acl_data.allow.is_some(), "Should have allow rules");
+
+    // Verify deny rules were extracted
+    assert!(acl_data.deny.is_some(), "Should have deny rules");
+
+    // Now convert back to builder and build to verify round-trip conversion
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+
+    // Verify the rebuilt ACL behaves the same
+    assert!(
+        rebuilt_acl.is_allowed(Some("guest"), Some("blog"), Some("read")),
+        "Guest should be able to read blog in rebuilt ACL"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("user"), Some("blog"), Some("write")),
+        "User should be able to write to blog in rebuilt ACL"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("admin"), Some("blog"), Some("delete")),
+        "Admin should have all privileges in rebuilt ACL"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("user"), Some("admin_panel"), Some("read")),
+        "User should be denied admin_panel in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_empty() -> Result<(), String> {
+    use std::convert::TryFrom;
+    use walrs_acl::simple::AclData;
+
+    // Create an empty builder
+    let builder = AclBuilder::new();
+
+    // Convert to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify all fields are None
+    assert!(acl_data.roles.is_none(), "Empty builder should have no roles");
+    assert!(acl_data.resources.is_none(), "Empty builder should have no resources");
+    assert!(acl_data.allow.is_none(), "Empty builder should have no allow rules");
+    assert!(acl_data.deny.is_none(), "Empty builder should have no deny rules");
+
+    Ok(())
+}
