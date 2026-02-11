@@ -199,6 +199,40 @@ impl TryFrom<DisymGraphData> for DisymGraph {
   }
 }
 
+impl TryFrom<&DisymGraph> for DisymGraphData {
+  type Error = String;
+
+  fn try_from(graph: &DisymGraph) -> Result<Self, Self::Error> {
+    let mut data = Vec::new();
+
+    // Iterate through all vertices
+    for i in 0..graph.vert_count() {
+      if let Some(vertex_name) = graph.name(i) {
+        // Get adjacency list for this vertex
+        let edges = graph.adj(&vertex_name).and_then(|adj_list| {
+          if adj_list.is_empty() {
+            None // No edges - return None instead of Some(empty vec)
+          } else {
+            Some(adj_list.into_iter().map(|s| s.to_string()).collect())
+          }
+        });
+
+        data.push((vertex_name, edges));
+      }
+    }
+
+    Ok(data)
+  }
+}
+
+impl TryFrom<DisymGraph> for DisymGraphData {
+  type Error = String;
+
+  fn try_from(graph: DisymGraph) -> Result<Self, Self::Error> {
+    DisymGraphData::try_from(&graph)
+  }
+}
+
 /// `From` trait usage example.
 ///
 /// ```rust
@@ -1038,6 +1072,145 @@ mod test {
 
     let leaf_adj = graph.adj("leaf");
     assert!(leaf_adj.is_none() || leaf_adj.unwrap().is_empty(), "Leaf should have no edges");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_disymgraph_to_disymgraph_data_reference() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create a DisymGraph
+    let mut graph = DisymGraph::new();
+    graph.add_edge("admin", &["user", "moderator"])?;
+    graph.add_edge("user", &["guest"])?;
+    graph.add_edge("moderator", &["user"])?;
+    graph.add_vertex("guest"); // Add vertex with no edges
+
+    // Convert to DisymGraphData (using reference)
+    let data = DisymGraphData::try_from(&graph)?;
+
+    // Verify the data structure
+    assert_eq!(data.len(), 4, "Should have 4 vertex entries");
+
+    // Helper to find entry in data
+    let find_entry = |name: &str| -> Option<&(String, Option<Vec<String>>)> {
+      data.iter().find(|(v, _)| v == name)
+    };
+
+    // Verify admin vertex
+    let admin_entry = find_entry("admin").expect("Should have admin entry");
+    assert!(admin_entry.1.is_some(), "Admin should have edges");
+    let admin_edges = admin_entry.1.as_ref().unwrap();
+    assert_eq!(admin_edges.len(), 2, "Admin should have 2 edges");
+    assert!(admin_edges.contains(&"user".to_string()), "Admin should connect to user");
+    assert!(admin_edges.contains(&"moderator".to_string()), "Admin should connect to moderator");
+
+    // Verify user vertex
+    let user_entry = find_entry("user").expect("Should have user entry");
+    assert!(user_entry.1.is_some(), "User should have edges");
+    let user_edges = user_entry.1.as_ref().unwrap();
+    assert_eq!(user_edges.len(), 1, "User should have 1 edge");
+    assert!(user_edges.contains(&"guest".to_string()), "User should connect to guest");
+
+    // Verify moderator vertex
+    let moderator_entry = find_entry("moderator").expect("Should have moderator entry");
+    assert!(moderator_entry.1.is_some(), "Moderator should have edges");
+    let moderator_edges = moderator_entry.1.as_ref().unwrap();
+    assert_eq!(moderator_edges.len(), 1, "Moderator should have 1 edge");
+    assert!(moderator_edges.contains(&"user".to_string()), "Moderator should connect to user");
+
+    // Verify guest vertex (no edges)
+    let guest_entry = find_entry("guest").expect("Should have guest entry");
+    assert!(guest_entry.1.is_none(), "Guest should have no edges");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_disymgraph_to_disymgraph_data_owned() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create a DisymGraph
+    let mut graph = DisymGraph::new();
+    graph.add_edge("root", &["left", "right"])?;
+    graph.add_edge("left", &["child"])?;
+    graph.add_edge("right", &["child"])?;
+    graph.add_vertex("child"); // Leaf node
+
+    // Convert to DisymGraphData (consuming the graph)
+    let data = DisymGraphData::try_from(graph)?;
+
+    // Verify the data structure
+    assert_eq!(data.len(), 4, "Should have 4 vertex entries");
+
+    // Verify all vertices are present
+    let vertex_names: Vec<&str> = data.iter().map(|(name, _)| name.as_str()).collect();
+    assert!(vertex_names.contains(&"root"), "Should contain root");
+    assert!(vertex_names.contains(&"left"), "Should contain left");
+    assert!(vertex_names.contains(&"right"), "Should contain right");
+    assert!(vertex_names.contains(&"child"), "Should contain child");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_disymgraph_round_trip_conversion() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create original data
+    let original_data: DisymGraphData = vec! [
+      ("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
+      , ("b".to_string(), Some(vec!["d".to_string()]))
+      , ("c".to_string(), Some(vec!["d".to_string()]))
+      , ("d".to_string(), None)
+    ];
+
+    // Convert to graph
+    let graph = DisymGraph::try_from(&original_data)?;
+
+    // Convert back to data
+    let reconstructed_data = DisymGraphData::try_from(&graph)?;
+
+    // Verify the round-trip preserves structure
+    assert_eq!(reconstructed_data.len(), original_data.len(), "Should have same number of vertices");
+
+    // Verify all vertices from original are in reconstructed
+    for (orig_vertex, orig_edges) in &original_data {
+      let reconstructed_entry = reconstructed_data.iter()
+        .find(|(v, _)| v == orig_vertex)
+        .expect(&format!("Should contain vertex {}", orig_vertex));
+
+      // Check edges match
+      match (orig_edges, &reconstructed_entry.1) {
+        (None, None) => {}, // Both have no edges - OK
+        (Some(orig_edge_list), Some(recon_edge_list)) => {
+          assert_eq!(orig_edge_list.len(), recon_edge_list.len(),
+            "Vertex {} should have same number of edges", orig_vertex);
+          for edge in orig_edge_list {
+            assert!(recon_edge_list.contains(edge),
+              "Vertex {} should have edge to {}", orig_vertex, edge);
+          }
+        },
+        _ => panic!("Edge presence mismatch for vertex {}", orig_vertex),
+      }
+    }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_empty_disymgraph_to_data() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create empty graph
+    let graph = DisymGraph::new();
+
+    // Convert to data
+    let data = DisymGraphData::try_from(&graph)?;
+
+    // Verify empty data
+    assert_eq!(data.len(), 0, "Empty graph should produce empty data");
 
     Ok(())
   }
