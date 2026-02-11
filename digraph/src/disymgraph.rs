@@ -170,10 +170,10 @@ impl Default for DisymGraph {
   }
 }
 
-impl TryFrom<DisymGraphData> for DisymGraph {
+impl TryFrom<&DisymGraphData> for DisymGraph {
   type Error = String;
 
-  fn try_from(data: DisymGraphData) -> Result<Self, Self::Error> {
+  fn try_from(data: &DisymGraphData) -> Result<Self, Self::Error> {
     let mut graph = DisymGraph::new();
 
     for (vertex, edges) in data.iter() {
@@ -188,6 +188,14 @@ impl TryFrom<DisymGraphData> for DisymGraph {
     }
 
     Ok(graph)
+  }
+}
+
+impl TryFrom<DisymGraphData> for DisymGraph {
+  type Error = String;
+
+  fn try_from(data: DisymGraphData) -> Result<Self, Self::Error> {
+    DisymGraph::try_from(&data)
   }
 }
 
@@ -917,7 +925,7 @@ mod test {
     ];
 
     // Convert to DisymGraph
-    let graph = DisymGraph::try_from(data)?;
+    let graph = DisymGraph::try_from(&data)?;
 
     // Verify the graph structure
     assert_eq!(graph.vert_count(), 4, "Should have 4 vertices");
@@ -954,7 +962,7 @@ mod test {
     let data: DisymGraphData = vec![];
 
     // Convert to DisymGraph
-    let graph = DisymGraph::try_from(data)?;
+    let graph = DisymGraph::try_from(&data)?;
 
     // Verify empty graph
     assert_eq!(graph.vert_count(), 0, "Should have 0 vertices");
@@ -975,7 +983,7 @@ mod test {
     ];
 
     // Convert to DisymGraph
-    let graph = DisymGraph::try_from(data)?;
+    let graph = DisymGraph::try_from(&data)?;
 
     // Verify the graph structure
     assert_eq!(graph.vert_count(), 3, "Should have 3 vertices");
@@ -988,6 +996,48 @@ mod test {
     assert!(graph.adj("vertex1").is_none() || graph.adj("vertex1").unwrap().is_empty());
     assert!(graph.adj("vertex2").is_none() || graph.adj("vertex2").unwrap().is_empty());
     assert!(graph.adj("vertex3").is_none() || graph.adj("vertex3").unwrap().is_empty());
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_try_from_disymgraph_data_owned() -> Result<(), String> {
+    use crate::disymgraph::DisymGraphData;
+
+    // Create test data: a simple graph with roles hierarchy
+    let data: DisymGraphData = vec![
+      ("root".to_string(), Some(vec!["branch_a".to_string(), "branch_b".to_string()])),
+      ("branch_a".to_string(), Some(vec!["leaf".to_string()])),
+      ("branch_b".to_string(), Some(vec!["leaf".to_string()])),
+      ("leaf".to_string(), None),
+    ];
+
+    // Convert to DisymGraph (consuming the data)
+    let graph = DisymGraph::try_from(data)?;
+
+    // Verify the graph structure
+    assert_eq!(graph.vert_count(), 4, "Should have 4 vertices");
+    assert!(graph.has_vertex("root"), "Should have root vertex");
+    assert!(graph.has_vertex("branch_a"), "Should have branch_a vertex");
+    assert!(graph.has_vertex("branch_b"), "Should have branch_b vertex");
+    assert!(graph.has_vertex("leaf"), "Should have leaf vertex");
+
+    // Verify edges
+    let root_adj = graph.adj("root").expect("Root should have adjacencies");
+    assert_eq!(root_adj.len(), 2, "Root should have 2 edges");
+    assert!(root_adj.contains(&"branch_a"), "Root should be connected to branch_a");
+    assert!(root_adj.contains(&"branch_b"), "Root should be connected to branch_b");
+
+    let branch_a_adj = graph.adj("branch_a").expect("Branch_a should have adjacencies");
+    assert_eq!(branch_a_adj.len(), 1, "Branch_a should have 1 edge");
+    assert!(branch_a_adj.contains(&"leaf"), "Branch_a should be connected to leaf");
+
+    let branch_b_adj = graph.adj("branch_b").expect("Branch_b should have adjacencies");
+    assert_eq!(branch_b_adj.len(), 1, "Branch_b should have 1 edge");
+    assert!(branch_b_adj.contains(&"leaf"), "Branch_b should be connected to leaf");
+
+    let leaf_adj = graph.adj("leaf");
+    assert!(leaf_adj.is_none() || leaf_adj.unwrap().is_empty(), "Leaf should have no edges");
 
     Ok(())
   }
