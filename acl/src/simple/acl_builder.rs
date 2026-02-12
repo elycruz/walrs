@@ -7,6 +7,11 @@ use std::fs::File;
 use walrs_digraph::DisymGraph;
 use crate::simple::{Acl, AclData, ResourceRoleRules, Rule};
 
+// Convenience method.
+fn _is_empty(list: &Option<&[&str]>) -> bool {
+    list.map_or(true, |xs| xs.is_empty())
+}
+
 /// Builder for constructing `Acl` instances with a fluent interface.
 ///
 /// # Example
@@ -250,52 +255,53 @@ impl AclBuilder {
         #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeMap as HashMap;
 
-        // Special case: if all parameters are None, reset the entire rules structure
-        if roles.is_none() && resources.is_none() && privileges.is_none() {
+        // Special case: if all parameters are empty (None or empty list), reset the entire rules structure
+        if _is_empty(&roles) && _is_empty(&resources) && _is_empty(&privileges) {
             self._rules = ResourceRoleRules::new();
             self._rules.for_all_resources.for_all_roles.for_all_privileges = rule_type;
             return;
         }
 
-        // Filter out non-existent roles, and return `vec![None]` if result is empty list, or `None`.
+        // Filter out non-existent roles, and return `vec![None]` if filtered list is empty.
         let _roles: Vec<Option<String>> = self._get_only_keys_in_graph(&self._roles, roles);
 
-        // Filter out non-existent resources, and return `vec![None]` if result is empty list, or `None`
+        // Filter out non-existent resources, and return `vec![None]` if filtered list is empty.
+        // allows using for loops as a `while` loop
         let _resources: Vec<Option<String>> = self._get_only_keys_in_graph(&self._resources, resources);
-
-        // Apply clearing logic (runs once, not per resource)
-        // ----
-        if resources.is_none() {
-            // When setting a rule for "all resources" on specific roles,
-            // clear the by_resource_id entries for those roles across all resources
-            for role in _roles.iter().filter_map(|r| r.as_ref()) {
-                for (_, resource_rules) in self._rules.by_resource_id.iter_mut() {
-                    if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
-                        by_role_map.remove(role);
-                    }
-                }
-            }
-
-            // If both resources and roles are None, clear the entire resource-specific maps
-            if roles.is_none() {
-                self._rules.by_resource_id.clear();
-                self._rules.for_all_resources.by_role_id = None;
-            }
-        } else {
-            // When setting rules for specific resources on specific roles,
-            // clear the "for all resources" rule for those roles to avoid conflicts
-            if let Some(for_all_by_role) = self._rules.for_all_resources.by_role_id.as_mut() {
-                for role in _roles.iter().filter_map(|r| r.as_ref()) {
-                    for_all_by_role.remove(role);
-                }
-            }
-        }
 
         // Apply the rule to each resource and role combination
         // ----
         for resource in _resources.iter() {
             for role in _roles.iter() {
-                // Get role rules for resource
+                // If `resource` is None, consider it the "received resources are empty" signal,
+                // and clear the 'by_resource_id.by_role_id' map for given role
+                if resource.is_none() {
+                    // clear the by_resource_id entries for those roles across all resources
+                    if let Some(_role) = role.as_deref() {
+                        for (_, resource_rules) in self._rules.by_resource_id.iter_mut() {
+                            if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
+                                by_role_map.remove(_role);
+                            }
+                        }
+                    }
+                    // Else if both received both resources and roles "are empty" signal,
+                    // then clear the resources to role specific maps
+                    else {
+                        self._rules.by_resource_id.clear();
+                        self._rules.for_all_resources.by_role_id = None;
+                    }
+                }
+                // If only `role` is None, consider it the "received roles are empty" signal and
+                // clear the 'by_role_id' map for this visiting resource
+                else if role.is_none() {
+                    if let Some(resource_id) = resource {
+                        if let Some(res_rules) = self._rules.by_resource_id.get_mut(resource_id) {
+                            res_rules.by_role_id = None;
+                        }
+                    }
+                }
+
+                // Get role rules for resource (will either be "for all roles" or specific role based on Some/None args passed in)
                 let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
 
                 // Apply privilege rules
@@ -309,15 +315,6 @@ impl AclBuilder {
                     // Set rule for "all privileges" and clear any existing per-privilege rules
                     role_rules.for_all_privileges = rule_type;
                     role_rules.by_privilege_id = None;
-                }
-            }
-
-            // If roles is None (for all roles rule), clear the 'by_role_id' map for this resource
-            if roles.is_none() {
-                if let Some(resource_id) = resource {
-                    if let Some(res_rules) = self._rules.by_resource_id.get_mut(resource_id) {
-                        res_rules.by_role_id = None;
-                    }
                 }
             }
         }
