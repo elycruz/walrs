@@ -64,11 +64,7 @@ impl AclBuilder {
     /// # Ok::<(), String>(())
     /// ```
     pub fn add_role(&mut self, role: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
-        if let Some(parents) = parents {
-            self._roles.add_edge(role, parents)?;
-        }
-        self._roles.add_vertex(role);
-        Ok(self)
+        self.add_roles(&[(role, parents)])
     }
 
     /// Adds multiple roles to the ACL being built.
@@ -119,11 +115,7 @@ impl AclBuilder {
     /// # Ok::<(), String>(())
     /// ```
     pub fn add_resource(&mut self, resource: &str, parents: Option<&[&str]>) -> Result<&mut Self, String> {
-        if let Some(parents) = parents {
-            self._resources.add_edge(resource, parents)?;
-        }
-        self._resources.add_vertex(resource);
-        Ok(self)
+        self.add_resources(&[(resource, parents)])
     }
 
     /// Adds multiple resources to the ACL being built.
@@ -258,10 +250,6 @@ impl AclBuilder {
         #[cfg(not(feature = "std"))]
         use alloc::collections::BTreeMap as HashMap;
 
-        // TODO: Consolidate/clean-up this implementation.
-
-        // Apply overwrite/clearing logic
-        // ----
         // Special case: if all parameters are None, reset the entire rules structure
         if roles.is_none() && resources.is_none() && privileges.is_none() {
             self._rules = ResourceRoleRules::new();
@@ -275,68 +263,63 @@ impl AclBuilder {
         // Filter out non-existent resources, and return `vec![None]` if result is empty list, or `None`
         let _resources: Vec<Option<String>> = self._get_only_keys_in_graph(&self._resources, resources);
 
-        for resource in _resources.iter() {
-            // If resources is None (for all resources), we need to handle role clearing
-            if resources.is_none() {
-                for role in _roles.iter() {
-                    if let Some(role_id) = role {
-                        // When setting a rule for "all resources" on a specific role,
-                        // clear the by_resource_id entries for this role across all resources
-                        for (_, resource_rules) in self._rules.by_resource_id.iter_mut() {
-                            if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
-                                by_role_map.remove(role_id);
-                            }
-                        }
-                    }
-                }
-            } else {
-                // If resources is Some (specific resources), and we're setting a rule on specific roles,
-                // we need to clear the "for all resources" rule for those roles to avoid conflicts
-                for role in _roles.iter() {
-                    if let Some(role_id) = role {
-                        // Clear the "for all resources" rule for this specific role
-                        if let Some(for_all_by_role) = self._rules.for_all_resources.by_role_id.as_mut() {
-                            for_all_by_role.remove(role_id);
-                        }
+        // Apply clearing logic (runs once, not per resource)
+        // ----
+        if resources.is_none() {
+            // When setting a rule for "all resources" on specific roles,
+            // clear the by_resource_id entries for those roles across all resources
+            for role in _roles.iter().filter_map(|r| r.as_ref()) {
+                for (_, resource_rules) in self._rules.by_resource_id.iter_mut() {
+                    if let Some(by_role_map) = resource_rules.by_role_id.as_mut() {
+                        by_role_map.remove(role);
                     }
                 }
             }
 
+            // If both resources and roles are None, clear the entire resource-specific maps
+            if roles.is_none() {
+                self._rules.by_resource_id.clear();
+                self._rules.for_all_resources.by_role_id = None;
+            }
+        } else {
+            // When setting rules for specific resources on specific roles,
+            // clear the "for all resources" rule for those roles to avoid conflicts
+            if let Some(for_all_by_role) = self._rules.for_all_resources.by_role_id.as_mut() {
+                for role in _roles.iter().filter_map(|r| r.as_ref()) {
+                    for_all_by_role.remove(role);
+                }
+            }
+        }
+
+        // Apply the rule to each resource and role combination
+        // ----
+        for resource in _resources.iter() {
             for role in _roles.iter() {
                 // Get role rules for resource
                 let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
 
-                // If 'privileges' is `None`, set 'rule' for "all privileges"
-                // and clear any existing per-privilege rules
-                if privileges.is_none() {
+                // Apply privilege rules
+                if let Some(privilege_list) = privileges {
+                    // Set rule for each specific privilege
+                    let p_map = role_rules.by_privilege_id.get_or_insert_with(HashMap::new);
+                    for privilege in privilege_list {
+                        p_map.insert(privilege.to_string(), rule_type);
+                    }
+                } else {
+                    // Set rule for "all privileges" and clear any existing per-privilege rules
                     role_rules.for_all_privileges = rule_type;
-                    // Clear out any per-privilege rules to avoid conflicts
                     role_rules.by_privilege_id = None;
-                    continue;
-                }
-                // Else loop through privileges, and insert 'rule' for each privilege
-                privileges.unwrap().iter().for_each(|privilege| {
-                    // Get privilege map for role and insert rule
-                    let p_map = role_rules.by_privilege_id.get_or_insert(HashMap::new());
-
-                    // Insert rule
-                    p_map.insert(privilege.to_string(), rule_type);
-                });
-            }
-
-            // If roles is None (e.g., for all roles rule), clear the 'by_role_id' map for this resource
-            if roles.is_none() && resource.is_some() {
-                let resource_rules = self._rules.by_resource_id.get_mut(resource.as_ref().unwrap());
-                if let Some(res_rules) = resource_rules {
-                    res_rules.by_role_id = None;
                 }
             }
-        }
-        // If 'resources', and 'roles', are `None` clear the `by_resource_id`, and
-        // `by_role_id`, maps.
-        if resources.is_none() && roles.is_none() {
-            self._rules.by_resource_id.clear();
-            self._rules.for_all_resources.by_role_id = None;
+
+            // If roles is None (for all roles rule), clear the 'by_role_id' map for this resource
+            if roles.is_none() {
+                if let Some(resource_id) = resource {
+                    if let Some(res_rules) = self._rules.by_resource_id.get_mut(resource_id) {
+                        res_rules.by_role_id = None;
+                    }
+                }
+            }
         }
     }
 
@@ -531,10 +514,13 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                 .map_err(|e| format!("Failed to create resources graph: {}", e))?;
         }
 
-        // Add `allow` rules to builder, if any
-        if let Some(allow) = data.allow.as_ref() {
-            // For entry in allow rules
-            for (resource, roles_and_privileges_assoc_list) in allow.iter() {
+        // Helper function to process rules (works for both allow and deny)
+        let process_rules = |
+            builder: &mut AclBuilder,
+            rules: &Vec<(String, Option<Vec<(String, Option<Vec<String>>)>>)>,
+            is_allow: bool
+        | -> Result<(), String> {
+            for (resource, roles_and_privileges_assoc_list) in rules.iter() {
                 // Handle "*" as "all resources" (None)
                 let resource_slice: Option<&[&str]> = if resource == "*" {
                     None
@@ -542,9 +528,8 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                     Some(&[resource.as_str()])
                 };
 
-                // If `(roles, privileges)` associative list loop through it`
+                // If `(roles, privileges)` associative list exists, loop through it
                 if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
-                    // For each entry in `role -> privilege` list
                     for (role, privileges) in rs_and_ps_list.iter() {
                         // Handle "*" as "all roles" (None)
                         let role_slice: Option<&[&str]> = if role == "*" {
@@ -556,53 +541,34 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
                         let ps: Option<Vec<&str>> = privileges
                             .as_deref()
                             .map(|ps| ps.iter().map(|p| &**p).collect());
-                        // Apply `allow` rule
-                        builder.allow(
-                            role_slice,
-                            resource_slice,
-                            ps.as_deref(),
-                        )?;
+
+                        // Apply rule based on type
+                        if is_allow {
+                            builder.allow(role_slice, resource_slice, ps.as_deref())?;
+                        } else {
+                            builder.deny(role_slice, resource_slice, ps.as_deref())?;
+                        }
+                    }
+                } else {
+                    // Apply rule for all roles and privileges on the given resource
+                    if is_allow {
+                        builder.allow(None, resource_slice, None)?;
+                    } else {
+                        builder.deny(None, resource_slice, None)?;
                     }
                 }
-                // Else add allow rule for all `roles`, on all `privileges`, for given `resource`
-                else {
-                    builder.allow(None, resource_slice, None)?;
-                }
             }
+            Ok(())
+        };
+
+        // Add `allow` rules to builder, if any
+        if let Some(allow) = data.allow.as_ref() {
+            process_rules(&mut builder, allow, true)?;
         }
 
         // Add `deny` rules to builder, if any
         if let Some(deny) = data.deny.as_ref() {
-            for (resource, roles_and_privileges_assoc_list) in deny.iter() {
-                // Handle "*" as "all resources" (None)
-                let resource_slice: Option<&[&str]> = if resource == "*" {
-                    None
-                } else {
-                    Some(&[resource.as_str()])
-                };
-
-                if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
-                    for (role, privileges) in rs_and_ps_list.iter() {
-                        // Handle "*" as "all roles" (None)
-                        let role_slice: Option<&[&str]> = if role == "*" {
-                            None
-                        } else {
-                            Some(&[role.as_str()])
-                        };
-
-                        let ps: Option<Vec<&str>> = privileges
-                            .as_deref()
-                            .map(|ps| ps.iter().map(|p| &**p).collect());
-                        builder.deny(
-                            role_slice,
-                            resource_slice,
-                            ps.as_deref(),
-                        )?;
-                    }
-                } else {
-                    builder.deny(None, resource_slice, None)?;
-                }
-            }
+            process_rules(&mut builder, deny, false)?;
         }
 
         // Return the builder (without calling .build())
@@ -664,31 +630,38 @@ impl TryFrom<&AclBuilder> for AclData {
             None
         };
 
-        // Helper to extract rules from RolePrivilegeRules
-        let extract_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules| -> Option<Vec<(String, Option<Vec<String>>)>> {
+        // Helper to extract rules from RolePrivilegeRules based on rule type
+        let extract_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules, rule_type: crate::simple::Rule| -> Option<Vec<(String, Option<Vec<String>>)>> {
             let mut role_rules = HashMap::new();
 
             // Check "for all roles" rules
             if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
-                if !by_priv.is_empty() {
-                    let privileges: Vec<String> = by_priv.keys().map(|k| k.to_string()).collect();
-                    if !privileges.is_empty() {
-                        role_rules.insert("*".to_string(), Some(privileges));
-                    }
+                let matching_privileges: Vec<String> = by_priv.iter()
+                    .filter(|(_, rule)| **rule == rule_type)
+                    .map(|(k, _)| k.to_string())
+                    .collect();
+                if !matching_privileges.is_empty() {
+                    role_rules.insert("*".to_string(), Some(matching_privileges));
                 }
-            } else if role_priv_rules.for_all_roles.for_all_privileges == crate::simple::Rule::Allow {
-                role_rules.insert("*".to_string(), None);
+            } else if role_priv_rules.for_all_roles.for_all_privileges == rule_type {
+                // Only insert if it's an explicit rule (for Allow) or explicit Deny (not default)
+                if rule_type == crate::simple::Rule::Allow {
+                    role_rules.insert("*".to_string(), None);
+                }
             }
 
             // Check per-role rules
             if let Some(ref by_role) = role_priv_rules.by_role_id {
                 for (role, priv_rules) in by_role.iter() {
                     if let Some(ref by_priv) = priv_rules.by_privilege_id {
-                        if !by_priv.is_empty() {
-                            let privileges: Vec<String> = by_priv.keys().map(|k| k.to_string()).collect();
-                            role_rules.insert(role.clone(), Some(privileges));
+                        let matching_privileges: Vec<String> = by_priv.iter()
+                            .filter(|(_, rule)| **rule == rule_type)
+                            .map(|(k, _)| k.to_string())
+                            .collect();
+                        if !matching_privileges.is_empty() {
+                            role_rules.insert(role.clone(), Some(matching_privileges));
                         }
-                    } else if priv_rules.for_all_privileges == crate::simple::Rule::Allow {
+                    } else if priv_rules.for_all_privileges == rule_type {
                         role_rules.insert(role.clone(), None);
                     }
                 }
@@ -705,14 +678,14 @@ impl TryFrom<&AclBuilder> for AclData {
         let mut allow_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
 
         // Check "for all resources" allow rules
-        let for_all_allow = extract_rules(&builder._rules.for_all_resources);
+        let for_all_allow = extract_rules(&builder._rules.for_all_resources, crate::simple::Rule::Allow);
         if for_all_allow.is_some() {
             allow_map.insert("*".to_string(), for_all_allow);
         }
 
         // Check per-resource allow rules
         for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-            let resource_allow = extract_rules(role_priv_rules);
+            let resource_allow = extract_rules(role_priv_rules, crate::simple::Rule::Allow);
             if resource_allow.is_some() {
                 allow_map.insert(resource.clone(), resource_allow);
             }
@@ -725,61 +698,17 @@ impl TryFrom<&AclBuilder> for AclData {
         };
 
         // Extract deny rules
-        // Note: The current structure primarily tracks Allow rules explicitly.
-        // Deny rules would need similar extraction logic based on Rule::Deny values.
         let mut deny_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
 
-        // Helper to extract deny rules from RolePrivilegeRules
-        let extract_deny_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules| -> Option<Vec<(String, Option<Vec<String>>)>> {
-            let mut role_rules = HashMap::new();
-
-            // Check "for all roles" deny rules
-            if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
-                let deny_privileges: Vec<String> = by_priv.iter()
-                    .filter(|(_, rule)| **rule == crate::simple::Rule::Deny)
-                    .map(|(k, _)| k.to_string())
-                    .collect();
-                if !deny_privileges.is_empty() {
-                    role_rules.insert("*".to_string(), Some(deny_privileges));
-                }
-            } else if role_priv_rules.for_all_roles.for_all_privileges == crate::simple::Rule::Deny {
-                // Only include explicit denies, not default denies
-                // Skip this as it's the default state
-            }
-
-            // Check per-role deny rules
-            if let Some(ref by_role) = role_priv_rules.by_role_id {
-                for (role, priv_rules) in by_role.iter() {
-                    if let Some(ref by_priv) = priv_rules.by_privilege_id {
-                        let deny_privileges: Vec<String> = by_priv.iter()
-                            .filter(|(_, rule)| **rule == crate::simple::Rule::Deny)
-                            .map(|(k, _)| k.to_string())
-                            .collect();
-                        if !deny_privileges.is_empty() {
-                            role_rules.insert(role.clone(), Some(deny_privileges));
-                        }
-                    } else if priv_rules.for_all_privileges == crate::simple::Rule::Deny {
-                        role_rules.insert(role.clone(), None);
-                    }
-                }
-            }
-
-            if role_rules.is_empty() {
-                None
-            } else {
-                Some(role_rules.into_iter().collect())
-            }
-        };
-
         // Check "for all resources" deny rules
-        let for_all_deny = extract_deny_rules(&builder._rules.for_all_resources);
+        let for_all_deny = extract_rules(&builder._rules.for_all_resources, crate::simple::Rule::Deny);
         if for_all_deny.is_some() {
             deny_map.insert("*".to_string(), for_all_deny);
         }
 
         // Check per-resource deny rules
         for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-            let resource_deny = extract_deny_rules(role_priv_rules);
+            let resource_deny = extract_rules(role_priv_rules, crate::simple::Rule::Deny);
             if resource_deny.is_some() {
                 deny_map.insert(resource.clone(), resource_deny);
             }
