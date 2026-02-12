@@ -402,6 +402,36 @@ impl Acl {
       if inherited.is_empty() { None } else { Some(inherited) }
     });
 
+    // CRITICAL: Check for explicit Deny on the DIRECT role/resource combo FIRST
+    // This ensures that deny rules on a role/resource override inherited allow rules
+    // We only block if there's an EXPLICIT Deny entry in the by_privilege_id map
+    let has_explicit_deny = if let Some(priv_id) = privilege {
+      // Checking a specific privilege - look for explicit Deny in the map
+      if resource.is_some() {
+        let role_rules = self._rules.get_role_privilege_rules(resource).get_privilege_rules(role);
+        role_rules.by_privilege_id.as_ref()
+          .and_then(|map| map.get(priv_id))
+          .map(|rule| rule == &Rule::Deny)
+          .unwrap_or(false)
+      } else {
+        let role_rules = self._rules.for_all_resources.get_privilege_rules(role);
+        role_rules.by_privilege_id.as_ref()
+          .and_then(|map| map.get(priv_id))
+          .map(|rule| rule == &Rule::Deny)
+          .unwrap_or(false)
+      }
+    } else {
+      // Checking all privileges (None) - this is handled by normal logic, don't block
+      false
+    };
+
+    // If there's an explicit deny on the direct role/resource, deny immediately (don't check inheritance)
+    if has_explicit_deny {
+      return false;
+    }
+
+    // ...existing code...
+
     // Callback for returning `allow` check result, or checking if current parameter set has `allow` permission
     //  Helps dry up the code, below, a bit
     let rslt_or_check_direct = |rslt| {
@@ -414,7 +444,7 @@ impl Acl {
 
     // println!("Inherited roles and resources {:?}, {:?}", &_roles, &_resources);
 
-    // If inherited `resources`, and `roles`, found loop through them and check for `Allow` rule
+    // If inherited `resources`, and `roles`, found, loop through them and check for `Allow` rule
     _resources
       .as_ref()
       .zip(_roles.as_ref())
@@ -430,7 +460,7 @@ impl Acl {
       .map(rslt_or_check_direct)
       // If only `roles`, only `resources`, or neither of the two, check for `Allow` rule
       .or_else(|| {
-        // If only `roles`
+        // If only `roles` check for allow on roles inheritance graph from shallowest node
         if _resources.is_none() && _roles.is_some() {
           _roles
             .map(|_rs| {
@@ -441,7 +471,8 @@ impl Acl {
             })
             .map(rslt_or_check_direct)
         }
-        // Else inherited resources is set, but not inherited roles
+        // Else inherited resources is set, but not inherited roles,
+        // check resources inheritance graph from shallowest node to deepest
         else if _resources.is_some() && _roles.is_none() {
           _resources
             .map(|_rs| {
@@ -451,7 +482,9 @@ impl Acl {
                 .any(|r| self._is_directly_allowed(role, Some(*r), privilege))
             })
             .map(rslt_or_check_direct)
-        } else {
+        }
+        // Else check for direct allowance
+        else {
           self._is_directly_allowed(role, resource, privilege).into()
         }
       })
