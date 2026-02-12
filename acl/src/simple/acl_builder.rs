@@ -304,7 +304,45 @@ impl AclBuilder {
                 // Get role rules for resource (will either be "for all roles" or specific role based on Some/None args passed in)
                 let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
 
+                // Clear opposing rules before setting new rule
+                // ----
+                let opposite_rule = match rule_type {
+                    Rule::Allow => Rule::Deny,
+                    Rule::Deny => Rule::Allow,
+                };
+
+                if let Some(privilege_list) = privileges {
+                    // Clear opposite rule for each specific privilege we're about to set
+                    if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
+                        for privilege in privilege_list {
+                            // Remove the privilege entry if it has the opposite rule
+                            if let Some(existing_rule) = p_map.get(*privilege) {
+                                if existing_rule == &opposite_rule {
+                                    p_map.remove(*privilege);
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    // Setting rule for "all privileges" - clear all opposite rules
+                    if role_rules.for_all_privileges == opposite_rule {
+                        // Clear the for_all_privileges if it's the opposite rule
+                        // (it will be overwritten anyway, but this makes intent clear)
+                    }
+
+                    // Clear any specific privilege rules that have the opposite rule
+                    if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
+                        p_map.retain(|_, rule| rule != &opposite_rule);
+
+                        // If map is now empty after clearing, set to None for cleanliness
+                        if p_map.is_empty() {
+                            role_rules.by_privilege_id = None;
+                        }
+                    }
+                }
+
                 // Apply privilege rules
+                // ----
                 if let Some(privilege_list) = privileges {
                     // Set rule for each specific privilege
                     let p_map = role_rules.by_privilege_id.get_or_insert_with(HashMap::new);
