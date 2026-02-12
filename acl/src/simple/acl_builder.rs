@@ -1,5 +1,5 @@
 use core::convert::TryFrom;
-use crate::prelude::{String, Vec, vec, ToString};
+use crate::prelude::{String, Vec, vec, ToString, format};
 
 #[cfg(feature = "std")]
 use std::fs::File;

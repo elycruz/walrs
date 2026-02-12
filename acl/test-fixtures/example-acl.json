@@ -1,44 +1,36 @@
 {
   "roles": [
-    ["cms-guest", null],
-    ["cms-editor", ["cms-guest"]],
-    ["cms-tester", ["cms-editor"]],
-    ["cms-developer", ["cms-tester"]],
-    ["cms-publisher", ["cms-editor"]],
-    ["cms-super-admin", ["cms-publisher", "cms-developer", "cms-tester"]]
+    ["guest", null],
+    ["user", ["guest"]],
+    ["editor", ["user"]],
+    ["publisher", ["editor"]],
+    ["admin", ["publisher"]]
   ],
   "resources": [
-    ["address", ["term"]],
-    ["account", ["term"]],
-    ["comment", ["term"]],
-    ["contact", ["term"]],
-    ["dashboard", ["term"]],
-    ["flags", ["term"]],
-    ["gallery", ["term"]],
     ["index", null],
-    ["media", ["term"]],
-    ["menu", ["term"]],
-    ["page", ["term"]],
-    ["phone-number", ["term"]],
-    ["post", ["term"]],
-    ["term-taxonomy", ["term"]],
-    ["term", null],
-    ["user-activation-key", ["term"]],
-    ["user", ["term"]],
-    ["view-module", ["term"]]
+    ["account", null],
+    ["post", null],
+    ["/api/v2/post", null],
+    ["comment", null],
+    ["flag", null],
+    ["user", null]
   ],
   "allow": [
-    ["index", null],
-    ["dashboard", [
-      ["cms-guest", ["index"]],
-      ["cms-editor", null]
+    ["index", "*"],
+    ["account", [
+      ["user", ["update"]],
+      ["admin", "*"]
+    ]],
+    ["post", [
+      ["user", ["create", "edit", "update", "delete"]],
+      ["admin", "*"]
+    ]],
+    ["/api/v2/post", [
+      ["user", ["put", "post", "get", "delete"]],
+      ["admin", "*"]
     ]],
     ["user", [
-      ["cms-guest", ["read", "update"]],
-      ["cms-super-admin", null]
-    ]],
-    ["term", [
-      ["cms-editor", ["index", "create", "read", "update", "delete"]]
+      ["admin", "*"]
     ]]
   ],
   "deny": null

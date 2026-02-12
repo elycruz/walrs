@@ -174,10 +174,14 @@ fn run_resource_hierarchy_benchmark(acl: &Acl) {
     // Test resource hierarchies
     let resource_chains = vec![
         vec!["public_pages", "blog", "blog_post", "blog_comment"],
-        vec!["public_pages", "forum", "forum_category", "forum_thread", "forum_post"],
-        vec!["user_profile", "user_settings"],
-        vec!["admin_panel", "admin_dashboard"],
-        vec!["reports", "report_financial"],
+        vec!["public_pages", "forum", "forum_thread", "forum_post"],
+        vec!["public_pages", "wiki", "wiki_page"],
+        vec!["user_profile", "user_settings", "user_private_data"],
+        vec!["admin_panel", "admin_users", "admin_settings", "admin_system"],
+        vec!["api", "api_public", "api_private"],
+        vec!["reports", "report_analytics", "report_financial"],
+        vec!["development", "dev_repository", "dev_deployment"],
+        vec!["finance", "finance_payroll", "finance_budget"],
     ];
 
     let start = Instant::now();
@@ -208,8 +212,11 @@ fn run_deny_rule_benchmark(acl: &Acl) {
         ("moderator", "user_private_data", "read"),
         ("contributor", "finance", "read"),
         ("author", "finance", "write"),
+        ("editor", "finance", "read"),
+        ("administrator", "admin_system", "delete"),
+        ("analyst", "finance_payroll", "read"),
         ("developer", "dev_deployment", "deploy_production"),
-        ("sales_rep", "sales_orders", "approve"),
+        ("support_tier1", "support_ticket", "delete"),
     ];
 
     let start = Instant::now();
