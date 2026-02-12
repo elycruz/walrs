@@ -16,21 +16,21 @@
     ["user", null]
   ],
   "allow": [
-    ["index", "*"],
+    ["index", null],
     ["account", [
       ["user", ["update"]],
-      ["admin", "*"]
+      ["admin", null]
     ]],
     ["post", [
       ["user", ["create", "edit", "update", "delete"]],
-      ["admin", "*"]
+      ["admin", null]
     ]],
     ["/api/v2/post", [
       ["user", ["put", "post", "get", "delete"]],
-      ["admin", "*"]
+      ["admin", null]
     ]],
     ["user", [
-      ["admin", "*"]
+      ["admin", null]
     ]]
   ],
   "deny": null
