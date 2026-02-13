@@ -2,9 +2,8 @@
 name = "walrs_inputfilter"
 version = "0.1.0"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
-edition = "2021"
+edition = "2024"
 include = ["src/**/*", "Cargo.toml"]
-rust-version = "1.77"
 
 [dependencies]
 bytes = "1.4.0"
