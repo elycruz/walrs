@@ -169,7 +169,7 @@ Run the test suite:
 cargo test -p walrs_graph
 ```
 
-All public APIs include doc tests and unit tests.
+Many public APIs include doc tests and unit tests.
 
 ## Performance Characteristics
 
