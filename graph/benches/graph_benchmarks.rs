@@ -4,7 +4,7 @@ use walrs_graph::Graph;
 fn bench_graph_new(c: &mut Criterion) {
     let mut group = c.benchmark_group("graph_new");
 
-    for size in [10, 100, 1000, 10000].iter() {
+    for size in [10usize, 100, 1000, 10000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| Graph::new(black_box(size)));
         });
@@ -15,7 +15,7 @@ fn bench_graph_new(c: &mut Criterion) {
 fn bench_add_edge(c: &mut Criterion) {
     let mut group = c.benchmark_group("add_edge");
 
-    for size in [10, 100, 1000].iter() {
+    for size in [10usize, 100, 1000].iter() {
         group.bench_with_input(BenchmarkId::from_parameter(size), size, |b, &size| {
             b.iter(|| {
                 let mut g = Graph::new(size);
@@ -31,7 +31,7 @@ fn bench_add_edge(c: &mut Criterion) {
 fn bench_adj(c: &mut Criterion) {
     let mut group = c.benchmark_group("adj");
 
-    for size in [10, 100, 1000].iter() {
+    for size in [10usize, 100, 1000].iter() {
         // Setup: Create a graph with edges
         let mut g = Graph::new(*size);
         for i in 0..*size-1 {
@@ -52,7 +52,7 @@ fn bench_adj(c: &mut Criterion) {
 fn bench_degree(c: &mut Criterion) {
     let mut group = c.benchmark_group("degree");
 
-    for size in [10, 100, 1000].iter() {
+    for size in [10usize, 100, 1000].iter() {
         // Setup: Create a graph with edges
         let mut g = Graph::new(*size);
         for i in 0..*size-1 {
@@ -73,7 +73,7 @@ fn bench_degree(c: &mut Criterion) {
 fn bench_has_edge(c: &mut Criterion) {
     let mut group = c.benchmark_group("has_edge");
 
-    for size in [10, 100, 1000].iter() {
+    for size in [10usize, 100, 1000].iter() {
         // Setup: Create a graph with edges
         let mut g = Graph::new(*size);
         for i in 0..*size-1 {
