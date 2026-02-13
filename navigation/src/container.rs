@@ -96,7 +96,7 @@ impl Container {
     /// nav.add_page(Page::builder().label("Home").build());
     ///
     /// let removed = nav.remove_page(0).unwrap();
-    /// assert_eq!(removed.label(), Some("Home"));
+    /// assert_eq!(removed.label.as_deref(), Some("Home"));
     /// assert_eq!(nav.count(), 0);
     /// ```
     pub fn remove_page(&mut self, index: usize) -> Result<Page> {
@@ -151,9 +151,9 @@ impl Container {
     /// nav.add_page(Page::builder().label("Home").uri("/").build());
     /// nav.add_page(Page::builder().label("About").uri("/about").build());
     ///
-    /// let found = nav.find_page(|p| p.uri() == Some("/about"));
+    /// let found = nav.find_page(|p| p.uri.as_deref() == Some("/about"));
     /// assert!(found.is_some());
-    /// assert_eq!(found.unwrap().label(), Some("About"));
+    /// assert_eq!(found.unwrap().label.as_deref(), Some("About"));
     /// ```
     pub fn find_page<F>(&self, predicate: F) -> Option<&Page>
     where
@@ -194,7 +194,7 @@ impl Container {
     /// assert!(found.is_some());
     /// ```
     pub fn find_by_uri(&self, uri: &str) -> Option<&Page> {
-        self.find_page(|p| p.uri() == Some(uri))
+        self.find_page(|p| p.uri.as_deref() == Some(uri))
     }
 
     /// Finds a page by label.
@@ -211,7 +211,7 @@ impl Container {
     /// assert!(found.is_some());
     /// ```
     pub fn find_by_label(&self, label: &str) -> Option<&Page> {
-        self.find_page(|p| p.label() == Some(label))
+        self.find_page(|p| p.label.as_deref() == Some(label))
     }
 
     /// Finds a page by ID.
@@ -226,10 +226,10 @@ impl Container {
     ///
     /// let found = nav.find_by_id("home");
     /// assert!(found.is_some());
-    /// assert_eq!(found.unwrap().label(), Some("Home"));
+    /// assert_eq!(found.unwrap().label.as_deref(), Some("Home"));
     /// ```
     pub fn find_by_id(&self, id: &str) -> Option<&Page> {
-        self.find_page(|p| p.id() == Some(id))
+        self.find_page(|p| p.id.as_deref() == Some(id))
     }
 
     /// Clears all pages from the container.
@@ -293,9 +293,9 @@ impl Container {
     /// nav.add_page(parent);
     ///
     /// // Non-recursive: only root pages
-    /// assert!(!nav.has_page(|p| p.uri() == Some("/books"), false));
+    /// assert!(!nav.has_page(|p| p.uri.as_deref() == Some("/books"), false));
     /// // Recursive: finds nested pages too
-    /// assert!(nav.has_page(|p| p.uri() == Some("/books"), true));
+    /// assert!(nav.has_page(|p| p.uri.as_deref() == Some("/books"), true));
     /// ```
     pub fn has_page<F>(&self, predicate: F, recursive: bool) -> bool
     where
@@ -312,52 +312,6 @@ impl Container {
         false
     }
 
-    /// Finds the first page matching a property value, searching recursively.
-    ///
-    /// Uses the `Page::get` method for dynamic property lookup.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use walrs_navigation::{Container, Page};
-    ///
-    /// let mut nav = Container::new();
-    /// nav.add_page(Page::builder().label("Home").uri("/").build());
-    /// nav.add_page(Page::builder().label("About").uri("/about").build());
-    ///
-    /// let found = nav.find_one_by("label", "About");
-    /// assert!(found.is_some());
-    /// assert_eq!(found.unwrap().uri(), Some("/about"));
-    /// ```
-    pub fn find_one_by(&self, property: &str, value: &str) -> Option<&Page> {
-        self.find_page(|p| p.get(property) == Some(value))
-    }
-
-    /// Finds all pages matching a property value, searching recursively.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use walrs_navigation::{Container, Page};
-    ///
-    /// let mut nav = Container::new();
-    /// nav.add_page(Page::builder().label("A").class("nav").build());
-    /// nav.add_page(Page::builder().label("B").class("nav").build());
-    /// nav.add_page(Page::builder().label("C").class("other").build());
-    ///
-    /// let found = nav.find_all_by("class", "nav");
-    /// assert_eq!(found.len(), 2);
-    /// ```
-    pub fn find_all_by(&self, property: &str, value: &str) -> Vec<&Page> {
-        let mut result = Vec::new();
-        for page in &self.pages {
-            page.find_all_pages(|p| p.get(property) == Some(value))
-                .into_iter()
-                .for_each(|p| result.push(p));
-        }
-        result
-    }
-
     /// Finds a page by route name.
     ///
     /// # Examples
@@ -372,7 +326,7 @@ impl Container {
     /// assert!(found.is_some());
     /// ```
     pub fn find_by_route(&self, route: &str) -> Option<&Page> {
-        self.find_page(|p| p.route() == Some(route))
+        self.find_page(|p| p.route.as_deref() == Some(route))
     }
 
     /// Returns only visible root-level pages.
@@ -389,7 +343,7 @@ impl Container {
     /// assert_eq!(nav.visible_pages().len(), 1);
     /// ```
     pub fn visible_pages(&self) -> Vec<&Page> {
-        self.pages.iter().filter(|p| p.is_visible()).collect()
+        self.pages.iter().filter(|p| p.visible).collect()
     }
 
     /// Performs a depth-first traversal of all pages.
@@ -405,7 +359,7 @@ impl Container {
     ///
     /// let mut labels = Vec::new();
     /// nav.traverse(&mut |page| {
-    ///     if let Some(label) = page.label() {
+    ///     if let Some(label) = page.label.as_deref() {
     ///         labels.push(label.to_string());
     ///     }
     /// });
@@ -437,7 +391,7 @@ impl Container {
     ///
     /// let mut items = Vec::new();
     /// nav.traverse_with_depth(&mut |page, depth| {
-    ///     items.push((page.label().unwrap_or("").to_string(), depth));
+    ///     items.push((page.label.as_deref().unwrap_or("").to_string(), depth));
     /// });
     ///
     /// assert_eq!(items, vec![
@@ -472,8 +426,8 @@ impl Container {
     ///
     /// let crumbs = nav.breadcrumbs();
     /// assert_eq!(crumbs.len(), 2);
-    /// assert_eq!(crumbs[0].label(), Some("Products"));
-    /// assert_eq!(crumbs[1].label(), Some("Books"));
+    /// assert_eq!(crumbs[0].label.as_deref(), Some("Products"));
+    /// assert_eq!(crumbs[1].label.as_deref(), Some("Books"));
     /// ```
     pub fn breadcrumbs(&self) -> Vec<&Page> {
         for page in &self.pages {
@@ -488,10 +442,10 @@ impl Container {
     /// Recursively finds the trail to an active page.
     fn find_active_trail<'a>(page: &'a Page, trail: &mut Vec<&'a Page>) -> bool {
         trail.push(page);
-        if page.is_active() {
+        if page.active {
             return true;
         }
-        for child in page.pages() {
+        for child in &page.pages {
             if Self::find_active_trail(child, trail) {
                 return true;
             }
@@ -523,7 +477,7 @@ impl Container {
 
     /// Sorts pages by their order value.
     fn sort_pages(&mut self) {
-        self.pages.sort_by_key(|p| p.order());
+        self.pages.sort_by_key(|p| p.order);
     }
 
     /// Sets the active page based on the current URI.
@@ -542,7 +496,7 @@ impl Container {
     /// nav.set_active_by_uri("/about");
     ///
     /// let about = nav.find_by_uri("/about").unwrap();
-    /// assert!(about.is_active());
+    /// assert!(about.active);
     /// ```
     pub fn set_active_by_uri(&mut self, uri: &str) {
         // First, deactivate all pages
@@ -551,15 +505,15 @@ impl Container {
         }
 
         // Then activate the matching page
-        if let Some(page) = self.find_page_mut(|p| p.uri() == Some(uri)) {
-            page.set_active(true);
+        if let Some(page) = self.find_page_mut(|p| p.uri.as_deref() == Some(uri)) {
+            page.active = true;
         }
     }
 
     /// Recursively deactivates a page and all its descendants.
     fn deactivate_recursive(page: &mut Page) {
-        page.set_active(false);
-        for child in page.pages_mut() {
+        page.active = false;
+        for child in &mut page.pages {
             Self::deactivate_recursive(child);
         }
     }
@@ -624,7 +578,7 @@ mod tests {
             Page::builder().label("B").order(1).build(),
         ]);
         assert_eq!(nav.count(), 2);
-        assert_eq!(nav.pages()[0].label(), Some("B"));
+        assert_eq!(nav.pages()[0].label.as_deref(), Some("B"));
     }
 
     #[test]
@@ -645,7 +599,7 @@ mod tests {
         nav.add_page(Page::builder().label("Home").build());
 
         let removed = nav.remove_page(0).unwrap();
-        assert_eq!(removed.label(), Some("Home"));
+        assert_eq!(removed.label.as_deref(), Some("Home"));
         assert!(nav.is_empty());
     }
 
@@ -664,7 +618,7 @@ mod tests {
 
         let found = nav.find_by_uri("/about");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("About"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("About"));
 
         let not_found = nav.find_by_uri("/notfound");
         assert!(not_found.is_none());
@@ -686,7 +640,7 @@ mod tests {
 
         let found = nav.find_by_id("home");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("Home"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("Home"));
     }
 
     #[test]
@@ -702,42 +656,6 @@ mod tests {
     }
 
     #[test]
-    fn test_find_one_by() {
-        let mut nav = Container::new();
-        nav.add_page(Page::builder().label("Home").class("primary").build());
-        nav.add_page(Page::builder().label("About").class("secondary").build());
-
-        let found = nav.find_one_by("class", "secondary");
-        assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("About"));
-
-        let not_found = nav.find_one_by("class", "tertiary");
-        assert!(not_found.is_none());
-    }
-
-    #[test]
-    fn test_find_all_by() {
-        let mut nav = Container::new();
-        nav.add_page(Page::builder().label("A").class("nav").build());
-        nav.add_page(Page::builder().label("B").class("nav").build());
-        nav.add_page(Page::builder().label("C").class("other").build());
-
-        let found = nav.find_all_by("class", "nav");
-        assert_eq!(found.len(), 2);
-    }
-
-    #[test]
-    fn test_find_all_by_nested() {
-        let mut nav = Container::new();
-        let mut parent = Page::builder().label("P").class("x").build();
-        parent.add_page(Page::builder().label("C").class("x").build());
-        nav.add_page(parent);
-
-        let found = nav.find_all_by("class", "x");
-        assert_eq!(found.len(), 2);
-    }
-
-    #[test]
     fn test_has_page() {
         let mut nav = Container::new();
         let mut parent = Page::builder().label("Products").build();
@@ -745,12 +663,12 @@ mod tests {
         nav.add_page(parent);
 
         // Non-recursive
-        assert!(nav.has_page(|p| p.label() == Some("Products"), false));
-        assert!(!nav.has_page(|p| p.uri() == Some("/books"), false));
+        assert!(nav.has_page(|p| p.label.as_deref() == Some("Products"), false));
+        assert!(!nav.has_page(|p| p.uri.as_deref() == Some("/books"), false));
 
         // Recursive
-        assert!(nav.has_page(|p| p.uri() == Some("/books"), true));
-        assert!(!nav.has_page(|p| p.uri() == Some("/nope"), true));
+        assert!(nav.has_page(|p| p.uri.as_deref() == Some("/books"), true));
+        assert!(!nav.has_page(|p| p.uri.as_deref() == Some("/nope"), true));
     }
 
     #[test]
@@ -764,7 +682,7 @@ mod tests {
 
         let found = nav.find_by_uri("/products/books");
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("Books"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("Books"));
     }
 
     #[test]
@@ -801,7 +719,7 @@ mod tests {
 
         let mut items = Vec::new();
         nav.traverse_with_depth(&mut |page, depth| {
-            items.push((page.label().unwrap_or("").to_string(), depth));
+            items.push((page.label.as_deref().unwrap_or("").to_string(), depth));
         });
 
         assert_eq!(items.len(), 2);
@@ -823,8 +741,8 @@ mod tests {
 
         let crumbs = nav.breadcrumbs();
         assert_eq!(crumbs.len(), 2);
-        assert_eq!(crumbs[0].label(), Some("Products"));
-        assert_eq!(crumbs[1].label(), Some("Books"));
+        assert_eq!(crumbs[0].label.as_deref(), Some("Products"));
+        assert_eq!(crumbs[1].label.as_deref(), Some("Books"));
     }
 
     #[test]
@@ -841,7 +759,7 @@ mod tests {
         nav.add_page(Page::builder().label("Home").active(true).build());
         let crumbs = nav.breadcrumbs();
         assert_eq!(crumbs.len(), 1);
-        assert_eq!(crumbs[0].label(), Some("Home"));
+        assert_eq!(crumbs[0].label.as_deref(), Some("Home"));
     }
 
     #[test]
@@ -852,7 +770,7 @@ mod tests {
 
         let visible = nav.visible_pages();
         assert_eq!(visible.len(), 1);
-        assert_eq!(visible[0].label(), Some("Visible"));
+        assert_eq!(visible[0].label.as_deref(), Some("Visible"));
     }
 
     #[test]
@@ -863,9 +781,9 @@ mod tests {
         nav.add_page(Page::builder().label("Second").order(2).build());
 
         let pages = nav.pages();
-        assert_eq!(pages[0].label(), Some("First"));
-        assert_eq!(pages[1].label(), Some("Second"));
-        assert_eq!(pages[2].label(), Some("Third"));
+        assert_eq!(pages[0].label.as_deref(), Some("First"));
+        assert_eq!(pages[1].label.as_deref(), Some("Second"));
+        assert_eq!(pages[2].label.as_deref(), Some("Third"));
     }
 
     #[test]
@@ -876,7 +794,7 @@ mod tests {
 
         let labels: Vec<_> = nav
             .into_iter()
-            .filter_map(|p| p.label().map(String::from))
+            .filter_map(|p| p.label.clone())
             .collect();
 
         assert_eq!(labels, vec!["Home", "About"]);
@@ -901,8 +819,8 @@ mod tests {
 
         nav.set_active_by_uri("/about");
 
-        assert!(!nav.find_by_uri("/").unwrap().is_active());
-        assert!(nav.find_by_uri("/about").unwrap().is_active());
+        assert!(!nav.find_by_uri("/").unwrap().active);
+        assert!(nav.find_by_uri("/about").unwrap().active);
     }
 
     #[test]
@@ -920,7 +838,7 @@ mod tests {
         nav.set_active_by_uri("/products/books");
 
         let books = nav.find_by_uri("/products/books").unwrap();
-        assert!(books.is_active());
+        assert!(books.active);
     }
 
     #[test]
@@ -929,7 +847,7 @@ mod tests {
         nav.add_page(Page::builder().label("Home").uri("/").build());
         nav.set_active_by_uri("/nope");
         // No panic, home should not be active
-        assert!(!nav.find_by_uri("/").unwrap().is_active());
+        assert!(!nav.find_by_uri("/").unwrap().active);
     }
 
     #[test]
@@ -938,9 +856,9 @@ mod tests {
         nav.add_page(Page::builder().label("Home").build());
 
         let pages = nav.pages_mut();
-        pages[0].set_label("Modified");
+        pages[0].label = Some("Modified".to_string());
 
-        assert_eq!(nav.pages()[0].label(), Some("Modified"));
+        assert_eq!(nav.pages()[0].label.as_deref(), Some("Modified"));
     }
 
     #[test]
@@ -948,11 +866,11 @@ mod tests {
         let mut nav = Container::new();
         nav.add_page(Page::builder().label("Home").uri("/").build());
 
-        let page = nav.find_page_mut(|p| p.uri() == Some("/"));
+        let page = nav.find_page_mut(|p| p.uri.as_deref() == Some("/"));
         assert!(page.is_some());
-        page.unwrap().set_label("Modified");
+        page.unwrap().label = Some("Modified".to_string());
 
-        assert_eq!(nav.find_by_uri("/").unwrap().label(), Some("Modified"));
+        assert_eq!(nav.find_by_uri("/").unwrap().label.as_deref(), Some("Modified"));
     }
 
     #[test]
@@ -960,7 +878,7 @@ mod tests {
         let mut nav = Container::new();
         nav.add_page(Page::builder().label("Home").build());
 
-        let page = nav.find_page_mut(|p| p.uri() == Some("/nope"));
+        let page = nav.find_page_mut(|p| p.uri.as_deref() == Some("/nope"));
         assert!(page.is_none());
     }
 
@@ -971,7 +889,7 @@ mod tests {
             Page::builder().label("A").order(1).build(),
         ];
         let nav = Container::from_pages(pages);
-        assert_eq!(nav.pages()[0].label(), Some("A"));
-        assert_eq!(nav.pages()[1].label(), Some("B"));
+        assert_eq!(nav.pages()[0].label.as_deref(), Some("A"));
+        assert_eq!(nav.pages()[1].label.as_deref(), Some("B"));
     }
 }

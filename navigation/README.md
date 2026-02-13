@@ -10,10 +10,10 @@ This crate is inspired by and follows the design principles of the [Laminas Navi
 - **Flexible Page Properties**: Support for URIs, labels, titles, fragments, routes, ACL settings, and custom attributes
 - **JSON/YAML Support**: Deserialize navigation structures from JSON or YAML (feature-gated)
 - **Builder Pattern**: Fluent API for constructing navigation structures
+- **Public Fields**: Direct access to page properties for reading and writing
 - **Type Safety**: Full type safety with `Result`-based error handling (no panics)
 - **Iterator Support**: Standard Rust iterator patterns for traversal
 - **View Helpers**: Built-in rendering for menus, breadcrumbs, and sitemaps with XSS protection
-- **Dynamic Properties**: Get/set page properties by name for flexible configuration
 - **Breadcrumb Trails**: Automatic breadcrumb generation from the active page path
 - **Comprehensive Testing**: Thoroughly tested with unit tests and doc tests
 - **Performance**: Benchmarked and optimized for production use
@@ -85,13 +85,13 @@ fn main() {
 
     // Find pages
     if let Some(page) = nav.find_by_uri("/products/books") {
-        println!("Found: {}", page.label().unwrap_or(""));
+        println!("Found: {}", page.label.as_deref().unwrap_or(""));
     }
 
     // Traverse all pages with depth
     nav.traverse_with_depth(&mut |page, depth| {
         let indent = "  ".repeat(depth);
-        println!("{}{}", indent, page.label().unwrap_or("(no label)"));
+        println!("{}{}", indent, page.label.as_deref().unwrap_or("(no label)"));
     });
 }
 ```
@@ -174,7 +174,7 @@ Each `Page` supports the following properties:
 | `pages` | `Vec<Page>` | Child pages (for hierarchical navigation) |
 | `order` | `i32` | Display order (lower values appear first) |
 
-All properties have getters and setters. Properties can also be accessed dynamically by name using `page.get("property")` and `page.set("property", "value")`.
+All properties are public fields and can be accessed directly. The builder pattern provides a convenient way to construct pages.
 
 ## API Reference
 
@@ -210,12 +210,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let page = nav.find_by_id("main-nav");
     let page = nav.find_by_route("home");
 
-    // Dynamic property search
-    let page = nav.find_one_by("class", "nav-primary");
-    let pages = nav.find_all_by("class", "nav-item");
+    // Find pages with custom predicates
+    let page = nav.find_page(|p| p.class.as_deref() == Some("nav-primary"));
 
     // Check if a page exists
-    let exists = nav.has_page(|p| p.uri() == Some("/about"), true);
+    let exists = nav.has_page(|p| p.uri.as_deref() == Some("/about"), true);
 
     // Get page count
     let count = nav.count();
@@ -239,12 +238,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Traverse with depth information
     nav.traverse_with_depth(&mut |page, depth| {
         let indent = "  ".repeat(depth);
-        println!("{}{}", indent, page.label().unwrap_or(""));
+        println!("{}{}", indent, page.label.as_deref().unwrap_or(""));
     });
 
     // Iterate over root pages
     for page in nav.iter() {
-        println!("{}", page.label().unwrap_or(""));
+        println!("{}", page.label.as_deref().unwrap_or(""));
     }
 
     // Set active page
@@ -253,7 +252,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Get breadcrumb trail
     let crumbs = nav.breadcrumbs();
     for crumb in &crumbs {
-        println!("{}", crumb.label().unwrap_or(""));
+        println!("{}", crumb.label.as_deref().unwrap_or(""));
     }
 
     // Serialize to JSON/YAML
@@ -295,15 +294,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Dynamic property access
     let mut page = Page::new();
-    page.set("label", "Dynamic");
-    page.set("uri", "/dynamic");
-    assert_eq!(page.get("label"), Some("Dynamic"));
+    page.label = Some("Dynamic".to_string());
+    page.uri = Some("/dynamic".to_string());
+    assert_eq!(page.label.as_deref(), Some("Dynamic"));
 
-    // Setters for all properties
+    // Direct field access for all properties
     let mut page = Page::new();
-    page.set_label("Home");
-    page.set_uri("/");
-    page.set_order(1);
+    page.label = Some("Home".to_string());
+    page.uri = Some("/".to_string());
+    page.order = 1;
 
     // Custom attributes
     page.set_attribute("data-id", "home");
@@ -322,11 +321,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     parent.remove_pages(); // clear all children
 
     // Find child pages
-    let child = parent.find_page(|p| p.label() == Some("Books"));
-    let all_visible = parent.find_all_pages(|p| p.is_visible());
+    let child = parent.find_page(|p| p.label.as_deref() == Some("Books"));
+    let all_visible = parent.find_all_pages(|p| p.visible);
 
     // Check for child pages
-    let has_books = parent.has_page(|p| p.label() == Some("Books"), true);
+    let has_books = parent.has_page(|p| p.label.as_deref() == Some("Books"), true);
     let is_branch_active = parent.is_active_branch();
     let visible_children = parent.visible_pages();
 
@@ -336,7 +335,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Traverse page tree with depth
     parent.traverse_with_depth(0, &mut |page, depth| {
         let indent = "  ".repeat(depth);
-        println!("{}{}", indent, page.label().unwrap_or(""));
+        println!("{}{}", indent, page.label.as_deref().unwrap_or(""));
     });
 
     Ok(())
@@ -398,12 +397,12 @@ cargo run --example basic_navigation --features json,yaml
 This example demonstrates:
 - Creating navigation structures
 - Adding and organizing pages
-- Finding pages by URI, label, route, and dynamic properties
+- Finding pages by URI, label, route, and custom predicates
 - Depth-aware traversal
 - Breadcrumb generation
 - View helper rendering (menus, breadcrumbs, sitemaps)
 - JSON and YAML serialization/deserialization
-- Dynamic property access
+- Direct field access
 - Fragment-based hrefs
 
 ### Actix Web Integration Example
@@ -443,7 +442,7 @@ cargo bench --package walrs_navigation --features json,yaml
 Benchmarks cover:
 - Page creation (builder and direct)
 - Container operations (add, bulk add)
-- Find operations (by URI, label, property, find all)
+- Find operations (by URI, label, predicate)
 - Nested operations at various depths
 - Traversal (standard and depth-aware)
 - Breadcrumb generation
@@ -514,7 +513,6 @@ Contributions are welcome! Please ensure:
 - Search and traversal operations
 - Breadcrumb trail generation
 - View helpers (menu, breadcrumb, sitemap rendering)
-- Dynamic property access
 - XSS-safe HTML rendering
 - Comprehensive test coverage
 - Performance benchmarks

@@ -98,21 +98,9 @@ fn bench_find_operations(c: &mut Criterion) {
         });
     });
 
-    c.bench_function("find_one_by", |b| {
-        b.iter(|| {
-            nav.find_one_by(black_box("label"), black_box("Page 500"));
-        });
-    });
-
-    c.bench_function("find_all_by", |b| {
-        b.iter(|| {
-            nav.find_all_by(black_box("class"), black_box("even"));
-        });
-    });
-
     c.bench_function("has_page_non_recursive", |b| {
         b.iter(|| {
-            nav.has_page(|p| p.uri() == Some(black_box("/page/500")), false);
+            nav.has_page(|p| p.uri.as_deref() == Some(black_box("/page/500")), false);
         });
     });
 }
@@ -186,7 +174,7 @@ fn bench_breadcrumbs(c: &mut Criterion) {
             .uri(format!("/l{}", i))
             .build();
         if i == 9 {
-            child.set_active(true);
+            child.active = true;
         }
         current.add_page(child);
         let mut wrapper = Page::builder()

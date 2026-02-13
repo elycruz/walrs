@@ -79,7 +79,7 @@ pub fn render_menu(nav: &Container) -> String {
   let mut html = String::new();
   html.push_str("<ul>\n");
   for page in nav.pages() {
-    if page.is_visible() {
+    if page.visible {
       render_menu_page(page, &mut html, 1);
     }
   }
@@ -113,7 +113,7 @@ pub fn render_menu_with_class(nav: &Container, ul_class: &str, active_class: &st
   let mut html = String::new();
   html.push_str(&format!("<ul class=\"{}\">\n", html_escape(ul_class)));
   for page in nav.pages() {
-    if page.is_visible() {
+    if page.visible {
       render_menu_page_with_class(page, &mut html, 1, active_class);
     }
   }
@@ -123,10 +123,10 @@ pub fn render_menu_with_class(nav: &Container, ul_class: &str, active_class: &st
 
 fn render_menu_page(page: &Page, html: &mut String, depth: usize) {
   let indent = "  ".repeat(depth);
-  let label = html_escape(page.label().unwrap_or(""));
+  let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
 
-  let class_attr = if page.is_active() {
+  let class_attr = if page.active {
     " class=\"active\""
   } else {
     ""
@@ -137,7 +137,7 @@ fn render_menu_page(page: &Page, html: &mut String, depth: usize) {
     indent, class_attr, href, label
   ));
 
-  let visible_children: Vec<_> = page.pages().iter().filter(|p| p.is_visible()).collect();
+  let visible_children: Vec<_> = page.pages.iter().filter(|p| p.visible).collect();
   if !visible_children.is_empty() {
     html.push_str(&format!("\n{}<ul>\n", "  ".repeat(depth + 1)));
     for child in visible_children {
@@ -156,10 +156,10 @@ fn render_menu_page_with_class(
   active_class: &str,
 ) {
   let indent = "  ".repeat(depth);
-  let label = html_escape(page.label().unwrap_or(""));
+  let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
 
-  let class_attr = if page.is_active() {
+  let class_attr = if page.active {
     format!(" class=\"{}\"", html_escape(active_class))
   } else {
     String::new()
@@ -170,7 +170,7 @@ fn render_menu_page_with_class(
     indent, class_attr, href, label
   ));
 
-  let visible_children: Vec<_> = page.pages().iter().filter(|p| p.is_visible()).collect();
+  let visible_children: Vec<_> = page.pages.iter().filter(|p| p.visible).collect();
   if !visible_children.is_empty() {
     html.push_str(&format!("\n{}<ul>\n", "  ".repeat(depth + 1)));
     for child in visible_children {
@@ -213,7 +213,7 @@ pub fn render_breadcrumbs(nav: &Container, separator: &str) -> String {
   let mut html = String::new();
   let last_idx = crumbs.len() - 1;
   for (i, page) in crumbs.iter().enumerate() {
-    let label = html_escape(page.label().unwrap_or(""));
+    let label = html_escape(page.label.as_deref().unwrap_or(""));
     if i == last_idx {
       // Active page: render as span
       html.push_str(&format!("<span class=\"active\">{}</span>", label));
@@ -248,8 +248,8 @@ pub fn render_sitemap(nav: &Container) -> String {
   let mut html = String::new();
   html.push_str("<ul class=\"sitemap\">\n");
   nav.traverse(&mut |page| {
-    if page.is_visible() {
-      let label = html_escape(page.label().unwrap_or(""));
+    if page.visible {
+      let label = html_escape(page.label.as_deref().unwrap_or(""));
       let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
       html.push_str(&format!("  <li><a href=\"{}\">{}</a></li>\n", href, label));
     }
@@ -282,7 +282,7 @@ pub fn render_sitemap_hierarchical(nav: &Container) -> String {
   let mut html = String::new();
   html.push_str("<ul class=\"sitemap\">\n");
   for page in nav.pages() {
-    if page.is_visible() {
+    if page.visible {
       render_sitemap_page(page, &mut html, 1);
     }
   }
@@ -292,7 +292,7 @@ pub fn render_sitemap_hierarchical(nav: &Container) -> String {
 
 fn render_sitemap_page(page: &Page, html: &mut String, depth: usize) {
   let indent = "  ".repeat(depth);
-  let label = html_escape(page.label().unwrap_or(""));
+  let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
 
   html.push_str(&format!(
@@ -300,7 +300,7 @@ fn render_sitemap_page(page: &Page, html: &mut String, depth: usize) {
     indent, href, label
   ));
 
-  let visible_children: Vec<_> = page.pages().iter().filter(|p| p.is_visible()).collect();
+  let visible_children: Vec<_> = page.pages.iter().filter(|p| p.visible).collect();
   if !visible_children.is_empty() {
     html.push_str(&format!("\n{}<ul>\n", "  ".repeat(depth + 1)));
     for child in visible_children {

@@ -159,7 +159,7 @@ impl Page {
     ///
     /// let json = r#"{"label": "Home", "uri": "/"}"#;
     /// let page = Page::from_json(json).unwrap();
-    /// assert_eq!(page.label(), Some("Home"));
+    /// assert_eq!(page.label.as_deref(), Some("Home"));
     /// ```
     pub fn from_json(json: &str) -> Result<Self> {
         Self::try_from(json)
@@ -189,7 +189,7 @@ impl Page {
     ///
     /// let yaml = "label: Home\nuri: /";
     /// let page = Page::from_yaml(yaml).unwrap();
-    /// assert_eq!(page.label(), Some("Home"));
+    /// assert_eq!(page.label.as_deref(), Some("Home"));
     /// ```
     pub fn from_yaml(yaml: &str) -> Result<Self> {
         serde_yaml::from_str(yaml)
@@ -233,7 +233,7 @@ mod tests {
         assert_eq!(nav.pages().len(), 2);
 
         let about = nav.find_by_uri("/about").unwrap();
-        assert_eq!(about.pages().len(), 1);
+        assert_eq!(about.pages.len(), 1);
     }
 
     #[test]
@@ -258,9 +258,9 @@ mod tests {
     fn test_page_from_json() {
         let json = r#"{"label": "Home", "uri": "/", "active": true}"#;
         let page = Page::from_json(json).unwrap();
-        assert_eq!(page.label(), Some("Home"));
-        assert_eq!(page.uri(), Some("/"));
-        assert!(page.is_active());
+        assert_eq!(page.label.as_deref(), Some("Home"));
+        assert_eq!(page.uri.as_deref(), Some("/"));
+        assert!(page.active);
     }
 
     #[test]
@@ -268,8 +268,8 @@ mod tests {
     fn test_page_from_yaml() {
         let yaml = "label: Home\nuri: /\nactive: true";
         let page = Page::from_yaml(yaml).unwrap();
-        assert_eq!(page.label(), Some("Home"));
-        assert!(page.is_active());
+        assert_eq!(page.label.as_deref(), Some("Home"));
+        assert!(page.active);
     }
 
     #[test]
@@ -309,7 +309,7 @@ mod tests {
 
         // Round trip
         let page2 = Page::from_json(&json).unwrap();
-        assert_eq!(page2.label(), Some("Home"));
+        assert_eq!(page2.label.as_deref(), Some("Home"));
     }
 
     #[test]

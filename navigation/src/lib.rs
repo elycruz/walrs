@@ -49,7 +49,7 @@
 //!
 //! // Find pages
 //! if let Some(page) = nav.find_by_uri("/products/books") {
-//!     println!("Found: {}", page.label().unwrap_or(""));
+//!     println!("Found: {}", page.label.as_deref().unwrap_or(""));
 //! }
 //! ```
 //!

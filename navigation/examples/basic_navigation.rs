@@ -96,8 +96,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!(
             "{}{} - {}",
             indent,
-            page.label().unwrap_or("(no label)"),
-            page.uri().unwrap_or("(no URI)")
+            page.label.as_deref().unwrap_or("(no label)"),
+            page.uri.as_deref().unwrap_or("(no URI)")
         );
     });
     println!();
@@ -105,24 +105,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Find specific pages
     println!("Finding pages:");
     if let Some(books) = nav.find_by_uri("/products/books") {
-        println!("Found by URI: {} at /products/books", books.label().unwrap());
+        println!("Found by URI: {} at /products/books", books.label.as_deref().unwrap());
     }
 
     if let Some(team) = nav.find_by_label("Team") {
-        println!("Found by label: Team at {}", team.uri().unwrap());
+        println!("Found by label: Team at {}", team.uri.as_deref().unwrap());
     }
 
     if let Some(products_page) = nav.find_by_route("products") {
-        println!("Found by route: {}", products_page.label().unwrap());
+        println!("Found by route: {}", products_page.label.as_deref().unwrap());
     }
 
-    // Dynamic property access
-    if let Some(page) = nav.find_one_by("label", "Blog") {
-        println!("Found by property: {} (target={})", page.label().unwrap(), page.target().unwrap_or("none"));
+    // Find pages using find_page with a custom predicate
+    if let Some(page) = nav.find_page(|p| p.label.as_deref() == Some("Blog")) {
+        println!("Found by predicate: {} (target={})", page.label.as_deref().unwrap(), page.target.as_deref().unwrap_or("none"));
     }
 
-    // Find all pages with a specific class
-    let nav_items = nav.find_all_by("class", "nav-item");
+    // Find all pages with a specific class using find_page
+    let nav_items: Vec<_> = nav.pages().iter()
+        .flat_map(|p| p.find_all_pages(|p| p.class.as_deref() == Some("nav-item")))
+        .collect();
     println!("Pages with class 'nav-item': {}", nav_items.len());
     println!();
 
@@ -130,7 +132,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Visible root pages: {}", nav.visible_pages().len());
 
     // Check if a page exists
-    println!("Has /products/books? {}", nav.has_page(|p| p.uri() == Some("/products/books"), true));
+    println!("Has /products/books? {}", nav.has_page(|p| p.uri.as_deref() == Some("/products/books"), true));
     println!();
 
     // Demonstrate breadcrumbs
@@ -141,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         if i > 0 {
             print!(" > ");
         }
-        print!("{}", crumb.label().unwrap_or(""));
+        print!("{}", crumb.label.as_deref().unwrap_or(""));
     }
     println!("\n");
 
@@ -199,21 +201,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nav2 = Container::from_json(json_input)?;
     println!("Loaded {} pages from JSON", nav2.count());
     for page in nav2.iter() {
-        println!("  - {} ({})", page.label().unwrap(), page.uri().unwrap());
+        println!("  - {} ({})", page.label.as_deref().unwrap(), page.uri.as_deref().unwrap());
     }
     println!();
 
-    // Demonstrate dynamic property setting
-    println!("Dynamic property access:");
+    // Demonstrate direct field access
+    println!("Direct field access:");
     let mut page = Page::new();
-    page.set("label", "Dynamic");
-    page.set("uri", "/dynamic");
-    page.set("title", "Dynamically Created");
+    page.label = Some("Dynamic".to_string());
+    page.uri = Some("/dynamic".to_string());
+    page.title = Some("Dynamically Created".to_string());
     println!(
         "  label={}, uri={}, title={}",
-        page.get("label").unwrap(),
-        page.get("uri").unwrap(),
-        page.get("title").unwrap()
+        page.label.as_deref().unwrap(),
+        page.uri.as_deref().unwrap(),
+        page.title.as_deref().unwrap()
     );
     println!();
 
@@ -235,7 +237,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ]);
     println!("\nBulk add (sorted by order):");
     for page in nav3.iter() {
-        println!("  {} (order {})", page.label().unwrap(), page.order());
+        println!("  {} (order {})", page.label.as_deref().unwrap(), page.order);
     }
 
     Ok(())

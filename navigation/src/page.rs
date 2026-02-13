@@ -21,71 +21,71 @@ use std::collections::HashMap;
 ///     .uri("/")
 ///     .build();
 ///
-/// assert_eq!(page.label(), Some("Home"));
-/// assert_eq!(page.uri(), Some("/"));
-/// assert!(page.is_visible());
+/// assert_eq!(page.label.as_deref(), Some("Home"));
+/// assert_eq!(page.uri.as_deref(), Some("/"));
+/// assert!(page.visible);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Page {
     /// Display label for the page
     #[serde(skip_serializing_if = "Option::is_none")]
-    label: Option<String>,
+    pub label: Option<String>,
 
     /// URI/URL for the page
     #[serde(skip_serializing_if = "Option::is_none")]
-    uri: Option<String>,
+    pub uri: Option<String>,
 
     /// Page title (for HTML title tag, etc.)
     #[serde(skip_serializing_if = "Option::is_none")]
-    title: Option<String>,
+    pub title: Option<String>,
 
     /// Fragment identifier (e.g., "#section")
     #[serde(skip_serializing_if = "Option::is_none")]
-    fragment: Option<String>,
+    pub fragment: Option<String>,
 
     /// Route name for routing systems
     #[serde(skip_serializing_if = "Option::is_none")]
-    route: Option<String>,
+    pub route: Option<String>,
 
     /// ACL resource identifier
     #[serde(skip_serializing_if = "Option::is_none")]
-    resource: Option<String>,
+    pub resource: Option<String>,
 
     /// ACL privilege identifier
     #[serde(skip_serializing_if = "Option::is_none")]
-    privilege: Option<String>,
+    pub privilege: Option<String>,
 
     /// Whether the page is currently active
     #[serde(default)]
-    active: bool,
+    pub active: bool,
 
     /// Whether the page is visible
     #[serde(default = "default_true")]
-    visible: bool,
+    pub visible: bool,
 
     /// CSS class for the page
     #[serde(skip_serializing_if = "Option::is_none")]
-    class: Option<String>,
+    pub class: Option<String>,
 
     /// ID attribute for the page
     #[serde(skip_serializing_if = "Option::is_none")]
-    id: Option<String>,
+    pub id: Option<String>,
 
     /// Target attribute (e.g., "_blank")
     #[serde(skip_serializing_if = "Option::is_none")]
-    target: Option<String>,
+    pub target: Option<String>,
 
     /// Custom attributes as key-value pairs
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    attributes: HashMap<String, String>,
+    pub attributes: HashMap<String, String>,
 
     /// Child pages
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pages: Vec<Page>,
+    pub pages: Vec<Page>,
 
     /// Display order (lower values appear first)
     #[serde(default)]
-    order: i32,
+    pub order: i32,
 }
 
 fn default_true() -> bool {
@@ -117,156 +117,11 @@ impl Page {
     /// use walrs_navigation::Page;
     ///
     /// let page = Page::new();
-    /// assert!(page.label().is_none());
-    /// assert!(page.is_visible());
+    /// assert!(page.label.is_none());
+    /// assert!(page.visible);
     /// ```
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Returns the page label.
-    pub fn label(&self) -> Option<&str> {
-        self.label.as_deref()
-    }
-
-    /// Returns the page URI.
-    pub fn uri(&self) -> Option<&str> {
-        self.uri.as_deref()
-    }
-
-    /// Returns the page title.
-    pub fn title(&self) -> Option<&str> {
-        self.title.as_deref()
-    }
-
-    /// Returns the fragment identifier.
-    pub fn fragment(&self) -> Option<&str> {
-        self.fragment.as_deref()
-    }
-
-    /// Returns the route name.
-    pub fn route(&self) -> Option<&str> {
-        self.route.as_deref()
-    }
-
-    /// Returns the resource identifier for ACL.
-    pub fn resource(&self) -> Option<&str> {
-        self.resource.as_deref()
-    }
-
-    /// Returns the privilege identifier for ACL.
-    pub fn privilege(&self) -> Option<&str> {
-        self.privilege.as_deref()
-    }
-
-    /// Returns whether the page is active.
-    pub fn is_active(&self) -> bool {
-        self.active
-    }
-
-    /// Returns whether the page is visible.
-    pub fn is_visible(&self) -> bool {
-        self.visible
-    }
-
-    /// Returns the CSS class.
-    pub fn class(&self) -> Option<&str> {
-        self.class.as_deref()
-    }
-
-    /// Returns the ID attribute.
-    pub fn id(&self) -> Option<&str> {
-        self.id.as_deref()
-    }
-
-    /// Returns the target attribute.
-    pub fn target(&self) -> Option<&str> {
-        self.target.as_deref()
-    }
-
-    /// Returns a reference to the custom attributes.
-    pub fn attributes(&self) -> &HashMap<String, String> {
-        &self.attributes
-    }
-
-    /// Returns a reference to the child pages.
-    pub fn pages(&self) -> &[Page] {
-        &self.pages
-    }
-
-    /// Returns a mutable reference to the child pages (internal use).
-    pub(crate) fn pages_mut(&mut self) -> &mut Vec<Page> {
-        &mut self.pages
-    }
-
-    /// Returns the display order.
-    pub fn order(&self) -> i32 {
-        self.order
-    }
-
-    /// Sets the label.
-    pub fn set_label<S: Into<String>>(&mut self, label: S) {
-        self.label = Some(label.into());
-    }
-
-    /// Sets the URI.
-    pub fn set_uri<S: Into<String>>(&mut self, uri: S) {
-        self.uri = Some(uri.into());
-    }
-
-    /// Sets the title.
-    pub fn set_title<S: Into<String>>(&mut self, title: S) {
-        self.title = Some(title.into());
-    }
-
-    /// Sets the fragment.
-    pub fn set_fragment<S: Into<String>>(&mut self, fragment: S) {
-        self.fragment = Some(fragment.into());
-    }
-
-    /// Sets the route.
-    pub fn set_route<S: Into<String>>(&mut self, route: S) {
-        self.route = Some(route.into());
-    }
-
-    /// Sets the resource.
-    pub fn set_resource<S: Into<String>>(&mut self, resource: S) {
-        self.resource = Some(resource.into());
-    }
-
-    /// Sets the privilege.
-    pub fn set_privilege<S: Into<String>>(&mut self, privilege: S) {
-        self.privilege = Some(privilege.into());
-    }
-
-    /// Sets the active state.
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
-    }
-
-    /// Sets the visible state.
-    pub fn set_visible(&mut self, visible: bool) {
-        self.visible = visible;
-    }
-
-    /// Sets the CSS class.
-    pub fn set_class<S: Into<String>>(&mut self, class: S) {
-        self.class = Some(class.into());
-    }
-
-    /// Sets the ID attribute.
-    pub fn set_id<S: Into<String>>(&mut self, id: S) {
-        self.id = Some(id.into());
-    }
-
-    /// Sets the target attribute.
-    pub fn set_target<S: Into<String>>(&mut self, target: S) {
-        self.target = Some(target.into());
-    }
-
-    /// Sets the display order.
-    pub fn set_order(&mut self, order: i32) {
-        self.order = order;
     }
 
     /// Sets a custom attribute.
@@ -278,7 +133,7 @@ impl Page {
     ///
     /// let mut page = Page::builder().label("Home").build();
     /// page.set_attribute("data-id", "home");
-    /// assert_eq!(page.attributes().get("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
     /// ```
     pub fn set_attribute<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
         self.attributes.insert(key.into(), value.into());
@@ -287,76 +142,6 @@ impl Page {
     /// Removes a custom attribute, returning its value if it was present.
     pub fn remove_attribute(&mut self, key: &str) -> Option<String> {
         self.attributes.remove(key)
-    }
-
-    /// Returns a mutable reference to the custom attributes.
-    pub fn attributes_mut(&mut self) -> &mut HashMap<String, String> {
-        &mut self.attributes
-    }
-
-    /// Gets a page property by name. Returns the property value as a string
-    /// if it exists, or `None` if the property is not set or the name is unknown.
-    ///
-    /// Supported property names: `"label"`, `"uri"`, `"title"`, `"fragment"`,
-    /// `"route"`, `"resource"`, `"privilege"`, `"class"`, `"id"`, `"target"`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use walrs_navigation::Page;
-    ///
-    /// let page = Page::builder().label("Home").uri("/").build();
-    /// assert_eq!(page.get("label"), Some("Home"));
-    /// assert_eq!(page.get("uri"), Some("/"));
-    /// assert_eq!(page.get("unknown"), None);
-    /// ```
-    pub fn get(&self, property: &str) -> Option<&str> {
-        match property {
-            "label" => self.label(),
-            "uri" => self.uri(),
-            "title" => self.title(),
-            "fragment" => self.fragment(),
-            "route" => self.route(),
-            "resource" => self.resource(),
-            "privilege" => self.privilege(),
-            "class" => self.class(),
-            "id" => self.id(),
-            "target" => self.target(),
-            _ => None,
-        }
-    }
-
-    /// Sets a page property by name. Returns `true` if the property was
-    /// recognized and set, `false` if the property name is unknown.
-    ///
-    /// Supported property names: `"label"`, `"uri"`, `"title"`, `"fragment"`,
-    /// `"route"`, `"resource"`, `"privilege"`, `"class"`, `"id"`, `"target"`.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use walrs_navigation::Page;
-    ///
-    /// let mut page = Page::new();
-    /// assert!(page.set("label", "Home"));
-    /// assert_eq!(page.label(), Some("Home"));
-    /// assert!(!page.set("unknown", "value"));
-    /// ```
-    pub fn set(&mut self, property: &str, value: &str) -> bool {
-        match property {
-            "label" => self.set_label(value),
-            "uri" => self.set_uri(value),
-            "title" => self.set_title(value),
-            "fragment" => self.set_fragment(value),
-            "route" => self.set_route(value),
-            "resource" => self.set_resource(value),
-            "privilege" => self.set_privilege(value),
-            "class" => self.set_class(value),
-            "id" => self.set_id(value),
-            "target" => self.set_target(value),
-            _ => return false,
-        }
-        true
     }
 
     /// Returns the full URI including fragment if present.
@@ -413,8 +198,8 @@ impl Page {
     /// let mut parent = Page::builder().label("Products").build();
     /// parent.add_page(Page::builder().label("Books").uri("/books").build());
     ///
-    /// assert!(parent.has_page(|p| p.uri() == Some("/books"), false));
-    /// assert!(!parent.has_page(|p| p.uri() == Some("/nope"), false));
+    /// assert!(parent.has_page(|p| p.uri.as_deref() == Some("/books"), false));
+    /// assert!(!parent.has_page(|p| p.uri.as_deref() == Some("/nope"), false));
     /// ```
     pub fn has_page<F>(&self, predicate: F, recursive: bool) -> bool
     where
@@ -443,7 +228,7 @@ impl Page {
     /// root.add_page(Page::builder().label("B").visible(false).build());
     /// root.add_page(Page::builder().label("C").visible(true).build());
     ///
-    /// let visible = root.find_all_pages(|p| p.is_visible());
+    /// let visible = root.find_all_pages(|p| p.visible);
     /// assert_eq!(visible.len(), 3); // Root + A + C
     /// ```
     pub fn find_all_pages<F>(&self, predicate: F) -> Vec<&Page>
@@ -478,7 +263,7 @@ impl Page {
     /// let child = Page::builder().label("Books").build();
     ///
     /// parent.add_page(child);
-    /// assert_eq!(parent.pages().len(), 1);
+    /// assert_eq!(parent.pages.len(), 1);
     /// ```
     pub fn add_page(&mut self, page: Page) {
         self.pages.push(page);
@@ -501,8 +286,8 @@ impl Page {
     /// parent.add_page(child);
     ///
     /// let removed = parent.remove_page(0).unwrap();
-    /// assert_eq!(removed.label(), Some("Books"));
-    /// assert_eq!(parent.pages().len(), 0);
+    /// assert_eq!(removed.label.as_deref(), Some("Books"));
+    /// assert_eq!(parent.pages.len(), 0);
     /// ```
     pub fn remove_page(&mut self, index: usize) -> Result<Page> {
         if index >= self.pages.len() {
@@ -522,9 +307,9 @@ impl Page {
     /// let child = Page::builder().label("Child").uri("/child").build();
     /// root.add_page(child);
     ///
-    /// let found = root.find_page(|p| p.uri() == Some("/child"));
+    /// let found = root.find_page(|p| p.uri.as_deref() == Some("/child"));
     /// assert!(found.is_some());
-    /// assert_eq!(found.unwrap().label(), Some("Child"));
+    /// assert_eq!(found.unwrap().label.as_deref(), Some("Child"));
     /// ```
     pub fn find_page<F>(&self, predicate: F) -> Option<&Page>
     where
@@ -601,7 +386,7 @@ impl Page {
     ///     Page::builder().label("A").build(),
     ///     Page::builder().label("B").build(),
     /// ]);
-    /// assert_eq!(parent.pages().len(), 2);
+    /// assert_eq!(parent.pages.len(), 2);
     /// ```
     pub fn add_pages(&mut self, pages: Vec<Page>) {
         for page in pages {
@@ -628,7 +413,7 @@ impl Page {
     ///
     /// let mut labels = Vec::new();
     /// root.traverse(&mut |page| {
-    ///     if let Some(label) = page.label() {
+    ///     if let Some(label) = page.label.as_deref() {
     ///         labels.push(label.to_string());
     ///     }
     /// });
@@ -645,7 +430,7 @@ impl Page {
         }
     }
 
-    /// Performs a depth-first traversal with depth information.
+    /// Performs a depth-first traversal of the page tree with depth information.
     ///
     /// The callback receives the page and its depth (0-based).
     ///
@@ -661,7 +446,7 @@ impl Page {
     ///
     /// let mut items = Vec::new();
     /// root.traverse_with_depth(0, &mut |page, depth| {
-    ///     items.push((page.label().unwrap_or("").to_string(), depth));
+    ///     items.push((page.label.as_deref().unwrap_or("").to_string(), depth));
     /// });
     ///
     /// assert_eq!(items, vec![
@@ -692,7 +477,7 @@ impl Page {
     /// root.add_page(Page::builder().label("Hidden").visible(false).build());
     ///
     /// assert_eq!(root.visible_pages().len(), 1);
-    /// assert_eq!(root.visible_pages()[0].label(), Some("Visible"));
+    /// assert_eq!(root.visible_pages()[0].label.as_deref(), Some("Visible"));
     /// ```
     pub fn visible_pages(&self) -> Vec<&Page> {
         self.pages.iter().filter(|p| p.visible).collect()
@@ -886,21 +671,21 @@ mod tests {
     #[test]
     fn test_page_new() {
         let page = Page::new();
-        assert!(page.label().is_none());
-        assert!(page.uri().is_none());
-        assert!(page.title().is_none());
-        assert!(page.fragment().is_none());
-        assert!(page.route().is_none());
-        assert!(page.resource().is_none());
-        assert!(page.privilege().is_none());
-        assert!(!page.is_active());
-        assert!(page.is_visible());
-        assert!(page.class().is_none());
-        assert!(page.id().is_none());
-        assert!(page.target().is_none());
-        assert!(page.attributes().is_empty());
-        assert!(page.pages().is_empty());
-        assert_eq!(page.order(), 0);
+        assert!(page.label.is_none());
+        assert!(page.uri.is_none());
+        assert!(page.title.is_none());
+        assert!(page.fragment.is_none());
+        assert!(page.route.is_none());
+        assert!(page.resource.is_none());
+        assert!(page.privilege.is_none());
+        assert!(!page.active);
+        assert!(page.visible);
+        assert!(page.class.is_none());
+        assert!(page.id.is_none());
+        assert!(page.target.is_none());
+        assert!(page.attributes.is_empty());
+        assert!(page.pages.is_empty());
+        assert_eq!(page.order, 0);
     }
 
     #[test]
@@ -922,20 +707,20 @@ mod tests {
             .order(10)
             .build();
 
-        assert_eq!(page.label(), Some("Test"));
-        assert_eq!(page.uri(), Some("/test"));
-        assert_eq!(page.title(), Some("Test Title"));
-        assert_eq!(page.fragment(), Some("section1"));
-        assert_eq!(page.route(), Some("test_route"));
-        assert_eq!(page.resource(), Some("test_resource"));
-        assert_eq!(page.privilege(), Some("test_privilege"));
-        assert!(page.is_active());
-        assert!(!page.is_visible());
-        assert_eq!(page.class(), Some("nav-item"));
-        assert_eq!(page.id(), Some("test-id"));
-        assert_eq!(page.target(), Some("_blank"));
-        assert_eq!(page.attributes().get("data-x"), Some(&"y".to_string()));
-        assert_eq!(page.order(), 10);
+        assert_eq!(page.label.as_deref(), Some("Test"));
+        assert_eq!(page.uri.as_deref(), Some("/test"));
+        assert_eq!(page.title.as_deref(), Some("Test Title"));
+        assert_eq!(page.fragment.as_deref(), Some("section1"));
+        assert_eq!(page.route.as_deref(), Some("test_route"));
+        assert_eq!(page.resource.as_deref(), Some("test_resource"));
+        assert_eq!(page.privilege.as_deref(), Some("test_privilege"));
+        assert!(page.active);
+        assert!(!page.visible);
+        assert_eq!(page.class.as_deref(), Some("nav-item"));
+        assert_eq!(page.id.as_deref(), Some("test-id"));
+        assert_eq!(page.target.as_deref(), Some("_blank"));
+        assert_eq!(page.attributes.get("data-x"), Some(&"y".to_string()));
+        assert_eq!(page.order, 10);
     }
 
     #[test]
@@ -946,10 +731,10 @@ mod tests {
             .page(Page::builder().label("Child 2").order(1).build())
             .build();
 
-        assert_eq!(page.pages().len(), 2);
+        assert_eq!(page.pages.len(), 2);
         // Builder sorts children by order
-        assert_eq!(page.pages()[0].label(), Some("Child 2"));
-        assert_eq!(page.pages()[1].label(), Some("Child 1"));
+        assert_eq!(page.pages[0].label.as_deref(), Some("Child 2"));
+        assert_eq!(page.pages[1].label.as_deref(), Some("Child 1"));
     }
 
     #[test]
@@ -961,7 +746,7 @@ mod tests {
         root.add_page(child1);
         root.add_page(child2);
 
-        assert_eq!(root.pages().len(), 2);
+        assert_eq!(root.pages.len(), 2);
         assert_eq!(root.count(), 3);
         assert!(root.has_pages());
     }
@@ -972,23 +757,23 @@ mod tests {
         let child = Page::builder().label("Target").uri("/target").build();
         root.add_page(child);
 
-        let found = root.find_page(|p| p.uri() == Some("/target"));
+        let found = root.find_page(|p| p.uri.as_deref() == Some("/target"));
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("Target"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("Target"));
     }
 
     #[test]
     fn test_find_page_self() {
         let root = Page::builder().label("Root").uri("/root").build();
-        let found = root.find_page(|p| p.uri() == Some("/root"));
+        let found = root.find_page(|p| p.uri.as_deref() == Some("/root"));
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("Root"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("Root"));
     }
 
     #[test]
     fn test_find_page_not_found() {
         let root = Page::builder().label("Root").build();
-        let found = root.find_page(|p| p.uri() == Some("/nope"));
+        let found = root.find_page(|p| p.uri.as_deref() == Some("/nope"));
         assert!(found.is_none());
     }
 
@@ -1001,9 +786,9 @@ mod tests {
         l1.add_page(l2);
         root.add_page(l1);
 
-        let found = root.find_page(|p| p.uri() == Some("/deep"));
+        let found = root.find_page(|p| p.uri.as_deref() == Some("/deep"));
         assert!(found.is_some());
-        assert_eq!(found.unwrap().label(), Some("Deep"));
+        assert_eq!(found.unwrap().label.as_deref(), Some("Deep"));
     }
 
     #[test]
@@ -1011,12 +796,12 @@ mod tests {
         let mut root = Page::builder().label("Root").build();
         root.add_page(Page::builder().label("Child").uri("/child").build());
 
-        let found = root.find_page_mut(|p| p.uri() == Some("/child"));
+        let found = root.find_page_mut(|p| p.uri.as_deref() == Some("/child"));
         assert!(found.is_some());
-        found.unwrap().set_active(true);
+        found.unwrap().active = true;
 
-        let child = root.find_page(|p| p.uri() == Some("/child")).unwrap();
-        assert!(child.is_active());
+        let child = root.find_page(|p| p.uri.as_deref() == Some("/child")).unwrap();
+        assert!(child.active);
     }
 
     #[test]
@@ -1024,10 +809,10 @@ mod tests {
         let mut root = Page::builder().label("Root").build();
         root.add_page(Page::builder().label("Child").build());
 
-        assert_eq!(root.pages().len(), 1);
+        assert_eq!(root.pages.len(), 1);
         let removed = root.remove_page(0).unwrap();
-        assert_eq!(removed.label(), Some("Child"));
-        assert_eq!(root.pages().len(), 0);
+        assert_eq!(removed.label.as_deref(), Some("Child"));
+        assert_eq!(root.pages.len(), 0);
     }
 
     #[test]
@@ -1044,10 +829,9 @@ mod tests {
         root.add_page(Page::builder().label("First").order(1).build());
         root.add_page(Page::builder().label("Second").order(2).build());
 
-        let pages = root.pages();
-        assert_eq!(pages[0].label(), Some("First"));
-        assert_eq!(pages[1].label(), Some("Second"));
-        assert_eq!(pages[2].label(), Some("Third"));
+        assert_eq!(root.pages[0].label.as_deref(), Some("First"));
+        assert_eq!(root.pages[1].label.as_deref(), Some("Second"));
+        assert_eq!(root.pages[2].label.as_deref(), Some("Third"));
     }
 
     #[test]
@@ -1067,63 +851,53 @@ mod tests {
     }
 
     #[test]
-    fn test_setters() {
-        let mut page = Page::new();
-        page.set_label("Home");
-        page.set_uri("/");
-        page.set_title("Home Page");
-        page.set_fragment("top");
-        page.set_route("home");
-        page.set_resource("mvc:home");
-        page.set_privilege("view");
-        page.set_active(true);
-        page.set_visible(false);
-        page.set_class("nav-home");
-        page.set_id("home-link");
-        page.set_target("_self");
-        page.set_order(5);
+    fn test_traverse_with_depth() {
+        let mut root = Page::builder().label("Root").build();
+        let mut child = Page::builder().label("Child").build();
+        child.add_page(Page::builder().label("Grandchild").build());
+        root.add_page(child);
 
-        assert_eq!(page.label(), Some("Home"));
-        assert_eq!(page.uri(), Some("/"));
-        assert_eq!(page.title(), Some("Home Page"));
-        assert_eq!(page.fragment(), Some("top"));
-        assert_eq!(page.route(), Some("home"));
-        assert_eq!(page.resource(), Some("mvc:home"));
-        assert_eq!(page.privilege(), Some("view"));
-        assert!(page.is_active());
-        assert!(!page.is_visible());
-        assert_eq!(page.class(), Some("nav-home"));
-        assert_eq!(page.id(), Some("home-link"));
-        assert_eq!(page.target(), Some("_self"));
-        assert_eq!(page.order(), 5);
+        let mut items = Vec::new();
+        root.traverse_with_depth(0, &mut |page, depth| {
+            items.push((page.label.as_deref().unwrap_or("").to_string(), depth));
+        });
+
+        assert_eq!(items.len(), 3);
+        assert_eq!(items[0], ("Root".to_string(), 0));
+        assert_eq!(items[1], ("Child".to_string(), 1));
+        assert_eq!(items[2], ("Grandchild".to_string(), 2));
     }
 
     #[test]
-    fn test_get_set_dynamic() {
+    fn test_direct_field_access() {
         let mut page = Page::new();
-        assert!(page.set("label", "Test"));
-        assert!(page.set("uri", "/test"));
-        assert!(page.set("title", "Title"));
-        assert!(page.set("fragment", "frag"));
-        assert!(page.set("route", "r"));
-        assert!(page.set("resource", "res"));
-        assert!(page.set("privilege", "priv"));
-        assert!(page.set("class", "cls"));
-        assert!(page.set("id", "myid"));
-        assert!(page.set("target", "_blank"));
-        assert!(!page.set("unknown", "value"));
+        page.label = Some("Home".to_string());
+        page.uri = Some("/".to_string());
+        page.title = Some("Home Page".to_string());
+        page.fragment = Some("top".to_string());
+        page.route = Some("home".to_string());
+        page.resource = Some("mvc:home".to_string());
+        page.privilege = Some("view".to_string());
+        page.active = true;
+        page.visible = false;
+        page.class = Some("nav-home".to_string());
+        page.id = Some("home-link".to_string());
+        page.target = Some("_self".to_string());
+        page.order = 5;
 
-        assert_eq!(page.get("label"), Some("Test"));
-        assert_eq!(page.get("uri"), Some("/test"));
-        assert_eq!(page.get("title"), Some("Title"));
-        assert_eq!(page.get("fragment"), Some("frag"));
-        assert_eq!(page.get("route"), Some("r"));
-        assert_eq!(page.get("resource"), Some("res"));
-        assert_eq!(page.get("privilege"), Some("priv"));
-        assert_eq!(page.get("class"), Some("cls"));
-        assert_eq!(page.get("id"), Some("myid"));
-        assert_eq!(page.get("target"), Some("_blank"));
-        assert_eq!(page.get("unknown"), None);
+        assert_eq!(page.label.as_deref(), Some("Home"));
+        assert_eq!(page.uri.as_deref(), Some("/"));
+        assert_eq!(page.title.as_deref(), Some("Home Page"));
+        assert_eq!(page.fragment.as_deref(), Some("top"));
+        assert_eq!(page.route.as_deref(), Some("home"));
+        assert_eq!(page.resource.as_deref(), Some("mvc:home"));
+        assert_eq!(page.privilege.as_deref(), Some("view"));
+        assert!(page.active);
+        assert!(!page.visible);
+        assert_eq!(page.class.as_deref(), Some("nav-home"));
+        assert_eq!(page.id.as_deref(), Some("home-link"));
+        assert_eq!(page.target.as_deref(), Some("_self"));
+        assert_eq!(page.order, 5);
     }
 
     #[test]
@@ -1132,23 +906,23 @@ mod tests {
         page.set_attribute("data-toggle", "dropdown");
         page.set_attribute("data-id", "123");
         assert_eq!(
-            page.attributes().get("data-toggle"),
+            page.attributes.get("data-toggle"),
             Some(&"dropdown".to_string())
         );
 
         let removed = page.remove_attribute("data-id");
         assert_eq!(removed, Some("123".to_string()));
-        assert!(page.attributes().get("data-id").is_none());
+        assert!(!page.attributes.contains_key("data-id"));
 
         let removed_none = page.remove_attribute("nonexistent");
         assert!(removed_none.is_none());
     }
 
     #[test]
-    fn test_attributes_mut() {
+    fn test_attributes_direct() {
         let mut page = Page::new();
-        page.attributes_mut().insert("key".to_string(), "val".to_string());
-        assert_eq!(page.attributes().get("key"), Some(&"val".to_string()));
+        page.attributes.insert("key".to_string(), "val".to_string());
+        assert_eq!(page.attributes.get("key"), Some(&"val".to_string()));
     }
 
     #[test]
@@ -1197,12 +971,12 @@ mod tests {
         root.add_page(child);
 
         // Non-recursive: only direct children
-        assert!(root.has_page(|p| p.uri() == Some("/child"), false));
-        assert!(!root.has_page(|p| p.uri() == Some("/gc"), false));
+        assert!(root.has_page(|p| p.uri.as_deref() == Some("/child"), false));
+        assert!(!root.has_page(|p| p.uri.as_deref() == Some("/gc"), false));
 
         // Recursive: finds grandchildren
-        assert!(root.has_page(|p| p.uri() == Some("/gc"), true));
-        assert!(!root.has_page(|p| p.uri() == Some("/nope"), true));
+        assert!(root.has_page(|p| p.uri.as_deref() == Some("/gc"), true));
+        assert!(!root.has_page(|p| p.uri.as_deref() == Some("/nope"), true));
     }
 
     #[test]
@@ -1212,7 +986,7 @@ mod tests {
         root.add_page(Page::builder().label("B").visible(false).build());
         root.add_page(Page::builder().label("C").visible(true).build());
 
-        let visible = root.find_all_pages(|p| p.is_visible());
+        let visible = root.find_all_pages(|p| p.visible);
         assert_eq!(visible.len(), 3); // Root + A + C
 
         let all = root.find_all_pages(|_| true);
@@ -1226,8 +1000,8 @@ mod tests {
             Page::builder().label("A").order(2).build(),
             Page::builder().label("B").order(1).build(),
         ]);
-        assert_eq!(root.pages().len(), 2);
-        assert_eq!(root.pages()[0].label(), Some("B")); // sorted by order
+        assert_eq!(root.pages.len(), 2);
+        assert_eq!(root.pages[0].label.as_deref(), Some("B")); // sorted by order
     }
 
     #[test]
@@ -1235,27 +1009,9 @@ mod tests {
         let mut root = Page::builder().label("Root").build();
         root.add_page(Page::builder().label("A").build());
         root.add_page(Page::builder().label("B").build());
-        assert_eq!(root.pages().len(), 2);
+        assert_eq!(root.pages.len(), 2);
         root.remove_pages();
-        assert!(root.pages().is_empty());
-    }
-
-    #[test]
-    fn test_traverse_with_depth() {
-        let mut root = Page::builder().label("Root").build();
-        let mut child = Page::builder().label("Child").build();
-        child.add_page(Page::builder().label("Grandchild").build());
-        root.add_page(child);
-
-        let mut items = Vec::new();
-        root.traverse_with_depth(0, &mut |page, depth| {
-            items.push((page.label().unwrap_or("").to_string(), depth));
-        });
-
-        assert_eq!(items.len(), 3);
-        assert_eq!(items[0], ("Root".to_string(), 0));
-        assert_eq!(items[1], ("Child".to_string(), 1));
-        assert_eq!(items[2], ("Grandchild".to_string(), 2));
+        assert!(root.pages.is_empty());
     }
 
     #[test]
@@ -1267,8 +1023,8 @@ mod tests {
 
         let visible = root.visible_pages();
         assert_eq!(visible.len(), 2);
-        assert_eq!(visible[0].label(), Some("Visible"));
-        assert_eq!(visible[1].label(), Some("Also Visible"));
+        assert_eq!(visible[0].label.as_deref(), Some("Visible"));
+        assert_eq!(visible[1].label.as_deref(), Some("Also Visible"));
     }
 
     #[test]
