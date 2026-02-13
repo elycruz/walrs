@@ -228,7 +228,7 @@ impl<T> TryFrom<&mut BufReader<File>> for SymbolGraph<T>
 where
   T: Symbol,
 {
-  type Error = String;
+  type Error = Box<dyn std::error::Error>;
 
   fn try_from(reader: &mut BufReader<File>) -> Result<Self, Self::Error> {
     let mut g: SymbolGraph<T> = SymbolGraph::new();
@@ -239,10 +239,13 @@ where
           let vs: Vec<&str> = _line.split_ascii_whitespace().collect();
 
           if vs.is_empty() {
-            return Err(format!(
-              "Malformed symbol graph buffer at buffer line {} - Expected \"non-empty\" line.",
-              line_num
-            ));
+            return Err(Box::new(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              format!(
+                "Malformed symbol graph buffer at buffer line {} - Expected \"non-empty\" line.",
+                line_num
+              )
+            )));
           }
 
           g.add_vertex(T::from(vs[0].to_string()));
@@ -254,15 +257,18 @@ where
               T::from(vs[0].to_string()),
               Some(vs[1..].iter().map(|x| T::from(x.to_string())).collect()),
             ) {
-              return Err(err);
+              return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, err)));
             }
           }
         }
         Err(err) => {
-          return Err(format!(
-            "Malformed symbol graph buffer at buffer line {}: {:?}",
-            line_num, err
-          ));
+          return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            format!(
+              "Malformed symbol graph buffer at buffer line {}: {:?}",
+              line_num, err
+            )
+          )));
         }
       }
     }

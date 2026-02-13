@@ -294,7 +294,7 @@ impl Graph {
             .collect();
 
           if let Err(err) = self.add_edge(verts[0], verts[1]) {
-            return Err(Box::from(err));
+            return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, err)));
           }
         }
         Err(err) => {
