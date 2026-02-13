@@ -438,7 +438,7 @@ impl Acl {
       if rslt {
         rslt
       } else {
-        self._is_directly_allowed(role, resource, privilege)
+        self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow)
       }
     };
 
@@ -453,7 +453,7 @@ impl Acl {
           _roles2
             .iter()
             .rev()
-            .any(|_role| self._is_directly_allowed(Some(_role), Some(_resource), privilege))
+            .any(|_role| self._matches_rule_no_dfs(Some(_role), Some(_resource), privilege, &Rule::Allow))
         })
       })
       // If no inherited roles/resources directly allowed check direct allow on incoming (role, resource, privilege)
@@ -467,7 +467,7 @@ impl Acl {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._is_directly_allowed(Some(r), resource, privilege))
+                .any(|r| self._matches_rule_no_dfs(Some(r), resource, privilege, &Rule::Allow))
             })
             .map(rslt_or_check_direct)
         }
@@ -479,13 +479,13 @@ impl Acl {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._is_directly_allowed(role, Some(*r), privilege))
+                .any(|r| self._matches_rule_no_dfs(role, Some(*r), privilege, &Rule::Allow))
             })
             .map(rslt_or_check_direct)
         }
         // Else check for direct allowance
         else {
-          self._is_directly_allowed(role, resource, privilege).into()
+          self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow).into()
         }
       })
       .unwrap()
@@ -639,15 +639,14 @@ impl Acl {
     })
   }
 
-  /// Returns a boolean indicating whether the given rule is allowed, or not -
-  /// Doesn't check symbol's inheritance chains; E.g., Inherited roles, and/or resources,
-  /// are not checked for "allowance" (use `is_allowed(...)` for that); only 'direct' role,
-  /// resource, and privilege, combination is checked.
-  fn _is_directly_allowed(
+  /// Returns a boolean indicating whether the given rule matches or not -
+  /// Does not check symbol graph for inheritance chains (flat "rules" check).
+  fn _matches_rule_no_dfs(
     &self,
     role: Option<&str>,
     resource: Option<&str>,
     privilege: Option<&str>,
+    rule: &Rule,
   ) -> bool {
     // First check the specific resource (if provided)
     if resource.is_some() {
@@ -657,8 +656,8 @@ impl Acl {
         .get_privilege_rules(role)
         .get_rule(privilege);
 
-      // If we found an explicit Allow, return true
-      if specific_rule == &Rule::Allow {
+      // If we found an explicit match, return true
+      if specific_rule == rule {
         return true;
       }
 
@@ -669,7 +668,7 @@ impl Acl {
         .get_privilege_rules(role)
         .get_rule(privilege);
 
-      return global_rule == &Rule::Allow;
+      return global_rule == rule;
     }
 
     // If no specific resource, just check for_all_resources
@@ -678,7 +677,7 @@ impl Acl {
       .for_all_resources
       .get_privilege_rules(role)
       .get_rule(privilege)
-      == &Rule::Allow
+      == rule
   }
 }
 

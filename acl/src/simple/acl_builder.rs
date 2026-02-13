@@ -311,6 +311,7 @@ impl AclBuilder {
                     Rule::Deny => Rule::Allow,
                 };
 
+                // Clear opposite rule for each specific privilege we're about to set
                 if let Some(privilege_list) = privileges {
                     // Clear opposite rule for each specific privilege we're about to set
                     if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
