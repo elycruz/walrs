@@ -671,16 +671,22 @@ impl TryFrom<&AclBuilder> for AclData {
             let mut role_rules = HashMap::new();
 
             // Check "for all roles" rules
-            if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
-                let matching_privileges: Vec<String> = by_priv.iter()
-                    .filter(|(_, rule)| **rule == rule_type)
-                    .map(|(k, _)| k.to_string())
-                    .collect();
-                if !matching_privileges.is_empty() {
-                    role_rules.insert("*".to_string(), Some(matching_privileges));
+            let by_priv_is_empty = role_priv_rules.for_all_roles.by_privilege_id
+                .as_ref()
+                .map_or(true, |m| m.is_empty());
+
+            if !by_priv_is_empty {
+                if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
+                    let matching_privileges: Vec<String> = by_priv.iter()
+                        .filter(|(_, rule)| **rule == rule_type)
+                        .map(|(k, _)| k.to_string())
+                        .collect();
+                    if !matching_privileges.is_empty() {
+                        role_rules.insert("*".to_string(), Some(matching_privileges));
+                    }
                 }
             } else if role_priv_rules.for_all_roles.for_all_privileges == rule_type {
-                // Only insert if it's an explicit rule (for Allow) or explicit Deny (not default)
+                // Only insert for Allow rules (Deny is the default, so we don't capture it unless explicit)
                 if rule_type == crate::simple::Rule::Allow {
                     role_rules.insert("*".to_string(), None);
                 }
@@ -689,13 +695,19 @@ impl TryFrom<&AclBuilder> for AclData {
             // Check per-role rules
             if let Some(ref by_role) = role_priv_rules.by_role_id {
                 for (role, priv_rules) in by_role.iter() {
-                    if let Some(ref by_priv) = priv_rules.by_privilege_id {
-                        let matching_privileges: Vec<String> = by_priv.iter()
-                            .filter(|(_, rule)| **rule == rule_type)
-                            .map(|(k, _)| k.to_string())
-                            .collect();
-                        if !matching_privileges.is_empty() {
-                            role_rules.insert(role.clone(), Some(matching_privileges));
+                    let role_by_priv_is_empty = priv_rules.by_privilege_id
+                        .as_ref()
+                        .map_or(true, |m| m.is_empty());
+
+                    if !role_by_priv_is_empty {
+                        if let Some(ref by_priv) = priv_rules.by_privilege_id {
+                            let matching_privileges: Vec<String> = by_priv.iter()
+                                .filter(|(_, rule)| **rule == rule_type)
+                                .map(|(k, _)| k.to_string())
+                                .collect();
+                            if !matching_privileges.is_empty() {
+                                role_rules.insert(role.clone(), Some(matching_privileges));
+                            }
                         }
                     } else if priv_rules.for_all_privileges == rule_type {
                         role_rules.insert(role.clone(), None);
