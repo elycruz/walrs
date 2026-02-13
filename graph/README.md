@@ -197,4 +197,4 @@ Based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne:
 
 ## License
 
-[Add license information here]
+This crate is licensed as specified in the [LICENSE](../LICENSE) file at the root of this repository.
