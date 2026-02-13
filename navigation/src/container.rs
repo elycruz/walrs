@@ -351,9 +351,7 @@ impl Container {
     pub fn find_all_by(&self, property: &str, value: &str) -> Vec<&Page> {
         let mut result = Vec::new();
         for page in &self.pages {
-            page.find_all_pages(|p| p.get(property) == Some(value))
-                .into_iter()
-                .for_each(|p| result.push(p));
+            result.extend(page.find_all_pages(|p| p.get(property) == Some(value)));
         }
         result
     }
