@@ -16,7 +16,7 @@ pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
 
   // Graph vertex, and edge, sizes
   let mut reader = BufReader::new(f);
-  let g1: Graph = (&mut reader).into();
+  let g1: Graph = (&mut reader).try_into().unwrap();
 
   // Rewind bufreader for reuse
   if let Err(err) = reader.rewind() {

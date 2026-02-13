@@ -205,11 +205,11 @@ impl Topology {
     ///
     /// let topo = Topology::new(&g);
     ///
-    /// if let Some(iter) = topo.order_iter() {
-    ///     for v in iter {
+    /// if let Some(order_iter) = topo.order_iter() {
+    ///     for v in order_iter {
     ///         println!("{}", v);
     ///     }
-    /// }
+    /// };
     /// ```
     pub fn order_iter(&self) -> Option<impl Iterator<Item = &usize>> {
         self._order.as_ref().map(|order| order.iter())

@@ -2,6 +2,33 @@ use std::fmt::Debug;
 
 use crate::graph::Graph;
 
+/// Depth-first search to find paths from a single source vertex to all reachable vertices
+/// in an undirected graph.
+///
+/// # Examples
+///
+/// ```
+/// use walrs_graph::{Graph, DFS};
+///
+/// let mut g = Graph::new(6);
+/// g.add_edge(0, 1).unwrap();
+/// g.add_edge(0, 2).unwrap();
+/// g.add_edge(1, 3).unwrap();
+/// g.add_edge(2, 3).unwrap();
+/// g.add_edge(3, 4).unwrap();
+/// // Vertex 5 is isolated
+///
+/// let dfs = DFS::new(&g, 0);
+///
+/// // Check reachability
+/// assert!(dfs.marked(4)); // Reachable from 0
+/// assert!(!dfs.marked(5)); // Not reachable from 0
+///
+/// // Get path from source to vertex
+/// if let Some(path) = dfs.path_to(4) {
+///     println!("Path from 0 to 4: {:?}", path);
+/// }
+/// ```
 #[derive(Debug)]
 pub struct DFS<'a> {
   _marked: Vec<bool>,
@@ -47,6 +74,21 @@ impl<'a> DFS<'a> {
     self
   }
 
+  /// Returns the number of vertices reachable from the source vertex.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::{Graph, DFS};
+  ///
+  /// let mut g = Graph::new(5);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(1, 2).unwrap();
+  /// // Vertices 3 and 4 are isolated
+  ///
+  /// let dfs = DFS::new(&g, 0);
+  /// assert_eq!(dfs.count(), 3); // 0, 1, 2 are reachable
+  /// ```
   pub fn count(&self) -> usize {
     self._count
   }
@@ -67,27 +109,65 @@ impl<'a> DFS<'a> {
     self._source_vertex
   }
 
+  /// Returns `true` if there is a path from the source vertex to vertex `i`.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::{Graph, DFS};
+  ///
+  /// let mut g = Graph::new(4);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(1, 2).unwrap();
+  ///
+  /// let dfs = DFS::new(&g, 0);
+  /// assert!(dfs.has_path_to(2));
+  /// assert!(!dfs.has_path_to(3));
+  /// ```
   pub fn has_path_to(&self, i: usize) -> bool {
     self.marked(i)
   }
 
+  /// Returns a path from the source vertex to vertex `v`, or `None` if no path exists.
+  ///
+  /// The path is returned in reverse order (from `v` back to source).
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::{Graph, DFS};
+  ///
+  /// let mut g = Graph::new(4);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(1, 2).unwrap();
+  /// g.add_edge(2, 3).unwrap();
+  ///
+  /// let dfs = DFS::new(&g, 0);
+  ///
+  /// if let Some(path) = dfs.path_to(3) {
+  ///     // Path is returned in reverse order
+  ///     assert_eq!(path.last(), Some(&0));
+  /// }
+  ///
+  /// // No path to isolated vertex
+  /// let mut g2 = Graph::new(5);
+  /// g2.add_edge(0, 1).unwrap();
+  /// let dfs2 = DFS::new(&g2, 0);
+  /// assert_eq!(dfs2.path_to(4), None);
+  /// ```
   pub fn path_to(&self, v: usize) -> Option<Vec<usize>> {
-    if self.has_path_to(v) {
+    if !self.has_path_to(v) {
       return None;
     }
     let s = self._source_vertex;
-    let mut path: Vec<usize> = vec![];
+    let mut path: Vec<usize> = vec![v];
     let mut x = v;
 
-    loop {
-      if x == s {
-        break;
-      }
+    while x != s {
       x = self._edge_to[x];
       path.push(x);
     }
 
-    path.push(s);
     Some(path)
   }
 }
