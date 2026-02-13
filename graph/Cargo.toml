@@ -9,3 +9,16 @@ edition = "2021"
 walrs_digraph = { path = '../digraph' }
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "graph_benchmarks"
+harness = false
+
+[[example]]
+name = "graph_traversal"
+path = "examples/graph_traversal.rs"
+
+[[example]]
+name = "symbol_graph_demo"
+path = "examples/symbol_graph_demo.rs"
