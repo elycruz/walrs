@@ -176,10 +176,10 @@ Many public APIs include doc tests and unit tests.
 | Operation | Time Complexity | Space |
 |-----------|----------------|-------|
 | `new(V)` | O(V) | O(V) |
-| `add_edge(v, w)` | O(log E) | O(E) |
+| `add_edge(v, w)` | O(deg(v) log deg(v) + deg(w) log deg(w)) | O(E) |
 | `adj(v)` | O(1) | - |
 | `degree(v)` | O(1) | - |
-| `has_edge(v, w)` | O(log E) | - |
+| `has_edge(v, w)` | O(log deg(v)) | - |
 
 Where V = number of vertices, E = number of edges
 

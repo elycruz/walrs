@@ -160,18 +160,14 @@ impl<'a> DFS<'a> {
       return None;
     }
     let s = self._source_vertex;
-    let mut path: Vec<usize> = vec![];
+    let mut path: Vec<usize> = vec![v];
     let mut x = v;
 
-    loop {
-      if x == s {
-        break;
-      }
+    while x != s {
       x = self._edge_to[x];
       path.push(x);
     }
 
-    path.push(s);
     Some(path)
   }
 }

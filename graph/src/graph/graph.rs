@@ -207,7 +207,7 @@ impl Graph {
 
   /// Returns a `bool` indicating whether graph contains edge `v -> w` or not.
   ///
-  /// Uses binary search for O(log E) lookup time.
+  /// Uses binary search for O(log deg(v)) lookup time, where `deg(v)` is the degree of `v`.
   ///
   /// # Examples
   ///
