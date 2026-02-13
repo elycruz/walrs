@@ -4,6 +4,31 @@ use std::fs::File;
 use std::io::{BufRead, BufReader, Lines};
 
 /// A basic index graph that tracks edges on vertex indices in adjacency lists.
+///
+/// This is an undirected graph implementation using adjacency list representation.
+/// Vertices are identified by `usize` indices (0-based). Edges are stored bidirectionally.
+///
+/// # Examples
+///
+/// ```
+/// use walrs_graph::Graph;
+///
+/// // Create a graph with 5 vertices
+/// let mut g = Graph::new(5);
+///
+/// // Add edges (automatically adds both directions)
+/// g.add_edge(0, 1).unwrap();
+/// g.add_edge(1, 2).unwrap();
+/// g.add_edge(2, 3).unwrap();
+///
+/// assert_eq!(g.vert_count(), 5);
+/// assert_eq!(g.edge_count(), 6); // 3 logical edges × 2 directions
+///
+/// // Query adjacency
+/// let adj = g.adj(1).unwrap();
+/// assert!(adj.contains(&0));
+/// assert!(adj.contains(&2));
+/// ```
 #[derive(Debug)]
 pub struct Graph {
   // @todo - Should be `Vec<Option<Vec<usize>>>`, more memory efficient.
@@ -44,6 +69,24 @@ impl Graph {
 
   /// Returns a result containing given vertex' adjacency list, or a string
   /// containing the "out-of-bounds index" error.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(3);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(0, 2).unwrap();
+  ///
+  /// let adj = g.adj(0).unwrap();
+  /// assert_eq!(adj.len(), 2);
+  /// assert!(adj.contains(&1));
+  /// assert!(adj.contains(&2));
+  ///
+  /// // Invalid vertex returns error
+  /// assert!(g.adj(99).is_err());
+  /// ```
   pub fn adj(&self, i: usize) -> Result<&[usize], String> {
     self
       .validate_vertex(i)
@@ -52,6 +95,22 @@ impl Graph {
 
   /// Returns a `Result` containing the number of edges touching a given vertex,
   ///   or a `String` representing the 'out-of-bounds index' (error) message.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(4);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(0, 2).unwrap();
+  /// g.add_edge(0, 3).unwrap();
+  ///
+  /// assert_eq!(g.degree(0).unwrap(), 3);
+  /// assert_eq!(g.degree(1).unwrap(), 1);
+  /// assert_eq!(g.degree(2).unwrap(), 1);
+  /// assert_eq!(g.degree(3).unwrap(), 1);
+  /// ```
   pub fn degree(&self, v: usize) -> Result<usize, String> {
     self.adj(v).map(|adj| adj.len())
   }
@@ -110,6 +169,26 @@ impl Graph {
 
   /// Adds an edge to the graph and returns a `Result` containing self, else a string representing
   /// an 'index is out of bounds' error.
+  ///
+  /// This method adds an undirected edge by adding both `v` to `w`'s adjacency list
+  /// and `w` to `v`'s adjacency list. Adjacency lists are kept sorted.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(3);
+  ///
+  /// // Method chaining supported
+  /// g.add_edge(0, 1).unwrap()
+  ///  .add_edge(1, 2).unwrap()
+  ///  .add_edge(0, 2).unwrap();
+  ///
+  /// assert_eq!(g.edge_count(), 6); // 3 logical edges × 2 directions
+  /// assert!(g.has_edge(0, 1));
+  /// assert!(g.has_edge(1, 0)); // Undirected: both directions exist
+  /// ```
   pub fn add_edge(&mut self, v: usize, w: usize) -> Result<&mut Self, String> {
     self
       .validate_vertex(v)
@@ -127,6 +206,22 @@ impl Graph {
   }
 
   /// Returns a `bool` indicating whether graph contains edge `v -> w` or not.
+  ///
+  /// Uses binary search for O(log E) lookup time.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(3);
+  /// g.add_edge(0, 1).unwrap();
+  ///
+  /// assert!(g.has_edge(0, 1));
+  /// assert!(g.has_edge(1, 0)); // Undirected
+  /// assert!(!g.has_edge(0, 2));
+  /// assert!(!g.has_edge(99, 0)); // Invalid vertex
+  /// ```
   pub fn has_edge(&self, v: usize, w: usize) -> bool {
     let len = self.vert_count();
     if len == 0 || v >= len || w >= len {
@@ -157,6 +252,19 @@ impl Graph {
   }
 
   /// Checks if vertex exists in graph.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let g = Graph::new(5);
+  ///
+  /// assert!(g.validate_vertex(0).is_ok());
+  /// assert!(g.validate_vertex(4).is_ok());
+  /// assert!(g.validate_vertex(5).is_err());
+  /// assert!(g.validate_vertex(99).is_err());
+  /// ```
   pub fn validate_vertex(&self, v: usize) -> Result<usize, String> {
     let len = self._adj_lists.len();
     if v >= len {
