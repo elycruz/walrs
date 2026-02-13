@@ -205,8 +205,8 @@ impl Topology {
     ///
     /// let topo = Topology::new(&g);
     ///
-    /// if let Some(order) = topo.order() {
-    ///     for v in order {
+    /// if let Some(order_iter) = topo.order_iter() {
+    ///     for v in order_iter {
     ///         println!("{}", v);
     ///     }
     /// }
