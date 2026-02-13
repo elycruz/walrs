@@ -144,6 +144,27 @@ impl Page {
         self.attributes.remove(key)
     }
 
+    /// Gets a page property by name. Returns the property value as a string
+    /// if it exists, or `None` if the property is not set or the name is unknown.
+    ///
+    /// Supported property names: `"label"`, `"uri"`, `"title"`, `"fragment"`,
+    /// `"route"`, `"resource"`, `"privilege"`, `"class"`, `"id"`, `"target"`.
+    pub(crate) fn get(&self, property: &str) -> Option<&str> {
+        match property {
+            "label" => self.label.as_deref(),
+            "uri" => self.uri.as_deref(),
+            "title" => self.title.as_deref(),
+            "fragment" => self.fragment.as_deref(),
+            "route" => self.route.as_deref(),
+            "resource" => self.resource.as_deref(),
+            "privilege" => self.privilege.as_deref(),
+            "class" => self.class.as_deref(),
+            "id" => self.id.as_deref(),
+            "target" => self.target.as_deref(),
+            _ => None,
+        }
+    }
+
     /// Returns the full URI including fragment if present.
     ///
     /// # Examples
@@ -1038,5 +1059,41 @@ mod tests {
         let page1 = Page::new();
         let page2 = Page::default();
         assert_eq!(page1, page2);
+    }
+
+    #[test]
+    fn test_get_property() {
+        let page = Page::builder()
+            .label("Home")
+            .uri("/")
+            .title("Home Page")
+            .fragment("top")
+            .route("home")
+            .resource("res")
+            .privilege("priv")
+            .class("nav")
+            .id("home-id")
+            .target("_blank")
+            .build();
+
+        assert_eq!(page.get("label"), Some("Home"));
+        assert_eq!(page.get("uri"), Some("/"));
+        assert_eq!(page.get("title"), Some("Home Page"));
+        assert_eq!(page.get("fragment"), Some("top"));
+        assert_eq!(page.get("route"), Some("home"));
+        assert_eq!(page.get("resource"), Some("res"));
+        assert_eq!(page.get("privilege"), Some("priv"));
+        assert_eq!(page.get("class"), Some("nav"));
+        assert_eq!(page.get("id"), Some("home-id"));
+        assert_eq!(page.get("target"), Some("_blank"));
+        assert_eq!(page.get("unknown"), None);
+    }
+
+    #[test]
+    fn test_get_property_none() {
+        let page = Page::new();
+        assert_eq!(page.get("label"), None);
+        assert_eq!(page.get("uri"), None);
+        assert_eq!(page.get("unknown"), None);
     }
 }

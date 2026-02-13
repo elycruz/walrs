@@ -312,6 +312,52 @@ impl Container {
         false
     }
 
+    /// Finds the first page matching a property value, searching recursively.
+    ///
+    /// Uses the `Page::get` method for dynamic property lookup.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::{Container, Page};
+    ///
+    /// let mut nav = Container::new();
+    /// nav.add_page(Page::builder().label("Home").uri("/").build());
+    /// nav.add_page(Page::builder().label("About").uri("/about").build());
+    ///
+    /// let found = nav.find_one_by("label", "About");
+    /// assert!(found.is_some());
+    /// assert_eq!(found.unwrap().uri.as_deref(), Some("/about"));
+    /// ```
+    pub fn find_one_by(&self, property: &str, value: &str) -> Option<&Page> {
+        self.find_page(|p| p.get(property) == Some(value))
+    }
+
+    /// Finds all pages matching a property value, searching recursively.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::{Container, Page};
+    ///
+    /// let mut nav = Container::new();
+    /// nav.add_page(Page::builder().label("A").class("nav").build());
+    /// nav.add_page(Page::builder().label("B").class("nav").build());
+    /// nav.add_page(Page::builder().label("C").class("other").build());
+    ///
+    /// let found = nav.find_all_by("class", "nav");
+    /// assert_eq!(found.len(), 2);
+    /// ```
+    pub fn find_all_by(&self, property: &str, value: &str) -> Vec<&Page> {
+        let mut result = Vec::new();
+        for page in &self.pages {
+            page.find_all_pages(|p| p.get(property) == Some(value))
+                .into_iter()
+                .for_each(|p| result.push(p));
+        }
+        result
+    }
+
     /// Finds a page by route name.
     ///
     /// # Examples
@@ -891,5 +937,60 @@ mod tests {
         let nav = Container::from_pages(pages);
         assert_eq!(nav.pages()[0].label.as_deref(), Some("A"));
         assert_eq!(nav.pages()[1].label.as_deref(), Some("B"));
+    }
+
+    #[test]
+    fn test_find_one_by() {
+        let mut nav = Container::new();
+        nav.add_page(Page::builder().label("Home").uri("/").build());
+        nav.add_page(Page::builder().label("About").uri("/about").build());
+
+        let found = nav.find_one_by("label", "About");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().uri.as_deref(), Some("/about"));
+
+        let not_found = nav.find_one_by("label", "Missing");
+        assert!(not_found.is_none());
+
+        let unknown = nav.find_one_by("unknown_prop", "value");
+        assert!(unknown.is_none());
+    }
+
+    #[test]
+    fn test_find_all_by() {
+        let mut nav = Container::new();
+        nav.add_page(Page::builder().label("A").class("nav").build());
+        nav.add_page(Page::builder().label("B").class("nav").build());
+        nav.add_page(Page::builder().label("C").class("other").build());
+
+        let found = nav.find_all_by("class", "nav");
+        assert_eq!(found.len(), 2);
+
+        let not_found = nav.find_all_by("class", "missing");
+        assert!(not_found.is_empty());
+    }
+
+    #[test]
+    fn test_find_all_by_nested() {
+        let mut nav = Container::new();
+        let mut parent = Page::builder().label("Products").class("nav").build();
+        parent.add_page(Page::builder().label("Books").class("nav").build());
+        parent.add_page(Page::builder().label("Electronics").class("other").build());
+        nav.add_page(parent);
+
+        let found = nav.find_all_by("class", "nav");
+        assert_eq!(found.len(), 2); // Products + Books
+    }
+
+    #[test]
+    fn test_find_one_by_nested() {
+        let mut nav = Container::new();
+        let mut parent = Page::builder().label("Products").build();
+        parent.add_page(Page::builder().label("Books").uri("/books").build());
+        nav.add_page(parent);
+
+        let found = nav.find_one_by("uri", "/books");
+        assert!(found.is_some());
+        assert_eq!(found.unwrap().label.as_deref(), Some("Books"));
     }
 }
