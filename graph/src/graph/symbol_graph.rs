@@ -132,12 +132,12 @@ where
   }
 
   /// Returns the name of the given symbol index.
-  pub fn name(&self, symbol_idx: usize) -> Option<Cow<str>> {
+  pub fn name(&self, symbol_idx: usize) -> Option<Cow<'_, str>> {
     self._vertices.get(symbol_idx).map(|x| x.id().into())
   }
 
   /// Returns the symbol names for the given indices.
-  pub fn names(&self, indices: &[usize]) -> Vec<Cow<str>> {
+  pub fn names(&self, indices: &[usize]) -> Vec<Cow<'_, str>> {
     indices.iter().filter_map(|i| self.name(*i)).collect()
   }
 

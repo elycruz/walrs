@@ -72,7 +72,7 @@ impl<'a> DFS<'a> {
   }
 
   pub fn path_to(&self, v: usize) -> Option<Vec<usize>> {
-    if self.has_path_to(v) {
+    if !self.has_path_to(v) {
       return None;
     }
     let s = self._source_vertex;

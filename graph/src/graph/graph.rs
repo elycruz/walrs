@@ -1,5 +1,6 @@
 use crate::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
 use std::fmt::Debug;
+use std::fs::File;
 use std::io::{BufRead, BufReader, Lines};
 
 /// A basic index graph that tracks edges on vertex indices in adjacency lists.
@@ -203,31 +204,62 @@ pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
   format!("Vertex {} is outside defined range 0-{}", v, max_v)
 }
 
-// @todo Use `impl TryFrom<...> ...` instead of `impl From<...> ...` for parsing functionalities.
+impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Graph {
+  type Error = Box<dyn std::error::Error>;
 
-impl<R: std::io::Read> From<&mut BufReader<R>> for Graph {
-  fn from(reader: &mut BufReader<R>) -> Self {
-    let vert_count = match extract_vert_and_edge_counts_from_bufreader(reader) {
-      Ok((v_count, _)) => v_count,
-      Err(err) => panic!("{:?}", err),
-    };
+  ///  Creates a Graph from a buffer reader representing a text file formatted as:
+  ///
+  ///  ```text
+  ///  {num_verts}
+  ///  {num_edges}
+  ///  {vertex} {vertex}
+  ///  {vertex} {vertex}
+  ///  ...
+  ///  ```
+  fn try_from(reader: &mut BufReader<R>) -> Result<Self, Self::Error> {
+    // Extract vert count, and move cursor passed edge count line, for reader
+    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)?.0;
 
-    // Construct digraph
+    // Construct graph
     let mut g = Graph::new(vert_count);
 
     // Populate graph from buffer lines
-    if let Err(err) = g.digest_lines(reader.lines()) {
-      panic!("{:?}", err);
-    }
+    g.digest_lines(reader.lines())?;
 
     // Return graph
-    g
+    Ok(g)
+  }
+}
+
+impl<R: std::io::Read> TryFrom<BufReader<R>> for Graph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(mut reader: BufReader<R>) -> Result<Self, Self::Error> {
+    Graph::try_from(&mut reader)
+  }
+}
+
+impl TryFrom<&File> for Graph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: &File) -> Result<Self, Self::Error> {
+    Graph::try_from(&mut BufReader::new(file_struct))
+  }
+}
+
+impl TryFrom<File> for Graph {
+  type Error = Box<dyn std::error::Error>;
+
+  fn try_from(file_struct: File) -> Result<Self, Self::Error> {
+    Graph::try_from(&mut BufReader::new(file_struct))
   }
 }
 
 #[cfg(test)]
 mod test {
   use crate::graph::{invalid_vertex_msg, Graph};
+  use std::fs::File;
+  use std::io::BufReader;
 
   #[test]
   pub fn test_new() {
@@ -677,5 +709,79 @@ mod test {
       let g = Graph::new(graph_size);
       assert_eq!(g.validate_vertex(vert_to_validate), result);
     }
+  }
+
+  #[test]
+  pub fn test_try_from_file_ref() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+
+    // Get graph data
+    let f = File::open(&file_path)?;
+
+    // Create graph
+    let _: Graph = (&f).try_into().unwrap();
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_file() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+
+    // Get graph data
+    let f = File::open(&file_path)?;
+
+    // Create graph
+    let _: Graph = f.try_into().unwrap();
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_mut_buf_reader_ref() -> Result<(), Box<dyn std::error::Error>> {
+    use std::io::Seek;
+    use crate::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
+
+    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+
+    // Get graph data
+    let f = File::open(&file_path)?;
+    let mut reader = BufReader::new(f);
+
+    // Create graph (impls for `TryFrom<BufReader<R: std::io::Read>>` and `TryFrom<File>` are defined for `Graph` struct
+    let g: Graph = (&mut reader).try_into()?;
+
+    // Rewind reader and extract vert and edge count from first lines
+    reader.rewind()?;
+
+    let (expected_vert_count, expected_edge_count) =
+        extract_vert_and_edge_counts_from_bufreader(&mut reader)?;
+
+    assert_eq!(
+      g.vert_count(),
+      expected_vert_count,
+      "Vert count is invalid"
+    );
+    // Note: Graph counts edges bidirectionally (2x the logical edge count)
+    assert_eq!(
+      g.edge_count(),
+      expected_edge_count * 2,
+      "Edge count is invalid"
+    );
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
+    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+
+    // Get graph data
+    let f = File::open(&file_path)?;
+
+    // Create graph
+    let _: Graph = BufReader::new(f).try_into().unwrap();
+
+    Ok(())
   }
 }
