@@ -1,8 +1,12 @@
+#[cfg(any(feature = "json", feature = "yaml"))]
 use crate::container::Container;
+#[cfg(any(feature = "json", feature = "yaml"))]
 use crate::error::{NavigationError, Result};
+#[cfg(any(feature = "json", feature = "yaml"))]
 use crate::page::Page;
 
 /// Implements TryFrom for creating a Container from JSON string.
+#[cfg(feature = "json")]
 impl TryFrom<&str> for Container {
     type Error = NavigationError;
 
@@ -14,6 +18,7 @@ impl TryFrom<&str> for Container {
 }
 
 /// Implements TryFrom for creating a Container from JSON bytes.
+#[cfg(feature = "json")]
 impl TryFrom<&[u8]> for Container {
     type Error = NavigationError;
 
@@ -25,6 +30,7 @@ impl TryFrom<&[u8]> for Container {
 }
 
 /// Implements TryFrom for creating a Page from JSON string.
+#[cfg(feature = "json")]
 impl TryFrom<&str> for Page {
     type Error = NavigationError;
 
@@ -34,6 +40,7 @@ impl TryFrom<&str> for Page {
     }
 }
 
+#[cfg(feature = "json")]
 impl Container {
     /// Creates a Container from a JSON string.
     ///
@@ -58,29 +65,6 @@ impl Container {
     /// ```
     pub fn from_json(json: &str) -> Result<Self> {
         Self::try_from(json)
-    }
-
-    /// Creates a Container from a YAML string.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use walrs_navigation::Container;
-    ///
-    /// let yaml = r#"
-    /// - label: Home
-    ///   uri: /
-    /// - label: About
-    ///   uri: /about
-    /// "#;
-    ///
-    /// let nav = Container::from_yaml(yaml).unwrap();
-    /// assert_eq!(nav.count(), 2);
-    /// ```
-    pub fn from_yaml(yaml: &str) -> Result<Self> {
-        serde_yaml::from_str::<Vec<Page>>(yaml)
-            .map(Container::from_pages)
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
     }
 
     /// Serializes the Container to JSON.
@@ -118,6 +102,32 @@ impl Container {
         serde_json::to_string_pretty(&self.pages())
             .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
+}
+
+#[cfg(feature = "yaml")]
+impl Container {
+    /// Creates a Container from a YAML string.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Container;
+    ///
+    /// let yaml = r#"
+    /// - label: Home
+    ///   uri: /
+    /// - label: About
+    ///   uri: /about
+    /// "#;
+    ///
+    /// let nav = Container::from_yaml(yaml).unwrap();
+    /// assert_eq!(nav.count(), 2);
+    /// ```
+    pub fn from_yaml(yaml: &str) -> Result<Self> {
+        serde_yaml::from_str::<Vec<Page>>(yaml)
+            .map(Container::from_pages)
+            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+    }
 
     /// Serializes the Container to YAML.
     ///
@@ -138,6 +148,7 @@ impl Container {
     }
 }
 
+#[cfg(feature = "json")]
 impl Page {
     /// Creates a Page from a JSON string.
     ///
@@ -154,6 +165,21 @@ impl Page {
         Self::try_from(json)
     }
 
+    /// Serializes the Page to JSON.
+    pub fn to_json(&self) -> Result<String> {
+        serde_json::to_string(self)
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
+    }
+
+    /// Serializes the Page to pretty JSON.
+    pub fn to_json_pretty(&self) -> Result<String> {
+        serde_json::to_string_pretty(self)
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
+    }
+}
+
+#[cfg(feature = "yaml")]
+impl Page {
     /// Creates a Page from a YAML string.
     ///
     /// # Examples
@@ -170,18 +196,6 @@ impl Page {
             .map_err(|e| NavigationError::DeserializationError(e.to_string()))
     }
 
-    /// Serializes the Page to JSON.
-    pub fn to_json(&self) -> Result<String> {
-        serde_json::to_string(self)
-            .map_err(|e| NavigationError::SerializationError(e.to_string()))
-    }
-
-    /// Serializes the Page to pretty JSON.
-    pub fn to_json_pretty(&self) -> Result<String> {
-        serde_json::to_string_pretty(self)
-            .map_err(|e| NavigationError::SerializationError(e.to_string()))
-    }
-
     /// Serializes the Page to YAML.
     pub fn to_yaml(&self) -> Result<String> {
         serde_yaml::to_string(self)
@@ -191,9 +205,11 @@ impl Page {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::container::Container;
+    use crate::page::Page;
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_container_from_json() {
         let json = r#"[
             {
@@ -221,6 +237,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "yaml")]
     fn test_container_from_yaml() {
         let yaml = r#"
 - label: Home
@@ -237,6 +254,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_page_from_json() {
         let json = r#"{"label": "Home", "uri": "/", "active": true}"#;
         let page = Page::from_json(json).unwrap();
@@ -246,6 +264,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "yaml")]
     fn test_page_from_yaml() {
         let yaml = "label: Home\nuri: /\nactive: true";
         let page = Page::from_yaml(yaml).unwrap();
@@ -254,6 +273,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_container_to_json() {
         let mut nav = Container::new();
         nav.add_page(Page::builder().label("Home").uri("/").build());
@@ -267,6 +287,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "yaml")]
     fn test_container_to_yaml() {
         let mut nav = Container::new();
         nav.add_page(Page::builder().label("Home").uri("/").build());
@@ -280,6 +301,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_page_to_json() {
         let page = Page::builder().label("Home").uri("/").build();
         let json = page.to_json().unwrap();
@@ -291,6 +313,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_invalid_json() {
         let invalid_json = "not valid json";
         let result = Container::from_json(invalid_json);
@@ -298,6 +321,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "yaml")]
     fn test_invalid_yaml() {
         let invalid_yaml = "- invalid\n  - bad: [unclosed";
         let result = Container::from_yaml(invalid_yaml);
@@ -305,6 +329,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_try_from_str() {
         let json = r#"[{"label": "Home", "uri": "/"}]"#;
         let nav = Container::try_from(json).unwrap();
@@ -312,6 +337,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "json")]
     fn test_try_from_bytes() {
         let json = br#"[{"label": "Home", "uri": "/"}]"#;
         let nav = Container::try_from(&json[..]).unwrap();
