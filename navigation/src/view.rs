@@ -43,6 +43,7 @@ use crate::page::Page;
 /// assert_eq!(html_escape("\"hello\""), "&quot;hello&quot;");
 /// ```
 pub fn html_escape(text: &str) -> String {
+  // '&' must be replaced first to avoid double-escaping
   text
     .replace('&', "&amp;")
     .replace('<', "&lt;")
