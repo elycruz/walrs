@@ -424,10 +424,8 @@ impl Page {
             if predicate(page) {
                 return true;
             }
-            if recursive {
-                if page.has_page(predicate, true) {
-                    return true;
-                }
+            if recursive && page.has_page(predicate, true) {
+                return true;
             }
         }
         false

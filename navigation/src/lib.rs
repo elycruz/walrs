@@ -90,6 +90,7 @@ pub mod container;
 pub mod error;
 pub mod page;
 mod serde_impls;
+pub mod view;
 
 // Re-export main types
 pub use container::Container;

@@ -1,4 +1,4 @@
-use walrs_navigation::{Container, Page};
+use walrs_navigation::{Container, Page, view};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("=== Navigation Component Example ===\n");
@@ -11,6 +11,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Page::builder()
             .label("Home")
             .uri("/")
+            .title("Home Page")
             .order(1)
             .build(),
     );
@@ -19,6 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut products = Page::builder()
         .label("Products")
         .uri("/products")
+        .title("Our Products")
+        .route("products")
         .order(2)
         .build();
 
@@ -27,6 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .label("Books")
             .uri("/products/books")
             .order(1)
+            .class("nav-item")
             .build(),
     );
 
@@ -76,6 +80,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .label("Blog")
             .uri("/blog")
             .order(4)
+            .target("_blank")
             .build(),
     );
 
@@ -84,17 +89,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Total pages: {}", nav.count());
     println!();
 
-    // Traverse and display all pages
-    println!("All pages (depth-first):");
-    nav.traverse(&mut |page| {
-        let indent = if page.uri().map(|u| u.contains("/products/")).unwrap_or(false)
-            || page.uri().map(|u| u.contains("/about/")).unwrap_or(false)
-        {
-            "  "
-        } else {
-            ""
-        };
-
+    // Traverse with depth information
+    println!("All pages (depth-first with indentation):");
+    nav.traverse_with_depth(&mut |page, depth| {
+        let indent = "  ".repeat(depth);
         println!(
             "{}{} - {}",
             indent,
@@ -113,10 +111,66 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(team) = nav.find_by_label("Team") {
         println!("Found by label: Team at {}", team.uri().unwrap());
     }
+
+    if let Some(products_page) = nav.find_by_route("products") {
+        println!("Found by route: {}", products_page.label().unwrap());
+    }
+
+    // Dynamic property access
+    if let Some(page) = nav.find_one_by("label", "Blog") {
+        println!("Found by property: {} (target={})", page.label().unwrap(), page.target().unwrap_or("none"));
+    }
+
+    // Find all pages with a specific class
+    let nav_items = nav.find_all_by("class", "nav-item");
+    println!("Pages with class 'nav-item': {}", nav_items.len());
+    println!();
+
+    // Only visible pages
+    println!("Visible root pages: {}", nav.visible_pages().len());
+
+    // Check if a page exists
+    println!("Has /products/books? {}", nav.has_page(|p| p.uri() == Some("/products/books"), true));
+    println!();
+
+    // Demonstrate breadcrumbs
+    nav.set_active_by_uri("/products/books");
+    let crumbs = nav.breadcrumbs();
+    println!("Breadcrumb trail:");
+    for (i, crumb) in crumbs.iter().enumerate() {
+        if i > 0 {
+            print!(" > ");
+        }
+        print!("{}", crumb.label().unwrap_or(""));
+    }
+    println!("\n");
+
+    // Render breadcrumbs as HTML
+    println!("Breadcrumbs HTML:");
+    println!("{}", view::render_breadcrumbs(&nav, " &gt; "));
+    println!();
+
+    // Render as HTML menu
+    println!("Menu HTML:");
+    println!("{}", view::render_menu(&nav));
+    println!();
+
+    // Render menu with custom classes
+    println!("Menu with custom classes:");
+    println!("{}", view::render_menu_with_class(&nav, "navbar-nav", "current"));
+    println!();
+
+    // Render as sitemap
+    println!("Sitemap HTML (flat):");
+    println!("{}", view::render_sitemap(&nav));
+    println!();
+
+    println!("Sitemap HTML (hierarchical):");
+    println!("{}", view::render_sitemap_hierarchical(&nav));
     println!();
 
     // Demonstrate JSON serialization
-    println!("JSON representation (pretty):");
+    println!("JSON representation:");
     let json = nav.to_json_pretty()?;
     println!("{}", json);
     println!();
@@ -149,18 +203,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     println!();
 
-    // Demonstrate active page setting
+    // Demonstrate dynamic property setting
+    println!("Dynamic property access:");
+    let mut page = Page::new();
+    page.set("label", "Dynamic");
+    page.set("uri", "/dynamic");
+    page.set("title", "Dynamically Created");
+    println!(
+        "  label={}, uri={}, title={}",
+        page.get("label").unwrap(),
+        page.get("uri").unwrap(),
+        page.get("title").unwrap()
+    );
+    println!();
+
+    // Demonstrate href with fragment
+    let page_with_fragment = Page::builder()
+        .label("Section Link")
+        .uri("/docs")
+        .fragment("installation")
+        .build();
+    println!("Page with fragment:");
+    println!("  href = {}", page_with_fragment.href().unwrap());
+
+    // Demonstrate add_pages
     let mut nav3 = Container::new();
-    nav3.add_page(Page::builder().label("Home").uri("/").build());
-    nav3.add_page(Page::builder().label("About").uri("/about").build());
-    nav3.add_page(Page::builder().label("Contact").uri("/contact").build());
-
-    nav3.set_active_by_uri("/about");
-
-    println!("Active page demonstration:");
+    nav3.add_pages(vec![
+        Page::builder().label("Page A").order(2).build(),
+        Page::builder().label("Page B").order(1).build(),
+        Page::builder().label("Page C").order(3).build(),
+    ]);
+    println!("\nBulk add (sorted by order):");
     for page in nav3.iter() {
-        let active_marker = if page.is_active() { " [ACTIVE]" } else { "" };
-        println!("  {} - {}{}", page.label().unwrap(), page.uri().unwrap(), active_marker);
+        println!("  {} (order {})", page.label().unwrap(), page.order());
     }
 
     Ok(())
