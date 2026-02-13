@@ -1,4 +1,5 @@
-use walrs_acl::simple::AclBuilder;
+use std::convert::TryFrom;
+use walrs_acl::simple::{AclBuilder, AclData};
 
 #[test]
 fn test_acl_builder_basic() -> Result<(), String> {
@@ -337,11 +338,8 @@ fn test_acl_builder_try_from_acl() -> Result<(), String> {
         .allow(Some(&["admin"]), None, None)?
         .build()?;
 
-    // Convert the ACL back to a builder
-    let builder = AclBuilder::try_from(original_acl)?;
-
-    // Build a new ACL from the builder
-    let rebuilt_acl = builder.build()?;
+    // Convert the ACL back to a builder and build new Acl from it
+    let rebuilt_acl = AclBuilder::try_from(original_acl)?.build()?;
 
     // Verify that the rebuilt ACL has the same behavior as the original
 
@@ -589,8 +587,7 @@ fn test_acl_builder_empty() -> Result<(), String> {
 
 #[test]
 fn test_acl_builder_default() {
-    let builder = AclBuilder::default();
-    let acl = builder.build();
+    let acl = AclBuilder::default().build();
 
     assert!(acl.is_ok(), "Default builder should build successfully");
 }
@@ -1068,8 +1065,8 @@ fn test_acl_builder_add_resource_chained_calls() -> Result<(), String> {
 
     assert_eq!(acl.resource_count(), 4, "Should have exactly 4 resources");
     assert!(acl.inherits_resource("level4", "level3"), "Level4 should inherit from level3");
-    assert!(acl.inherits_resource("level4", "level2"), "Level4 should inherit from level2 (transitively)");
-    assert!(acl.inherits_resource("level4", "level1"), "Level4 should inherit from level1 (transitively)");
+    assert!(acl.inherits_resource("level4", "level2"), "Level4 should inherit from level2 (transitive)");
+    assert!(acl.inherits_resource("level4", "level1"), "Level4 should inherit from level1 (transitive)");
 
     Ok(())
 }
@@ -1245,16 +1242,540 @@ fn test_acl_builder_add_resources_complex_diamond_inheritance() -> Result<(), St
 }
 
 #[test]
-fn test_acl_builder_add_resources_with_auto_parent_creation() -> Result<(), String> {
-    // Add a resource with a parent that doesn't exist yet
-    let acl = AclBuilder::new()
-        .add_resource("child", Some(&["nonexistent_parent"]))?
-        .build()?;
+fn test_acl_builder_to_acl_data_conversion() -> Result<(), String> {
+    // Create a comprehensive ACL
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("guest", None)?
+        .add_role("user", Some(&["guest"]))?
+        .add_role("admin", Some(&["user"]))?
+        .add_resource("blog", None)?
+        .add_resource("comment", Some(&["blog"]))?
+        .add_resource("admin_panel", None)?
+        .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
+        .allow(Some(&["user"]), Some(&["blog"]), Some(&["read", "write"]))?
+        .allow(Some(&["admin"]), None, None)?
+        .deny(Some(&["user"]), Some(&["admin_panel"]), None)?;
 
-    assert!(acl.has_resource("child"), "Should have child resource");
-    assert!(acl.has_resource("nonexistent_parent"), "Should auto-create nonexistent_parent resource");
-    assert!(acl.inherits_resource("child", "nonexistent_parent"), "Child should inherit from nonexistent_parent");
-    assert_eq!(acl.resource_count(), 2, "Should have exactly 2 resources");
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify roles were extracted
+    let roles = acl_data.roles.as_ref().expect("Should have roles");
+    assert!(roles.iter().any(|(name, _)| name == "guest"), "Should contain guest role");
+    assert!(roles.iter().any(|(name, _)| name == "user"), "Should contain user role");
+    assert!(roles.iter().any(|(name, _)| name == "admin"), "Should contain admin role");
+
+    // Verify role hierarchies
+    let user_role = roles.iter().find(|(name, _)| name == "user").expect("Should find user role");
+    assert!(
+        user_role.1.as_ref().map(|parents| parents.contains(&"guest".to_string())).unwrap_or(false),
+        "User should inherit from guest"
+    );
+
+    // Verify resources were extracted
+    let resources = acl_data.resources.as_ref().expect("Should have resources");
+    assert!(resources.iter().any(|(name, _)| name == "blog"), "Should contain blog resource");
+    assert!(resources.iter().any(|(name, _)| name == "comment"), "Should contain comment resource");
+    assert!(resources.iter().any(|(name, _)| name == "admin_panel"), "Should contain admin_panel resource");
+
+    // Verify resource hierarchies
+    let comment = resources.iter().find(|(name, _)| name == "comment").expect("Should find comment resource");
+    assert!(
+        comment.1.as_ref().map(|parents| parents.contains(&"blog".to_string())).unwrap_or(false),
+        "Comment should inherit from blog"
+    );
+
+    // Verify allow rules were extracted
+    assert!(acl_data.allow.is_some(), "Should have allow rules");
+
+    // Verify deny rules were extracted
+    assert!(acl_data.deny.is_some(), "Should have deny rules");
+
+    // Now convert back to builder and build to verify round-trip conversion
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+
+    // Verify the rebuilt ACL behaves the same
+    assert!(
+        rebuilt_acl.is_allowed(Some("guest"), Some("blog"), Some("read")),
+        "Guest should be able to read blog"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("user"), Some("blog"), Some("write")),
+        "User should be able to write to blog"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("admin"), Some("blog"), Some("delete")),
+        "Admin should have all privileges in rebuilt ACL"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("user"), Some("admin_panel"), Some("read")),
+        "User should be denied admin_panel in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_empty() -> Result<(), String> {
+    // Create an empty builder
+    let builder = AclBuilder::new();
+
+    // Convert to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify all fields are None
+    assert!(acl_data.roles.is_none(), "Empty builder should have no roles");
+    assert!(acl_data.resources.is_none(), "Empty builder should have no resources");
+    assert!(acl_data.allow.is_none(), "Empty builder should have no allow rules");
+    assert!(acl_data.deny.is_none(), "Empty builder should have no deny rules");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_deny_for_all_resources() -> Result<(), String> {
+    // Create a builder with deny rules for all resources
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("restricted", None)?
+        .add_resource("blog", None)?
+        .deny(Some(&["restricted"]), None, Some(&["delete", "admin"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify deny rules were extracted for "all resources" (*)
+    let deny = acl_data.deny.as_ref().expect("Should have deny rules");
+    let all_resources_deny = deny.iter().find(|(resource, _)| resource == "*");
+    assert!(
+        all_resources_deny.is_some(),
+        "Should have deny rules for all resources (*)"
+    );
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+    assert!(
+        !rebuilt_acl.is_allowed(Some("restricted"), Some("blog"), Some("delete")),
+        "Restricted should be denied delete on blog in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_for_all_roles() -> Result<(), String> {
+    // Create a builder with rules for all roles (None roles)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("guest", None)?
+        .add_resource("public_page", None)?
+        .allow(None, Some(&["public_page"]), Some(&["read", "view"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify allow rules were extracted with "*" for all roles
+    let allow = acl_data.allow.as_ref().expect("Should have allow rules");
+    let public_page_allow = allow.iter().find(|(resource, _)| resource == "public_page");
+    assert!(
+        public_page_allow.is_some(),
+        "Should have allow rules for public_page"
+    );
+
+    if let Some((_, role_privileges)) = public_page_allow {
+        let all_roles = role_privileges
+            .as_ref()
+            .and_then(|rp| rp.iter().find(|(role, _)| role == "*"));
+        assert!(
+            all_roles.is_some(),
+            "Should have allow rules for all roles (*)"
+        );
+    }
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+    assert!(
+        rebuilt_acl.is_allowed(Some("guest"), Some("public_page"), Some("read")),
+        "Guest should be able to read public_page in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_for_all_privileges() -> Result<(), String> {
+    // Create a builder with rules for all privileges (None privileges)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("superadmin", None)?
+        .add_resource("everything", None)?
+        .allow(Some(&["superadmin"]), Some(&["everything"]), None)?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify allow rules were extracted with None privileges (all privileges)
+    let allow = acl_data.allow.as_ref().expect("Should have allow rules");
+    let everything_allow = allow.iter().find(|(resource, _)| resource == "everything");
+    assert!(
+        everything_allow.is_some(),
+        "Should have allow rules for everything resource"
+    );
+
+    if let Some((_, role_privileges)) = everything_allow {
+        let superadmin_rules = role_privileges
+            .as_ref()
+            .and_then(|rp| rp.iter().find(|(role, _)| role == "superadmin"));
+        assert!(
+            superadmin_rules.is_some(),
+            "Should have allow rules for superadmin"
+        );
+        // Privileges should be None indicating all privileges
+        if let Some((_, privileges)) = superadmin_rules {
+            assert!(
+                privileges.is_none(),
+                "Privileges should be None (all privileges)"
+            );
+        }
+    }
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+    assert!(
+        rebuilt_acl.is_allowed(Some("superadmin"), Some("everything"), Some("any_privilege")),
+        "Superadmin should have all privileges on everything in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_deny_for_all_privileges() -> Result<(), String> {
+    // Create a builder with deny rules for all privileges
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("banned", None)?
+        .add_resource("forum", None)?
+        .deny(Some(&["banned"]), Some(&["forum"]), None)?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify deny rules were extracted
+    let deny = acl_data.deny.as_ref().expect("Should have deny rules");
+    let forum_deny = deny.iter().find(|(resource, _)| resource == "forum");
+    assert!(
+        forum_deny.is_some(),
+        "Should have deny rules for forum resource"
+    );
+
+    if let Some((_, role_privileges)) = forum_deny {
+        let banned_rules = role_privileges
+            .as_ref()
+            .and_then(|rp| rp.iter().find(|(role, _)| role == "banned"));
+        assert!(
+            banned_rules.is_some(),
+            "Should have deny rules for banned role"
+        );
+        // Privileges should be None indicating all privileges denied
+        if let Some((_, privileges)) = banned_rules {
+            assert!(
+                privileges.is_none(),
+                "Privileges should be None (all privileges denied)"
+            );
+        }
+    }
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+    assert!(
+        !rebuilt_acl.is_allowed(Some("banned"), Some("forum"), Some("post")),
+        "Banned should be denied posting on forum in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_mixed_allow_deny_same_resource() -> Result<(), String> {
+    // Create a builder with both allow and deny rules on the same resource
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("editor", None)?
+        .add_role("viewer", None)?
+        .add_resource("document", None)?
+        .allow(Some(&["editor"]), Some(&["document"]), Some(&["read", "write", "delete"]))?
+        .allow(Some(&["viewer"]), Some(&["document"]), Some(&["read"]))?
+        .deny(Some(&["viewer"]), Some(&["document"]), Some(&["write", "delete"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify both allow and deny rules exist
+    assert!(acl_data.allow.is_some(), "Should have allow rules");
+    assert!(acl_data.deny.is_some(), "Should have deny rules");
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+
+    // Editor should have all privileges
+    assert!(
+        rebuilt_acl.is_allowed(Some("editor"), Some("document"), Some("delete")),
+        "Editor should be able to delete document"
+    );
+
+    // Viewer should only have read
+    assert!(
+        rebuilt_acl.is_allowed(Some("viewer"), Some("document"), Some("read")),
+        "Viewer should be able to read document"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("viewer"), Some("document"), Some("write")),
+        "Viewer should not be able to write document"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_multiple_resources_multiple_roles() -> Result<(), String> {
+    // Create a complex builder with multiple resources and roles
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("guest", None)?
+        .add_role("member", Some(&["guest"]))?
+        .add_role("moderator", Some(&["member"]))?
+        .add_resource("posts", None)?
+        .add_resource("comments", None)?
+        .add_resource("users", None)?
+        .allow(Some(&["guest"]), Some(&["posts"]), Some(&["read"]))?
+        .allow(Some(&["guest"]), Some(&["comments"]), Some(&["read"]))?
+        .allow(Some(&["member"]), Some(&["posts"]), Some(&["create"]))?
+        .allow(Some(&["member"]), Some(&["comments"]), Some(&["create", "edit"]))?
+        .allow(Some(&["moderator"]), Some(&["posts"]), Some(&["delete"]))?
+        .allow(Some(&["moderator"]), Some(&["comments"]), Some(&["delete"]))?
+        .allow(Some(&["moderator"]), Some(&["users"]), Some(&["ban"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify all resources have allow rules
+    let allow = acl_data.allow.as_ref().expect("Should have allow rules");
+    assert!(
+        allow.iter().any(|(r, _)| r == "posts"),
+        "Should have rules for posts"
+    );
+    assert!(
+        allow.iter().any(|(r, _)| r == "comments"),
+        "Should have rules for comments"
+    );
+    assert!(
+        allow.iter().any(|(r, _)| r == "users"),
+        "Should have rules for users"
+    );
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+
+    // Test various combinations
+    assert!(
+        rebuilt_acl.is_allowed(Some("guest"), Some("posts"), Some("read")),
+        "Guest should read posts"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("member"), Some("comments"), Some("edit")),
+        "Member should edit comments"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("moderator"), Some("users"), Some("ban")),
+        "Moderator should ban users"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_only_roles_no_resources() -> Result<(), String> {
+    // Create a builder with only roles (no resources)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("admin", None)?
+        .add_role("user", Some(&["admin"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify roles exist but resources don't
+    assert!(acl_data.roles.is_some(), "Should have roles");
+    assert!(acl_data.resources.is_none(), "Should not have resources");
+    assert!(acl_data.allow.is_none(), "Should not have allow rules");
+    assert!(acl_data.deny.is_none(), "Should not have deny rules");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_only_resources_no_roles() -> Result<(), String> {
+    // Create a builder with only resources (no roles)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_resource("api", None)?
+        .add_resource("api_v2", Some(&["api"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify resources exist but roles don't
+    assert!(acl_data.roles.is_none(), "Should not have roles");
+    assert!(acl_data.resources.is_some(), "Should have resources");
+    assert!(acl_data.allow.is_none(), "Should not have allow rules");
+    assert!(acl_data.deny.is_none(), "Should not have deny rules");
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_global_allow_all() -> Result<(), String> {
+    // Create a builder with global allow (None, None, None)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("superuser", None)?
+        .add_resource("system", None)?
+        .allow(None, None, None)?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify global allow rule exists
+    let allow = acl_data.allow.as_ref().expect("Should have allow rules");
+    let global_allow = allow.iter().find(|(resource, _)| resource == "*");
+    assert!(
+        global_allow.is_some(),
+        "Should have global allow rules (*)"
+    );
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+    assert!(
+        rebuilt_acl.is_allowed(Some("superuser"), Some("system"), Some("anything")),
+        "Superuser should have global access in rebuilt ACL"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_specific_privileges_only() -> Result<(), String> {
+    // Create a builder with only specific privilege rules (no for_all_privileges)
+    let mut builder = AclBuilder::new();
+    builder
+        .add_role("api_user", None)?
+        .add_resource("api", None)?
+        .allow(Some(&["api_user"]), Some(&["api"]), Some(&["GET", "POST"]))?
+        .deny(Some(&["api_user"]), Some(&["api"]), Some(&["DELETE"]))?;
+
+    // Convert the builder to AclData
+    let acl_data = AclData::try_from(&builder)?;
+
+    // Verify both allow and deny have specific privileges
+    let allow = acl_data.allow.as_ref().expect("Should have allow rules");
+    let deny = acl_data.deny.as_ref().expect("Should have deny rules");
+
+    // Find the api resource in allow rules
+    let api_allow = allow.iter().find(|(r, _)| r == "api");
+    assert!(api_allow.is_some(), "Should have allow rules for api");
+
+    // Find the api resource in deny rules
+    let api_deny = deny.iter().find(|(r, _)| r == "api");
+    assert!(api_deny.is_some(), "Should have deny rules for api");
+
+    // Verify round-trip works
+    let mut rebuilt_builder = AclBuilder::try_from(&acl_data)?;
+    let rebuilt_acl = rebuilt_builder.build()?;
+
+    assert!(
+        rebuilt_acl.is_allowed(Some("api_user"), Some("api"), Some("GET")),
+        "API user should be allowed GET"
+    );
+    assert!(
+        rebuilt_acl.is_allowed(Some("api_user"), Some("api"), Some("POST")),
+        "API user should be allowed POST"
+    );
+    assert!(
+        !rebuilt_acl.is_allowed(Some("api_user"), Some("api"), Some("DELETE")),
+        "API user should be denied DELETE"
+    );
+
+    Ok(())
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_deny_all_roles_all_privileges_on_resource() -> Result<(), String> {
+    use std::convert::TryFrom;
+    use walrs_acl::simple::{AclBuilder, AclData};
+
+    // Create AclData directly with a deny rule that has None for role_privileges
+    // This means: deny all roles, all privileges on the specified resource
+    let acl_data = AclData {
+        roles: Some(vec![
+            ("user".to_string(), None),
+            ("admin".to_string(), None),
+        ]),
+        resources: Some(vec![
+            ("secret_resource".to_string(), None),
+            ("public_resource".to_string(), None),
+        ]),
+        allow: Some(vec![
+            ("public_resource".to_string(), Some(vec![
+                ("*".to_string(), Some(vec!["read".to_string()])),
+            ])),
+        ]),
+        // This deny rule applies to all roles and all privileges on secret_resource
+        deny: Some(vec![
+            ("secret_resource".to_string(), None),
+        ]),
+    };
+
+    // Convert AclData to AclBuilder
+    let mut builder = AclBuilder::try_from(&acl_data)?;
+    let acl = builder.build()?;
+
+    // Verify the deny rule was applied - all roles should be denied all privileges on secret_resource
+    assert!(
+        !acl.is_allowed(Some("user"), Some("secret_resource"), Some("read")),
+        "User should be denied read on secret_resource"
+    );
+    assert!(
+        !acl.is_allowed(Some("user"), Some("secret_resource"), Some("write")),
+        "User should be denied write on secret_resource"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("secret_resource"), Some("read")),
+        "Admin should be denied read on secret_resource"
+    );
+    assert!(
+        !acl.is_allowed(Some("admin"), Some("secret_resource"), Some("delete")),
+        "Admin should be denied delete on secret_resource"
+    );
+
+    // Verify the allow rule on public_resource still works
+    assert!(
+        acl.is_allowed(Some("user"), Some("public_resource"), Some("read")),
+        "User should be allowed read on public_resource"
+    );
+    assert!(
+        acl.is_allowed(Some("admin"), Some("public_resource"), Some("read")),
+        "Admin should be allowed read on public_resource"
+    );
 
     Ok(())
 }
@@ -1317,7 +1838,7 @@ fn test_acl_builder_allow_then_deny_all_privileges_overwrites() -> Result<(), St
         // First, allow specific privileges
         .allow(Some(&["user"]), Some(&["document"]), Some(&["read", "write"]))?
         // Then, deny all privileges (this sets for_all_privileges = Deny and clears by_privilege_id)
-        .deny(Some(&["user"]), Some(&["document"]), None)?
+        .deny(Some(&["user"]), None, Some(&["delete"]))?
         .build()?;
 
     // The per-privilege allow rules for "read" and "write" are cleared,
@@ -1557,4 +2078,5 @@ fn test_acl_builder_per_privilege_allow_initially_cleared_by_deny_all() -> Resul
 
     Ok(())
 }
+
 

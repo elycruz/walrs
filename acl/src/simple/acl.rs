@@ -1,10 +1,8 @@
-use std::collections::HashMap;
-use walrs_graph::digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
+use crate::prelude::{String, Vec, vec, format};
+use walrs_digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
 use crate::simple::rule::{Rule};
-use crate::simple::privilege_rules::PrivilegeRules;
 use crate::simple::resource_role_rules::ResourceRoleRules;
-use crate::simple::role_privilege_rules::RolePrivilegeRules;
 
 // Note: Rules structure:
 // Resources contain roles, roles contain privileges,
@@ -274,155 +272,6 @@ impl Acl {
     Ok(())
   }
 
-  /// Sets the 'allow' rule for given roles, resources, and/or, privileges, combinations; E.g.,
-  ///
-  /// ```rust
-  /// use walrs_acl::simple::AclBuilder;
-  ///
-  ///  // Roles
-  /// let guest_role = "guest";
-  /// let user_role = "user"; // will inherit from "guest"
-  /// let admin_role = "admin"; // will inherit from "user"
-  ///
-  /// // Resources
-  /// let index_resource = "index"; // guest can access
-  /// let blog_resource = "post"; // ""
-  /// let account_resource = "account"; // user can access
-  /// let users_resource = "users"; // admin can access
-  ///
-  /// // Privileges - For this example, assume these can exist for any `resource`.
-  /// let index_privilege = "index";
-  /// let create_privilege = "create";
-  /// let read_privilege = "read";
-  /// let update_privilege = "update";
-  /// let delete_privilege = "delete";
-  ///
-  /// // Build ACL with roles, resources, and rules
-  /// // ----
-  /// let acl = AclBuilder::default()
-  ///   .add_role(guest_role, None)? // Inherits from none.
-  ///   .add_role(user_role, Some(&[guest_role]))? // 'user' role inherits rules applied to 'guest' role
-  ///   .add_role(admin_role, Some(&[user_role]))? // ...
-  ///
-  ///   // Add Resources
-  ///   // ----
-  ///   .add_resource(index_resource, None)? // 'index' resource has inherits from none.
-  ///   .add_resource(blog_resource, Some(&[index_resource]))? // 'blog' resource inherits rules applied to 'index' resource
-  ///   .add_resource(account_resource, None)?
-  ///   .add_resource(users_resource, None)?
-  ///
-  ///   // Add 'allow' rules - **Note:** base rule is "deny all to all", E.g.,
-  ///   // "deny all privileges to all roles on all resources" etc.
-  ///   .allow(Some(&[guest_role]), Some(&[index_resource, blog_resource]), Some(&[index_privilege, read_privilege]))?
-  ///   .allow(Some(&[user_role]), Some(&[account_resource]), Some(&[index_privilege, read_privilege, update_privilege]))?
-  ///   .allow(Some(&[user_role]), Some(&[blog_resource]), None)?
-  ///   .allow(Some(&[admin_role]), None, None)?  // Here we give 'admin' role all privileges to all resources
-  ///   .build()?;
-  ///
-  /// // Check privileges
-  /// // ----
-  /// assert_eq!(acl.is_allowed(Some(guest_role), None, None), false,
-  ///     "\"{}\" role should not have access to all privileges on all resources",
-  ///     guest_role
-  /// );
-  /// assert_eq!(acl.is_allowed(Some(guest_role), Some(index_resource), None), false,
-  ///     "\"{}\" role should not have access to all privileges on \"{}\" resource",
-  ///     guest_role, index_resource
-  /// );
-  /// assert_eq!(acl.is_allowed(Some(guest_role), Some(index_resource), Some(index_privilege)), true,
-  ///     "\"{}\" role should have \"{}\" privilege on \"{}\" resource", guest_role, index_privilege, index_resource
-  /// );
-  ///
-  /// // Since 'user' role inherits from 'guest' role, it should have access to the same resources/privileges as 'guest' role.
-  /// // ----
-  /// assert_eq!(acl.inherits_role(user_role, guest_role), true,
-  ///     "\"{}\" role should inherit from \"{}\" role", user_role, guest_role
-  /// );
-  /// assert_eq!(acl.is_allowed(Some(user_role), Some(index_resource), Some(index_privilege)), true,
-  ///     "\"{}\" role should have privilege \"{}\" on \"{}\" resource",
-  ///     user_role, index_privilege, index_resource
-  /// );
-  ///
-  /// // 'user' role should have required access to 'account' resource
-  /// for privilege in [index_privilege, read_privilege, update_privilege] {
-  ///     assert_eq!(acl.is_allowed(Some(user_role), Some(account_resource), Some(privilege)), true,
-  ///         "\"{}\" role should have privilege \"{}\" on \"{}\" resource",
-  ///         user_role, index_privilege, index_resource
-  ///     );
-  /// }
-  ///
-  /// // Our 'admin' role should have access to all privileges on all resources
-  /// assert_eq!(acl.is_allowed(Some(admin_role), None, None), true,
-  ///     "\"{}\" role should have all privileges to all resources",
-  ///     admin_role
-  /// );
-  ///
-  /// // And lastly non-existent, roles, and/or resources, should have no privileges
-  /// // ----
-  /// assert_eq!(acl.is_allowed(Some("non-existent"), None, None), false,
-  ///     "\"{}\" role should not have any privileges",
-  ///     "non-existent"
-  /// );
-  /// assert_eq!(acl.is_allowed(None, Some("non-existent"), None), false,
-  ///     "All privileges on \"{}\" resource should not be allowed, for all roles",
-  ///     "non-existent"
-  /// );
-  /// assert_eq!(acl.is_allowed(None, None, Some("non-existent")), false,
-  ///     "Privilege \"{}\" should not be allowed for roles, on all resource",
-  ///     "non-existent"
-  /// );
-  /// # Ok::<(), String>(())
-  /// ```
-  ///
-  /// ## On `None`, and/or empty list, argument values
-  ///
-  /// - If `privileges` is `None`, or an empty list, rule is set "for all privileges", on given roles.
-  /// - If `roles` is `None`, or an empty list, rule is set "for all roles", on given resources.
-  /// - If `resources` is `None`, or an empty list, rule is set "for all resources" on the acl.
-  ///
-  pub fn allow(
-    &mut self,
-    roles: Option<&[&str]>,
-    resources: Option<&[&str]>,
-    privileges: Option<&[&str]>,
-  ) -> &mut Self {
-    self._add_rule(Rule::Allow, roles, resources, privileges)
-  }
-
-  /// Sets `Deny` rule for given `roles`, `resources`, and `privileges`, combinations.
-  ///
-  /// ```rust
-  /// use walrs_acl::simple::AclBuilder;
-  ///
-  /// // Build ACL with roles, resources, and rules
-  /// let acl = AclBuilder::default()
-  ///     .add_role("guest", None)?
-  ///     .add_role("admin", None)?
-  ///     .add_resource("blog", None)?
-  ///     .add_resource("secret", None)?
-  ///     // Allow guest to read blog
-  ///     .allow(Some(&["guest"]), Some(&["blog"]), Some(&["read"]))?
-  ///     // Explicitly deny guest from accessing secret resource
-  ///     .deny(Some(&["guest"]), Some(&["secret"]), None)?
-  ///     // Deny admin from deleting blog
-  ///     .deny(Some(&["admin"]), Some(&["blog"]), Some(&["delete"]))?
-  ///     .build()?;
-  ///
-  /// assert!(acl.is_allowed(Some("guest"), Some("blog"), Some("read")));
-  /// assert!(!acl.is_allowed(Some("guest"), Some("secret"), Some("read")));
-  /// assert!(!acl.is_allowed(Some("guest"), Some("secret"), None));
-  /// assert!(!acl.is_allowed(Some("admin"), Some("blog"), Some("delete")));
-  /// # Ok::<(), String>(())
-  /// ```
-  pub fn deny(
-    &mut self,
-    roles: Option<&[&str]>,
-    resources: Option<&[&str]>,
-    privileges: Option<&[&str]>,
-  ) -> &mut Self {
-    self._add_rule(Rule::Deny, roles, resources, privileges)
-  }
-
   /// Returns a boolean indicating whether the given "role" is allowed access to
   /// the given "privilege" on the given "resource".  If any of the args are `None` the "all"
   /// variant is checked for that `None` value; E.g.,
@@ -444,7 +293,7 @@ impl Acl {
   /// let read = "read";
   ///
   /// // Build ACL
-  /// let mut builder = AclBuilder::default()
+  /// let acl = AclBuilder::default()
   ///   // Second 'arg' is role inheritance, which is optional
   ///   .add_roles(&[
   ///     (guest, None),
@@ -455,9 +304,8 @@ impl Acl {
   ///   .add_resources(&[
   ///     (index, None),
   ///     (protected, None)
-  ///   ])?;
-  ///
-  /// let acl = builder.build()?;
+  ///   ])?
+  ///   .build()?;
   ///
   /// // All access is "denied" by default
   /// for role in [guest, user, special, admin] {
@@ -554,19 +402,49 @@ impl Acl {
       if inherited.is_empty() { None } else { Some(inherited) }
     });
 
+    // CRITICAL: Check for explicit Deny on the DIRECT role/resource combo FIRST
+    // This ensures that deny rules on a role/resource override inherited allow rules
+    // We only block if there's an EXPLICIT Deny entry in the by_privilege_id map
+    let has_explicit_deny = if let Some(priv_id) = privilege {
+      // Checking a specific privilege - look for explicit Deny in the map
+      if resource.is_some() {
+        let role_rules = self._rules.get_role_privilege_rules(resource).get_privilege_rules(role);
+        role_rules.by_privilege_id.as_ref()
+          .and_then(|map| map.get(priv_id))
+          .map(|rule| rule == &Rule::Deny)
+          .unwrap_or(false)
+      } else {
+        let role_rules = self._rules.for_all_resources.get_privilege_rules(role);
+        role_rules.by_privilege_id.as_ref()
+          .and_then(|map| map.get(priv_id))
+          .map(|rule| rule == &Rule::Deny)
+          .unwrap_or(false)
+      }
+    } else {
+      // Checking all privileges (None) - this is handled by normal logic, don't block
+      false
+    };
+
+    // If there's an explicit deny on the direct role/resource, deny immediately (don't check inheritance)
+    if has_explicit_deny {
+      return false;
+    }
+
+    // ...existing code...
+
     // Callback for returning `allow` check result, or checking if current parameter set has `allow` permission
     //  Helps dry up the code, below, a bit
     let rslt_or_check_direct = |rslt| {
       if rslt {
         rslt
       } else {
-        self._is_directly_allowed(role, resource, privilege)
+        self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow)
       }
     };
 
     // println!("Inherited roles and resources {:?}, {:?}", &_roles, &_resources);
 
-    // If inherited `resources`, and `roles`, found loop through them and check for `Allow` rule
+    // If inherited `resources`, and `roles`, found, loop through them and check for `Allow` rule
     _resources
       .as_ref()
       .zip(_roles.as_ref())
@@ -575,36 +453,39 @@ impl Acl {
           _roles2
             .iter()
             .rev()
-            .any(|_role| self._is_directly_allowed(Some(_role), Some(_resource), privilege))
+            .any(|_role| self._matches_rule_no_dfs(Some(_role), Some(_resource), privilege, &Rule::Allow))
         })
       })
       // If no inherited roles/resources directly allowed check direct allow on incoming (role, resource, privilege)
       .map(rslt_or_check_direct)
       // If only `roles`, only `resources`, or neither of the two, check for `Allow` rule
       .or_else(|| {
-        // If only `roles`
+        // If only `roles` check for allow on roles inheritance graph from shallowest node
         if _resources.is_none() && _roles.is_some() {
           _roles
             .map(|_rs| {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._is_directly_allowed(Some(r), resource, privilege))
+                .any(|r| self._matches_rule_no_dfs(Some(r), resource, privilege, &Rule::Allow))
             })
             .map(rslt_or_check_direct)
         }
-        // Else inherited resources is set, but not inherited roles
+        // Else inherited resources is set, but not inherited roles,
+        // check resources inheritance graph from shallowest node to deepest
         else if _resources.is_some() && _roles.is_none() {
           _resources
             .map(|_rs| {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._is_directly_allowed(role, Some(*r), privilege))
+                .any(|r| self._matches_rule_no_dfs(role, Some(*r), privilege, &Rule::Allow))
             })
             .map(rslt_or_check_direct)
-        } else {
-          self._is_directly_allowed(role, resource, privilege).into()
+        }
+        // Else check for direct allowance
+        else {
+          self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow).into()
         }
       })
       .unwrap()
@@ -758,34 +639,14 @@ impl Acl {
     })
   }
 
-  /// Filters strings list against ones contained in given `graph`.
-  /// **Note:** `vec![None]` if passed in list is empty; allows `do ... while` format for `for` loops;  E.g.
-  ///  "Loop while items", even though item is `None` etc..
-  fn _get_keys_in_graph<'a>(
-    &self,
-    graph: &'a DisymGraph,
-    xss: Option<&[&'a str]>,
-  ) -> Vec<Option<String>> {
-    xss.map_or(vec![None], |_xss| {
-      if _xss.is_empty() {
-        return vec![None];
-      }
-      _xss
-        .iter()
-        .filter_map(|xs| graph.index((*xs).as_ref()).map(|idx| graph.name(idx)))
-        .collect()
-    })
-  }
-
-  /// Returns a boolean indicating whether the given rule is allowed, or not -
-  /// Doesn't check symbol's inheritance chains; E.g., Inherited roles, and/or resources,
-  /// are not checked for "allowance" (use `is_allowed(...)` for that); only 'direct' role,
-  /// resource, and privilege, combination is checked.
-  fn _is_directly_allowed(
+  /// Returns a boolean indicating whether the given rule matches or not -
+  /// Does not check symbol graph for inheritance chains (flat "rules" check).
+  fn _matches_rule_no_dfs(
     &self,
     role: Option<&str>,
     resource: Option<&str>,
     privilege: Option<&str>,
+    rule: &Rule,
   ) -> bool {
     // First check the specific resource (if provided)
     if resource.is_some() {
@@ -795,8 +656,8 @@ impl Acl {
         .get_privilege_rules(role)
         .get_rule(privilege);
 
-      // If we found an explicit Allow, return true
-      if specific_rule == &Rule::Allow {
+      // If we found an explicit match, return true
+      if specific_rule == rule {
         return true;
       }
 
@@ -807,7 +668,7 @@ impl Acl {
         .get_privilege_rules(role)
         .get_rule(privilege);
 
-      return global_rule == &Rule::Allow;
+      return global_rule == rule;
     }
 
     // If no specific resource, just check for_all_resources
@@ -816,87 +677,7 @@ impl Acl {
       .for_all_resources
       .get_privilege_rules(role)
       .get_rule(privilege)
-      == &Rule::Allow
-  }
-
-  /// Gets mutable privilege rules for given `role`, and `resource` combination -
-  /// If privilege rule struct doesn't exist, for given `role` and `resource` combination, one
-  /// is created, inserted (for current symbol combination) and returned.
-  fn _get_role_rules_mut(
-    &mut self,
-    resource: Option<&str>,
-    role: Option<&str>,
-  ) -> &mut PrivilegeRules {
-    if resource.is_none() && role.is_none() {
-      &mut self._rules.for_all_resources.for_all_roles
-    } else if resource.is_some() && role.is_none() {
-      &mut self
-        ._rules
-        .by_resource_id
-        .entry(resource.unwrap().to_string())
-        .or_insert(RolePrivilegeRules::new(false))
-        .for_all_roles
-    } else if resource.is_none() && role.is_some() {
-      self
-        ._rules
-        .for_all_resources
-        .by_role_id
-        .get_or_insert(HashMap::new())
-        .entry(role.unwrap().to_string())
-        .or_insert(PrivilegeRules::new(false))
-    } else {
-      resource
-        .zip(role)
-        .map(|(_resource, _role)| {
-          self
-            ._rules
-            .by_resource_id
-            .entry(_resource.to_string())
-            .or_insert(RolePrivilegeRules::new(false))
-            .by_role_id
-            .get_or_insert(HashMap::new())
-            .entry(_role.to_string())
-            .or_insert(PrivilegeRules::new(false))
-        })
-        .unwrap()
-    }
-  }
-
-  /// Adds rule for given roles, resources, and privileges, combinations.
-  fn _add_rule<'a>(
-    &mut self,
-    rule_type: Rule,
-    roles: Option<&[&'a str]>,
-    resources: Option<&[&'a str]>,
-    privileges: Option<&[&'a str]>,
-  ) -> &mut Self {
-    // Filter out non-existent roles, and return `vec![None]` if result is empty list, or `None`.
-    let _roles: Vec<Option<String>> = self._get_keys_in_graph(&self._roles, roles);
-
-    // Filter out non-existent resources, and return `vec![None]` if result is empty list, or `None`
-    let _resources: Vec<Option<String>> = self._get_keys_in_graph(&self._resources, resources);
-
-    for resource in _resources.iter() {
-      for role in _roles.iter() {
-        // If role_rules found
-        let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
-
-        // If privileges is `None`, set rule type for "all privileges"
-        if privileges.is_none() {
-          role_rules.for_all_privileges = rule_type;
-          continue;
-        }
-        // Else loop through privileges, and insert rule type for each privilege
-        privileges.unwrap().iter().for_each(|privilege| {
-          // Get privilege map for role and insert rule
-          let p_map = role_rules.by_privilege_id.get_or_insert(HashMap::new());
-
-          // Insert rule
-          p_map.insert(privilege.to_string(), rule_type);
-        });
-      }
-    }
-    self
+      == rule
   }
 }
 
@@ -1049,14 +830,15 @@ mod test_acl {
     let delete_privilege = "delete";
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
-      Ok(AclBuilder::new()
-        .add_role(guest_role, None)?
+      let mut builder = AclBuilder::new();
+      builder.add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
         .add_resource(blog_resource, Some(&[index_resource]))?
         .add_resource(account_resource, None)?
-        .add_resource(users_resource, None)?)
+        .add_resource(users_resource, None)?;
+      Ok(builder)
     };
 
     // Ensure default expected default rule is set
@@ -1160,7 +942,7 @@ mod test_acl {
 
       // If we're testing for 'allow' set allow rule result to test
       if expected {
-        builder = builder.allow(roles, resources, privileges)?;
+        builder.allow(roles, resources, privileges)?;
       }
 
       let acl = builder.build()?;
@@ -1202,14 +984,15 @@ mod test_acl {
     let delete_privilege = "delete";
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
-      Ok(AclBuilder::new()
-        .add_role(guest_role, None)?
+      let mut builder = AclBuilder::new();
+      builder.add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
         .add_resource(blog_resource, Some(&[index_resource]))?
         .add_resource(account_resource, None)?
-        .add_resource(users_resource, None)?)
+        .add_resource(users_resource, None)?;
+      Ok(builder)
     };
 
     // Ensure default expected rule is set
@@ -1313,8 +1096,9 @@ mod test_acl {
     let build_base_acl = |prev_acl: Option<&Acl>| -> Result<AclBuilder, String> {
       match prev_acl {
         Some(acl) => AclBuilder::try_from(acl),
-        None => Ok(AclBuilder::new()
-          .add_roles(&[
+        None => {
+          let mut builder = AclBuilder::new();
+          builder.add_roles(&[
             (guest, None),
             (user, Some(&[guest])),
             (moderator, Some(&[user])),
@@ -1323,7 +1107,9 @@ mod test_acl {
           .add_resource(blog, None)?
           .add_resource(account, None)?
           .add_resource(admin_panel, None)?
-          .add_resource(secret, None)?)
+          .add_resource(secret, None)?;
+          Ok(builder)
+        }
       }
     };
 

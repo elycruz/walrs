@@ -5,7 +5,7 @@ use std::io::BufReader;
 
 #[test]
 pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
-  let file_path = "./test-fixtures/example-acl.json";
+  let file_path = "./test-fixtures/example-extensive-acl-array.json";
 
   // Get digraph data
   let mut f = File::open(&file_path)?;
@@ -30,97 +30,150 @@ pub fn test_acl_data_from_file_ref() -> Result<(), Box<dyn std::error::Error>> {
 
   // Validate roles
   // ----
-  if let Some(roles) = acl_data.roles {
-    let role_count = acl.role_count();
+  let roles = acl_data.roles.expect("acl_data should have roles");
+  let role_count = acl.role_count();
 
-    assert_eq!(role_count, roles.len(), "Role lengths do not match");
+  assert_eq!(role_count, roles.len(), "Role lengths do not match");
 
-    // Check role inheritance relationships
-    roles.iter().for_each(|(role, inherited)| {
-      assert!(acl.has_role(role), "acl should contain role \"{}\"", role);
+  // Check role inheritance relationships
+  for (role, inherited) in roles.iter() {
+    assert!(acl.has_role(role), "acl should contain role \"{}\"", role);
 
-      // Check inherited relationships
-      if let Some(inherited_roles) = inherited.as_deref() {
-        // For role ensure role1 inherits incoming role
-        inherited_roles.iter().for_each(|role2| {
-          assert_eq!(
-            acl.inherits_role(&**role, &**role2),
-            true,
-            "\"{}\" role should inherit roles \"{:?}\"",
-            role,
-            inherited.as_ref()
-          );
-        });
+    // Check inherited relationships
+    if let Some(inherited_roles) = inherited.as_deref() {
+      for role2 in inherited_roles.iter() {
+        assert!(
+          acl.inherits_role(&**role, &**role2),
+          "\"{}\" role should inherit role \"{}\"",
+          role,
+          role2
+        );
       }
-    });
+    }
   }
 
   // Validate resources
   // ----
-  if let Some(resources) = acl_data.resources {
-    let resource_count = acl.resource_count();
+  let resources = acl_data.resources.expect("acl_data should have resources");
+  let resource_count = acl.resource_count();
 
-    assert_eq!(resource_count, resources.len(), "Role lengths do not match");
+  assert_eq!(resource_count, resources.len(), "Resource lengths do not match");
 
-    // Check resource inheritance relationships
-    resources.iter().for_each(|(resource, inherited)| {
-      assert!(
-        acl.has_resource(resource),
-        "acl should contain resource \"{}\"",
-        resource
-      );
+  // Check resource inheritance relationships
+  for (resource, inherited) in resources.iter() {
+    assert!(
+      acl.has_resource(resource),
+      "acl should contain resource \"{}\"",
+      resource
+    );
 
-      // Check inherited relationships
-      if let Some(inherited_resources) = inherited.as_deref() {
-        // For resource ensure resource1 inherits incoming resource
-        inherited_resources.iter().for_each(|resource2| {
-          assert_eq!(
-            acl.inherits_resource(&**resource, &**resource2),
-            true,
-            "\"{}\" resource should inherit resources \"{:?}\"",
-            resource,
-            inherited.as_ref()
-          );
-        });
+    // Check inherited relationships
+    if let Some(inherited_resources) = inherited.as_deref() {
+      for resource2 in inherited_resources.iter() {
+        assert!(
+          acl.inherits_resource(&**resource, &**resource2),
+          "\"{}\" resource should inherit resource \"{}\"",
+          resource,
+          resource2
+        );
       }
-    });
+    }
   }
 
   // Check "allow" rules
   // ----
   println!("Check \"allow\" rules...");
-  if let Some(allow) = acl_data.allow {
-    allow.iter().for_each(|(resource, role_privileges)| {
-      let _ = role_privileges.as_deref().iter().map(|rps| {
-        rps.iter().for_each(|(role, privileges)| {
-          if let Some(_privileges) = privileges.as_deref() {
-            _privileges.iter().for_each(|xs| {
-              eprintln!(
-                "Testing acl.is_allowed({:?}, {:?}, {:?})",
-                role, resource, xs
-              );
-              assert!(acl.is_allowed(
+  let allow_rules = acl_data.allow.expect("acl_data should have allow rules");
+  for (resource, role_privileges) in allow_rules.iter() {
+    if let Some(rps) = role_privileges.as_ref() {
+      for (role, privileges) in rps.iter() {
+        if let Some(privilege_list) = privileges.as_ref() {
+          // Allow specific privileges
+          for privilege in privilege_list.iter() {
+            eprintln!(
+              "Testing acl.is_allowed({:?}, {:?}, {:?})",
+              role, resource, privilege
+            );
+            assert!(
+              acl.is_allowed(
                 Some(role.as_ref()),
                 Some(resource.as_ref()),
-                Some(xs.as_ref())
-              ));
-            });
+                Some(privilege.as_ref())
+              ),
+              "Role {:?} should be allowed privilege {:?} on resource {:?}",
+              role, privilege, resource
+            );
           }
-        });
-      });
-    });
+        } else {
+          // Allow all privileges (privileges is None)
+          eprintln!(
+            "Testing acl.is_allowed({:?}, {:?}, None)",
+            role, resource
+          );
+          assert!(
+            acl.is_allowed(
+              Some(role.as_ref()),
+              Some(resource.as_ref()),
+              None
+            ),
+            "Role {:?} should be allowed all privileges on resource {:?}",
+            role, resource
+          );
+        }
+      }
+    }
   }
 
-  // @todo Check "deny" rules
-
-  // println!("{:?}", &acl);
+  // Check "deny" rules
+  // ----
+  println!("Check \"deny\" rules...");
+  let deny_rules = acl_data.deny.expect("acl_data should have deny rules");
+  for (resource, role_privileges) in deny_rules.iter() {
+    if let Some(rps) = role_privileges.as_ref() {
+      for (role, privileges) in rps.iter() {
+        if let Some(privilege_list) = privileges.as_ref() {
+          // Deny specific privileges
+          for privilege in privilege_list.iter() {
+            eprintln!(
+              "Testing !acl.is_allowed({:?}, {:?}, {:?})",
+              role, resource, privilege
+            );
+            assert!(
+              !acl.is_allowed(
+                Some(role.as_ref()),
+                Some(resource.as_ref()),
+                Some(privilege.as_ref())
+              ),
+              "Role {:?} should be denied privilege {:?} on resource {:?}",
+              role, privilege, resource
+            );
+          }
+        } else {
+          // Deny all privileges (privileges is None)
+          eprintln!(
+            "Testing !acl.is_allowed({:?}, {:?}, None)",
+            role, resource
+          );
+          assert!(
+            !acl.is_allowed(
+              Some(role.as_ref()),
+              Some(resource.as_ref()),
+              None
+            ),
+            "Role {:?} should be denied all privileges on resource {:?}",
+            role, resource
+          );
+        }
+      }
+    }
+  }
 
   Ok(())
 }
 
 #[test]
 pub fn test_acl_data_from_mut_file_ref() -> Result<(), Box<dyn std::error::Error>> {
-  let file_path = "./test-fixtures/example-acl.json";
+  let file_path = "./test-fixtures/example-extensive-acl-array.json";
 
   // Get digraph data
   let mut f = File::open(&file_path)?;
