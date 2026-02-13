@@ -3,7 +3,7 @@ use walrs_navigation::{Container, Page};
 
 fn bench_page_creation(c: &mut Criterion) {
     c.bench_function("page_new", |b| {
-        b.iter(|| Page::new());
+        b.iter(Page::new);
     });
 
     c.bench_function("page_builder", |b| {
@@ -18,7 +18,7 @@ fn bench_page_creation(c: &mut Criterion) {
 
 fn bench_container_operations(c: &mut Criterion) {
     c.bench_function("container_new", |b| {
-        b.iter(|| Container::new());
+        b.iter(Container::new);
     });
 
     let mut group = c.benchmark_group("add_page");
@@ -70,7 +70,7 @@ fn bench_nested_operations(c: &mut Criterion) {
         group.bench_with_input(BenchmarkId::from_parameter(depth), depth, |b, &depth| {
             b.iter(|| {
                 let mut root = Page::builder().label("Root").build();
-                let mut current = &mut root;
+                let current = &mut root;
 
                 for i in 0..depth {
                     let child = Page::builder()

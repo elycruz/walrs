@@ -13,6 +13,8 @@ pub enum NavigationError {
     InvalidConfiguration(String),
     /// Deserialization error
     DeserializationError(String),
+    /// Serialization error
+    SerializationError(String),
 }
 
 impl fmt::Display for NavigationError {
@@ -32,6 +34,9 @@ impl fmt::Display for NavigationError {
             }
             NavigationError::DeserializationError(msg) => {
                 write!(f, "Deserialization error: {}", msg)
+            }
+            NavigationError::SerializationError(msg) => {
+                write!(f, "Serialization error: {}", msg)
             }
         }
     }

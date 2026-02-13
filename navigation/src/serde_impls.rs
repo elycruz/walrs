@@ -98,7 +98,7 @@ impl Container {
     /// ```
     pub fn to_json(&self) -> Result<String> {
         serde_json::to_string(&self.pages())
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 
     /// Serializes the Container to pretty JSON.
@@ -116,7 +116,7 @@ impl Container {
     /// ```
     pub fn to_json_pretty(&self) -> Result<String> {
         serde_json::to_string_pretty(&self.pages())
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 
     /// Serializes the Container to YAML.
@@ -134,7 +134,7 @@ impl Container {
     /// ```
     pub fn to_yaml(&self) -> Result<String> {
         serde_yaml::to_string(&self.pages())
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 }
 
@@ -173,19 +173,19 @@ impl Page {
     /// Serializes the Page to JSON.
     pub fn to_json(&self) -> Result<String> {
         serde_json::to_string(self)
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 
     /// Serializes the Page to pretty JSON.
     pub fn to_json_pretty(&self) -> Result<String> {
         serde_json::to_string_pretty(self)
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 
     /// Serializes the Page to YAML.
     pub fn to_yaml(&self) -> Result<String> {
         serde_yaml::to_string(self)
-            .map_err(|e| NavigationError::DeserializationError(e.to_string()))
+            .map_err(|e| NavigationError::SerializationError(e.to_string()))
     }
 }
 

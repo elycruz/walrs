@@ -215,6 +215,19 @@ impl Container {
     }
 
     /// Finds a page by ID.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::{Container, Page};
+    ///
+    /// let mut nav = Container::new();
+    /// nav.add_page(Page::builder().id("home").label("Home").build());
+    ///
+    /// let found = nav.find_by_id("home");
+    /// assert!(found.is_some());
+    /// assert_eq!(found.unwrap().label(), Some("Home"));
+    /// ```
     pub fn find_by_id(&self, id: &str) -> Option<&Page> {
         self.find_page(|p| p.id() == Some(id))
     }

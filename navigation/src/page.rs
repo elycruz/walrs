@@ -390,7 +390,7 @@ impl Default for Page {
 }
 
 /// Builder for constructing `Page` instances.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct PageBuilder {
     label: Option<String>,
     uri: Option<String>,
@@ -407,6 +407,28 @@ pub struct PageBuilder {
     attributes: HashMap<String, String>,
     pages: Vec<Page>,
     order: i32,
+}
+
+impl Default for PageBuilder {
+    fn default() -> Self {
+        Self {
+            label: None,
+            uri: None,
+            title: None,
+            fragment: None,
+            route: None,
+            resource: None,
+            privilege: None,
+            active: false,
+            visible: true,
+            class: None,
+            id: None,
+            target: None,
+            attributes: HashMap::new(),
+            pages: Vec::new(),
+            order: 0,
+        }
+    }
 }
 
 impl PageBuilder {
@@ -502,7 +524,9 @@ impl PageBuilder {
 
     /// Builds the `Page`.
     pub fn build(mut self) -> Page {
-        self.visible = true;
+        // Sort child pages by order
+        self.pages.sort_by_key(|p| p.order);
+
         Page {
             label: self.label,
             uri: self.uri,

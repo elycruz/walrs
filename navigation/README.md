@@ -76,25 +76,29 @@ fn main() {
 ```rust
 use walrs_navigation::Container;
 
-let json = r#"[
-    {
-        "label": "Home",
-        "uri": "/"
-    },
-    {
-        "label": "About",
-        "uri": "/about",
-        "pages": [
-            {
-                "label": "Team",
-                "uri": "/about/team"
-            }
-        ]
-    }
-]"#;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let json = r#"[
+        {
+            "label": "Home",
+            "uri": "/"
+        },
+        {
+            "label": "About",
+            "uri": "/about",
+            "pages": [
+                {
+                    "label": "Team",
+                    "uri": "/about/team"
+                }
+            ]
+        }
+    ]"#;
 
-let nav = Container::from_json(json)?;
-println!("Loaded {} pages", nav.count());
+    let nav = Container::from_json(json)?;
+    println!("Loaded {} pages", nav.count());
+
+    Ok(())
+}
 ```
 
 ### Loading from YAML
@@ -102,19 +106,23 @@ println!("Loaded {} pages", nav.count());
 ```rust
 use walrs_navigation::Container;
 
-let yaml = r#"
-- label: Home
-  uri: /
-  order: 1
-- label: About
-  uri: /about
-  order: 2
-  pages:
-    - label: Team
-      uri: /about/team
-"#;
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let yaml = r#"
+    - label: Home
+      uri: /
+      order: 1
+    - label: About
+      uri: /about
+      order: 2
+      pages:
+        - label: Team
+          uri: /about/team
+    "#;
 
-let nav = Container::from_yaml(yaml)?;
+    let nav = Container::from_yaml(yaml)?;
+
+    Ok(())
+}
 ```
 
 ## Page Properties
@@ -144,46 +152,53 @@ Each `Page` supports the following properties:
 The `Container` type manages a collection of root-level pages.
 
 ```rust
-let mut nav = Container::new();
+use walrs_navigation::{Container, Page};
 
-// Add pages
-nav.add_page(page);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let mut nav = Container::new();
 
-// Remove pages
-let page = nav.remove_page(0)?;
+    // Add pages
+    let page = Page::builder().label("Home").uri("/").build();
+    nav.add_page(page);
 
-// Find pages
-let page = nav.find_by_uri("/about");
-let page = nav.find_by_label("Home");
-let page = nav.find_by_id("main-nav");
+    // Remove pages
+    let page = nav.remove_page(0)?;
 
-// Get page count
-let count = nav.count();
+    // Find pages
+    let page = nav.find_by_uri("/about");
+    let page = nav.find_by_label("Home");
+    let page = nav.find_by_id("main-nav");
 
-// Check if empty
-if nav.is_empty() {
-    println!("No pages");
+    // Get page count
+    let count = nav.count();
+
+    // Check if empty
+    if nav.is_empty() {
+        println!("No pages");
+    }
+
+    // Clear all pages
+    nav.clear();
+
+    // Traverse all pages
+    nav.traverse(&mut |page| {
+        // Do something with each page
+    });
+
+    // Iterate over root pages
+    for page in nav.iter() {
+        println!("{}", page.label().unwrap_or(""));
+    }
+
+    // Set active page
+    nav.set_active_by_uri("/current-page");
+
+    // Serialize to JSON/YAML
+    let json = nav.to_json()?;
+    let yaml = nav.to_yaml()?;
+
+    Ok(())
 }
-
-// Clear all pages
-nav.clear();
-
-// Traverse all pages
-nav.traverse(&mut |page| {
-    // Do something with each page
-});
-
-// Iterate over root pages
-for page in nav.iter() {
-    println!("{}", page.label().unwrap_or(""));
-}
-
-// Set active page
-nav.set_active_by_uri("/current-page");
-
-// Serialize to JSON/YAML
-let json = nav.to_json()?;
-let yaml = nav.to_yaml()?;
 ```
 
 ### Page
@@ -191,44 +206,50 @@ let yaml = nav.to_yaml()?;
 The `Page` type represents a single navigation item.
 
 ```rust
-// Create with builder
-let page = Page::builder()
-    .label("Products")
-    .uri("/products")
-    .title("Our Products")
-    .order(2)
-    .visible(true)
-    .active(false)
-    .class("nav-item")
-    .attribute("data-section", "main")
-    .build();
+use walrs_navigation::Page;
 
-// Add child pages
-let mut parent = Page::builder().label("Products").build();
-parent.add_page(
-    Page::builder()
-        .label("Books")
-        .build()
-);
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Create with builder
+    let page = Page::builder()
+        .label("Products")
+        .uri("/products")
+        .title("Our Products")
+        .order(2)
+        .visible(true)
+        .active(false)
+        .class("nav-item")
+        .attribute("data-section", "main")
+        .build();
 
-// Remove child pages
-let removed = parent.remove_page(0)?;
+    // Add child pages
+    let mut parent = Page::builder().label("Products").build();
+    parent.add_page(
+        Page::builder()
+            .label("Books")
+            .build()
+    );
 
-// Find child pages
-let child = parent.find_page(|p| p.label() == Some("Books"));
+    // Remove child pages
+    let removed = parent.remove_page(0)?;
 
-// Get page count (including descendants)
-let count = parent.count();
+    // Find child pages
+    let child = parent.find_page(|p| p.label() == Some("Books"));
 
-// Check if page has children
-if parent.has_pages() {
-    println!("Has child pages");
+    // Get page count (including descendants)
+    let count = parent.count();
+
+    // Check if page has children
+    if parent.has_pages() {
+        println!("Has child pages");
+    }
+
+    // Traverse page tree
+    parent.traverse(&mut |page| {
+        // Visit each page in the tree
+    });
+
+    Ok(())
 }
-
-// Traverse page tree
-parent.traverse(&mut |page| {
-    // Visit each page in the tree
-});
 ```
 
 ## Examples

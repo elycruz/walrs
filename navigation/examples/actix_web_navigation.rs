@@ -6,6 +6,16 @@ struct AppState {
     navigation: Container,
 }
 
+/// Escapes HTML special characters to prevent XSS attacks
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+        .replace('/', "&#x2F;")
+}
+
 /// Home page handler
 #[get("/")]
 async fn index(data: web::Data<AppState>) -> impl Responder {
@@ -51,21 +61,23 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
             ""
         };
 
+        let uri = html_escape(page.uri().unwrap_or("#"));
+        let label = html_escape(page.label().unwrap_or("(no label)"));
+
         menu_html.push_str(&format!(
             "  <li{}><a href=\"{}\">{}</a>",
-            active_class,
-            page.uri().unwrap_or("#"),
-            page.label().unwrap_or("(no label)")
+            active_class, uri, label
         ));
 
         // Render child pages if any
         if page.has_pages() {
             menu_html.push_str("\n    <ul class=\"sub-menu\">\n");
             for child in page.pages() {
+                let child_uri = html_escape(child.uri().unwrap_or("#"));
+                let child_label = html_escape(child.label().unwrap_or("(no label)"));
                 menu_html.push_str(&format!(
                     "      <li><a href=\"{}\">{}</a></li>\n",
-                    child.uri().unwrap_or("#"),
-                    child.label().unwrap_or("(no label)")
+                    child_uri, child_label
                 ));
             }
             menu_html.push_str("    </ul>\n  ");
@@ -75,6 +87,8 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
     }
 
     menu_html.push_str("</ul>");
+
+    let escaped_current_uri = html_escape(current_uri);
 
     format!(
         r#"<!DOCTYPE html>
@@ -170,7 +184,7 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
     </div>
 </body>
 </html>"#,
-        menu_html, current_uri
+        menu_html, escaped_current_uri
     )
 }
 
