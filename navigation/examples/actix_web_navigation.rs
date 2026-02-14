@@ -169,15 +169,6 @@ fn render_page(nav: &Container, current_uri: &str) -> String {
 fn create_navigation() -> Container {
     let mut nav = Container::new();
 
-    // Home page
-    nav.add_page(
-        Page::builder()
-            .label("Home")
-            .uri("/")
-            .order(1)
-            .build(),
-    );
-
     // Products section with sub-pages
     let mut products_page = Page::builder()
         .label("Products")
@@ -201,8 +192,6 @@ fn create_navigation() -> Container {
             .build(),
     );
 
-    nav.add_page(products_page);
-
     // About section with sub-pages
     let mut about_page = Page::builder()
         .label("About")
@@ -224,7 +213,16 @@ fn create_navigation() -> Container {
             .build(),
     );
 
-    nav.add_page(about_page);
+    // Use fluent interface to add all pages
+    nav.add_page(
+            Page::builder()
+                .label("Home")
+                .uri("/")
+                .order(1)
+                .build(),
+        )
+        .add_page(products_page)
+        .add_page(about_page);
 
     nav
 }

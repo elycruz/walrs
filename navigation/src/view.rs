@@ -17,8 +17,8 @@
 //! use walrs_navigation::view;
 //!
 //! let mut nav = Container::new();
-//! nav.add_page(Page::builder().label("Home").uri("/").active(true).build());
-//! nav.add_page(Page::builder().label("About").uri("/about").build());
+//! nav.add_page(Page::builder().label("Home").uri("/").active(true).build())
+//!    .add_page(Page::builder().label("About").uri("/about").build());
 //!
 //! let menu = view::render_menu(&nav);
 //! assert!(menu.contains("<ul"));
@@ -64,10 +64,11 @@ pub fn html_escape(text: &str) -> String {
 /// use walrs_navigation::view::render_menu;
 ///
 /// let mut nav = Container::new();
-/// nav.add_page(Page::builder().label("Home").uri("/").active(true).build());
 /// let mut about = Page::builder().label("About").uri("/about").build();
 /// about.add_page(Page::builder().label("Team").uri("/about/team").build());
-/// nav.add_page(about);
+///
+/// nav.add_page(Page::builder().label("Home").uri("/").active(true).build())
+///    .add_page(about);
 ///
 /// let html = render_menu(&nav);
 /// assert!(html.contains("<ul>"));
@@ -237,8 +238,8 @@ pub fn render_breadcrumbs(nav: &Container, separator: &str) -> String {
 /// use walrs_navigation::view::render_sitemap;
 ///
 /// let mut nav = Container::new();
-/// nav.add_page(Page::builder().label("Home").uri("/").build());
-/// nav.add_page(Page::builder().label("About").uri("/about").build());
+/// nav.add_page(Page::builder().label("Home").uri("/").build())
+///    .add_page(Page::builder().label("About").uri("/about").build());
 ///
 /// let html = render_sitemap(&nav);
 /// assert!(html.contains("Home"));
@@ -319,14 +320,6 @@ mod tests {
 
   fn sample_nav() -> Container {
     let mut nav = Container::new();
-    nav.add_page(
-      Page::builder()
-        .label("Home")
-        .uri("/")
-        .active(true)
-        .order(1)
-        .build(),
-    );
     let mut products = Page::builder()
       .label("Products")
       .uri("/products")
@@ -344,14 +337,22 @@ mod tests {
         .uri("/products/electronics")
         .build(),
     );
-    nav.add_page(products);
     nav.add_page(
-      Page::builder()
-        .label("About")
-        .uri("/about")
-        .order(3)
-        .build(),
-    );
+        Page::builder()
+          .label("Home")
+          .uri("/")
+          .active(true)
+          .order(1)
+          .build(),
+      )
+      .add_page(products)
+      .add_page(
+        Page::builder()
+          .label("About")
+          .uri("/about")
+          .order(3)
+          .build(),
+      );
     nav
   }
 
@@ -385,8 +386,8 @@ mod tests {
   #[test]
   fn test_render_menu_hidden_pages() {
     let mut nav = Container::new();
-    nav.add_page(Page::builder().label("Visible").uri("/v").build());
-    nav.add_page(Page::builder().label("Hidden").uri("/h").visible(false).build());
+    nav.add_page(Page::builder().label("Visible").uri("/v").build())
+       .add_page(Page::builder().label("Hidden").uri("/h").visible(false).build());
 
     let html = render_menu(&nav);
     assert!(html.contains("Visible"));
@@ -508,8 +509,8 @@ mod tests {
   #[test]
   fn test_render_sitemap_hides_invisible() {
     let mut nav = Container::new();
-    nav.add_page(Page::builder().label("V").uri("/v").build());
-    nav.add_page(Page::builder().label("H").uri("/h").visible(false).build());
+    nav.add_page(Page::builder().label("V").uri("/v").build())
+       .add_page(Page::builder().label("H").uri("/h").visible(false).build());
 
     let html = render_sitemap(&nav);
     assert!(html.contains("V"));

@@ -6,15 +6,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   // Create a navigation container
   let mut nav = Container::new();
 
-  nav.add_page(
-    Page::builder()
-      .label("Home")
-      .uri("/")
-      .title("Home Page")
-      .order(1)
-      .build(),
-  );
-
   let mut products = Page::builder()
     .label("Products")
     .uri("/products")
@@ -38,15 +29,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
       .build(),
   );
 
-  nav.add_page(products);
-
+  // Use fluent interface to add all pages
   nav.add_page(
-    Page::builder()
-      .label("About")
-      .uri("/about")
-      .order(3)
-      .build(),
-  );
+      Page::builder()
+        .label("Home")
+        .uri("/")
+        .title("Home Page")
+        .order(1)
+        .build(),
+    )
+    .add_page(products)
+    .add_page(
+      Page::builder()
+        .label("About")
+        .uri("/about")
+        .order(3)
+        .build(),
+    );
 
   // Serialize to YAML
   println!("YAML representation:");
