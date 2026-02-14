@@ -845,6 +845,31 @@ mod tests {
     }
 
     #[test]
+    fn test_iter() {
+        let mut nav = Container::new();
+        nav.add_page(Page::builder().label("Home").uri("/").build());
+        nav.add_page(Page::builder().label("About").uri("/about").build());
+
+        // Test basic iteration
+        let labels: Vec<_> = nav.iter().filter_map(|p| p.label.as_deref()).collect();
+        assert_eq!(labels, vec!["Home", "About"]);
+
+        // Test that iter() borrows and doesn't consume
+        assert_eq!(nav.count(), 2);
+
+        // Test iteration count
+        let mut count = 0;
+        for _page in nav.iter() {
+            count += 1;
+        }
+        assert_eq!(count, 2);
+
+        // Test empty container
+        let empty_nav = Container::new();
+        assert_eq!(empty_nav.iter().count(), 0);
+    }
+
+    #[test]
     fn test_from_iterator() {
         let pages = vec![
             Page::builder().label("Home").build(),
