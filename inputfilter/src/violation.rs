@@ -23,6 +23,28 @@ pub enum ViolationType {
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violation(pub ViolationType, pub ViolationMessage);
 
+impl Violation {
+  /// Creates a new `Violation` with the given type and message.
+  pub fn new(violation_type: ViolationType, message: impl Into<String>) -> Self {
+    Self(violation_type, message.into())
+  }
+
+  /// Returns the violation type.
+  pub fn violation_type(&self) -> ViolationType {
+    self.0
+  }
+
+  /// Returns a reference to the violation message.
+  pub fn message(&self) -> &str {
+    &self.1
+  }
+
+  /// Consumes the violation and returns the message.
+  pub fn into_message(self) -> String {
+    self.1
+  }
+}
+
 /// `Display` impl (and `ToString` (which we get for free)) for `Violation` type.
 ///
 /// ```rust
@@ -86,6 +108,12 @@ impl From<Violations> for Vec<Violation> {
   }
 }
 
+impl From<Violation> for Violations {
+  fn from(val: Violation) -> Self {
+    Violations(vec![val])
+  }
+}
+
 impl From<Violations> for Vec<String> {
   fn from(val: Violations) -> Self {
     val.0.into_iter().map(|violation| violation.1).collect()
@@ -93,8 +121,89 @@ impl From<Violations> for Vec<String> {
 }
 
 impl Violations {
+  /// Creates a new `Violations` instance from a vector of violations.
+  pub fn new(violations: Vec<Violation>) -> Self {
+    Self(violations)
+  }
+
+  /// Creates an empty `Violations` instance.
+  pub fn empty() -> Self {
+    Self(Vec::new())
+  }
+
+  /// Returns `true` if there are no violations.
+  pub fn is_empty(&self) -> bool {
+    self.0.is_empty()
+  }
+
+  /// Returns the number of violations.
+  pub fn len(&self) -> usize {
+    self.0.len()
+  }
+
+  /// Adds a violation to the collection.
+  pub fn push(&mut self, violation: Violation) {
+    self.0.push(violation);
+  }
+
+  /// Converts the violations into a vector of violation messages.
   pub fn to_string_vec(self) -> Vec<String> {
     self.into()
+  }
+
+  /// Returns an iterator over the violations.
+  pub fn iter(&self) -> impl Iterator<Item = &Violation> {
+    self.0.iter()
+  }
+
+  /// Returns a mutable iterator over the violations.
+  pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Violation> {
+    self.0.iter_mut()
+  }
+}
+
+impl Default for Violations {
+  fn default() -> Self {
+    Self::empty()
+  }
+}
+
+impl IntoIterator for Violations {
+  type Item = Violation;
+  type IntoIter = std::vec::IntoIter<Violation>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.into_iter()
+  }
+}
+
+impl<'a> IntoIterator for &'a Violations {
+  type Item = &'a Violation;
+  type IntoIter = std::slice::Iter<'a, Violation>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.iter()
+  }
+}
+
+impl<'a> IntoIterator for &'a mut Violations {
+  type Item = &'a mut Violation;
+  type IntoIter = std::slice::IterMut<'a, Violation>;
+
+  fn into_iter(self) -> Self::IntoIter {
+    self.0.iter_mut()
+  }
+}
+
+impl FromIterator<Violation> for Violations {
+  fn from_iter<I: IntoIterator<Item = Violation>>(iter: I) -> Self {
+    Violations(iter.into_iter().collect())
+  }
+}
+
+impl Extend<Violation> for Violations {
+  fn extend<I: IntoIterator<Item = Violation>>(&mut self, iter: I) {
+    self.0.extend(iter);
   }
 }
 
@@ -152,11 +261,11 @@ mod test {
     let vs = Violations(vec![
       Violation(ValueMissing, "value is missing".to_string()),
     ]);
-    
+
     // Test that Violations implements Error
     let err: &dyn Error = &vs;
     assert!(err.source().is_some());
-    
+
     // Test empty violations
     let empty_vs = Violations(vec![]);
     let empty_err: &dyn Error = &empty_vs;

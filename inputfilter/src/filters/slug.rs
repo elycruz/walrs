@@ -26,7 +26,7 @@ pub fn get_dash_filter_regex() -> &'static Regex {
 ///
 /// assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
 /// ```
-pub fn to_slug(xs: Cow<str>) -> Cow<str> {
+pub fn to_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
   _to_slug(get_slug_filter_regex(), 200, xs)
 }
 
@@ -38,11 +38,11 @@ pub fn to_slug(xs: Cow<str>) -> Cow<str> {
 ///
 /// assert_eq!(to_pretty_slug(Cow::Borrowed("%$Hello@#$@#!(World$$")), "hello-world");
 /// ```
-pub fn to_pretty_slug(xs: Cow<str>) -> Cow<str> {
+pub fn to_pretty_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
   _to_pretty_slug(get_slug_filter_regex(), 200, xs)
 }
 
-fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
+fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
   let rslt = pattern
     .replace_all(xs.as_ref(), "-")
     .to_lowercase()
@@ -56,9 +56,9 @@ fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a,
   }
 }
 
-fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
+fn _to_pretty_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
   if xs.is_empty() {
-    return xs;
+    return Cow::Owned(String::new());
   }
 
   get_dash_filter_regex()
@@ -88,7 +88,9 @@ impl SlugFilter {
 }
 
 impl Filter<Cow<'_, str>> for SlugFilter {
-  fn filter<'a>(&self, xs: Cow<'a, str>) -> Cow<'a, str> {
+  type Output = Cow<'static, str>;
+
+  fn filter(&self, xs: Cow<'_, str>) -> Self::Output {
     if self.allow_duplicate_dashes {
       _to_slug(get_slug_filter_regex(), self.max_length, xs)
     } else {
@@ -98,25 +100,25 @@ impl Filter<Cow<'_, str>> for SlugFilter {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'a> FnOnce<(Cow<'a, str>,)> for SlugFilter {
-  type Output = Cow<'a, str>;
+impl FnOnce<(Cow<'_, str>,)> for SlugFilter {
+  type Output = Cow<'static, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'a, str>,)) -> Self::Output {
-    self.filter(args.0)
+  extern "rust-call" fn call_once(self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(&self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'a> Fn<(Cow<'a, str>,)> for SlugFilter {
-  extern "rust-call" fn call(&self, args: (Cow<'a, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl Fn<(Cow<'_, str>,)> for SlugFilter {
+  extern "rust-call" fn call(&self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'a> FnMut<(Cow<'a, str>,)> for SlugFilter {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl FnMut<(Cow<'_, str>,)> for SlugFilter {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 

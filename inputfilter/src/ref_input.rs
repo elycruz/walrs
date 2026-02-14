@@ -1,6 +1,7 @@
+use crate::input_common::{collect_violations, handle_missing_value, handle_missing_value_for_filter};
 use crate::traits::FilterFn;
-use crate::ViolationType::ValueMissing;
-use crate::{FilterForUnsized, ValidatorForRef, Violation, ViolationMessage, Violations};
+use crate::{debug_closure_field, debug_vec_closure_field};
+use crate::{FilterForUnsized, RefValidator, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -40,7 +41,7 @@ where
 
   /// Field for setting only one validator - Saves bytes when need only one validator versus
   /// using `validators` field (which requires a `Vec`).
-  pub custom: Option<&'a ValidatorForRef<T>>,
+  pub custom: Option<&'a RefValidator<T>>,
 
   // @todo This should probably be an `Option<Cow<str>>` instead.
   /// Optional locale - Useful in validation "violation" message contexts.  Composed by the user.
@@ -54,7 +55,7 @@ where
   pub get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
 
   /// Validator functions to call on value to be validated.
-  pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
+  pub validators: Option<Vec<&'a RefValidator<T>>>,
 
   /// Transformation functions to subsequently pass validated value through.
   pub filters: Option<Vec<&'a FilterFn<FT>>>,
@@ -167,7 +168,7 @@ where
       .field("required", &self.required)
       .field_with("custom", |fmtr| {
         let val = if self.custom.is_some() {
-          "Some(&ValidatorForRef)"
+          "Some(&RefValidator)"
         } else {
           "None"
         };
@@ -187,7 +188,7 @@ where
       })
       .field_with("validators", |fmtr| {
         let val = if let Some(vs) = self.validators.as_deref() {
-          format!("Some(Vec<&ValidatorForRef>{{ len: {} }})", vs.len())
+          format!("Some(Vec<&RefValidator>{{ len: {} }})", vs.len())
         } else {
           "None".to_string()
         };
@@ -214,26 +215,13 @@ where
   FT: From<&'b T>,
 {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let custom_str = if self.custom.is_some() {
-      "Some(&ValidatorForRef)"
-    } else {
-      "None"
-    };
-    let get_default_value_str = if self.get_default_value.is_some() {
+    let custom_str = debug_closure_field!(self.custom, "Some(&RefValidator)");
+    let get_default_value_str = debug_closure_field!(
+      self.get_default_value,
       "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
-    } else {
-      "None"
-    };
-    let validators_str = if let Some(vs) = self.validators.as_deref() {
-      format!("Some(Vec<&ValidatorForRef>{{ len: {} }})", vs.len())
-    } else {
-      "None".to_string()
-    };
-    let filters_str = if let Some(fs) = self.filters.as_deref() {
-      format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len())
-    } else {
-      "None".to_string()
-    };
+    );
+    let validators_str = debug_vec_closure_field!(self.validators, "&RefValidator");
+    let filters_str = debug_vec_closure_field!(self.filters, "&FilterFn");
 
     f.debug_struct("RefInput")
       .field("break_on_failure", &self.break_on_failure)
@@ -280,40 +268,15 @@ where
   /// assert_eq!(input.validate_ref_detailed(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// ```
   fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {
-    let mut violations = vec![];
+    let custom_result = self.custom.map(|custom| custom(value));
+    let validators_iter = self
+      .validators
+      .as_deref()
+      .into_iter()
+      .flatten()
+      .map(|v| v(value));
 
-    // Validate custom
-    match if let Some(custom) = self.custom {
-      (custom)(value)
-    } else {
-      Ok(())
-    } {
-      Ok(()) => (),
-      Err(err_type) => violations.push(err_type),
-    }
-
-    if !violations.is_empty() && self.break_on_failure {
-      return Err(Violations(violations));
-    }
-
-    // Else validate against validators
-    if let Some(validators) = self.validators.as_deref() {
-      for validator in validators {
-        if let Err(err_type) = validator(value) {
-          violations.push(err_type);
-          if self.break_on_failure {
-            break;
-          }
-        }
-      }
-    }
-
-    // Resolve return value
-    if violations.is_empty() {
-      Ok(())
-    } else {
-      Err(Violations(violations))
-    }
+    collect_violations(custom_result, validators_iter, self.break_on_failure)
   }
 
   /// Validates given "optional" value and returns detailed validation results if any violations
@@ -344,16 +307,7 @@ where
   fn validate_ref_option_detailed(&self, value: Option<&T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_ref_detailed(v),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(())
-        }
-      }
+      None => handle_missing_value(self.required, || (self.value_missing_msg_getter)(self)),
     }
   }
 
@@ -497,16 +451,11 @@ where
   fn filter_ref_option_detailed(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter_ref_detailed(value).map(Some),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(self.get_default_value.and_then(|f| f()))
-        }
-      }
+      None => handle_missing_value_for_filter(
+        self.required,
+        || (self.value_missing_msg_getter)(self),
+        self.get_default_value.map(|f| move || f()),
+      ),
     }
   }
 }
@@ -514,7 +463,7 @@ where
 /// Ref Input builder.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RefInput, RefInputBuilder, ValidatorForRef};
+/// use walrs_inputfilter::{RefInput, RefInputBuilder, RefValidator};
 /// use std::borrow::Cow;
 ///
 /// let input = RefInputBuilder::<str, Cow<str>>::default()
@@ -552,11 +501,11 @@ where
 {
   break_on_failure: Option<bool>,
   required: Option<bool>,
-  custom: Option<&'a ValidatorForRef<T>>,
+  custom: Option<&'a RefValidator<T>>,
   locale: Option<&'a str>,
   name: Option<&'a str>,
   get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
-  validators: Option<Vec<&'a ValidatorForRef<T>>>,
+  validators: Option<Vec<&'a RefValidator<T>>>,
   filters: Option<Vec<&'a FilterFn<FT>>>,
   value_missing_msg_getter:
     Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
@@ -577,7 +526,7 @@ where
     self
   }
 
-  pub fn custom(&mut self, custom: &'a ValidatorForRef<T>) -> &mut Self {
+  pub fn custom(&mut self, custom: &'a RefValidator<T>) -> &mut Self {
     self.custom = Some(custom);
     self
   }
@@ -600,7 +549,7 @@ where
     self
   }
 
-  pub fn validators(&mut self, validators: Vec<&'a ValidatorForRef<T>>) -> &mut Self {
+  pub fn validators(&mut self, validators: Vec<&'a RefValidator<T>>) -> &mut Self {
     self.validators = Some(validators);
     self
   }
@@ -660,6 +609,7 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::Violation;
   use crate::ViolationType::{PatternMismatch, ValueMissing};
   use regex::Regex;
   use std::borrow::Cow;

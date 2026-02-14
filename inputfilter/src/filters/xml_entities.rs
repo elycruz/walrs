@@ -52,6 +52,8 @@ impl XmlEntitiesFilter<'_> {
 }
 
 impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
+  type Output = Cow<'static, str>;
+
   /// Uses contained character association map to encode characters matching contained characters as
   /// xml entities.
   ///
@@ -74,7 +76,7 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
   ///   assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
   /// }
   ///```
-  fn filter<'b>(&self, input: Cow<'b, str>) -> Cow<'b, str> {
+  fn filter(&self, input: Cow<'_, str>) -> Self::Output {
     let mut output = String::with_capacity(input.len());
     for c in input.chars() {
       match self.chars_assoc_map.get(&c) {
@@ -83,7 +85,7 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
       }
     }
 
-    Cow::Owned(output.to_string())
+    Cow::Owned(output)
   }
 }
 
@@ -94,25 +96,25 @@ impl Default for XmlEntitiesFilter<'_> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
-  type Output = Cow<'b, str>;
+impl FnOnce<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
+  type Output = Cow<'static, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+  extern "rust-call" fn call_once(self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(&self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> FnMut<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl FnMut<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
-  extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl Fn<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
+  extern "rust-call" fn call(&self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 

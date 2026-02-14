@@ -1,14 +1,81 @@
 use crate::violation::{Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display};
 
-/// For Owned values.
-pub type ValidatorForSized<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;
+// ============================================================================
+// Validator Type Aliases
+// ============================================================================
 
-/// For referenced/Unsized values.
-pub type ValidatorForRef<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
+/// Validator function type for owned/copied values.
+/// 
+/// Used with `Input` struct for `Copy` types.
+/// 
+/// # Example
+/// ```rust
+/// use walrs_inputfilter::{OwnedValidator, Violation, ViolationType};
+/// 
+/// let is_positive: &OwnedValidator<i32> = &|value: i32| {
+///     if value > 0 {
+///         Ok(())
+///     } else {
+///         Err(Violation::new(ViolationType::RangeUnderflow, "Value must be positive"))
+///     }
+/// };
+/// ```
+pub type OwnedValidator<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;
 
-/// Individual filter functions set on `FilterFor*` implementors.
+/// Validator function type for referenced values.
+/// 
+/// Used with `RefInput` struct for unsized/referenced types like `str`, `[T]`, etc.
+/// 
+/// # Example
+/// ```rust
+/// use walrs_inputfilter::{RefValidator, Violation, ViolationType};
+/// 
+/// let is_not_empty: &RefValidator<str> = &|value: &str| {
+///     if !value.is_empty() {
+///         Ok(())
+///     } else {
+///         Err(Violation::new(ViolationType::ValueMissing, "Value cannot be empty"))
+///     }
+/// };
+/// ```
+pub type RefValidator<T> = dyn Fn(&T) -> Result<(), Violation> + Send + Sync;
+
+// Backwards compatibility aliases
+#[deprecated(since = "0.2.0", note = "Use `OwnedValidator` instead")]
+pub type ValidatorForSized<T> = OwnedValidator<T>;
+
+#[deprecated(since = "0.2.0", note = "Use `RefValidator` instead")]
+pub type ValidatorForRef<T> = RefValidator<T>;
+
+// ============================================================================
+// Filter Type Aliases
+// ============================================================================
+
+/// Filter/transformation function type.
+/// 
+/// Takes an owned value and returns a transformed value of the same type.
 pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
+
+// ============================================================================
+// Result Type Aliases
+// ============================================================================
+
+/// Result type for validation operations returning detailed violations.
+pub type ValidationResult = Result<(), Violations>;
+
+/// Result type for filter operations returning detailed violations.
+pub type FilterResult<T> = Result<T, Violations>;
+
+/// Result type for validation operations returning string messages.
+pub type SimpleValidationResult = Result<(), Vec<ViolationMessage>>;
+
+/// Result type for filter operations returning string messages.
+pub type SimpleFilterResult<T> = Result<T, Vec<ViolationMessage>>;
+
+// ============================================================================
+// Traits
+// ============================================================================
 
 /// A trait for performing validations, and filtering (transformations), all in one,
 /// for unsized types.

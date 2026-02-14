@@ -1,9 +1,7 @@
-use crate::{
-  FilterForSized, ValidatorForSized, Violation, ViolationMessage, ViolationType::ValueMissing,
-  Violations,
-};
-
+use crate::{FilterForSized, OwnedValidator, ViolationMessage, Violations};
+use crate::input_common::{collect_violations, handle_missing_value, handle_missing_value_for_filter};
 use crate::traits::FilterFn;
+use crate::{debug_closure_field, debug_vec_closure_field};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -110,7 +108,7 @@ where
   /// To be used when only a single validator is needed;  Avoids additional
   /// allocations that happen when using `validators` Vec.
   #[builder(default = "None")]
-  pub custom: Option<&'a ValidatorForSized<T>>,
+  pub custom: Option<&'a OwnedValidator<T>>,
 
   /// Locale to be used in user-land validation error message getters.
   #[builder(default = "None")]
@@ -127,7 +125,7 @@ where
 
   /// Validators to apply when validating, and/or filtering, values.
   #[builder(default = "None")]
-  pub validators: Option<Vec<&'a ValidatorForSized<T>>>,
+  pub validators: Option<Vec<&'a OwnedValidator<T>>>,
 
   /// List of transformations to apply on value being filtered.
   #[builder(default = "None")]
@@ -237,40 +235,15 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   /// assert_eq!(str_input2.filter("abcdefg"), Ok(Cow::from("ABCDEFG".to_string())));
   /// ```
   fn validate_detailed(&self, value: T) -> Result<(), Violations> {
-    let mut violations = vec![];
+    let custom_result = self.custom.map(|custom| custom(value));
+    let validators_iter = self
+      .validators
+      .as_deref()
+      .into_iter()
+      .flatten()
+      .map(|v| v(value));
 
-    // Validate custom
-    match if let Some(custom) = self.custom {
-      (custom)(value)
-    } else {
-      Ok(())
-    } {
-      Ok(()) => (),
-      Err(err_type) => violations.push(err_type),
-    }
-
-    if !violations.is_empty() && self.break_on_failure {
-      return Err(Violations(violations));
-    }
-
-    // Else validate against validators
-    if let Some(validators) = self.validators.as_deref() {
-      for validator in validators {
-        if let Err(err_type) = validator(value) {
-          violations.push(err_type);
-          if self.break_on_failure {
-            break;
-          }
-        }
-      }
-    }
-
-    // Resolve return value
-    if violations.is_empty() {
-      Ok(())
-    } else {
-      Err(Violations(violations))
-    }
+    collect_violations(custom_result, validators_iter, self.break_on_failure)
   }
 
   /// Validates given optional value and returns detailed violation results on violation.
@@ -300,16 +273,7 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   fn validate_option_detailed(&self, value: Option<T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_detailed(v),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(())
-        }
-      }
+      None => handle_missing_value(self.required, || (self.value_missing_msg_getter)(self)),
     }
   }
 
@@ -384,16 +348,11 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   fn filter_option_detailed(&self, value: Option<T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter_detailed(value).map(Some),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(self.get_default_value.and_then(|f| f()))
-        }
-      }
+      None => handle_missing_value_for_filter(
+        self.required,
+        || (self.value_missing_msg_getter)(self),
+        self.get_default_value.map(|f| move || f()),
+      ),
     }
   }
 }
@@ -472,7 +431,7 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
       .field("required", &self.required)
       .field_with("custom", |fmtr| {
         let val = if self.custom.is_some() {
-          "Some(&ValidatorForSized)"
+          "Some(&OwnedValidator)"
         } else {
           "None"
         };
@@ -492,7 +451,7 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
       })
       .field_with("validators", |fmtr| {
         let val = if let Some(vs) = self.validators.as_deref() {
-          format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len())
+          format!("Some(Vec<&OwnedValidator>{{ len: {} }})", vs.len())
         } else {
           "None".to_string()
         };
@@ -515,26 +474,13 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
 #[cfg(not(feature = "debug_closure_helpers"))]
 impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    let custom_str = if self.custom.is_some() {
-      "Some(&ValidatorForSized)"
-    } else {
-      "None"
-    };
-    let get_default_value_str = if self.get_default_value.is_some() {
+    let custom_str = debug_closure_field!(self.custom, "Some(&OwnedValidator)");
+    let get_default_value_str = debug_closure_field!(
+      self.get_default_value,
       "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
-    } else {
-      "None"
-    };
-    let validators_str = if let Some(vs) = self.validators.as_deref() {
-      format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len())
-    } else {
-      "None".to_string()
-    };
-    let filters_str = if let Some(fs) = self.filters.as_deref() {
-      format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len())
-    } else {
-      "None".to_string()
-    };
+    );
+    let validators_str = debug_vec_closure_field!(self.validators, "&OwnedValidator");
+    let filters_str = debug_vec_closure_field!(self.filters, "&FilterFn");
 
     f.debug_struct("Input")
       .field("break_on_failure", &self.break_on_failure)
@@ -552,7 +498,8 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
 #[cfg(test)]
 mod test {
   use super::*;
-  use crate::ViolationType::{CustomError, RangeOverflow};
+  use crate::Violation;
+  use crate::ViolationType::{CustomError, RangeOverflow, ValueMissing};
   use std::error::Error;
 
   #[test]

@@ -47,6 +47,8 @@ impl StripTagsFilter<'_> {
 }
 
 impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
+  type Output = Cow<'static, str>;
+
   /// Filters incoming HTML using the contained `ammonia::Builder` instance.
   ///  If no instance is set gets/(and/or) initializes a new (default, and singleton) instance.
   ///
@@ -90,7 +92,7 @@ impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
   /// );
   /// ```
   ///
-  fn filter<'a>(&self, input: Cow<'a, str>) -> Cow<'a, str> {
+  fn filter(&self, input: Cow<'_, str>) -> Self::Output {
     match self.ammonia {
       None => Cow::Owned(
         DEFAULT_AMMONIA_BUILDER
@@ -110,25 +112,25 @@ impl Default for StripTagsFilter<'_> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'_> {
-  type Output = Cow<'b, str>;
+impl FnOnce<(Cow<'_, str>,)> for StripTagsFilter<'_> {
+  type Output = Cow<'static, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+  extern "rust-call" fn call_once(self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(&self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> FnMut<(Cow<'b, str>,)> for StripTagsFilter<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl FnMut<(Cow<'_, str>,)> for StripTagsFilter<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<'b> Fn<(Cow<'b, str>,)> for StripTagsFilter<'_> {
-  extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
-    self.filter(args.0)
+impl Fn<(Cow<'_, str>,)> for StripTagsFilter<'_> {
+  extern "rust-call" fn call(&self, args: (Cow<'_, str>,)) -> Self::Output {
+    Filter::filter(self, args.0)
   }
 }
 
