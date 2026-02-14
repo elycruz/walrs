@@ -173,6 +173,53 @@ impl Page {
         self
     }
 
+    /// Gets a custom attribute by key.
+    ///
+    /// Returns `Some(&String)` if the attribute exists, or `None` if it doesn't.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home");
+    ///
+    /// assert_eq!(page.get_attribute("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(page.get_attribute("nonexistent"), None);
+    /// ```
+    pub fn get_attribute(&self, key: &str) -> Option<&String> {
+        self.attributes.get(key)
+    }
+
+    /// Gets the specified custom attributes by their keys.
+    ///
+    /// Returns a new HashMap containing only the attributes that exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home")
+    ///     .set_attribute("data-section", "main")
+    ///     .set_attribute("data-other", "value");
+    ///
+    /// let attrs = page.get_attributes(&["data-id", "data-section", "nonexistent"]);
+    /// assert_eq!(attrs.len(), 2);
+    /// assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(attrs.get("data-section"), Some(&"main".to_string()));
+    /// assert_eq!(attrs.get("nonexistent"), None);
+    /// ```
+    pub fn get_attributes(&self, keys: &[&str]) -> HashMap<String, String> {
+        keys.iter()
+            .filter_map(|key| {
+                self.attributes.get(*key).map(|value| (key.to_string(), value.clone()))
+            })
+            .collect()
+    }
+
     /// Removes a custom attribute, returning its value if it was present.
     pub fn remove_attribute(&mut self, key: &str) -> Option<String> {
         self.attributes.remove(key)
@@ -1284,6 +1331,52 @@ mod tests {
         assert_eq!(page.attributes.len(), 2);
         assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
         assert_eq!(page.attributes.get("data-section"), Some(&"main".to_string()));
+    }
+
+    #[test]
+    fn test_get_attribute() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        assert_eq!(page.get_attribute("data-id"), Some(&"home".to_string()));
+        assert_eq!(page.get_attribute("data-section"), Some(&"main".to_string()));
+        assert_eq!(page.get_attribute("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_attributes() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main")
+            .set_attribute("data-other", "value");
+
+        let attrs = page.get_attributes(&["data-id", "data-section"]);
+        assert_eq!(attrs.len(), 2);
+        assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(attrs.get("data-section"), Some(&"main".to_string()));
+        assert_eq!(attrs.get("data-other"), None);
+    }
+
+    #[test]
+    fn test_get_attributes_with_nonexistent() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        let attrs = page.get_attributes(&["data-id", "nonexistent"]);
+        assert_eq!(attrs.len(), 1);
+        assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(attrs.get("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_attributes_empty_keys() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home");
+
+        let attrs = page.get_attributes(&[]);
+        assert!(attrs.is_empty());
     }
 
     #[test]
