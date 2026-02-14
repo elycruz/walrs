@@ -27,7 +27,7 @@ static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock
 ///  ("S &amp; P", "S &amp;amp; P"),
 ///  ("<script>alert('hello');</script>", "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;"),
 /// ] {
-///  assert_eq!(filter(incoming_src.into()), expected_src.to_string());
+///  assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
 /// }
 /// ```
 pub struct XmlEntitiesFilter<'a> {
@@ -92,6 +92,7 @@ impl Default for XmlEntitiesFilter<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   type Output = Cow<'b, str>;
 
@@ -100,12 +101,14 @@ impl<'b> FnOnce<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> FnMut<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
   extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
@@ -114,6 +117,8 @@ impl<'b> Fn<(Cow<'b, str>,)> for XmlEntitiesFilter<'_> {
 
 #[cfg(test)]
 mod test {
+  use super::super::traits::Filter;
+
   #[test]
   fn test_construction() {
     let _ = super::XmlEntitiesFilter::new();
@@ -136,7 +141,14 @@ mod test {
         "&lt;script&gt;alert(&apos;hello&apos;);&lt;/script&gt;",
       ),
     ] {
-      assert_eq!(filter(incoming_src.into()), expected_src.to_string());
+      assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
     }
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_traits() {
+    let filter = super::XmlEntitiesFilter::new();
+    assert_eq!(filter("Hello".into()), "Hello".to_string());
   }
 }

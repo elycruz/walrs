@@ -96,6 +96,7 @@ impl Filter<Cow<'_, str>> for SlugFilter {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a> FnOnce<(Cow<'a, str>,)> for SlugFilter {
   type Output = Cow<'a, str>;
 
@@ -104,12 +105,14 @@ impl<'a> FnOnce<(Cow<'a, str>,)> for SlugFilter {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a> Fn<(Cow<'a, str>,)> for SlugFilter {
   extern "rust-call" fn call(&self, args: (Cow<'a, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a> FnMut<(Cow<'a, str>,)> for SlugFilter {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>,)) -> Self::Output {
     self.filter(args.0)
@@ -159,6 +162,7 @@ mod test {
     assert!(instance.allow_duplicate_dashes);
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_fn_trait_impls() {
     let slug_filter = SlugFilter {
@@ -188,6 +192,7 @@ mod test {
     });
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_struct_in_threaded_contexts() {
     let slug_filter = SlugFilterBuilder::default()

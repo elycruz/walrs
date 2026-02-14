@@ -16,12 +16,9 @@ use crate::{ScalarValue, Validate, ValidateRef, ValidatorResult, Violation, Viol
 ///  assert_eq!(vldtr.min, Some(1));
 ///  assert_eq!(vldtr.max, Some(10));
 ///  assert_eq!(vldtr.validate(5), Ok(()));
-///  assert_eq!(vldtr(5), Ok(()));
 ///
 ///  assert!(vldtr.validate(0).is_err());
-///  assert!(vldtr(0).is_err());
 ///  assert!(vldtr.validate(11).is_err());
-///  assert!(vldtr(11).is_err());
 /// ```
 ///
 #[derive(Builder, Clone)]
@@ -101,7 +98,6 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
   ///   println!("Case {}: {}", i + 1, test_name);
   ///   assert_eq!(usize_vldtr.validate(value), expected_rslt);
-  ///   assert_eq!(usize_vldtr(value), expected_rslt);
   /// }
   /// ```
   fn validate(&self, value: T) -> ValidatorResult {
@@ -129,18 +125,21 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: ScalarValue> FnMut<(T,)> for RangeValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: ScalarValue> Fn<(T,)> for RangeValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -281,10 +280,12 @@ mod test {
     for (i, (test_name, input, value, expected_rslt)) in test_cases.into_iter().enumerate() {
       println!("Case {}: {}", i + 1, test_name);
       assert_eq!(input.validate(value), expected_rslt);
+      #[cfg(feature = "fn_traits")]
       assert_eq!((&input)(value), expected_rslt);
     }
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_fn_traits() {
     let vldtr = RangeValidatorBuilder::<i32>::default()

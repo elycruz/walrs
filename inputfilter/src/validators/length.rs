@@ -17,7 +17,7 @@ pub type LengthValidatorCallback<'a, T> =
 ///  len_too_long_msg,
 ///  len_too_short_msg,
 ///  Validate,
-///  ValidateRef, // Accessed regardless of whether using `validate_ref` or `Fn*` traits.
+///  ValidateRef,
 ///  LengthValidator,
 ///  LengthValidatorBuilder,
 ///  Violation,
@@ -33,11 +33,8 @@ pub type LengthValidatorCallback<'a, T> =
 ///  .unwrap();
 ///
 ///  assert!(len_one_to_ten.validate_ref("hello").is_ok());
-///
-///  // Using Fn traits:
-///  assert!((&len_one_to_ten)("hello").is_ok());
-///  assert!((&len_one_to_ten)("").is_err()); // too short
-///  assert!((&len_one_to_ten)("this string is way too long").is_err());
+///  assert!(len_one_to_ten.validate_ref("").is_err()); // too short
+///  assert!(len_one_to_ten.validate_ref("this string is way too long").is_err());
 ///
 /// // Collection example:
 /// // ----
@@ -48,12 +45,11 @@ pub type LengthValidatorCallback<'a, T> =
 ///   .unwrap();
 ///
 /// assert_eq!(array_len.validate_ref(&[1, 2, 3]), Ok(()));
-/// assert_eq!((&array_len)(&[1, 2, 3]), Ok(()));
-/// assert_eq!((&array_len)(&[1]), Err(Violation(
+/// assert_eq!(array_len.validate_ref(&[1]), Err(Violation(
 ///   ViolationType::TooShort,
 ///   "Value length `1` is less than allowed minimum `2`.".to_string()
 /// )));
-/// assert_eq!((&array_len)(&[1, 2, 3, 4, 5, 6]), Err(Violation(
+/// assert_eq!(array_len.validate_ref(&[1, 2, 3, 4, 5, 6]), Err(Violation(
 ///   ViolationType::TooLong,
 ///   "Value length `6` is greater than allowed maximum `5`.".to_string()
 /// )));
@@ -149,7 +145,7 @@ where
   ///
   /// ```rust
   /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-  /// use walrs_inputfilter::{Violation, ViolationType::{RangeOverflow, RangeUnderflow, TooLong, TooShort}};
+  /// use walrs_inputfilter::{Violation, ViolationType::{TooLong, TooShort}};
   /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateRef};
   ///
   /// let no_rules = LengthValidator::<str>::new();
@@ -159,34 +155,24 @@ where
   ///   .build()
   ///   .unwrap();
   ///
+  /// // No rules - should pass
+  /// assert_eq!(no_rules.validate_ref(""), Ok(()));
+  ///
+  /// // Value too short
+  /// assert_eq!(
+  ///   len_one_to_ten.validate_ref(""),
+  ///   Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, "")))
+  /// );
+  ///
+  /// // Value too long
   /// let too_long_str = "12345678901";
-  /// let just_right_str = &too_long_str[1..];
+  /// assert_eq!(
+  ///   len_one_to_ten.validate_ref(too_long_str),
+  ///   Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str)))
+  /// );
   ///
-  /// type TestCase = &str;
-  /// type TestValue = &str;
-  /// type ViolationMessage = String;
-  ///
-  /// let test_cases: Vec<(
-  ///   TestCase,
-  ///   &LengthValidator<str>,
-  ///   TestValue,
-  ///   Result<(), ViolationMessage>
-  /// > = vec![
-  ///   ("Default", &no_rules, "", Ok(())),
-  ///   ("Value too short", &len_one_to_ten, "",
-  ///     Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, "")))
-  ///   ),
-  ///   ("Value too long", &len_one_to_ten, too_long_str,
-  ///     Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
-  ///   )),
-  ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
-  ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
-  /// ];
-  ///
-  /// for (name, rules, value, expected) in test_cases {
-  ///  assert_eq!(rules.validate_ref(value), expected, "{}", name);
-  ///  assert_eq!(rules(value), expected, "{}", name);
-  /// }
+  /// // Value just right
+  /// assert_eq!(len_one_to_ten.validate_ref("hello"), Ok(()));
   /// ```
   fn validate_ref(&self, value: &T) -> ValidatorResult {
     let len = value.length();
@@ -213,6 +199,7 @@ where
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a, T: WithLength + ?Sized> FnOnce<(&T,)> for LengthValidator<'a, T> {
   type Output = ValidatorResult;
 
@@ -221,12 +208,14 @@ impl<'a, T: WithLength + ?Sized> FnOnce<(&T,)> for LengthValidator<'a, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a, T: WithLength + ?Sized> FnMut<(&T,)> for LengthValidator<'a, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate_ref(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'a, T: WithLength + ?Sized> Fn<(&T,)> for LengthValidator<'a, T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate_ref(args.0)
@@ -371,6 +360,7 @@ mod test {
 
     for (name, rules, value, expected) in test_cases {
       assert_eq!(rules.validate_ref(value), expected, "{}", name);
+      #[cfg(feature = "fn_traits")]
       assert_eq!(rules(value), expected, "{}", name);
     }
   }
@@ -384,7 +374,9 @@ mod test {
       .unwrap();
 
     assert_eq!(len_two_to_five.validate_ref(&[1, 2, 3]), Ok(()));
+    #[cfg(feature = "fn_traits")]
     assert_eq!((&len_two_to_five)(&[1, 2, 3]), Ok(()));
+    #[cfg(feature = "fn_traits")]
     assert_eq!(
       (&len_two_to_five)(&[1]),
       Err(Violation(
@@ -392,6 +384,7 @@ mod test {
         "Value length `1` is less than allowed minimum `2`.".to_string()
       ))
     );
+    #[cfg(feature = "fn_traits")]
     assert_eq!(
       (&len_two_to_five)(&[1, 2, 3, 4, 5, 6]),
       Err(Violation(
@@ -414,6 +407,7 @@ mod test {
     assert!(new_vldtr.max_length.is_none());
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_fn_traits() {
     let mut vldtr = LengthValidatorBuilder::<str>::default().build().unwrap();

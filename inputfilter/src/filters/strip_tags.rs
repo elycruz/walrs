@@ -28,7 +28,6 @@ static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 ///     let result = filter.filter(incoming_src.into());
 ///
 ///     assert_eq!(result, expected_src.to_string());
-///     assert_eq!(filter(incoming_src.into()), result);
 ///  }
 /// ```
 ///
@@ -88,14 +87,6 @@ impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
   ///   ),
   ///   "<style>p { font-weight: bold; }</style>"
   /// );
-  ///
-  /// // Can also be called as an function trait (has `FN*` traits implemented).
-  /// assert_eq!(filter(
-  ///     "<script>alert('hello');</script><style>p { font-weight: bold; }</style>".into()
-  ///   ),
-  ///   "<style>p { font-weight: bold; }</style>"
-  /// );
-  ///
   /// ```
   ///
   fn filter<'a>(&self, input: Cow<'a, str>) -> Cow<'a, str> {
@@ -117,6 +108,7 @@ impl Default for StripTagsFilter<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   type Output = Cow<'b, str>;
 
@@ -125,12 +117,14 @@ impl<'b> FnOnce<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> FnMut<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<'b> Fn<(Cow<'b, str>,)> for StripTagsFilter<'_> {
   extern "rust-call" fn call(&self, args: (Cow<'b, str>,)) -> Self::Output {
     self.filter(args.0)
@@ -176,7 +170,13 @@ mod test {
       let result = filter.filter(incoming_src.into());
 
       assert_eq!(result, expected_src.to_string());
-      assert_eq!(filter(incoming_src.into()), result);
     }
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_traits() {
+    let filter = StripTagsFilter::new();
+    assert_eq!(filter("Hello".into()), "Hello".to_string());
   }
 }

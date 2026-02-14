@@ -32,7 +32,7 @@ pub type NumberVldrViolationCallback<'a, T> =
 ///   .build()
 ///   .unwrap();
 ///
-/// // Test `validate`, and `Fn*` trait
+/// // Validate values
 /// // ----
 /// for (validator, value, expected) in [
 ///   (&vldtr, 95usize, Ok(())),
@@ -43,7 +43,6 @@ pub type NumberVldrViolationCallback<'a, T> =
 ///   match expected {
 ///     Ok(_) => {
 ///       assert_eq!(validator.validate(value), Ok(()));
-///       assert_eq!((&validator)(value), Ok(()));
 ///     }
 ///     Err(_enum) => {
 ///       let violation_tuple = match _enum {
@@ -54,7 +53,6 @@ pub type NumberVldrViolationCallback<'a, T> =
 ///       };
 ///
 ///       assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
-///       assert_eq!((&validator)(value), Err(violation_tuple));
 ///     }
 ///   }
 /// }
@@ -205,18 +203,21 @@ where
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnMut<(T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> Fn<(T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -225,18 +226,21 @@ impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnMut<(&T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> Fn<(&T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -453,6 +457,7 @@ mod test {
       match expected {
         Ok(_) => {
           assert_eq!(validator.validate(value), Ok(()));
+          #[cfg(feature = "fn_traits")]
           assert_eq!((&validator)(value), Ok(()));
         }
         Err(_enum) => {
@@ -464,6 +469,7 @@ mod test {
           };
 
           assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
+          #[cfg(feature = "fn_traits")]
           assert_eq!((&validator)(value), Err(violation_tuple));
         }
       }
@@ -497,6 +503,7 @@ mod test {
     assert_eq!(vldtr.to_attributes_list(), None);
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_all_fn_trait_variants() {
     // FnMut

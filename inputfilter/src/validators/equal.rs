@@ -24,15 +24,10 @@ use std::fmt::Display;
 ///
 ///  // Happy path
 ///  assert!(vldtr.validate("foo").is_ok());
-///  assert!(vldtr("foo").is_ok());
 ///
 ///  // Sad path
 ///  assert_eq!(
 ///    vldtr.validate("bar"),
-///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-///  );
-///  assert_eq!(
-///    vldtr("bar"),
 ///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
 ///  );
 /// ```
@@ -103,19 +98,14 @@ where
   ///   .build()
   ///   .unwrap();
   ///
-  /// // Test `validate`, and `Fn*` trait
+  /// // Test `validate` method
   /// // ----
   /// // Happy path
   /// assert!(input.validate("foo").is_ok());
-  /// assert!(input("foo").is_ok());
   ///
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-  /// );
-  /// assert_eq!(
-  ///   input("abc"),
   ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// ```
@@ -173,6 +163,7 @@ impl<T: InputValue + ?Sized> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -181,12 +172,14 @@ impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: InputValue + ?Sized> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: InputValue + ?Sized> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
@@ -249,6 +242,7 @@ mod test {
 
       if should_be_ok {
         assert!(validator.validate(lhs_value).is_ok());
+        #[cfg(feature = "fn_traits")]
         assert!(validator(lhs_value).is_ok());
       } else {
         assert_eq!(
@@ -258,6 +252,7 @@ mod test {
             equal_vldr_not_equal_msg(&validator, lhs_value)
           ))
         );
+        #[cfg(feature = "fn_traits")]
         assert_eq!(
           validator(lhs_value),
           Err(Violation(

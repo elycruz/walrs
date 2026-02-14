@@ -463,6 +463,7 @@ impl<T: Copy, FT: From<T>> Display for Input<'_, T, FT> {
   }
 }
 
+#[cfg(feature = "debug_closure_helpers")]
 impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("Input")
@@ -506,6 +507,43 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
         fmtr.write_str(&val).expect("value write to succeed");
         Ok(())
       })
+      .finish()
+  }
+}
+
+#[cfg(not(feature = "debug_closure_helpers"))]
+impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let custom_str = if self.custom.is_some() {
+      "Some(&ValidatorForSized)"
+    } else {
+      "None"
+    };
+    let get_default_value_str = if self.get_default_value.is_some() {
+      "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
+    } else {
+      "None"
+    };
+    let validators_str = if let Some(vs) = self.validators.as_deref() {
+      format!("Some(Vec<&ValidatorForSized>{{ len: {} }})", vs.len())
+    } else {
+      "None".to_string()
+    };
+    let filters_str = if let Some(fs) = self.filters.as_deref() {
+      format!("Some(Vec<&FilterFn>{{ len: {} }})", fs.len())
+    } else {
+      "None".to_string()
+    };
+
+    f.debug_struct("Input")
+      .field("break_on_failure", &self.break_on_failure)
+      .field("required", &self.required)
+      .field("custom", &custom_str)
+      .field("locale", &self.locale)
+      .field("name", &self.name)
+      .field("get_default_value", &get_default_value_str)
+      .field("validators", &validators_str)
+      .field("filters", &filters_str)
       .finish()
   }
 }

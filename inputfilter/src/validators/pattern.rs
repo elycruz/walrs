@@ -22,10 +22,6 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
 ///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
 ///  assert!(vldtr.validate_ref("!@#)(*").is_err());
-///
-///  // As a function (Fn* trait object).
-///  assert_eq!(vldtr("abc"), Ok(()));
-///  assert!(vldtr("!@#)(*").is_err());
 /// ```
 #[derive(Builder, Clone)]
 pub struct PatternValidator<'a> {
@@ -140,6 +136,7 @@ impl ToAttributesList for PatternValidator<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl FnOnce<(&str,)> for PatternValidator<'_> {
   type Output = ValidatorResult;
 
@@ -148,12 +145,14 @@ impl FnOnce<(&str,)> for PatternValidator<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl FnMut<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&str,)) -> Self::Output {
     self.validate_ref(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl Fn<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&str,)) -> Self::Output {
     self.validate_ref(args.0)
@@ -247,14 +246,17 @@ mod test {
       println!("{}", name);
 
       // Test as an `Fn*` trait
-      assert_eq!((&instance)(passing_value), Ok(()));
-      assert_eq!(
-        (&instance)(failing_value),
-        Err(Violation(
-          PatternMismatch,
-          (instance.pattern_mismatch)(&instance, failing_value)
-        ))
-      );
+      #[cfg(feature = "fn_traits")]
+      {
+        assert_eq!((&instance)(passing_value), Ok(()));
+        assert_eq!(
+          (&instance)(failing_value),
+          Err(Violation(
+            PatternMismatch,
+            (instance.pattern_mismatch)(&instance, failing_value)
+          ))
+        );
+      }
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
@@ -278,6 +280,7 @@ mod test {
     Ok(())
   }
 
+  #[cfg(feature = "fn_traits")]
   #[test]
   fn test_fn_trait_variations() -> Result<(), Box<dyn Error>> {
     let rx = Regex::new(r"^\w{2,55}$")?;
