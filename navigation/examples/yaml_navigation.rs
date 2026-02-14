@@ -6,15 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
   // Create a navigation container
   let mut nav = Container::new();
 
-  nav.add_page(
-    Page::builder()
-      .label("Home")
-      .uri("/")
-      .title("Home Page")
-      .order(1)
-      .build(),
-  );
-
+  // Use Page fluent interface to add child pages
   let mut products = Page::builder()
     .label("Products")
     .uri("/products")
@@ -22,31 +14,39 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     .order(2)
     .build();
 
-  products.add_page(
-    Page::builder()
-      .label("Books")
-      .uri("/products/books")
-      .order(1)
-      .build(),
-  );
+  products
+    .add_page(
+      Page::builder()
+        .label("Books")
+        .uri("/products/books")
+        .order(1)
+        .build(),
+    )
+    .add_page(
+      Page::builder()
+        .label("Electronics")
+        .uri("/products/electronics")
+        .order(2)
+        .build(),
+    );
 
-  products.add_page(
-    Page::builder()
-      .label("Electronics")
-      .uri("/products/electronics")
-      .order(2)
-      .build(),
-  );
-
-  nav.add_page(products);
-
+  // Use Container fluent interface to add all pages
   nav.add_page(
-    Page::builder()
-      .label("About")
-      .uri("/about")
-      .order(3)
-      .build(),
-  );
+      Page::builder()
+        .label("Home")
+        .uri("/")
+        .title("Home Page")
+        .order(1)
+        .build(),
+    )
+    .add_page(products)
+    .add_page(
+      Page::builder()
+        .label("About")
+        .uri("/about")
+        .order(3)
+        .build(),
+    );
 
   // Serialize to YAML
   println!("YAML representation:");

@@ -126,6 +126,57 @@ impl Page {
 
     /// Sets a custom attribute.
     ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home")
+    ///     .set_attribute("data-section", "main");
+    ///
+    /// assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(page.attributes.get("data-section"), Some(&"main".to_string()));
+    /// ```
+    pub fn set_attribute<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) -> &mut Self {
+        self.attributes.insert(key.into(), value.into());
+        self
+    }
+
+    /// Sets multiple custom attributes at once.
+    ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    /// use std::collections::HashMap;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// let attrs = HashMap::from([
+    ///     ("data-id".to_string(), "home".to_string()),
+    ///     ("data-section".to_string(), "main".to_string()),
+    /// ]);
+    ///
+    /// page.set_attributes(attrs)
+    ///     .set_attribute("data-extra", "value");
+    ///
+    /// assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(page.attributes.get("data-section"), Some(&"main".to_string()));
+    /// assert_eq!(page.attributes.get("data-extra"), Some(&"value".to_string()));
+    /// ```
+    pub fn set_attributes(&mut self, attributes: HashMap<String, String>) -> &mut Self {
+        self.attributes.extend(attributes);
+        self
+    }
+
+    /// Gets a custom attribute by key.
+    ///
+    /// Returns `Some(&String)` if the attribute exists, or `None` if it doesn't.
+    ///
     /// # Examples
     ///
     /// ```
@@ -133,15 +184,103 @@ impl Page {
     ///
     /// let mut page = Page::builder().label("Home").build();
     /// page.set_attribute("data-id", "home");
-    /// assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
+    ///
+    /// assert_eq!(page.get_attribute("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(page.get_attribute("nonexistent"), None);
     /// ```
-    pub fn set_attribute<K: Into<String>, V: Into<String>>(&mut self, key: K, value: V) {
-        self.attributes.insert(key.into(), value.into());
+    pub fn get_attribute(&self, key: &str) -> Option<&String> {
+        self.attributes.get(key)
+    }
+
+    /// Gets the specified custom attributes by their keys.
+    ///
+    /// Returns a new HashMap containing only the attributes that exist.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home")
+    ///     .set_attribute("data-section", "main")
+    ///     .set_attribute("data-other", "value");
+    ///
+    /// let attrs = page.get_attributes(&["data-id", "data-section", "nonexistent"]);
+    /// assert_eq!(attrs.len(), 2);
+    /// assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+    /// assert_eq!(attrs.get("data-section"), Some(&"main".to_string()));
+    /// assert_eq!(attrs.get("nonexistent"), None);
+    /// ```
+    pub fn get_attributes(&self, keys: &[&str]) -> HashMap<String, String> {
+        keys.iter()
+            .filter_map(|key| {
+                self.attributes.get(*key).map(|value| (key.to_string(), value.clone()))
+            })
+            .collect()
     }
 
     /// Removes a custom attribute, returning its value if it was present.
     pub fn remove_attribute(&mut self, key: &str) -> Option<String> {
         self.attributes.remove(key)
+    }
+
+    /// Removes the specified custom attributes by their keys.
+    ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home")
+    ///     .set_attribute("data-section", "main")
+    ///     .set_attribute("data-keep", "value");
+    ///
+    /// assert_eq!(page.attributes.len(), 3);
+    ///
+    /// page.remove_attributes(&["data-id", "data-section"])
+    ///     .set_attribute("data-new", "value");
+    ///
+    /// assert_eq!(page.attributes.len(), 2);
+    /// assert!(page.attributes.get("data-id").is_none());
+    /// assert!(page.attributes.get("data-section").is_none());
+    /// assert_eq!(page.attributes.get("data-keep"), Some(&"value".to_string()));
+    /// assert_eq!(page.attributes.get("data-new"), Some(&"value".to_string()));
+    /// ```
+    pub fn remove_attributes(&mut self, keys: &[&str]) -> &mut Self {
+        for key in keys {
+            self.attributes.remove(*key);
+        }
+        self
+    }
+
+    /// Removes all custom attributes.
+    ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut page = Page::builder().label("Home").build();
+    /// page.set_attribute("data-id", "home")
+    ///     .set_attribute("data-section", "main");
+    ///
+    /// assert_eq!(page.attributes.len(), 2);
+    ///
+    /// page.clear_attributes()
+    ///     .set_attribute("data-new", "value");
+    ///
+    /// assert_eq!(page.attributes.len(), 1);
+    /// assert_eq!(page.attributes.get("data-new"), Some(&"value".to_string()));
+    /// ```
+    pub fn clear_attributes(&mut self) -> &mut Self {
+        self.attributes.clear();
+        self
     }
 
     /// Gets a page property by name. Returns the property value as a string
@@ -275,20 +414,24 @@ impl Page {
 
     /// Adds a child page.
     ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
     /// # Examples
     ///
     /// ```
     /// use walrs_navigation::Page;
     ///
     /// let mut parent = Page::builder().label("Products").build();
-    /// let child = Page::builder().label("Books").build();
     ///
-    /// parent.add_page(child);
-    /// assert_eq!(parent.pages.len(), 1);
+    /// parent.add_page(Page::builder().label("Books").build())
+    ///       .add_page(Page::builder().label("Electronics").build());
+    ///
+    /// assert_eq!(parent.pages.len(), 2);
     /// ```
-    pub fn add_page(&mut self, page: Page) {
+    pub fn add_page(&mut self, page: Page) -> &mut Self {
         self.pages.push(page);
         self.sort_pages();
+        self
     }
 
     /// Removes a child page at the given index.
@@ -397,6 +540,8 @@ impl Page {
 
     /// Adds multiple child pages at once.
     ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
     /// # Examples
     ///
     /// ```
@@ -404,21 +549,73 @@ impl Page {
     ///
     /// let mut parent = Page::builder().label("Root").build();
     /// parent.add_pages(vec![
-    ///     Page::builder().label("A").build(),
-    ///     Page::builder().label("B").build(),
-    /// ]);
-    /// assert_eq!(parent.pages.len(), 2);
+    ///         Page::builder().label("A").build(),
+    ///         Page::builder().label("B").build(),
+    ///     ])
+    ///     .add_page(Page::builder().label("C").build());
+    ///
+    /// assert_eq!(parent.pages.len(), 3);
     /// ```
-    pub fn add_pages(&mut self, pages: Vec<Page>) {
+    pub fn add_pages(&mut self, pages: Vec<Page>) -> &mut Self {
         for page in pages {
             self.pages.push(page);
         }
         self.sort_pages();
+        self
     }
 
-    /// Removes all child pages.
-    pub fn remove_pages(&mut self) {
+    /// Replaces all child pages with the given pages.
+    ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut parent = Page::builder().label("Root").build();
+    /// parent.add_page(Page::builder().label("Old").build());
+    ///
+    /// parent.set_pages(vec![
+    ///         Page::builder().label("New 1").build(),
+    ///         Page::builder().label("New 2").build(),
+    ///     ])
+    ///     .add_page(Page::builder().label("New 3").build());
+    ///
+    /// assert_eq!(parent.pages.len(), 3);
+    /// assert_eq!(parent.pages[0].label.as_deref(), Some("New 1"));
+    /// ```
+    pub fn set_pages(&mut self, pages: Vec<Page>) -> &mut Self {
+        self.pages = pages;
+        self.sort_pages();
+        self
+    }
+
+
+    /// Clears all child pages.
+    ///
+    /// Returns a mutable reference to the page for method chaining.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use walrs_navigation::Page;
+    ///
+    /// let mut parent = Page::builder().label("Root").build();
+    /// parent.add_page(Page::builder().label("Child 1").build())
+    ///       .add_page(Page::builder().label("Child 2").build());
+    ///
+    /// assert_eq!(parent.pages.len(), 2);
+    ///
+    /// parent.clear_pages()
+    ///       .add_page(Page::builder().label("New Child").build());
+    ///
+    /// assert_eq!(parent.pages.len(), 1);
+    /// assert_eq!(parent.pages[0].label.as_deref(), Some("New Child"));
+    /// ```
+    pub fn clear_pages(&mut self) -> &mut Self {
         self.pages.clear();
+        self
     }
 
     /// Performs a depth-first traversal of the page tree.
@@ -759,6 +956,48 @@ mod tests {
     }
 
     #[test]
+    fn test_page_fluent_interface() {
+        let mut page = Page::builder().label("Products").build();
+
+        // Test chaining add_page calls
+        page.add_page(Page::builder().label("Books").build())
+            .add_page(Page::builder().label("Electronics").build())
+            .add_page(Page::builder().label("Clothing").build());
+
+        assert_eq!(page.pages.len(), 3);
+
+        // Test chaining set_attribute calls
+        page.set_attribute("data-id", "products")
+            .set_attribute("data-section", "main")
+            .set_attribute("data-visible", "true");
+
+        assert_eq!(page.attributes.len(), 3);
+        assert_eq!(page.attributes.get("data-id"), Some(&"products".to_string()));
+
+        // Test chaining clear_pages and add_pages
+        page.clear_pages()
+            .add_pages(vec![
+                Page::builder().label("New 1").build(),
+                Page::builder().label("New 2").build(),
+            ])
+            .add_page(Page::builder().label("New 3").build());
+
+        assert_eq!(page.pages.len(), 3);
+
+        // Test mixed chaining
+        let mut root = Page::builder().label("Root").build();
+        root.add_page(Page::builder().label("Child").build())
+            .set_attribute("data-root", "true")
+            .add_pages(vec![
+                Page::builder().label("A").build(),
+                Page::builder().label("B").build(),
+            ]);
+
+        assert_eq!(root.pages.len(), 3);
+        assert_eq!(root.attributes.get("data-root"), Some(&"true".to_string()));
+    }
+
+    #[test]
     fn test_page_hierarchy() {
         let mut root = Page::builder().label("Root").build();
         let child1 = Page::builder().label("Child 1").build();
@@ -1025,14 +1264,198 @@ mod tests {
         assert_eq!(root.pages[0].label.as_deref(), Some("B")); // sorted by order
     }
 
+
     #[test]
-    fn test_remove_pages() {
+    fn test_clear_pages() {
         let mut root = Page::builder().label("Root").build();
         root.add_page(Page::builder().label("A").build());
         root.add_page(Page::builder().label("B").build());
         assert_eq!(root.pages.len(), 2);
-        root.remove_pages();
+        root.clear_pages();
         assert!(root.pages.is_empty());
+    }
+
+    #[test]
+    fn test_clear_pages_fluent() {
+        let mut root = Page::builder().label("Root").build();
+        root.add_page(Page::builder().label("A").build())
+            .add_page(Page::builder().label("B").build());
+
+        root.clear_pages()
+            .add_page(Page::builder().label("New").build());
+
+        assert_eq!(root.pages.len(), 1);
+        assert_eq!(root.pages[0].label.as_deref(), Some("New"));
+    }
+
+    #[test]
+    fn test_set_pages() {
+        let mut root = Page::builder().label("Root").build();
+        root.add_page(Page::builder().label("Old 1").build());
+        root.add_page(Page::builder().label("Old 2").build());
+        assert_eq!(root.pages.len(), 2);
+
+        root.set_pages(vec![
+            Page::builder().label("New 1").order(2).build(),
+            Page::builder().label("New 2").order(1).build(),
+        ]);
+
+        assert_eq!(root.pages.len(), 2);
+        // Should be sorted by order
+        assert_eq!(root.pages[0].label.as_deref(), Some("New 2"));
+        assert_eq!(root.pages[1].label.as_deref(), Some("New 1"));
+    }
+
+    #[test]
+    fn test_set_pages_fluent() {
+        let mut root = Page::builder().label("Root").build();
+        root.set_pages(vec![
+                Page::builder().label("A").build(),
+                Page::builder().label("B").build(),
+            ])
+            .add_page(Page::builder().label("C").build());
+
+        assert_eq!(root.pages.len(), 3);
+    }
+
+    #[test]
+    fn test_set_attributes() {
+        let mut page = Page::builder().label("Home").build();
+        let attrs = HashMap::from([
+            ("data-id".to_string(), "home".to_string()),
+            ("data-section".to_string(), "main".to_string()),
+        ]);
+
+        page.set_attributes(attrs);
+
+        assert_eq!(page.attributes.len(), 2);
+        assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(page.attributes.get("data-section"), Some(&"main".to_string()));
+    }
+
+    #[test]
+    fn test_get_attribute() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        assert_eq!(page.get_attribute("data-id"), Some(&"home".to_string()));
+        assert_eq!(page.get_attribute("data-section"), Some(&"main".to_string()));
+        assert_eq!(page.get_attribute("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_attributes() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main")
+            .set_attribute("data-other", "value");
+
+        let attrs = page.get_attributes(&["data-id", "data-section"]);
+        assert_eq!(attrs.len(), 2);
+        assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(attrs.get("data-section"), Some(&"main".to_string()));
+        assert_eq!(attrs.get("data-other"), None);
+    }
+
+    #[test]
+    fn test_get_attributes_with_nonexistent() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        let attrs = page.get_attributes(&["data-id", "nonexistent"]);
+        assert_eq!(attrs.len(), 1);
+        assert_eq!(attrs.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(attrs.get("nonexistent"), None);
+    }
+
+    #[test]
+    fn test_get_attributes_empty_keys() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home");
+
+        let attrs = page.get_attributes(&[]);
+        assert!(attrs.is_empty());
+    }
+
+    #[test]
+    fn test_set_attributes_fluent() {
+        let mut page = Page::builder().label("Home").build();
+        let attrs = HashMap::from([
+            ("data-id".to_string(), "home".to_string()),
+        ]);
+
+        page.set_attributes(attrs)
+            .set_attribute("data-extra", "value")
+            .set_attributes(HashMap::from([
+                ("data-another".to_string(), "another".to_string()),
+            ]));
+
+        assert_eq!(page.attributes.len(), 3);
+        assert_eq!(page.attributes.get("data-id"), Some(&"home".to_string()));
+        assert_eq!(page.attributes.get("data-extra"), Some(&"value".to_string()));
+        assert_eq!(page.attributes.get("data-another"), Some(&"another".to_string()));
+    }
+
+    #[test]
+    fn test_remove_attributes() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main")
+            .set_attribute("data-keep", "value");
+
+        assert_eq!(page.attributes.len(), 3);
+
+        page.remove_attributes(&["data-id", "data-section"]);
+
+        assert_eq!(page.attributes.len(), 1);
+        assert!(page.attributes.get("data-id").is_none());
+        assert!(page.attributes.get("data-section").is_none());
+        assert_eq!(page.attributes.get("data-keep"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_remove_attributes_fluent() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main")
+            .set_attribute("data-keep", "value");
+
+        page.remove_attributes(&["data-id"])
+            .set_attribute("data-new", "value");
+
+        assert_eq!(page.attributes.len(), 3);
+        assert!(page.attributes.get("data-id").is_none());
+        assert_eq!(page.attributes.get("data-section"), Some(&"main".to_string()));
+        assert_eq!(page.attributes.get("data-keep"), Some(&"value".to_string()));
+        assert_eq!(page.attributes.get("data-new"), Some(&"value".to_string()));
+    }
+
+    #[test]
+    fn test_clear_attributes() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        assert_eq!(page.attributes.len(), 2);
+
+        page.clear_attributes();
+
+        assert!(page.attributes.is_empty());
+    }
+
+    #[test]
+    fn test_clear_attributes_fluent() {
+        let mut page = Page::builder().label("Home").build();
+        page.set_attribute("data-id", "home")
+            .set_attribute("data-section", "main");
+
+        page.clear_attributes()
+            .set_attribute("data-new", "value");
+
+        assert_eq!(page.attributes.len(), 1);
+        assert_eq!(page.attributes.get("data-new"), Some(&"value".to_string()));
     }
 
     #[test]

@@ -65,20 +65,23 @@ impl Container {
 
     /// Adds a page to the container.
     ///
+    /// Returns a mutable reference to the container for method chaining.
+    ///
     /// # Examples
     ///
     /// ```
     /// use walrs_navigation::{Container, Page};
     ///
     /// let mut nav = Container::new();
-    /// let page = Page::builder().label("Products").uri("/products").build();
+    /// nav.add_page(Page::builder().label("Home").uri("/").build())
+    ///    .add_page(Page::builder().label("About").uri("/about").build());
     ///
-    /// nav.add_page(page);
-    /// assert_eq!(nav.count(), 1);
+    /// assert_eq!(nav.count(), 2);
     /// ```
-    pub fn add_page(&mut self, page: Page) {
+    pub fn add_page(&mut self, page: Page) -> &mut Self {
         self.pages.push(page);
         self.sort_pages();
+        self
     }
 
     /// Removes a page at the given index.
@@ -233,11 +236,16 @@ impl Container {
     }
 
     /// Clears all pages from the container.
-    pub fn clear(&mut self) {
+    ///
+    /// Returns a mutable reference to the container for method chaining.
+    pub fn clear(&mut self) -> &mut Self {
         self.pages.clear();
+        self
     }
 
     /// Adds multiple pages at once.
+    ///
+    /// Returns a mutable reference to the container for method chaining.
     ///
     /// # Examples
     ///
@@ -246,19 +254,24 @@ impl Container {
     ///
     /// let mut nav = Container::new();
     /// nav.add_pages(vec![
-    ///     Page::builder().label("Home").build(),
-    ///     Page::builder().label("About").build(),
-    /// ]);
-    /// assert_eq!(nav.count(), 2);
+    ///         Page::builder().label("Home").build(),
+    ///         Page::builder().label("About").build(),
+    ///     ])
+    ///     .add_page(Page::builder().label("Contact").build());
+    ///
+    /// assert_eq!(nav.count(), 3);
     /// ```
-    pub fn add_pages(&mut self, pages: Vec<Page>) {
+    pub fn add_pages(&mut self, pages: Vec<Page>) -> &mut Self {
         for page in pages {
             self.pages.push(page);
         }
         self.sort_pages();
+        self
     }
 
     /// Replaces all pages in the container with the given pages.
+    ///
+    /// Returns a mutable reference to the container for method chaining.
     ///
     /// # Examples
     ///
@@ -269,14 +282,17 @@ impl Container {
     /// nav.add_page(Page::builder().label("Old").build());
     ///
     /// nav.set_pages(vec![
-    ///     Page::builder().label("New 1").build(),
-    ///     Page::builder().label("New 2").build(),
-    /// ]);
-    /// assert_eq!(nav.count(), 2);
+    ///         Page::builder().label("New 1").build(),
+    ///         Page::builder().label("New 2").build(),
+    ///     ])
+    ///     .add_page(Page::builder().label("New 3").build());
+    ///
+    /// assert_eq!(nav.count(), 3);
     /// ```
-    pub fn set_pages(&mut self, pages: Vec<Page>) {
+    pub fn set_pages(&mut self, pages: Vec<Page>) -> &mut Self {
         self.pages = pages;
         self.sort_pages();
+        self
     }
 
     /// Checks if the container contains a page matching the predicate,
@@ -528,21 +544,22 @@ impl Container {
     ///
     /// This will mark all pages as inactive except the one matching the given URI.
     ///
+    /// Returns a mutable reference to the container for method chaining.
+    ///
     /// # Examples
     ///
     /// ```
     /// use walrs_navigation::{Container, Page};
     ///
     /// let mut nav = Container::new();
-    /// nav.add_page(Page::builder().label("Home").uri("/").build());
-    /// nav.add_page(Page::builder().label("About").uri("/about").build());
-    ///
-    /// nav.set_active_by_uri("/about");
+    /// nav.add_page(Page::builder().label("Home").uri("/").build())
+    ///    .add_page(Page::builder().label("About").uri("/about").build())
+    ///    .set_active_by_uri("/about");
     ///
     /// let about = nav.find_by_uri("/about").unwrap();
     /// assert!(about.active);
     /// ```
-    pub fn set_active_by_uri(&mut self, uri: &str) {
+    pub fn set_active_by_uri(&mut self, uri: &str) -> &mut Self {
         // First, deactivate all pages
         for page in &mut self.pages {
             Self::deactivate_recursive(page);
@@ -552,6 +569,7 @@ impl Container {
         if let Some(page) = self.find_page_mut(|p| p.uri.as_deref() == Some(uri)) {
             page.active = true;
         }
+        self
     }
 
     /// Recursively deactivates a page and all its descendants.
@@ -602,6 +620,43 @@ mod tests {
         let nav1 = Container::new();
         let nav2 = Container::default();
         assert_eq!(nav1, nav2);
+    }
+
+    #[test]
+    fn test_fluent_interface() {
+        let mut nav = Container::new();
+
+        // Test chaining add_page calls
+        nav.add_page(Page::builder().label("Home").uri("/").build())
+           .add_page(Page::builder().label("About").uri("/about").build())
+           .add_page(Page::builder().label("Contact").uri("/contact").build());
+
+        assert_eq!(nav.count(), 3);
+
+        // Test chaining with set_active_by_uri
+        nav.set_active_by_uri("/about");
+        assert!(nav.find_by_uri("/about").unwrap().active);
+
+        // Test chaining clear and add_pages
+        nav.clear()
+           .add_pages(vec![
+               Page::builder().label("New 1").uri("/new1").build(),
+               Page::builder().label("New 2").uri("/new2").build(),
+           ])
+           .set_active_by_uri("/new2");
+
+        assert_eq!(nav.count(), 2);
+        assert!(nav.find_by_uri("/new2").unwrap().active);
+
+        // Test chaining set_pages
+        nav.set_pages(vec![
+               Page::builder().label("Reset").uri("/reset").build(),
+           ])
+           .add_page(Page::builder().label("Added").uri("/added").build());
+
+        assert_eq!(nav.count(), 2);
+        assert!(nav.find_by_uri("/reset").is_some());
+        assert!(nav.find_by_uri("/added").is_some());
     }
 
     #[test]
@@ -842,6 +897,31 @@ mod tests {
             .collect();
 
         assert_eq!(labels, vec!["Home", "About"]);
+    }
+
+    #[test]
+    fn test_iter() {
+        let mut nav = Container::new();
+        nav.add_page(Page::builder().label("Home").uri("/").build());
+        nav.add_page(Page::builder().label("About").uri("/about").build());
+
+        // Test basic iteration
+        let labels: Vec<_> = nav.iter().filter_map(|p| p.label.as_deref()).collect();
+        assert_eq!(labels, vec!["Home", "About"]);
+
+        // Test that iter() borrows and doesn't consume
+        assert_eq!(nav.count(), 2);
+
+        // Test iteration count
+        let mut count = 0;
+        for _page in nav.iter() {
+            count += 1;
+        }
+        assert_eq!(count, 2);
+
+        // Test empty container
+        let empty_nav = Container::new();
+        assert_eq!(empty_nav.iter().count(), 0);
     }
 
     #[test]

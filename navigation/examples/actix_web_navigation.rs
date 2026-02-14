@@ -169,62 +169,60 @@ fn render_page(nav: &Container, current_uri: &str) -> String {
 fn create_navigation() -> Container {
     let mut nav = Container::new();
 
-    // Home page
-    nav.add_page(
-        Page::builder()
-            .label("Home")
-            .uri("/")
-            .order(1)
-            .build(),
-    );
-
-    // Products section with sub-pages
+    // Products section with sub-pages using Page fluent interface
     let mut products_page = Page::builder()
         .label("Products")
         .uri("/products")
         .order(2)
         .build();
 
-    products_page.add_page(
-        Page::builder()
-            .label("Books")
-            .uri("/products/books")
-            .order(1)
-            .build(),
-    );
+    products_page
+        .add_page(
+            Page::builder()
+                .label("Books")
+                .uri("/products/books")
+                .order(1)
+                .build(),
+        )
+        .add_page(
+            Page::builder()
+                .label("Electronics")
+                .uri("/products/electronics")
+                .order(2)
+                .build(),
+        );
 
-    products_page.add_page(
-        Page::builder()
-            .label("Electronics")
-            .uri("/products/electronics")
-            .order(2)
-            .build(),
-    );
-
-    nav.add_page(products_page);
-
-    // About section with sub-pages
+    // About section with sub-pages using Page fluent interface
     let mut about_page = Page::builder()
         .label("About")
         .uri("/about")
         .order(3)
         .build();
 
-    about_page.add_page(
-        Page::builder()
-            .label("Team")
-            .uri("/about/team")
-            .build(),
-    );
+    about_page
+        .add_page(
+            Page::builder()
+                .label("Team")
+                .uri("/about/team")
+                .build(),
+        )
+        .add_page(
+            Page::builder()
+                .label("Contact")
+                .uri("/about/contact")
+                .build(),
+        );
 
-    about_page.add_page(
-        Page::builder()
-            .label("Contact")
-            .uri("/about/contact")
-            .build(),
-    );
-
-    nav.add_page(about_page);
+    // Use Container fluent interface to add all pages
+    nav.add_page(
+            Page::builder()
+                .label("Home")
+                .uri("/")
+                .order(1)
+                .build(),
+        )
+        .add_page(products_page)
+        .add_page(about_page);
 
     nav
 }

@@ -6,17 +6,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a navigation container
     let mut nav = Container::new();
 
-    // Add root-level pages
-    nav.add_page(
-        Page::builder()
-            .label("Home")
-            .uri("/")
-            .title("Home Page")
-            .order(1)
-            .build(),
-    );
-
-    // Create a products section with nested pages
+    // Create a products section with nested pages using Page fluent interface
     let mut products = Page::builder()
         .label("Products")
         .uri("/products")
@@ -25,64 +15,70 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .order(2)
         .build();
 
-    products.add_page(
-        Page::builder()
-            .label("Books")
-            .uri("/products/books")
-            .order(1)
-            .class("nav-item")
-            .build(),
-    );
+    products
+        .add_page(
+            Page::builder()
+                .label("Books")
+                .uri("/products/books")
+                .order(1)
+                .class("nav-item")
+                .build(),
+        )
+        .add_page(
+            Page::builder()
+                .label("Electronics")
+                .uri("/products/electronics")
+                .order(2)
+                .build(),
+        )
+        .add_page(
+            Page::builder()
+                .label("Clothing")
+                .uri("/products/clothing")
+                .order(3)
+                .build(),
+        );
 
-    products.add_page(
-        Page::builder()
-            .label("Electronics")
-            .uri("/products/electronics")
-            .order(2)
-            .build(),
-    );
-
-    products.add_page(
-        Page::builder()
-            .label("Clothing")
-            .uri("/products/clothing")
-            .order(3)
-            .build(),
-    );
-
-    nav.add_page(products);
-
-    // Add more root-level pages
+    // Add more root-level pages using Page fluent interface
     let mut about = Page::builder()
         .label("About")
         .uri("/about")
         .order(3)
         .build();
 
-    about.add_page(
-        Page::builder()
-            .label("Team")
-            .uri("/about/team")
-            .build(),
-    );
+    about
+        .add_page(
+            Page::builder()
+                .label("Team")
+                .uri("/about/team")
+                .build(),
+        )
+        .add_page(
+            Page::builder()
+                .label("Contact")
+                .uri("/about/contact")
+                .build(),
+        );
 
-    about.add_page(
-        Page::builder()
-            .label("Contact")
-            .uri("/about/contact")
-            .build(),
-    );
-
-    nav.add_page(about);
-
+    // Use Container fluent interface to add all pages
     nav.add_page(
-        Page::builder()
-            .label("Blog")
-            .uri("/blog")
-            .order(4)
-            .target("_blank")
-            .build(),
-    );
+            Page::builder()
+                .label("Home")
+                .uri("/")
+                .title("Home Page")
+                .order(1)
+                .build(),
+        )
+        .add_page(products)
+        .add_page(about)
+        .add_page(
+            Page::builder()
+                .label("Blog")
+                .uri("/blog")
+                .order(4)
+                .target("_blank")
+                .build(),
+        );
 
     // Display navigation structure
     println!("Navigation Structure:");

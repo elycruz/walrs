@@ -343,4 +343,34 @@ mod tests {
         let nav = Container::try_from(&json[..]).unwrap();
         assert_eq!(nav.count(), 1);
     }
+
+    #[test]
+    #[cfg(feature = "json")]
+    fn test_container_to_json_pretty() {
+        let mut nav = Container::new();
+        nav.add_page(Page::builder().label("Home").uri("/").build());
+
+        let json = nav.to_json_pretty().unwrap();
+        assert!(json.contains("Home"));
+        // Pretty JSON should contain newlines and indentation
+        assert!(json.contains('\n'));
+
+        // Round trip
+        let nav2 = Container::from_json(&json).unwrap();
+        assert_eq!(nav2.count(), 1);
+    }
+
+    #[test]
+    #[cfg(feature = "json")]
+    fn test_page_to_json_pretty() {
+        let page = Page::builder().label("Home").uri("/").build();
+        let json = page.to_json_pretty().unwrap();
+        assert!(json.contains("Home"));
+        // Pretty JSON should contain newlines and indentation
+        assert!(json.contains('\n'));
+
+        // Round trip
+        let page2 = Page::from_json(&json).unwrap();
+        assert_eq!(page2.label.as_deref(), Some("Home"));
+    }
 }

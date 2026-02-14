@@ -21,16 +21,8 @@
 //! ```
 //! use walrs_navigation::{Container, Page};
 //!
-//! // Create a navigation container
+//! // Create a navigation container with fluent interface
 //! let mut nav = Container::new();
-//!
-//! // Add pages using the builder pattern
-//! nav.add_page(
-//!     Page::builder()
-//!         .label("Home")
-//!         .uri("/")
-//!         .build()
-//! );
 //!
 //! // Create nested navigation
 //! let mut products = Page::builder()
@@ -45,7 +37,14 @@
 //!         .build()
 //! );
 //!
-//! nav.add_page(products);
+//! // Add pages using method chaining
+//! nav.add_page(
+//!         Page::builder()
+//!             .label("Home")
+//!             .uri("/")
+//!             .build()
+//!     )
+//!     .add_page(products);
 //!
 //! // Find pages
 //! if let Some(page) = nav.find_by_uri("/products/books") {
