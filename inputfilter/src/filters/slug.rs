@@ -68,6 +68,7 @@ fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> 
 }
 
 /// Configurable version of `to_slug()` - allows for setting the max_length.
+#[must_use]
 #[derive(Clone, Debug, Default, Builder)]
 pub struct SlugFilter {
   #[builder(setter(into), default = "200")]

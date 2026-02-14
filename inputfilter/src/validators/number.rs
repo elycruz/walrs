@@ -10,7 +10,7 @@ use crate::traits::ToAttributesList;
 use serde_json::value::to_value as to_json_value;
 
 pub type NumberVldrViolationCallback<'a, T> =
-  (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
+  dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync;
 
 /// Validator for performing number range and step checks against given number.
 ///
@@ -58,6 +58,7 @@ pub type NumberVldrViolationCallback<'a, T> =
 /// }
 /// ```
 ///
+#[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct NumberValidator<'a, T: NumberValue> {

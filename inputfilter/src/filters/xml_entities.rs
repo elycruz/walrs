@@ -30,6 +30,7 @@ static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock
 ///  assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
 /// }
 /// ```
+#[must_use]
 pub struct XmlEntitiesFilter<'a> {
   pub chars_assoc_map: &'a HashMap<char, &'static str>,
 }

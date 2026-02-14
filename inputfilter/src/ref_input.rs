@@ -23,6 +23,7 @@ where
   "Value is missing".to_string()
 }
 
+#[must_use]
 #[derive(Clone)]
 pub struct RefInput<'a, 'b, T, FT = T>
 where
@@ -282,7 +283,7 @@ where
     let mut violations = vec![];
 
     // Validate custom
-    match if let Some(custom) = self.custom.as_deref() {
+    match if let Some(custom) = self.custom {
       (custom)(value)
     } else {
       Ok(())

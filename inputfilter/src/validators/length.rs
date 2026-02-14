@@ -54,6 +54,7 @@ pub type LengthValidatorCallback<'a, T> =
 ///   "Value length `6` is greater than allowed maximum `5`.".to_string()
 /// )));
 /// ```
+#[must_use]
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
 pub struct LengthValidator<'a, T>

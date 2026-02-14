@@ -23,6 +23,7 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 ///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
 ///  assert!(vldtr.validate_ref("!@#)(*").is_err());
 /// ```
+#[must_use]
 #[derive(Builder, Clone)]
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,

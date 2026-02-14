@@ -19,7 +19,7 @@ pub enum ViolationType {
   ValueMissing,
 }
 
-// @todo Implement `Error` for this struct.
+#[must_use]
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violation(pub ViolationType, pub ViolationMessage);
 
@@ -62,6 +62,7 @@ impl Error for Violation {
   }
 }
 
+#[must_use]
 #[derive(Clone, PartialEq, Debug)]
 pub struct Violations(pub Vec<Violation>);
 
@@ -97,11 +98,24 @@ impl Violations {
   }
 }
 
-// @todo `Violations` should implement `Error`.
+impl Display for Violations {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    let messages: Vec<&str> = self.0.iter().map(|v| v.1.as_str()).collect();
+    write!(f, "{}", messages.join("; "))
+  }
+}
+
+impl Error for Violations {
+  fn source(&self) -> Option<&(dyn Error + 'static)> {
+    // Return the first violation as the source if available
+    self.0.first().map(|v| v as &(dyn Error + 'static))
+  }
+}
 
 #[cfg(test)]
 mod test {
   use super::{ViolationType::ValueMissing, *};
+  use crate::ViolationType::TypeMismatch;
 
   #[test]
   fn test_violation_to_string() {
@@ -122,5 +136,30 @@ mod test {
   fn test_violation_display() {
     let v = Violation(ValueMissing, "value is missing.".to_string());
     assert_eq!(format!("{:}", v), "value is missing.");
+  }
+
+  #[test]
+  fn test_violations_display() {
+    let vs = Violations(vec![
+      Violation(ValueMissing, "value is missing".to_string()),
+      Violation(TypeMismatch, "type mismatch".to_string()),
+    ]);
+    assert_eq!(format!("{}", vs), "value is missing; type mismatch");
+  }
+
+  #[test]
+  fn test_violations_error() {
+    let vs = Violations(vec![
+      Violation(ValueMissing, "value is missing".to_string()),
+    ]);
+    
+    // Test that Violations implements Error
+    let err: &dyn Error = &vs;
+    assert!(err.source().is_some());
+    
+    // Test empty violations
+    let empty_vs = Violations(vec![]);
+    let empty_err: &dyn Error = &empty_vs;
+    assert!(empty_err.source().is_none());
   }
 }

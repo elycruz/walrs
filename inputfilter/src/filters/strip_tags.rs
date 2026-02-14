@@ -31,6 +31,7 @@ static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 ///  }
 /// ```
 ///
+#[must_use]
 pub struct StripTagsFilter<'a> {
   /// Ammonia builder used to sanitize incoming HTML.
   ///

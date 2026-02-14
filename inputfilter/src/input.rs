@@ -90,6 +90,7 @@ pub fn value_missing_msg_getter<T: Copy, FT: From<T>>(_: &Input<T, FT>) -> Viola
 /// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
 /// // and/or, use other `validate*` methods ...
 /// ```
+#[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct Input<'a, T, FilterT = T>
@@ -239,7 +240,7 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     let mut violations = vec![];
 
     // Validate custom
-    match if let Some(custom) = self.custom.as_deref() {
+    match if let Some(custom) = self.custom {
       (custom)(value)
     } else {
       Ok(())
