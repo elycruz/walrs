@@ -1,13 +1,17 @@
-pub mod dfs;
 pub mod digraph;
-pub mod dipaths_dfs;
-pub mod math;
-pub mod symbol_digraph;
+pub mod directed_cycle;
+pub mod directed_paths_dfs;
+pub mod depth_first_order;
+pub mod topology;
+pub mod disymgraph;
 pub mod utils;
+pub mod traits;
 
-pub use dfs::*;
 pub use digraph::*;
-pub use dipaths_dfs::*;
-pub use math::*;
-pub use symbol_digraph::*;
+pub use directed_cycle::*;
+pub use directed_paths_dfs::*;
+pub use depth_first_order::*;
+pub use topology::*;
+pub use disymgraph::*;
 pub use utils::*;
+pub use traits::*;

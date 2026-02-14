@@ -1,5 +1,10 @@
 use std::io::{BufRead, BufReader};
 
+/// Returns panic message for invalid vertices;  Exported for use in testing.
+pub fn invalid_vertex_msg(v: usize, max_v: usize) -> String {
+  format!("Vertex {} is outside defined range 0-{}", v, max_v)
+}
+
 /// Extracts vertex, and, edge counts from top (first two lines) of text file containing
 /// vertices, and their edges;  E.g.,
 /// **note:** annotations are only for example here - only numbers are allowed in the file;

@@ -1,23 +1,30 @@
-use crate::Digraph;
-use crate::dfs::{DigraphDFSShape, vertex_marked};
+use crate::{Digraph, DigraphDFSShape};
 
-pub struct DigraphDipathsDFS {
+/// Isolated "vertex marked" declaration (helps DRY up code a bit).
+pub fn vertex_marked(_marked: &[bool], i: usize) -> Result<bool, String> {
+  if i >= _marked.len() {
+    return Err(format!("{} is out of range", i));
+  }
+  Ok(_marked[i])
+}
+
+pub struct DirectedPathsDFS {
   _marked: Vec<bool>,
   _count: usize,
   _edge_to: Vec<Option<usize>>,
   _source_vertex: usize,
 }
 
-impl DigraphDFSShape for DigraphDipathsDFS {
-  /// Returns a `Result` indicating whether  a path from 'source vertex' to 'i' exists.
+impl DigraphDFSShape for DirectedPathsDFS {
+  /// Returns a `Result` indicating whether a path from 'source vertex' to 'i' exists.
   fn marked(&self, i: usize) -> Result<bool, String> {
     vertex_marked(&self._marked, i)
   }
 }
 
-impl DigraphDipathsDFS {
+impl DirectedPathsDFS {
   pub fn new(g: &Digraph, source_vertex: usize) -> Result<Self, String> {
-    let mut out = DigraphDipathsDFS {
+    let mut out = DirectedPathsDFS {
       _marked: vec![false; g.vert_count()],
       _edge_to: vec![None; g.vert_count()],
       _source_vertex: source_vertex,
@@ -43,16 +50,17 @@ impl DigraphDipathsDFS {
     Ok(self)
   }
 
-  /// Result indicating whether there is a path from `source_vertex` to vertex `i`.
+  /// Returns result indicating whether there is a path from `source_vertex` to vertex `i` or not.
   pub fn has_path_to(&self, i: usize) -> Result<bool, String> {
     self.marked(i)
   }
 
   /// Returns an `Option` indicating path to vertex `v`;  Returns `None` if `v` is equal to
-  /// `source_path` (initially passed to struct)..
-  /// @note - Panics if `v` is out of bounds.
+  /// `source_path` (initially passed to struct).  Additionally, method returns `None` when `v` is
+  /// out of bounds.
   pub fn path_to(&self, v: usize) -> Option<Vec<usize>> {
-    if !self.has_path_to(v).unwrap() {
+    let path_exists = self.has_path_to(v);
+    if path_exists.is_err() || (path_exists.is_ok() && !path_exists.unwrap()) {
       return None;
     }
     let s = self._source_vertex;
@@ -63,10 +71,7 @@ impl DigraphDipathsDFS {
         break;
       }
       path.push(x);
-      x = match self._edge_to[x] {
-        Some(index) => index,
-        _ => s,
-      }
+      x = self._edge_to[x].unwrap();
     }
     path.push(s);
     Some(path)
@@ -80,10 +85,16 @@ impl DigraphDipathsDFS {
 
 #[cfg(test)]
 mod test {
-  use crate::math::triangular_num;
-  use crate::symbol_digraph::DisymGraph;
+  use std::num::NonZeroUsize;
+  use crate::disymgraph::DisymGraph;
 
   use super::*;
+
+  /// Calculates nth triangular number for natural number.
+  /// See https://www.geeksforgeeks.org/maths/triangular-number-sequence/
+  fn triangular_num(n: usize) -> usize {
+    n * (n + 1) / 2
+  }
 
   #[test]
   pub fn test_dipaths_dfs_with_symbol_dag() -> Result<(), Box<dyn std::error::Error>> {
@@ -139,8 +150,8 @@ mod test {
     // For each vertex in graph check that each left adjacent vertex is reachable from itself
     for i in 0..v_len {
       // println!("i: {}", i);
-      let dfs_rslt = DigraphDipathsDFS::new(sym_graph.graph(), i)?;
-      let dfs_rslt_2 = DigraphDipathsDFS::new(sym_graph_2.graph(), i)?;
+      let dfs_rslt = DirectedPathsDFS::new(sym_graph.graph(), i)?;
+      let dfs_rslt_2 = DirectedPathsDFS::new(sym_graph_2.graph(), i)?;
 
       for j in i + 1..v_len {
         // println!("j: {}", i);
@@ -208,23 +219,31 @@ mod test {
           i,
           i
         );
+        // `None` case
+        assert_eq!(
+          dfs_rslt_2.path_to(99).is_none(),
+          true,
+          "out-of-bounds vert (`99`) param should result in `None` return",
+        );
       }
 
       // Check "vertices reachable from `i`" count
+      // ----
+      let expected_count = NonZeroUsize::new(v_len - i).unwrap().into();
       assert_eq!(
         dfs_rslt.count(),
-        v_len - i,
+        expected_count,
         "`dfs_rslt.count()` should be equal to `{}` (1)",
-        v_len - i
+        expected_count
       );
       assert_eq!(
         dfs_rslt_2.count(),
-        v_len - i,
+        expected_count,
         "`dfs_rslt.count()` should be equal to `{}` (2)",
-        v_len - i
+        expected_count
       );
 
-      // Check out of bounds vert
+      // Check out-of-bounds vert
       assert_eq!(
         dfs_rslt.marked(99).is_err(),
         true,

@@ -1,12 +1,43 @@
 [package]
 name = "walrs_acl"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = ["serde/std", "serde_json/std"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
+
 [dependencies]
-walrs_graph = { path = '../graph' }
-serde = "1.0.103"
-serde_json = "1.0.80"
-serde_derive = "1.0.103"
+walrs_digraph = { path = '../digraph' }
+serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
+serde_derive = "1.0.228"
+wasm-bindgen = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+rand = "0.8"
+actix-web = "4"
+
+[[example]]
+name = "acl_builder_example"
+path = "examples/acl_builder_example.rs"
+
+[[example]]
+name = "acl_try_from_json"
+path = "examples/acl_try_from_json.rs"
+
+[[example]]
+name = "benchmark_extensive_acl"
+path = "benchmarks/benchmark_extensive_acl.rs"
+
+[[example]]
+name = "benchmark_actix_middleware"
+path = "benchmarks/benchmark_actix_middleware.rs"
