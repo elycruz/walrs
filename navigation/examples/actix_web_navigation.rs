@@ -1,42 +1,35 @@
 use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
-use walrs_navigation::{Container, Page};
+use walrs_navigation::{Container, Page, view};
 
 /// Shared navigation state
 struct AppState {
     navigation: Container,
 }
 
-/// Escapes HTML special characters to prevent XSS attacks
-fn html_escape(text: &str) -> String {
-    text.replace('&', "&amp;")
-        .replace('<', "&lt;")
-        .replace('>', "&gt;")
-        .replace('"', "&quot;")
-        .replace('\'', "&#x27;")
-        .replace('/', "&#x2F;")
-}
-
 /// Home page handler
 #[get("/")]
 async fn index(data: web::Data<AppState>) -> impl Responder {
-    let nav = &data.navigation;
-    let html = render_html_menu(nav, "/");
+    let mut nav = data.navigation.clone();
+    nav.set_active_by_uri("/");
+    let html = render_page(&nav, "/");
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 /// About page handler
 #[get("/about")]
 async fn about(data: web::Data<AppState>) -> impl Responder {
-    let nav = &data.navigation;
-    let html = render_html_menu(nav, "/about");
+    let mut nav = data.navigation.clone();
+    nav.set_active_by_uri("/about");
+    let html = render_page(&nav, "/about");
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 /// Products page handler
 #[get("/products")]
 async fn products(data: web::Data<AppState>) -> impl Responder {
-    let nav = &data.navigation;
-    let html = render_html_menu(nav, "/products");
+    let mut nav = data.navigation.clone();
+    nav.set_active_by_uri("/products");
+    let html = render_page(&nav, "/products");
     HttpResponse::Ok().content_type("text/html").body(html)
 }
 
@@ -49,52 +42,17 @@ async fn api_navigation(data: web::Data<AppState>) -> impl Responder {
     }
 }
 
-/// Renders an HTML page with navigation menu
-fn render_html_menu(nav: &Container, current_uri: &str) -> String {
-    let mut menu_html = String::new();
-    menu_html.push_str("<ul class=\"nav-menu\">\n");
-
-    for page in nav.pages() {
-        let active_class = if page.uri() == Some(current_uri) {
-            " class=\"active\""
-        } else {
-            ""
-        };
-
-        let uri = html_escape(page.uri().unwrap_or("#"));
-        let label = html_escape(page.label().unwrap_or("(no label)"));
-
-        menu_html.push_str(&format!(
-            "  <li{}><a href=\"{}\">{}</a>",
-            active_class, uri, label
-        ));
-
-        // Render child pages if any
-        if page.has_pages() {
-            menu_html.push_str("\n    <ul class=\"sub-menu\">\n");
-            for child in page.pages() {
-                let child_uri = html_escape(child.uri().unwrap_or("#"));
-                let child_label = html_escape(child.label().unwrap_or("(no label)"));
-                menu_html.push_str(&format!(
-                    "      <li><a href=\"{}\">{}</a></li>\n",
-                    child_uri, child_label
-                ));
-            }
-            menu_html.push_str("    </ul>\n  ");
-        }
-
-        menu_html.push_str("</li>\n");
-    }
-
-    menu_html.push_str("</ul>");
-
-    let escaped_current_uri = html_escape(current_uri);
+/// Renders an HTML page with navigation menu, breadcrumbs, and content
+fn render_page(nav: &Container, current_uri: &str) -> String {
+    let menu_html = view::render_menu_with_class(nav, "nav-menu", "active");
+    let breadcrumb_html = view::render_breadcrumbs(nav, " &gt; ");
+    let escaped_uri = view::html_escape(current_uri);
 
     format!(
         r#"<!DOCTYPE html>
 <html>
 <head>
-    <title>Navigation Example</title>
+    <title>Navigation Example - {uri}</title>
     <style>
         body {{
             font-family: Arial, sans-serif;
@@ -125,7 +83,7 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
         .nav-menu .active a {{
             background-color: #4CAF50;
         }}
-        .sub-menu {{
+        .nav-menu ul {{
             display: none;
             position: absolute;
             background-color: #444;
@@ -135,14 +93,27 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
             list-style-type: none;
             padding: 0;
         }}
-        .nav-menu > li:hover .sub-menu {{
+        .nav-menu > li:hover ul {{
             display: block;
         }}
-        .sub-menu li {{
+        .nav-menu ul li {{
             float: none;
         }}
-        .sub-menu a {{
+        .nav-menu ul a {{
             text-align: left;
+        }}
+        .breadcrumbs {{
+            padding: 10px 0;
+            color: #666;
+            clear: both;
+        }}
+        .breadcrumbs a {{
+            color: #4CAF50;
+            text-decoration: none;
+        }}
+        .breadcrumbs .active {{
+            font-weight: bold;
+            color: #333;
         }}
         .content {{
             clear: both;
@@ -161,10 +132,13 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
 </head>
 <body>
     <nav>
-        {}
+        {menu}
     </nav>
+    <div class="breadcrumbs">
+        {breadcrumbs}
+    </div>
     <div class="content">
-        <h1>Page: {}</h1>
+        <h1>Page: {uri}</h1>
         <p>This is a demonstration of the walrs_navigation component integrated with Actix Web.</p>
         <div class="info">
             <h3>Navigation Features:</h3>
@@ -172,6 +146,7 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
                 <li>Hierarchical menu structure</li>
                 <li>Active page highlighting</li>
                 <li>Dropdown sub-menus</li>
+                <li>Breadcrumb trail</li>
                 <li>JSON API endpoint at <a href="/api/navigation">/api/navigation</a></li>
             </ul>
             <h3>Available Pages:</h3>
@@ -184,7 +159,9 @@ fn render_html_menu(nav: &Container, current_uri: &str) -> String {
     </div>
 </body>
 </html>"#,
-        menu_html, escaped_current_uri
+        uri = escaped_uri,
+        menu = menu_html,
+        breadcrumbs = breadcrumb_html
     )
 }
 

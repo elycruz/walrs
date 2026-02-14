@@ -2,18 +2,29 @@
 name = "walrs_navigation"
 version = "0.1.0"
 edition = "2024"
+description = "A navigation component for managing trees of pointers to web pages"
+license = "BSD-3-Clause"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["json"]
+json = ["serde_json"]
+yaml = ["serde_yaml"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.9"
+serde_json = { version = "1.0", optional = true }
+serde_yaml = { version = "0.9", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
 actix-web = "4.0"
 actix-rt = "2.0"
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+[[example]]
+name = "yaml_navigation"
+required-features = ["yaml"]
 
 [[bench]]
 name = "navigation_benchmarks"
