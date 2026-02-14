@@ -188,20 +188,20 @@ use walrs_navigation::{Container, Page};
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut nav = Container::new();
 
-    // Add pages
-    let page = Page::builder().label("Home").uri("/").build();
-    nav.add_page(page);
+    // Add pages using fluent interface
+    nav.add_page(Page::builder().label("Home").uri("/").build())
+       .add_page(Page::builder().label("About").uri("/about").build());
 
     // Add multiple pages at once
     nav.add_pages(vec![
-        Page::builder().label("About").build(),
+        Page::builder().label("Products").build(),
         Page::builder().label("Contact").build(),
     ]);
 
     // Replace all pages
     nav.set_pages(vec![Page::builder().label("Home").build()]);
 
-    // Remove pages
+    // Remove a page by index
     let page = nav.remove_page(0)?;
 
     // Find pages by various criteria
@@ -304,21 +304,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     page.uri = Some("/".to_string());
     page.order = 1;
 
-    // Custom attributes
-    page.set_attribute("data-id", "home");
+    // Custom attributes with fluent interface
+    page.set_attribute("data-id", "home")
+        .set_attribute("data-section", "main");
+    
+    // Get attributes
+    let id = page.get_attribute("data-id");
+    let attrs = page.get_attributes(&["data-id", "data-section"]);
+    
+    // Remove attributes
     page.remove_attribute("data-id");
+    page.remove_attributes(&["data-section"]);
+    page.clear_attributes();
 
-    // Add child pages
+    // Add child pages using fluent interface
     let mut parent = Page::builder().label("Products").build();
-    parent.add_page(Page::builder().label("Books").build());
-    parent.add_pages(vec![
-        Page::builder().label("Electronics").build(),
-        Page::builder().label("Clothing").build(),
-    ]);
+    parent.add_page(Page::builder().label("Books").build())
+          .add_page(Page::builder().label("Electronics").build())
+          .add_page(Page::builder().label("Clothing").build());
 
-    // Remove child pages
+    // Remove a child page by index
     let removed = parent.remove_page(0)?;
-    parent.remove_pages(); // clear all children
+    
+    // Clear all children
+    parent.clear_pages();
+    
+    // Replace all children
+    parent.set_pages(vec![
+        Page::builder().label("New Child").build(),
+    ]);
 
     // Find child pages
     let child = parent.find_page(|p| p.label.as_deref() == Some("Books"));
