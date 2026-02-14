@@ -110,6 +110,7 @@ where
   ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
   ///   };
   ///
+  /// // Create some input controls
   /// let mut input = RefInput::<str, Cow<str>>::default();
   ///
   /// let mut input2 = RefInput::<str, String>::default();
@@ -119,18 +120,24 @@ where
   /// alnum_input.validators = Some(vec![&alnum_only]);
   ///
   /// let mut input_num_list = RefInput::<[u32], Vec<u32>>::default();
+  ///
+  /// // Disallow empty lists
   /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
   ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
   /// } else {
   ///   Ok(())
   /// }]);
+  ///
+  /// // Transform to even numbers only
   /// input_num_list.filters = Some(vec![&|value: Vec<u32>| value.into_iter().filter(|v| v % 2 == 0).collect()]);
   ///
+  /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter_ref(&value).unwrap(), vec![2, 4, 6]);
   /// assert_eq!(input_num_list.filter_ref(&vec![]), Err(vec!["Value is empty".to_string()]));
   ///
   /// let value = "Hello, World!";
+  ///
   /// assert_eq!(input.filter_ref(value).unwrap(), Cow::Borrowed(value));
   /// assert_eq!(input2.filter_ref(value).unwrap(), value.to_lowercase());
   /// assert_eq!(alnum_input.filter_ref(value), Err(vec!["Value is not alpha-numeric".to_string()]));
@@ -155,6 +162,7 @@ where
   ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
   ///   };
   ///
+  /// // Create some input controls
   /// let mut input = RefInput::<str, Cow<str>>::default();
   ///
   /// let mut input2 = RefInput::<str, String>::default();
@@ -164,18 +172,24 @@ where
   /// alnum_input.validators = Some(vec![&alnum_only]);
   ///
   /// let mut input_num_list = RefInput::<[u32], Vec<u32>>::default();
+  ///
+  /// // Disallow empty lists
   /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
   ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
   /// } else {
   ///   Ok(())
   /// }]);
+  ///
+  /// // Transform to even numbers only
   /// input_num_list.filters = Some(vec![&|value: Vec<u32>| value.into_iter().filter(|v| v % 2 == 0).collect()]);
   ///
+  /// // Test
   /// let value = vec![1, 2, 3, 4, 5, 6];
   /// assert_eq!(input_num_list.filter_ref_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
   /// assert_eq!(input_num_list.filter_ref_option(Some(&vec![])), Err(vec!["Value is empty".to_string()]));
   ///
   /// let value = "Hello, World!";
+  ///
   /// assert_eq!(input.filter_ref_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
   /// assert_eq!(input2.filter_ref_option(Some(value)).unwrap(), Some(value.to_lowercase()));
   /// assert_eq!(alnum_input.filter_ref_option(Some(value)), Err(vec!["Value is not alpha-numeric".to_string()]));
