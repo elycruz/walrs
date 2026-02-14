@@ -177,12 +177,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}", json);
     println!();
 
-    // Demonstrate YAML serialization
-    println!("YAML representation:");
-    let yaml = nav.to_yaml()?;
-    println!("{}", yaml);
-    println!();
-
     // Demonstrate loading from JSON
     let json_input = r#"[
         {
