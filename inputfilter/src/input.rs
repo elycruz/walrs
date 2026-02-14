@@ -272,37 +272,6 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     }
   }
 
-  /// Validates given value returning violation results on violation
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForSized, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = &|value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  ///
-  /// // Generics: type to validate and type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.validate('a'), Ok(()));
-  /// assert_eq!(input.validate('b'), Err(vec!["Only vowels allowed".to_string()]));
-  /// ```
-  fn validate(&self, value: T) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_detailed(value) {
-      Ok(()) => Ok(()),
-      Err(violations) => Err(violations.to_string_vec()),
-    }
-  }
-
   /// Validates given optional value and returns detailed violation results on violation.
   ///
   /// ```rust
@@ -340,37 +309,6 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
           Ok(())
         }
       }
-    }
-  }
-
-  /// Validates given "optional" value.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{value_missing_msg_getter, FilterForSized, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = &|value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  /// // Generics: type to validate, type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.validate_option(None), Err(vec![value_missing_msg_getter(&input)]));
-  /// assert_eq!(input.validate_option(Some('a')), Ok(()));
-  /// assert_eq!(input.validate_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
-  /// ```
-  fn validate_option(&self, value: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_option_detailed(value) {
-      Ok(()) => Ok(()),
-      Err(violations) => Err(violations.to_string_vec()),
     }
   }
 
@@ -438,46 +376,6 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
   ///   .unwrap();
   ///
   /// // Test
-  /// assert_eq!(input.filter('a'), Ok('a'));
-  /// assert_eq!(input.filter('b'), Err(vec!["Only vowels allowed".to_string()]));
-  /// assert_eq!(vowel_input.filter('b'), Ok('e'));
-  /// ```
-  fn filter(&self, value: T) -> Result<FT, Vec<ViolationMessage>> {
-    match self.filter_detailed(value) {
-      Ok(value) => Ok(value),
-      Err(violations) => Err(violations.to_string_vec()),
-    }
-  }
-
-  /// Validates and transforms given value, and returns transformed value on successful validation,
-  /// and/or generated violation message(s) on validation violation.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = &|value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  ///
-  /// // Generics: type to validate and type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// let always_a_vowel = |x| if !vowels.contains(x) { 'e' } else { x };
-  /// let vowel_input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .filters(vec![ &always_a_vowel ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
   /// assert_eq!(input.filter_option_detailed(Some('a')), Ok(Some('a')));
   /// assert_eq!(input.filter_option_detailed(Some('b')), Err(Violations(vec![Violation(TypeMismatch, "Only vowels allowed".to_string())])));
   /// assert_eq!(vowel_input.filter_option_detailed(Some('b')), Ok(Some('e')));
@@ -495,46 +393,6 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
           Ok(self.get_default_value.and_then(|f| f()))
         }
       }
-    }
-  }
-
-  /// Validates and transforms given value, and returns transformed value on validation success,
-  /// and/or detailed violation details on violation.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForSized, value_missing_msg_getter, Input, InputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, StepMismatch};
-  ///
-  /// let vowels = "aeiou";
-  /// let vowel_validator = |value: char| if vowels.contains(value) {
-  ///   Ok(())
-  /// } else {
-  ///   Err(Violation(TypeMismatch, "Only vowels allowed".to_string()))
-  /// };
-  ///
-  /// // Generics: type to validate and type returned within `filter*` functions.
-  /// let input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .validators(vec![ &vowel_validator ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// let always_a_vowel = |x| if !vowels.contains(x) { 'e' } else { x };
-  /// let vowel_input = InputBuilder::<char, char>::default()
-  ///   .required(true)
-  ///   .filters(vec![ &always_a_vowel ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.filter_option(Some('a')), Ok(Some('a')));
-  /// assert_eq!(input.filter_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
-  /// assert_eq!(vowel_input.filter_option(Some('b')), Ok(Some('e')));
-  /// ```
-  fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
-    match self.filter_option_detailed(value) {
-      Ok(value) => Ok(value),
-      Err(violations) => Err(violations.to_string_vec()),
     }
   }
 }
