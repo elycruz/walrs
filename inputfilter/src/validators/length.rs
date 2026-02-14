@@ -162,11 +162,22 @@ where
   /// let too_long_str = "12345678901";
   /// let just_right_str = &too_long_str[1..];
   ///
-  /// let test_cases = vec![
+  /// type TestCase = &str;
+  /// type TestValue = &str;
+  /// type ViolationMessage = String;
+  ///
+  /// let test_cases: Vec<(
+  ///   TestCase,
+  ///   &LengthValidator<str>,
+  ///   TestValue,
+  ///   Result<(), ViolationMessage>
+  /// > = vec![
   ///   ("Default", &no_rules, "", Ok(())),
-  ///   ("Value too short", &len_one_to_ten, "", Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, ""))
-  ///   )),
-  ///   ("Value too long", &len_one_to_ten, too_long_str, Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
+  ///   ("Value too short", &len_one_to_ten, "",
+  ///     Err(Violation(TooShort, len_too_short_msg(&len_one_to_ten, "")))
+  ///   ),
+  ///   ("Value too long", &len_one_to_ten, too_long_str,
+  ///     Err(Violation(TooLong, len_too_long_msg(&len_one_to_ten, too_long_str))
   ///   )),
   ///   ("Value just right (1)", &len_one_to_ten, "a", Ok(())),
   ///   ("Value just right", &len_one_to_ten, just_right_str , Ok(())),
