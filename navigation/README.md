@@ -494,6 +494,149 @@ This crate follows idiomatic Rust best practices:
 - **Tested**: Extensive unit tests, doc tests, and benchmarks
 - **Feature-gated**: JSON and YAML support behind feature flags
 
+## Comparison with Laminas Navigation
+
+This crate is inspired by [Laminas Navigation](https://github.com/laminas/laminas-navigation), a PHP component from the Laminas framework. While we follow similar design principles, there are notable differences due to language idioms and design choices.
+
+### Similarities
+
+| Feature | Laminas Navigation | walrs_navigation |
+|---------|-------------------|------------------|
+| Hierarchical page trees | ✅ | ✅ |
+| Page properties (label, uri, title, etc.) | ✅ | ✅ |
+| ACL support (resource, privilege) | ✅ | ✅ |
+| Visibility control | ✅ | ✅ |
+| Active page tracking | ✅ | ✅ |
+| Custom attributes | ✅ | ✅ |
+| Breadcrumb generation | ✅ | ✅ |
+| Menu rendering | ✅ | ✅ |
+| Sitemap rendering | ✅ | ✅ |
+| Order-based sorting | ✅ | ✅ |
+| Recursive page search | ✅ | ✅ |
+
+### Key Differences
+
+| Aspect | Laminas Navigation | walrs_navigation |
+|--------|-------------------|------------------|
+| **Language** | PHP | Rust |
+| **Page Types** | Multiple classes (`Mvc`, `Uri`, `Route`) | Single unified `Page` struct |
+| **Type Safety** | Runtime checks | Compile-time guarantees |
+| **Error Handling** | Exceptions | `Result` types (no panics) |
+| **Field Access** | Getters/setters | Public fields + builder pattern |
+| **Mutability** | Mutable by default | Explicit `&mut self` |
+| **View Helpers** | Separate plugin system | Built-in `view` module |
+| **Serialization** | Array-based config | JSON/YAML with serde |
+| **ACL Integration** | Deep framework integration | Properties only (bring your own ACL) |
+| **Router Integration** | MVC router integration | Framework-agnostic |
+| **Memory Model** | Garbage collected | Ownership-based |
+
+### Architecture Differences
+
+#### Page Types
+
+**Laminas Navigation** uses separate page classes for different use cases:
+- `Laminas\Navigation\Page\Mvc` - For MVC routes with controller/action
+- `Laminas\Navigation\Page\Uri` - For explicit URIs
+- `Laminas\Navigation\Page\Route` - For route-based pages
+
+**walrs_navigation** uses a single `Page` struct with optional fields:
+```rust
+use walrs_navigation::Page;
+
+fn main() {
+    // All page types are handled by one struct
+    let page = Page::builder()
+        .uri("/about")           // URI-based
+        .route("about")          // Route name (for your router)
+        .resource("page:about")  // ACL resource
+        .build();
+}
+```
+
+#### View Helpers
+
+**Laminas Navigation** uses a plugin-based view helper system deeply integrated with the Laminas MVC framework:
+```php
+// In a Laminas view template
+echo $this->navigation('default')->menu();
+echo $this->navigation('default')->breadcrumbs();
+```
+
+**walrs_navigation** provides standalone rendering functions that work with any web framework:
+```rust
+use walrs_navigation::{Container, view};
+
+fn main() {
+    let nav = Container::new();
+
+    let menu_html = view::render_menu(&nav);
+    let breadcrumbs = view::render_breadcrumbs(&nav, " > ");
+    let sitemap = view::render_sitemap(&nav);
+}
+```
+
+#### ACL Integration
+
+**Laminas Navigation** integrates deeply with `Laminas\Permissions\Acl`:
+```php
+$page->setResource('admin:dashboard');
+$page->setPrivilege('view');
+// View helpers automatically filter based on ACL
+```
+
+**walrs_navigation** provides the properties but leaves ACL implementation to you:
+```rust
+use walrs_navigation::{Container, Page};
+
+fn main() {
+    let mut nav = Container::new();
+    
+    let page = Page::builder()
+        .resource("admin:dashboard")
+        .privilege("view")
+        .build();
+    
+    nav.add_page(page);
+
+    // Filter pages based on your ACL implementation
+    let visible = nav.find_all_by("resource", "admin:dashboard");
+}
+```
+
+#### Configuration
+
+**Laminas Navigation** uses PHP arrays or config files:
+```php
+return [
+    'navigation' => [
+        'default' => [
+            ['label' => 'Home', 'route' => 'home'],
+            ['label' => 'About', 'uri' => '/about'],
+        ],
+    ],
+];
+```
+
+**walrs_navigation** uses JSON or YAML (feature-gated):
+```json
+[
+    {"label": "Home", "uri": "/"},
+    {"label": "About", "uri": "/about"}
+]
+```
+
+### Why These Differences?
+
+1. **Unified Page Type**: Rust's type system and enums make a single struct with optional fields cleaner than class inheritance hierarchies.
+
+2. **Public Fields**: Rust's ownership model makes public fields with builder pattern more ergonomic than getter/setter pairs.
+
+3. **Result-Based Errors**: Rust's `Result` type provides explicit, compiler-checked error handling without exceptions.
+
+4. **Framework Agnostic**: Rather than deep framework integration, we provide composable primitives that work with any Rust web framework (Actix, Axum, Rocket, etc.).
+
+5. **Feature Flags**: Serialization dependencies (serde_json, serde_yaml) are optional to minimize binary size when not needed.
+
 ## Credits
 
 This crate is inspired by the [Laminas Navigation](https://github.com/laminas/laminas-navigation) component, created by the Laminas Project and contributors. We are grateful for their excellent work in designing a flexible and powerful navigation abstraction.
