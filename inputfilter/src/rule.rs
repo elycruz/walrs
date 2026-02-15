@@ -48,6 +48,107 @@ pub type RuleResult = Result<(), Violation>;
 // Message Enum
 // ============================================================================
 
+/// Parameters extracted from a rule for message interpolation.
+///
+/// When a rule fails validation, these parameters provide context about
+/// the constraint that was violated, enabling dynamic error messages.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct MessageParams {
+    /// The name/type of the rule (e.g., "MinLength", "Range")
+    pub rule_name: &'static str,
+    /// Minimum constraint (for length/range rules)
+    pub min: Option<String>,
+    /// Maximum constraint (for length/range rules)
+    pub max: Option<String>,
+    /// Expected value (for equality rules)
+    pub expected: Option<String>,
+    /// Actual value (computed during validation)
+    pub actual: Option<String>,
+    /// Pattern string (for regex rules)
+    pub pattern: Option<String>,
+    /// Step value (for step rules)
+    pub step: Option<String>,
+}
+
+impl MessageParams {
+    /// Creates empty params with a rule name.
+    pub fn new(rule_name: &'static str) -> Self {
+        Self {
+            rule_name,
+            ..Default::default()
+        }
+    }
+
+    /// Sets the minimum constraint.
+    pub fn with_min(mut self, min: impl ToString) -> Self {
+        self.min = Some(min.to_string());
+        self
+    }
+
+    /// Sets the maximum constraint.
+    pub fn with_max(mut self, max: impl ToString) -> Self {
+        self.max = Some(max.to_string());
+        self
+    }
+
+    /// Sets the expected value.
+    pub fn with_expected(mut self, expected: impl ToString) -> Self {
+        self.expected = Some(expected.to_string());
+        self
+    }
+
+    /// Sets the actual value.
+    pub fn with_actual(mut self, actual: impl ToString) -> Self {
+        self.actual = Some(actual.to_string());
+        self
+    }
+
+    /// Sets the pattern string.
+    pub fn with_pattern(mut self, pattern: impl ToString) -> Self {
+        self.pattern = Some(pattern.to_string());
+        self
+    }
+
+    /// Sets the step value.
+    pub fn with_step(mut self, step: impl ToString) -> Self {
+        self.step = Some(step.to_string());
+        self
+    }
+}
+
+/// Context passed to message providers during validation.
+///
+/// Contains both the value being validated and parameters from the rule,
+/// enabling rich, contextual error messages.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_inputfilter::rule::{Message, MessageContext, MessageParams};
+///
+/// let msg: Message<String> = Message::provider(|ctx| {
+///     format!(
+///         "Value length {} is less than minimum {}",
+///         ctx.params.actual.as_deref().unwrap_or("?"),
+///         ctx.params.min.as_deref().unwrap_or("?")
+///     )
+/// });
+/// ```
+#[derive(Clone, Debug)]
+pub struct MessageContext<'a, T> {
+    /// The value being validated
+    pub value: &'a T,
+    /// Parameters extracted from the rule
+    pub params: MessageParams,
+}
+
+impl<'a, T> MessageContext<'a, T> {
+    /// Creates a new message context.
+    pub fn new(value: &'a T, params: MessageParams) -> Self {
+        Self { value, params }
+    }
+}
+
 /// A validation error message that can be either a static string or a dynamic provider.
 ///
 /// This enum enables:
@@ -69,7 +170,7 @@ pub type RuleResult = Result<(), Violation>;
 /// let msg: Message<String> = Message::from("Must be at least 8 characters");
 ///
 /// // Dynamic message with value context
-/// let msg: Message<i32> = Message::provider(|v| format!("Value {} is out of range", v));
+/// let msg: Message<i32> = Message::provider(|ctx| format!("Value {} is out of range", ctx.value));
 /// ```
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -79,9 +180,10 @@ pub enum Message<T> {
 
     /// A dynamic message provider (not serializable)
     ///
-    /// The closure receives the value being validated and returns a formatted message.
+    /// The closure receives a `MessageContext` containing the value being validated
+    /// and parameters extracted from the rule, enabling rich interpolated messages.
     #[serde(skip)]
-    Provider(Arc<dyn Fn(&T) -> String + Send + Sync>),
+    Provider(Arc<dyn Fn(&MessageContext<T>) -> String + Send + Sync>),
 }
 
 impl<T> Message<T> {
@@ -106,14 +208,17 @@ impl<T> Message<T> {
     /// ```rust
     /// use walrs_inputfilter::rule::Message;
     ///
-    /// let msg: Message<i32> = Message::provider(|v| format!("Got {}, expected positive", v));
+    /// let msg: Message<i32> = Message::provider(|ctx| format!("Got {}, expected positive", ctx.value));
     /// assert_eq!(msg.resolve(&-5), "Got -5, expected positive");
     /// ```
-    pub fn provider(f: impl Fn(&T) -> String + Send + Sync + 'static) -> Self {
+    pub fn provider(f: impl Fn(&MessageContext<T>) -> String + Send + Sync + 'static) -> Self {
         Message::Provider(Arc::new(f))
     }
 
     /// Resolves the message, using the value for dynamic providers.
+    ///
+    /// This creates a default `MessageParams` with no rule-specific data.
+    /// Use `resolve_with_context` for full context.
     ///
     /// # Example
     ///
@@ -123,13 +228,44 @@ impl<T> Message<T> {
     /// let static_msg: Message<String> = Message::from("Error");
     /// assert_eq!(static_msg.resolve(&"any".to_string()), "Error");
     ///
-    /// let dynamic_msg: Message<String> = Message::provider(|v| format!("Bad: {}", v));
+    /// let dynamic_msg: Message<String> = Message::provider(|ctx| format!("Bad: {}", ctx.value));
     /// assert_eq!(dynamic_msg.resolve(&"input".to_string()), "Bad: input");
     /// ```
     pub fn resolve(&self, value: &T) -> String {
         match self {
             Message::Static(s) => s.clone(),
-            Message::Provider(f) => f(value),
+            Message::Provider(f) => {
+                let ctx = MessageContext::new(value, MessageParams::default());
+                f(&ctx)
+            }
+        }
+    }
+
+    /// Resolves the message with full context including rule parameters.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::{Message, MessageContext, MessageParams};
+    ///
+    /// let msg: Message<i32> = Message::provider(|ctx| {
+    ///     format!(
+    ///         "Value must be between {} and {}",
+    ///         ctx.params.min.as_deref().unwrap_or("?"),
+    ///         ctx.params.max.as_deref().unwrap_or("?")
+    ///     )
+    /// });
+    ///
+    /// let params = MessageParams::new("Range")
+    ///     .with_min(0)
+    ///     .with_max(100);
+    /// let ctx = MessageContext::new(&50, params);
+    /// assert_eq!(msg.resolve_with_context(&ctx), "Value must be between 0 and 100");
+    /// ```
+    pub fn resolve_with_context(&self, ctx: &MessageContext<T>) -> String {
+        match self {
+            Message::Static(s) => s.clone(),
+            Message::Provider(f) => f(ctx),
         }
     }
 
@@ -152,8 +288,7 @@ impl<T> Message<T> {
     pub fn resolve_or(&self, value: &T, fallback: &str) -> String {
         match self {
             Message::Static(s) if s.is_empty() => fallback.to_string(),
-            Message::Static(s) => s.clone(),
-            Message::Provider(f) => f(value),
+            _ => self.resolve(value),
         }
     }
 
@@ -636,9 +771,8 @@ impl<T> Rule<T> {
 
     /// Attaches a dynamic message provider to this rule.
     ///
-    /// The closure receives the value being validated and returns
-    /// a custom error message. Useful for including the actual value
-    /// in error messages.
+    /// The closure receives a `MessageContext` containing the value being validated
+    /// and rule parameters, enabling rich interpolated error messages.
     ///
     /// # Example
     ///
@@ -646,11 +780,11 @@ impl<T> Rule<T> {
     /// use walrs_inputfilter::rule::Rule;
     ///
     /// let rule = Rule::<i32>::Min(0)
-    ///     .with_message_provider(|v| format!("Value {} must be non-negative", v));
+    ///     .with_message_provider(|ctx| format!("Value {} must be non-negative", ctx.value));
     /// ```
     pub fn with_message_provider<F>(self, f: F) -> Rule<T>
     where
-        F: Fn(&T) -> String + Send + Sync + 'static,
+        F: Fn(&MessageContext<T>) -> String + Send + Sync + 'static,
     {
         Rule::WithMessage {
             rule: Box::new(self),
@@ -904,7 +1038,7 @@ mod tests {
 
     #[test]
     fn test_message_provider() {
-        let msg: Message<i32> = Message::provider(|v| format!("Value {} is invalid", v));
+        let msg: Message<i32> = Message::provider(|ctx| format!("Value {} is invalid", ctx.value));
         assert!(msg.is_provider());
         assert!(!msg.is_static());
         assert_eq!(msg.resolve(&42), "Value 42 is invalid");
@@ -1002,7 +1136,7 @@ mod tests {
     #[test]
     fn test_rule_with_message_provider() {
         let rule = Rule::<i32>::Min(0)
-            .with_message_provider(|v| format!("Got {}, expected >= 0", v));
+            .with_message_provider(|ctx| format!("Got {}, expected >= 0", ctx.value));
 
         match rule {
             Rule::WithMessage { rule: inner, message } => {
@@ -1051,6 +1185,138 @@ mod tests {
             }
             _ => panic!("Expected Rule::WithMessage"),
         }
+    }
+
+    // ========================================================================
+    // MessageParams Tests
+    // ========================================================================
+
+    #[test]
+    fn test_message_params_new() {
+        let params = MessageParams::new("MinLength");
+        assert_eq!(params.rule_name, "MinLength");
+        assert!(params.min.is_none());
+        assert!(params.max.is_none());
+        assert!(params.actual.is_none());
+    }
+
+    #[test]
+    fn test_message_params_builder_pattern() {
+        let params = MessageParams::new("Range")
+            .with_min(0)
+            .with_max(100)
+            .with_actual(50);
+
+        assert_eq!(params.rule_name, "Range");
+        assert_eq!(params.min, Some("0".to_string()));
+        assert_eq!(params.max, Some("100".to_string()));
+        assert_eq!(params.actual, Some("50".to_string()));
+    }
+
+    #[test]
+    fn test_message_params_all_fields() {
+        let params = MessageParams::new("Custom")
+            .with_min(1)
+            .with_max(10)
+            .with_expected("foo")
+            .with_actual("bar")
+            .with_pattern(r"^\d+$")
+            .with_step(2);
+
+        assert_eq!(params.min, Some("1".to_string()));
+        assert_eq!(params.max, Some("10".to_string()));
+        assert_eq!(params.expected, Some("foo".to_string()));
+        assert_eq!(params.actual, Some("bar".to_string()));
+        assert_eq!(params.pattern, Some(r"^\d+$".to_string()));
+        assert_eq!(params.step, Some("2".to_string()));
+    }
+
+    // ========================================================================
+    // MessageContext Tests
+    // ========================================================================
+
+    #[test]
+    fn test_message_context_new() {
+        let value = "test".to_string();
+        let params = MessageParams::new("MinLength").with_min(5);
+        let ctx = MessageContext::new(&value, params);
+
+        assert_eq!(ctx.value, &"test".to_string());
+        assert_eq!(ctx.params.rule_name, "MinLength");
+        assert_eq!(ctx.params.min, Some("5".to_string()));
+    }
+
+    #[test]
+    fn test_message_provider_with_params() {
+        let msg: Message<String> = Message::provider(|ctx| {
+            format!(
+                "Length must be at least {}, got {}",
+                ctx.params.min.as_deref().unwrap_or("?"),
+                ctx.params.actual.as_deref().unwrap_or("?")
+            )
+        });
+
+        assert!(msg.is_provider());
+        assert!(!msg.is_static());
+    }
+
+    #[test]
+    fn test_message_provider_resolve_with_context() {
+        let msg: Message<String> = Message::provider(|ctx| {
+            format!(
+                "{} validation failed: expected min {}, got {}",
+                ctx.params.rule_name,
+                ctx.params.min.as_deref().unwrap_or("?"),
+                ctx.params.actual.as_deref().unwrap_or("?")
+            )
+        });
+
+        let params = MessageParams::new("MinLength")
+            .with_min(8)
+            .with_actual(3);
+        let value = "abc".to_string();
+        let ctx = MessageContext::new(&value, params);
+
+        assert_eq!(
+            msg.resolve_with_context(&ctx),
+            "MinLength validation failed: expected min 8, got 3"
+        );
+    }
+
+    #[test]
+    fn test_message_provider_resolve_without_context() {
+        // When resolve() is called without context, default params are used
+        let msg: Message<String> = Message::provider(|ctx| {
+            format!(
+                "min: {}, max: {}",
+                ctx.params.min.as_deref().unwrap_or("none"),
+                ctx.params.max.as_deref().unwrap_or("none")
+            )
+        });
+
+        // resolve() creates a default MessageParams
+        assert_eq!(msg.resolve(&"test".to_string()), "min: none, max: none");
+    }
+
+    #[test]
+    fn test_message_static_resolve_with_context() {
+        // Static messages ignore context
+        let msg: Message<String> = Message::from("Static error");
+        let params = MessageParams::new("MinLength").with_min(8);
+        let value = "test".to_string();
+        let ctx = MessageContext::new(&value, params);
+
+        assert_eq!(msg.resolve_with_context(&ctx), "Static error");
+    }
+
+    #[test]
+    fn test_message_provider_uses_context_value() {
+        // Provider can access both value and params from context
+        let msg: Message<i32> = Message::provider(|ctx| format!("Value: {}", ctx.value));
+        let params = MessageParams::new("Min").with_min(0);
+        let ctx = MessageContext::new(&42, params);
+
+        assert_eq!(msg.resolve_with_context(&ctx), "Value: 42");
     }
 }
 

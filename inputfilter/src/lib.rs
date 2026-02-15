@@ -19,7 +19,7 @@ pub use walrs_validator::{Violation, Violations, ViolationType, ViolationMessage
 pub use filters::*;
 pub use input::*;
 pub use ref_input::*;
-pub use rule::{Condition, Message, Rule, RuleResult};
+pub use rule::{Condition, Message, MessageContext, MessageParams, Rule, RuleResult};
 pub use traits::*;
 pub use validators::*;
 
