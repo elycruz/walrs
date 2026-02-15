@@ -5,7 +5,7 @@ use crate::{ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
 /// A validator for checking that a scalar value falls within a specified range.
 ///
 /// ```rust
-///  use walrs_inputfilter::{RangeValidator, RangeValidatorBuilder, Validate};
+///  use walrs_validator::{RangeValidator, RangeValidatorBuilder, Validate};
 ///
 ///  let mut vldtr = RangeValidatorBuilder::default()
 ///  .min(1)
@@ -41,7 +41,7 @@ pub struct RangeValidator<'a, T: ScalarValue> {
 impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   RangeValidator, ViolationType,
   /// };
   ///
@@ -67,7 +67,7 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// if value doesn't pass validation.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   RangeValidator, ViolationType,
   ///   RangeValidatorBuilder,
   ///   range_underflow_msg_getter, range_overflow_msg_getter,
@@ -152,7 +152,7 @@ impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
 /// Returns generic range underflow message.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RangeValidatorBuilder, range_underflow_msg_getter};
+/// use walrs_validator::{RangeValidatorBuilder, range_underflow_msg_getter};
 ///
 /// let input = RangeValidatorBuilder::<usize>::default()
 ///   .min(1)
@@ -168,7 +168,7 @@ pub fn range_underflow_msg_getter<T: ScalarValue>(rules: &RangeValidator<T>, x: 
 /// Returns generic range overflow message.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RangeValidatorBuilder, range_overflow_msg_getter};
+/// use walrs_validator::{RangeValidatorBuilder, range_overflow_msg_getter};
 ///
 /// let input = RangeValidatorBuilder::<usize>::default()
 ///   .max(10)
@@ -185,7 +185,7 @@ impl<T: ScalarValue> Default for RangeValidator<'_, T> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   RangeValidator
   /// };
   ///
@@ -328,3 +328,4 @@ mod test {
     assert_eq!(debug_output, expected_output);
   }
 }
+

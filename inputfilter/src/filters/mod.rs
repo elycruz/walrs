@@ -1,9 +1,6 @@
-pub mod slug;
-pub mod strip_tags;
-pub mod traits;
-pub mod xml_entities;
+//! Re-export filters from walrs_filter crate.
+//!
+//! This module provides backwards compatibility by re-exporting all types
+//! from the standalone `walrs_filter` crate.
 
-pub use slug::*;
-pub use strip_tags::*;
-pub use traits::*;
-pub use xml_entities::*;
+pub use walrs_filter::*;

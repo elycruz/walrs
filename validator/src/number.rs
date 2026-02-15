@@ -4,8 +4,6 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 
-// @todo Validator should support `break_on_failure` feature.
-
 use crate::traits::ToAttributesList;
 use serde_json::value::to_value as to_json_value;
 
@@ -15,14 +13,14 @@ pub type NumberVldrViolationCallback<'a, T> =
 /// Validator for performing number range and step checks against given number.
 ///
 /// ```rust
-/// use walrs_inputfilter::{
+/// use walrs_validator::{
 ///   NumberValidator,
 ///   NumberValidatorBuilder,
 ///   Validate,
 ///   ValidatorResult,
 ///   Violation,
 ///   ViolationType::{RangeUnderflow, RangeOverflow, StepMismatch},
-///   validators::{ num_range_underflow_msg, num_range_overflow_msg, num_step_mismatch_msg }
+///   num_range_underflow_msg, num_range_overflow_msg, num_step_mismatch_msg
 /// };
 ///
 /// let vldtr = NumberValidatorBuilder::<usize>::default()
@@ -158,7 +156,7 @@ where
   ///  use as HTML attribute-name/attribute-value pairs.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   NumberValidator,
   ///   NumberValidatorBuilder,
   ///   ToAttributesList
@@ -552,3 +550,4 @@ mod test {
     assert_eq!(call_fn_once_with_ref(vldtr), Ok(()));
   }
 }
+

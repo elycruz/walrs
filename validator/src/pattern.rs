@@ -10,7 +10,7 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 /// A validator for checking that a string matches a specified regex pattern.
 ///
 /// ```rust
-///  use walrs_inputfilter::{PatternValidator, PatternValidatorBuilder, Validate, ValidateRef};
+///  use walrs_validator::{PatternValidator, PatternValidatorBuilder, Validate, ValidateRef};
 ///  use regex::Regex;
 ///  use std::borrow::Cow;
 ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
@@ -36,7 +36,7 @@ impl<'a> PatternValidator<'a> {
   /// Returns a new instance of `PatternValidator` with passed in Regex value.
   ///
   /// ```rust
-  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
+  ///  use walrs_validator::{PatternValidator, PatternValidatorBuilder};
   ///  use regex::Regex;
   ///  use std::borrow::Cow;
   ///
@@ -54,14 +54,11 @@ impl<'a> PatternValidator<'a> {
   }
 }
 
-// @todo Should implement default - requires making `pattern` attrib. Maybe (Some|None),
-//   also requires 'validate*' methods update to take this into account.
-
 impl Validate<&str> for PatternValidator<'_> {
   /// Validates input string against regex.
   ///
   /// ```rust
-  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, Validate};
+  ///  use walrs_validator::{PatternValidator, PatternValidatorBuilder, Validate};
   ///  use regex::Regex;
   ///  use std::borrow::Cow;
   ///
@@ -81,11 +78,10 @@ impl Validate<&str> for PatternValidator<'_> {
 }
 
 impl ValidateRef<str> for PatternValidator<'_> {
-  /// Same as `validate` but exists to appease `ValidateRef` trait, which is [currently] required
-  /// in some special use cases.
+  /// Same as `validate` but exists to appease `ValidateRef` trait.
   ///
   /// ```rust
-  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder, ValidateRef};
+  ///  use walrs_validator::{PatternValidator, PatternValidatorBuilder, ValidateRef};
   ///  use regex::Regex;
   ///  use std::borrow::Cow;
   ///
@@ -114,8 +110,8 @@ impl ToAttributesList for PatternValidator<'_> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
-  ///  use walrs_inputfilter::validators::{PatternValidator, PatternValidatorBuilder};
-  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use walrs_validator::{PatternValidator, PatternValidatorBuilder};
+  ///  use walrs_validator::ToAttributesList;
   ///  use regex::Regex;
   ///  use std::borrow::Cow;
   ///
@@ -173,7 +169,7 @@ impl Display for PatternValidator<'_> {
 /// Returns generic pattern mismatch message.
 ///
 /// ```rust
-///  use walrs_inputfilter::{PatternValidatorBuilder, pattern_vldr_pattern_mismatch_msg};
+///  use walrs_validator::{PatternValidatorBuilder, pattern_vldr_pattern_mismatch_msg};
 ///  use regex::Regex;
 ///  use std::borrow::Cow;
 ///
@@ -197,6 +193,7 @@ pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> 
     &rules.pattern.to_string()
   )
 }
+
 
 #[cfg(test)]
 mod test {
@@ -337,3 +334,4 @@ mod test {
     Ok(())
   }
 }
+

@@ -6,8 +6,8 @@
 /// # Examples
 /// 
 /// ```rust
-/// use walrs_inputfilter::filters::Filter;
-/// 
+/// use walrs_filter::Filter;
+///
 /// struct UppercaseFilter;
 /// 
 /// impl Filter<String> for UppercaseFilter {

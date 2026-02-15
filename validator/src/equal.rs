@@ -6,7 +6,7 @@ use std::fmt::Display;
 /// Validator for performing equality checks against contained value.
 ///
 /// ```rust
-///  use walrs_inputfilter::{
+///  use walrs_validator::{
 ///    EqualityValidator,
 ///    EqualityValidatorBuilder,
 ///    Validate,
@@ -52,7 +52,7 @@ where
   ///  optional custom not equal message function.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   EqualityValidator,
   ///   EqualityValidatorBuilder,
   ///   equal_vldr_not_equal_msg
@@ -83,7 +83,7 @@ where
   ///  of unit, and/or, a Vec of violation tuples.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{
+  /// use walrs_validator::{
   ///   EqualityValidator,
   ///   ViolationType,
   ///   EqualityValidatorBuilder,
@@ -140,8 +140,8 @@ impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
-  ///  use walrs_inputfilter::validators::{EqualityValidator, EqualityValidatorBuilder};
-  ///  use walrs_inputfilter::traits::ToAttributesList;
+  ///  use walrs_validator::{EqualityValidator, EqualityValidatorBuilder};
+  ///  use walrs_validator::ToAttributesList;
   ///  use std::borrow::Cow;
   ///
   ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
@@ -190,7 +190,7 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
 /// Returns generic not equal message.
 ///
 /// ```rust
-///  use walrs_inputfilter::{EqualityValidator, EqualityValidatorBuilder, equal_vldr_not_equal_msg};
+///  use walrs_validator::{EqualityValidator, EqualityValidatorBuilder, equal_vldr_not_equal_msg};
 ///
 ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
 ///    .rhs_value("foo")
@@ -267,3 +267,4 @@ mod test {
     Ok(())
   }
 }
+

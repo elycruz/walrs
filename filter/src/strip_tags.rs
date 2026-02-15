@@ -8,7 +8,7 @@ static DEFAULT_AMMONIA_BUILDER: OnceLock<ammonia::Builder> = OnceLock::new();
 /// Sanitizes incoming HTML using the [Ammonia](https://docs.rs/ammonia/1.0.0/ammonia/) crate.
 ///
 /// ```rust
-/// use walrs_inputfilter::filters::{Filter, StripTagsFilter};
+/// use walrs_filter::{Filter, StripTagsFilter};
 /// use std::borrow::Cow;
 ///
 /// let filter = StripTagsFilter::new();
@@ -56,7 +56,7 @@ impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
   /// use std::borrow::Cow;
   /// use std::sync::OnceLock;
   /// use ammonia::Builder as AmmoniaBuilder;
-  /// use walrs_inputfilter::filters::{Filter, StripTagsFilter};
+  /// use walrs_filter::{Filter, StripTagsFilter};
   ///
   /// // Using default settings:
   /// let filter = StripTagsFilter::new();

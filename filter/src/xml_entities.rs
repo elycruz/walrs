@@ -14,7 +14,7 @@ static DEFAULT_CHARS_ASSOC_MAP: OnceLock<HashMap<char, &'static str>> = OnceLock
 ///   E.g., ignore results like `&amp;amp;` for string `&amp;`, etc.
 ///
 /// ```rust
-/// use walrs_inputfilter::filters::{Filter, XmlEntitiesFilter};
+/// use walrs_filter::{Filter, XmlEntitiesFilter};
 ///
 /// let filter = XmlEntitiesFilter::new();
 ///
@@ -58,7 +58,7 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
   /// xml entities.
   ///
   /// ```rust
-  /// use walrs_inputfilter::filters::{Filter, XmlEntitiesFilter};
+  /// use walrs_filter::{Filter, XmlEntitiesFilter};
   ///
   /// let filter = XmlEntitiesFilter::new();
   ///

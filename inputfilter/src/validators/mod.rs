@@ -1,15 +1,6 @@
-pub mod combinators;
-pub mod equal;
-pub mod length;
-pub mod number;
-pub mod pattern;
-pub mod range;
-pub mod traits;
+//! Re-export validators from walrs_validator crate.
+//!
+//! This module provides backwards compatibility by re-exporting all types
+//! from the standalone `walrs_validator` crate.
 
-pub use combinators::*;
-pub use equal::*;
-pub use length::*;
-pub use number::*;
-pub use pattern::*;
-pub use range::*;
-pub use traits::*;
+pub use walrs_validator::*;

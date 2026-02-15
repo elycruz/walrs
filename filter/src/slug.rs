@@ -22,7 +22,7 @@ pub fn get_dash_filter_regex() -> &'static Regex {
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use walrs_inputfilter::filters::slug::to_slug;
+/// use walrs_filter::slug::to_slug;
 ///
 /// assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
 /// ```
@@ -34,7 +34,7 @@ pub fn to_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
 ///
 /// ```rust
 /// use std::borrow::Cow;
-/// use walrs_inputfilter::filters::slug::to_pretty_slug;
+/// use walrs_filter::slug::to_pretty_slug;
 ///
 /// assert_eq!(to_pretty_slug(Cow::Borrowed("%$Hello@#$@#!(World$$")), "hello-world");
 /// ```

@@ -20,7 +20,9 @@ walrs_navigation = { path = "navigation" }
 members = [
     "acl", 
     "digraph",
+    "filter",
     "graph",
     "inputfilter",
-    "navigation"
+    "navigation",
+    "validator"
 ]

@@ -1,23 +1,21 @@
 [package]
-name = "walrs_inputfilter"
+name = "walrs_validator"
 version = "0.1.0"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
 edition = "2024"
+description = "Validator structs for input validation"
+license = "MIT OR Apache-2.0"
 include = ["src/**/*", "Cargo.toml"]
 
 [features]
 default = []
-fn_traits = ["walrs_filter/fn_traits", "walrs_validator/fn_traits"]
-debug_closure_helpers = ["walrs_validator/debug_closure_helpers"]
+fn_traits = []
+debug_closure_helpers = []
 nightly = ["fn_traits", "debug_closure_helpers"]
 
 [dependencies]
-bytes = "1.4.0"
-regex = "1.3.1"
 derive_builder = "0.13.0"
+regex = "1.3.1"
 serde = { version = "1.0.103", features = ["derive"] }
 serde_json = "1.0.82"
-ammonia = "3.3.1"
 thiserror = "1.0"
-walrs_filter = { path = "../filter" }
-walrs_validator = { path = "../validator" }

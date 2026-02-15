@@ -30,7 +30,7 @@ pub trait ValidateRef<T: ?Sized> {
 /// # Example
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{
+/// use walrs_validator::{
 ///     RangeValidatorBuilder, ValidateAdapter, Validate, ValidateRef
 /// };
 ///
@@ -157,3 +157,10 @@ impl NumberValue for usize {}
 
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
+
+/// Trait for types that can be converted to HTML form element attributes.
+pub trait ToAttributesList {
+  /// Returns the validator's rules as key/value pairs suitable for HTML attributes.
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>>;
+}
+

@@ -13,7 +13,7 @@ pub type LengthValidatorCallback<'a, T> =
 /// Validates the length of a value with a length (strings, collections, etc.).
 ///
 /// ```rust
-/// use walrs_inputfilter::{
+/// use walrs_validator::{
 ///  len_too_long_msg,
 ///  len_too_short_msg,
 ///  Validate,
@@ -78,7 +78,7 @@ impl<'a, T: WithLength + ?Sized> LengthValidator<'a, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust
-  /// use walrs_inputfilter::LengthValidator;
+  /// use walrs_validator::LengthValidator;
   ///
   /// let default_vldtr = LengthValidator::<str>::new();
   ///
@@ -128,12 +128,6 @@ validate_type_with_len!(HashMap<K, V, S>, K, V, S);
 validate_type_with_len!(Vec<T>, T);
 validate_type_with_len!(VecDeque<T>, T);
 
-// #[cfg(feature = "indexmap")]
-// validate_type_with_len!(IndexSet<T>, T);
-//
-// #[cfg(feature = "indexmap")]
-// validate_type_with_len!(IndexMap<K, V>, K, V);
-
 // ====
 // /End of validator_types crate rip.
 // ====
@@ -145,9 +139,9 @@ where
   /// Validates incoming value against contained constraints.
   ///
   /// ```rust
-  /// use walrs_inputfilter::{len_too_long_msg, len_too_short_msg};
-  /// use walrs_inputfilter::{Violation, ViolationType::{TooLong, TooShort}};
-  /// use walrs_inputfilter::{LengthValidator, LengthValidatorBuilder, ValidateRef};
+  /// use walrs_validator::{len_too_long_msg, len_too_short_msg};
+  /// use walrs_validator::{Violation, ViolationType::{TooLong, TooShort}};
+  /// use walrs_validator::{LengthValidator, LengthValidatorBuilder, ValidateRef};
   ///
   /// let no_rules = LengthValidator::<str>::new();
   /// let len_one_to_ten = LengthValidatorBuilder::<str>::default()
@@ -227,7 +221,7 @@ impl<'a, T: WithLength + ?Sized> Default for LengthValidator<'a, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust
-  /// use walrs_inputfilter::LengthValidator;
+  /// use walrs_validator::LengthValidator;
   ///
   /// let default_vldtr = LengthValidator::<str>::default();
   ///
@@ -242,7 +236,7 @@ impl<'a, T: WithLength + ?Sized> Default for LengthValidator<'a, T> {
 /// Returns default "too short" violation message.
 ///
 /// ```rust
-///  use walrs_inputfilter::{len_too_short_msg, LengthValidator, LengthValidatorBuilder};
+///  use walrs_validator::{len_too_short_msg, LengthValidator, LengthValidatorBuilder};
 ///
 ///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
 ///    .min_length(1)
@@ -267,7 +261,7 @@ pub fn len_too_short_msg<'a, T: WithLength + ?Sized>(
 /// Returns default "too long" violation message.
 ///
 /// ```rust
-///  use walrs_inputfilter::{len_too_long_msg, LengthValidator, LengthValidatorBuilder};
+///  use walrs_validator::{len_too_long_msg, LengthValidator, LengthValidatorBuilder};
 ///
 ///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
 ///    .min_length(1)
@@ -311,7 +305,7 @@ mod test {
       .build()
       .unwrap();
 
-    let ngte_than_8 = LengthValidatorBuilder::<str>::default()
+    let _ngte_than_8 = LengthValidatorBuilder::<str>::default()
       .max_length(8)
       .build()
       .unwrap();
@@ -425,3 +419,4 @@ mod test {
     assert_eq!(call_fn_once(vldtr, "abc"), Ok(()));
   }
 }
+

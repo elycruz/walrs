@@ -1980,6 +1980,15 @@ name = "walrs_digraph"
 version = "0.1.0"
 
 [[package]]
+name = "walrs_filter"
+version = "0.1.0"
+dependencies = [
+ "ammonia",
+ "derive_builder",
+ "regex",
+]
+
+[[package]]
 name = "walrs_graph"
 version = "0.1.0"
 dependencies = [
@@ -1998,6 +2007,8 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+ "walrs_filter",
+ "walrs_validator",
 ]
 
 [[package]]
@@ -2010,6 +2021,17 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "walrs_validator"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror",
 ]
 
 [[package]]

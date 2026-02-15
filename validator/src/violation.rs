@@ -48,7 +48,7 @@ impl Violation {
 /// `Display` impl (and `ToString` (which we get for free)) for `Violation` type.
 ///
 /// ```rust
-/// use walrs_inputfilter::{ViolationType::ValueMissing, Violation};
+/// use walrs_validator::{ViolationType::ValueMissing, Violation};
 ///
 /// let violation = Violation(ValueMissing, "Value missing".to_string());
 /// let displayed = format!("{}", violation);
@@ -272,3 +272,4 @@ mod test {
     assert!(empty_err.source().is_none());
   }
 }
+

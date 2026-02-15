@@ -6,7 +6,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use walrs_inputfilter::validators::{
+//! use walrs_validator::{
 //!     RangeValidatorBuilder,
 //!     Validate, ValidateExt,
 //! };
@@ -45,7 +45,7 @@ use super::{Validate, ValidateRef, ValidatorResult};
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{RangeValidatorBuilder, Validate, ValidatorAnd};
+/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorAnd};
 ///
 /// let min_validator = RangeValidatorBuilder::<i32>::default()
 ///     .min(0)
@@ -110,7 +110,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{RangeValidatorBuilder, Validate, ValidatorOr};
+/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorOr};
 ///
 /// // Value must be either negative or greater than 100
 /// let negative = RangeValidatorBuilder::<i32>::default()
@@ -191,7 +191,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{RangeValidatorBuilder, Validate, ValidatorNot};
+/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorNot};
 ///
 /// // Value must NOT be in range 0-10
 /// let in_range = RangeValidatorBuilder::<i32>::default()
@@ -258,7 +258,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{LengthValidatorBuilder, ValidateRef, ValidatorOptional};
+/// use walrs_validator::{LengthValidatorBuilder, ValidateRef, ValidatorOptional};
 ///
 /// let length_validator = LengthValidatorBuilder::<str>::default()
 ///     .min_length(5)
@@ -333,7 +333,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{RangeValidatorBuilder, Validate, ValidatorWhen};
+/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorWhen};
 ///
 /// let positive_validator = RangeValidatorBuilder::<i32>::default()
 ///     .min(1)
@@ -412,7 +412,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_inputfilter::validators::{LengthValidatorBuilder, ValidatorAll, ValidateRef};
+/// use walrs_validator::{LengthValidatorBuilder, ValidatorAll, ValidateRef};
 ///
 /// let min_length = LengthValidatorBuilder::<str>::default()
 ///     .min_length(5)
@@ -537,7 +537,7 @@ impl<T: ?Sized, V: ValidateRef<T>> ValidateRefExt<T> for V {}
 #[cfg(test)]
 mod tests {
   use super::*;
-  use crate::validators::{LengthValidatorBuilder, RangeValidatorBuilder};
+  use crate::{LengthValidatorBuilder, RangeValidatorBuilder};
 
   #[test]
   fn test_validator_and() {

@@ -11,11 +11,14 @@ pub(crate) mod input_common;
 pub mod ref_input;
 pub mod traits;
 pub mod validators;
-pub mod violation;
+
+// Re-export violation types from walrs_validator for backwards compatibility
+pub use walrs_validator::{Violation, Violations, ViolationType, ViolationMessage};
 
 pub use filters::*;
 pub use input::*;
 pub use ref_input::*;
 pub use traits::*;
 pub use validators::*;
-pub use violation::*;
+
+

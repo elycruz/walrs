@@ -1,4 +1,4 @@
-use crate::violation::{Violation, ViolationMessage, Violations};
+use crate::{Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display};
 
 // ============================================================================
@@ -423,9 +423,3 @@ where
   }
 }
 
-/// Allows serialization of properties that can be used for html form control contexts.
-pub trait ToAttributesList {
-  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
-    None
-  }
-}
