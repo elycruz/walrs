@@ -543,5 +543,107 @@ mod tests {
         let arr = [1, 2, 3];
         assert_eq!(msg.resolve(&arr), "Length: 3");
     }
-}
 
+    #[test]
+    fn test_message_params_length_fields() {
+        let params = MessageParams::new("MinLength")
+            .with_min_length(5)
+            .with_max_length(100)
+            .with_exact_length(50);
+
+        assert_eq!(params.min_length, Some(5));
+        assert_eq!(params.max_length, Some(100));
+        assert_eq!(params.exact_length, Some(50));
+    }
+
+    #[test]
+    fn test_message_params_required() {
+        let params = MessageParams::new("Required")
+            .with_required(true);
+
+        assert!(params.required);
+    }
+
+    #[test]
+    fn test_message_params_one_of() {
+        let params = MessageParams::new("OneOf")
+            .with_one_of(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+
+        assert_eq!(params.one_of, Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]));
+    }
+
+    #[test]
+    fn test_message_params_all_fields() {
+        let params = MessageParams::new("Custom")
+            .with_required(true)
+            .with_min_length(1)
+            .with_max_length(100)
+            .with_exact_length(50)
+            .with_min(0)
+            .with_max(10)
+            .with_step(2)
+            .with_pattern(r"^\d+$")
+            .with_expected("foo")
+            .with_one_of(vec!["a".to_string(), "b".to_string()]);
+
+        assert!(params.required);
+        assert_eq!(params.min_length, Some(1));
+        assert_eq!(params.max_length, Some(100));
+        assert_eq!(params.exact_length, Some(50));
+        assert_eq!(params.min, Some("0".to_string()));
+        assert_eq!(params.max, Some("10".to_string()));
+        assert_eq!(params.step, Some("2".to_string()));
+        assert_eq!(params.pattern, Some(r"^\d+$".to_string()));
+        assert_eq!(params.expected, Some("foo".to_string()));
+        assert_eq!(params.one_of, Some(vec!["a".to_string(), "b".to_string()]));
+    }
+
+    #[test]
+    fn test_message_provider_with_params() {
+        let msg: Message<String> = Message::provider(|ctx| {
+            format!(
+                "Length must be at least {}",
+                ctx.params.min_length.map(|n| n.to_string()).unwrap_or("?".to_string())
+            )
+        });
+
+        assert!(msg.is_provider());
+        assert!(!msg.is_static());
+    }
+
+    #[test]
+    fn test_message_provider_resolve_without_context() {
+        // When resolve() is called without context, default params are used
+        let msg: Message<String> = Message::provider(|ctx| {
+            format!(
+                "min: {}, max: {}",
+                ctx.params.min.as_deref().unwrap_or("none"),
+                ctx.params.max.as_deref().unwrap_or("none")
+            )
+        });
+
+        // resolve() creates a default MessageParams
+        assert_eq!(msg.resolve(&"test".to_string()), "min: none, max: none");
+    }
+
+    #[test]
+    fn test_message_static_resolve_with_context() {
+        // Static messages ignore context
+        let msg: Message<String> = Message::from("Static error");
+        let params = MessageParams::new("MinLength").with_min(8);
+        let value = "test".to_string();
+        let ctx = MessageContext::new(&value, params);
+
+        assert_eq!(msg.resolve_with_context(&ctx), "Static error");
+    }
+
+    #[test]
+    fn test_message_provider_uses_context_value() {
+        // Provider can access both value and params from context
+        let msg: Message<i32> = Message::provider(|ctx| format!("Value: {}", ctx.value));
+        let params = MessageParams::new("Min").with_min(0);
+        let ctx = MessageContext::new(&42, params);
+
+        assert_eq!(msg.resolve_with_context(&ctx), "Value: 42");
+    }
+}
