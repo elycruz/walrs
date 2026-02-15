@@ -137,6 +137,7 @@ impl Fn<(Cow<'_, str>,)> for StripTagsFilter<'_> {
 #[cfg(test)]
 mod test {
   use super::*;
+  use std::thread;
 
   #[test]
   fn test_construction() {
@@ -181,5 +182,67 @@ mod test {
   fn test_fn_traits() {
     let filter = StripTagsFilter::new();
     assert_eq!(filter("Hello".into()), "Hello".to_string());
+  }
+
+  #[test]
+  fn test_filter_in_threaded_context() {
+    let filter = StripTagsFilter::new();
+
+    thread::scope(|scope| {
+      scope.spawn(|| {
+        assert_eq!(filter.filter("Hello".into()), "Hello");
+        assert_eq!(
+          filter.filter("<script>alert('hello');</script>".into()),
+          ""
+        );
+        assert_eq!(
+          filter.filter(
+            "<p>The quick brown fox</p><style>p { font-weight: bold; }</style>".into()
+          ),
+          "<p>The quick brown fox</p>"
+        );
+      });
+    });
+  }
+
+  #[test]
+  fn test_filter_with_custom_ammonia_in_threaded_context() {
+    let mut sanitizer = ammonia::Builder::default();
+    let additional_allowed_tags = vec!["style"];
+
+    sanitizer
+      .add_tags(&additional_allowed_tags)
+      .rm_clean_content_tags(&additional_allowed_tags);
+
+    let filter = StripTagsFilter {
+      ammonia: Some(sanitizer),
+    };
+
+    thread::scope(|scope| {
+      scope.spawn(|| {
+        assert_eq!(
+          filter.filter(
+            "<script>alert('hello');</script><style>p { font-weight: bold; }</style>".into()
+          ),
+          "<style>p { font-weight: bold; }</style>"
+        );
+      });
+    });
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_traits_in_threaded_context() {
+    let filter = StripTagsFilter::new();
+
+    thread::scope(|scope| {
+      scope.spawn(move || {
+        assert_eq!(filter("Hello".into()), "Hello".to_string());
+        assert_eq!(
+          filter("<script>alert('hello');</script>".into()),
+          "".to_string()
+        );
+      });
+    });
   }
 }
