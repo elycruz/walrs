@@ -90,6 +90,44 @@ pub trait ValidateRef<T: ?Sized> {
 - **`debug_closure_helpers`** - Enables debug helpers for closures.
 - **`nightly`** - Enables all nightly features.
 
+## Running Examples
+
+The crate includes several examples demonstrating validator usage:
+
+```bash
+# Basic validator usage (Length, Pattern, Range, Number, Equality)
+cargo run -p walrs_validator --example basic_validators
+
+# Using validator combinators (AND, OR, NOT, Optional, When)
+cargo run -p walrs_validator --example validator_combinators
+
+# Form validation example with multiple validators
+cargo run -p walrs_validator --example form_validation
+```
+
+## Running Benchmarks
+
+Benchmarks are available to measure validator performance:
+
+```bash
+# Run all benchmarks
+cargo bench -p walrs_validator
+
+# Run specific benchmark group
+cargo bench -p walrs_validator -- LengthValidator
+cargo bench -p walrs_validator -- RangeValidator
+cargo bench -p walrs_validator -- PatternValidator
+```
+
+Benchmark groups include:
+- **LengthValidator** - Tests length validation with various string sizes
+- **RangeValidator** - Tests numeric range validation
+- **NumberValidator** - Tests number validation with step constraints
+- **PatternValidator** - Tests regex pattern matching
+- **EqualityValidator** - Tests equality comparisons
+- **CombinedValidators** - Tests combinator performance
+- **ValidatorComparison** - Compares performance across validator types
+
 ## License
 
 MIT & Apache-2.0

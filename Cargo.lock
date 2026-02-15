@@ -1984,6 +1984,7 @@ name = "walrs_filter"
 version = "0.1.0"
 dependencies = [
  "ammonia",
+ "criterion",
  "derive_builder",
  "regex",
 ]
@@ -2027,6 +2028,7 @@ dependencies = [
 name = "walrs_validator"
 version = "0.1.0"
 dependencies = [
+ "criterion",
  "derive_builder",
  "regex",
  "serde",

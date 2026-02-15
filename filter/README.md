@@ -56,6 +56,38 @@ This allows filters to transform values, potentially to different types.
 - **`fn_traits`** - Enables nightly for `Fn` trait implementations when you want filters that can be called as functions.
 - **`nightly`** - Catch all feature - enables any nightly features available in the crate, currently only 'fn_trait' one.
 
+## Running Examples
+
+The crate includes several examples demonstrating filter usage:
+
+```bash
+# Basic filter usage (SlugFilter, StripTagsFilter, XmlEntitiesFilter)
+cargo run -p walrs_filter --example basic_filters
+
+# Chaining multiple filters together
+cargo run -p walrs_filter --example filter_chain
+```
+
+## Running Benchmarks
+
+Benchmarks are available to measure filter performance:
+
+```bash
+# Run all benchmarks
+cargo bench -p walrs_filter
+
+# Run specific benchmark group
+cargo bench -p walrs_filter -- SlugFilter
+cargo bench -p walrs_filter -- StripTagsFilter
+cargo bench -p walrs_filter -- XmlEntitiesFilter
+```
+
+Benchmark groups include:
+- **SlugFilter** - Tests slug generation with various input sizes
+- **StripTagsFilter** - Tests HTML sanitization with different HTML complexity
+- **XmlEntitiesFilter** - Tests XML entity encoding
+- **FilterComparison** - Compares performance across all filters
+
 ## License
 
-MIT OR Apache-2.0
+MIT & Apache-2.0
