@@ -16,7 +16,8 @@ pub mod validators;
 // Re-export types from walrs_validator for backwards compatibility
 pub use walrs_validator::{
     Message, MessageContext, MessageParams,
-    Violation, Violations, ViolationType, ViolationMessage
+    Violation, Violations, ViolationType, ViolationMessage,
+    CompiledRule, IsEmpty, RuleNumber
 };
 
 pub use filters::*;

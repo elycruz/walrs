@@ -15,6 +15,7 @@ pub enum ViolationType {
   TooLong,
   TooShort,
   NotEqual,
+  // Signals invalid format for email, URL, IP address, and/or other formatted strings.
   TypeMismatch,
   ValueMissing,
 }

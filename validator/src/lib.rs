@@ -83,7 +83,7 @@ pub use message::*;
 pub use number::*;
 pub use pattern::*;
 pub use range::*;
-pub use rule::{Condition, Rule, RuleResult};
+pub use rule::{CompiledRule, Condition, IsEmpty, Rule, RuleNumber, RuleResult};
 pub use traits::*;
 pub use violation::*;
 
