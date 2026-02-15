@@ -1,9 +1,9 @@
+use crate::traits::ToAttributesList;
+use crate::ViolationType::PatternMismatch;
 use crate::{Validate, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
-use crate::traits::ToAttributesList;
-use crate::ViolationType::PatternMismatch;
 
 pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
@@ -22,11 +22,8 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
 ///  assert_eq!(vldtr.validate_ref("abc"), Ok(()));
 ///  assert!(vldtr.validate_ref("!@#)(*").is_err());
-///
-///  // As a function (Fn* trait object).
-///  assert_eq!(vldtr("abc"), Ok(()));
-///  assert!(vldtr("!@#)(*").is_err());
 /// ```
+#[must_use]
 #[derive(Builder, Clone)]
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,
@@ -140,6 +137,7 @@ impl ToAttributesList for PatternValidator<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl FnOnce<(&str,)> for PatternValidator<'_> {
   type Output = ValidatorResult;
 
@@ -148,12 +146,14 @@ impl FnOnce<(&str,)> for PatternValidator<'_> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl FnMut<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call_mut(&mut self, args: (&str,)) -> Self::Output {
     self.validate_ref(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl Fn<(&str,)> for PatternValidator<'_> {
   extern "rust-call" fn call(&self, args: (&str,)) -> Self::Output {
     self.validate_ref(args.0)
@@ -208,6 +208,9 @@ mod test {
   fn test_construction_and_validation() -> Result<(), Box<dyn Error>> {
     let _rx = Regex::new(r"^\w{2,55}$")?;
 
+    let standalone_instance = PatternValidator::new(Cow::Owned(_rx.clone()));
+    assert_eq!(standalone_instance.pattern.as_str(), r"^\w{2,55}$");
+
     fn on_custom_pattern_mismatch(_: &PatternValidator, _: &str) -> String {
       "custom pattern mismatch err message".into()
     }
@@ -244,14 +247,17 @@ mod test {
       println!("{}", name);
 
       // Test as an `Fn*` trait
-      assert_eq!((&instance)(passing_value), Ok(()));
-      assert_eq!(
-        (&instance)(failing_value),
-        Err(Violation(
-          PatternMismatch,
-          (instance.pattern_mismatch)(&instance, failing_value)
-        ))
-      );
+      #[cfg(feature = "fn_traits")]
+      {
+        assert_eq!((&instance)(passing_value), Ok(()));
+        assert_eq!(
+          (&instance)(failing_value),
+          Err(Violation(
+            PatternMismatch,
+            (instance.pattern_mismatch)(&instance, failing_value)
+          ))
+        );
+      }
 
       // Test `validate` method directly
       assert_eq!(instance.validate(passing_value), Ok(()));
@@ -271,6 +277,62 @@ mod test {
         ))
       );
     }
+
+    Ok(())
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_trait_variations() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    // As a function (Fn* trait object).
+    assert_eq!(vldtr("abc"), Ok(()));
+    assert!(vldtr("!@#)(*").is_err());
+
+    let vldtr_clone = vldtr.clone();
+    fn call_fn_once(v: impl FnOnce(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
+      v(s)
+    }
+    assert_eq!(call_fn_once(vldtr_clone, "abc"), Ok(()));
+
+    let mut vldtr_mut = vldtr.clone();
+    fn call_fn_mut(v: &mut impl FnMut(&str) -> ValidatorResult, s: &str) -> ValidatorResult {
+      v(s)
+    }
+    assert_eq!(call_fn_mut(&mut vldtr_mut, "abc"), Ok(()));
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_to_attributes_list() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    let attrs = vldtr.to_attributes_list().unwrap();
+
+    assert_eq!(attrs.len(), 1);
+    assert_eq!(attrs[0].0, "pattern");
+    assert_eq!(attrs[0].1, r"^\w{2,55}$");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_display() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .build()?;
+
+    let disp = format!("{}", vldtr);
+    assert_eq!(disp, "PatternValidator {pattern: ^\\w{2,55}$}");
 
     Ok(())
   }

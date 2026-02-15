@@ -1,7 +1,7 @@
+use crate::traits::ToAttributesList;
 use crate::violation::ViolationType;
 use crate::{InputValue, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
-use crate::traits::ToAttributesList;
 
 /// Validator for performing equality checks against contained value.
 ///
@@ -24,23 +24,19 @@ use crate::traits::ToAttributesList;
 ///
 ///  // Happy path
 ///  assert!(vldtr.validate("foo").is_ok());
-///  assert!(vldtr("foo").is_ok());
 ///
 ///  // Sad path
 ///  assert_eq!(
 ///    vldtr.validate("bar"),
 ///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
 ///  );
-///  assert_eq!(
-///    vldtr("bar"),
-///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-///  );
 /// ```
 ///
+#[must_use]
 #[derive(Builder, Clone)]
 pub struct EqualityValidator<'a, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   pub rhs_value: T,
 
@@ -50,7 +46,7 @@ where
 
 impl<'a, T> EqualityValidator<'a, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   /// Creates new instance of `EqualityValidator` with given rhs value, and
   ///  optional custom not equal message function.
@@ -74,14 +70,14 @@ where
   pub fn new(rhs_value: T) -> Self {
     Self {
       rhs_value,
-      not_equal_msg: &equal_vldr_not_equal_msg
+      not_equal_msg: &equal_vldr_not_equal_msg,
     }
   }
 }
 
 impl<T> Validate<T> for EqualityValidator<'_, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   /// Validates implicitly sized type against contained constraints, and returns a result
   ///  of unit, and/or, a Vec of violation tuples.
@@ -103,19 +99,14 @@ where
   ///   .build()
   ///   .unwrap();
   ///
-  /// // Test `validate`, and `Fn*` trait
+  /// // Test `validate` method
   /// // ----
   /// // Happy path
   /// assert!(input.validate("foo").is_ok());
-  /// assert!(input("foo").is_ok());
   ///
   /// // Sad path
   /// assert_eq!(
   ///   input.validate("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-  /// );
-  /// assert_eq!(
-  ///   input("abc"),
   ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
   /// );
   /// ```
@@ -134,7 +125,7 @@ where
 
 impl<T> Display for EqualityValidator<'_, T>
 where
-  T: InputValue + ?Sized,
+  T: InputValue,
 {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     write!(
@@ -145,7 +136,7 @@ where
   }
 }
 
-impl<T: InputValue + ?Sized> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
@@ -173,7 +164,8 @@ impl<T: InputValue + ?Sized> ToAttributesList for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
+#[cfg(feature = "fn_traits")]
+impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -181,13 +173,15 @@ impl<T: InputValue + ?Sized> FnOnce<(T,)> for EqualityValidator<'_, T> {
   }
 }
 
-impl<T: InputValue + ?Sized> FnMut<(T,)> for EqualityValidator<'_, T> {
+#[cfg(feature = "fn_traits")]
+impl<T: InputValue> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
-impl<T: InputValue + ?Sized> Fn<(T,)> for EqualityValidator<'_, T> {
+#[cfg(feature = "fn_traits")]
+impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
@@ -206,7 +200,7 @@ impl<T: InputValue + ?Sized> Fn<(T,)> for EqualityValidator<'_, T> {
 ///  assert_eq!(equal_vldr_not_equal_msg(&vldtr, "bar"), "Value must equal foo");
 /// ```
 ///
-pub fn equal_vldr_not_equal_msg<T: InputValue + ?Sized>(
+pub fn equal_vldr_not_equal_msg<T: InputValue>(
   vldtr: &EqualityValidator<T>,
   _: T,
 ) -> String {
@@ -249,6 +243,7 @@ mod test {
 
       if should_be_ok {
         assert!(validator.validate(lhs_value).is_ok());
+        #[cfg(feature = "fn_traits")]
         assert!(validator(lhs_value).is_ok());
       } else {
         assert_eq!(
@@ -258,6 +253,7 @@ mod test {
             equal_vldr_not_equal_msg(&validator, lhs_value)
           ))
         );
+        #[cfg(feature = "fn_traits")]
         assert_eq!(
           validator(lhs_value),
           Err(Violation(

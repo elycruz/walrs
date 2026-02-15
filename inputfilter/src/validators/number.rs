@@ -6,12 +6,59 @@ use std::fmt::{Display, Formatter};
 
 // @todo Validator should support `break_on_failure` feature.
 
-use serde_json::value::to_value as to_json_value;
 use crate::traits::ToAttributesList;
+use serde_json::value::to_value as to_json_value;
 
 pub type NumberVldrViolationCallback<'a, T> =
-  (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
+  dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync;
 
+/// Validator for performing number range and step checks against given number.
+///
+/// ```rust
+/// use walrs_inputfilter::{
+///   NumberValidator,
+///   NumberValidatorBuilder,
+///   Validate,
+///   ValidatorResult,
+///   Violation,
+///   ViolationType::{RangeUnderflow, RangeOverflow, StepMismatch},
+///   validators::{ num_range_underflow_msg, num_range_overflow_msg, num_step_mismatch_msg }
+/// };
+///
+/// let vldtr = NumberValidatorBuilder::<usize>::default()
+///   .min(1)
+///   .max(100)
+///   .step(5)
+///   .build()
+///   .unwrap();
+///
+/// // Validate values
+/// // ----
+/// for (validator, value, expected) in [
+///   (&vldtr, 95usize, Ok(())),
+///   (&vldtr, 0, Err(RangeUnderflow)),
+///   (&vldtr, 101, Err(RangeOverflow)),
+///   (&vldtr, 26, Err(StepMismatch)),
+/// ] {
+///   match expected {
+///     Ok(_) => {
+///       assert_eq!(validator.validate(value), Ok(()));
+///     }
+///     Err(_enum) => {
+///       let violation_tuple = match _enum {
+///         StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
+///         RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
+///         RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
+///         _ => panic!("Unknown enum variant encountered"),
+///       };
+///
+///       assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
+///     }
+///   }
+/// }
+/// ```
+///
+#[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
 pub struct NumberValidator<'a, T: NumberValue> {
@@ -90,6 +137,7 @@ impl<T> Validate<T> for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
+  /// Validates given number against contained constraints.
   fn validate(&self, value: T) -> ValidatorResult {
     if let Some(violation) = self._validate_number(value) {
       return Err(Violation(
@@ -106,6 +154,33 @@ impl<T> ToAttributesList for NumberValidator<'_, T>
 where
   T: NumberValue,
 {
+  /// Returns the validator's ruleset as a list of key/value pairs suitable for
+  ///  use as HTML attribute-name/attribute-value pairs.
+  ///
+  /// ```rust
+  /// use walrs_inputfilter::{
+  ///   NumberValidator,
+  ///   NumberValidatorBuilder,
+  ///   ToAttributesList
+  /// };
+  ///
+  /// let vldtr = NumberValidatorBuilder::<usize>::default()
+  ///   .min(1)
+  ///   .max(100)
+  ///   .step(5)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(
+  ///   vldtr.to_attributes_list(),
+  ///   Some(vec![
+  ///     ("min".to_string(), serde_json::Value::from(1)),
+  ///     ("max".to_string(), serde_json::Value::from(100)),
+  ///     ("step".to_string(), serde_json::Value::from(5)),
+  ///   ])
+  /// );
+  /// ```
+  ///
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     let mut attrs = Vec::<(String, serde_json::Value)>::new();
 
@@ -129,18 +204,21 @@ where
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnMut<(T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> Fn<(T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -149,18 +227,21 @@ impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnMut<(&T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> Fn<(&T,)> for NumberValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
+#[cfg(feature = "fn_traits")]
 impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   type Output = ValidatorResult;
 
@@ -243,6 +324,20 @@ mod test {
       (
         "Default",
         NumberValidatorBuilder::<usize>::default().build()?,
+        None,
+        None,
+        None,
+      ),
+      (
+        "Default 2",
+        NumberValidator::<usize>::new(),
+        None,
+        None,
+        None,
+      ),
+      (
+        "Default 3",
+        NumberValidator::<usize>::default(),
         None,
         None,
         None,
@@ -363,6 +458,7 @@ mod test {
       match expected {
         Ok(_) => {
           assert_eq!(validator.validate(value), Ok(()));
+          #[cfg(feature = "fn_traits")]
           assert_eq!((&validator)(value), Ok(()));
         }
         Err(_enum) => {
@@ -370,15 +466,89 @@ mod test {
             StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
             RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
             RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
-            _ => panic!("Unknown enum variant encountered"),
+            _ => unreachable!("Unknown enum variant encountered"),
           };
 
           assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
+          #[cfg(feature = "fn_traits")]
           assert_eq!((&validator)(value), Err(violation_tuple));
         }
       }
     }
 
     Ok(())
+  }
+
+  #[test]
+  fn test_to_attributes_list() {
+    // With non-empty fields
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(1)
+      .max(100)
+      .step(5)
+      .build()
+      .unwrap();
+
+    assert_eq!(
+      vldtr.to_attributes_list(),
+      Some(vec![
+        ("min".to_string(), serde_json::Value::from(1)),
+        ("max".to_string(), serde_json::Value::from(100)),
+        ("step".to_string(), serde_json::Value::from(5)),
+      ])
+    );
+
+    // With empty fields
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
+
+    assert_eq!(vldtr.to_attributes_list(), None);
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_all_fn_trait_variants() {
+    // FnMut
+    // ----
+    let mut vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(1)
+      .max(100)
+      .step(5)
+      .build()
+      .unwrap();
+
+    vldtr.max = Some(50usize);
+
+    assert_eq!((&vldtr)(25usize), Ok(()));
+    assert_eq!((&vldtr)(&25usize), Ok(()));
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_mut(v: &mut impl FnMut(usize) -> ValidatorResult) -> ValidatorResult {
+      v(25usize)
+    }
+
+    fn call_fn_mut_with_ref(v: &mut impl FnMut(&usize) -> ValidatorResult) -> ValidatorResult {
+      v(&25usize)
+    }
+
+    assert_eq!(call_fn_mut(&mut vldtr), Ok(()));
+    assert_eq!(call_fn_mut_with_ref(&mut vldtr), Ok(()));
+
+    // FnOnce
+    // ----
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_once(v: impl FnOnce(usize) -> ValidatorResult) -> ValidatorResult {
+      v(25usize)
+    }
+    assert_eq!(call_fn_once(vldtr), Ok(()));
+
+    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
+
+    // Fn that consumes vldtr and a `usize`
+    fn call_fn_once_with_ref(v: impl FnOnce(&usize) -> ValidatorResult) -> ValidatorResult {
+      v(&25usize)
+    }
+    assert_eq!(call_fn_once_with_ref(vldtr), Ok(()));
   }
 }

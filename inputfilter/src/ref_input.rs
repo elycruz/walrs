@@ -1,7 +1,8 @@
-use crate::ViolationType::ValueMissing;
-use crate::{FilterForUnsized, ValidatorForRef, Violation, ViolationMessage, Violations};
-use std::fmt::{Debug, Display, Formatter};
+use crate::input_common::{collect_violations, handle_missing_value, handle_missing_value_for_filter};
 use crate::traits::FilterFn;
+use crate::{debug_closure_field, debug_vec_closure_field};
+use crate::{FilterForUnsized, RefValidator, ViolationMessage, Violations};
+use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -23,6 +24,7 @@ where
   "Value is missing".to_string()
 }
 
+#[must_use]
 #[derive(Clone)]
 pub struct RefInput<'a, 'b, T, FT = T>
 where
@@ -39,7 +41,7 @@ where
 
   /// Field for setting only one validator - Saves bytes when need only one validator versus
   /// using `validators` field (which requires a `Vec`).
-  pub custom: Option<&'a ValidatorForRef<T>>,
+  pub custom: Option<&'a RefValidator<T>>,
 
   // @todo This should probably be an `Option<Cow<str>>` instead.
   /// Optional locale - Useful in validation "violation" message contexts.  Composed by the user.
@@ -53,7 +55,7 @@ where
   pub get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
 
   /// Validator functions to call on value to be validated.
-  pub validators: Option<Vec<&'a ValidatorForRef<T>>>,
+  pub validators: Option<Vec<&'a RefValidator<T>>>,
 
   /// Transformation functions to subsequently pass validated value through.
   pub filters: Option<Vec<&'a FilterFn<FT>>>,
@@ -154,6 +156,7 @@ where
   }
 }
 
+#[cfg(feature = "debug_closure_helpers")]
 impl<'b, T, FT> Debug for RefInput<'_, 'b, T, FT>
 where
   T: ?Sized + 'b,
@@ -165,7 +168,7 @@ where
       .field("required", &self.required)
       .field_with("custom", |fmtr| {
         let val = if self.custom.is_some() {
-          "Some(&ValidatorForRef)"
+          "Some(&RefValidator)"
         } else {
           "None"
         };
@@ -185,7 +188,7 @@ where
       })
       .field_with("validators", |fmtr| {
         let val = if let Some(vs) = self.validators.as_deref() {
-          format!("Some(Vec<&ValidatorForRef>{{ len: {} }})", vs.len())
+          format!("Some(Vec<&RefValidator>{{ len: {} }})", vs.len())
         } else {
           "None".to_string()
         };
@@ -201,6 +204,34 @@ where
         fmtr.write_str(&val).expect("value write to succeed");
         Ok(())
       })
+      .finish()
+  }
+}
+
+#[cfg(not(feature = "debug_closure_helpers"))]
+impl<'b, T, FT> Debug for RefInput<'_, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    let custom_str = debug_closure_field!(self.custom, "Some(&RefValidator)");
+    let get_default_value_str = debug_closure_field!(
+      self.get_default_value,
+      "Some(&dyn Fn() -> Option<FT> + Send + Sync)"
+    );
+    let validators_str = debug_vec_closure_field!(self.validators, "&RefValidator");
+    let filters_str = debug_vec_closure_field!(self.filters, "&FilterFn");
+
+    f.debug_struct("RefInput")
+      .field("break_on_failure", &self.break_on_failure)
+      .field("required", &self.required)
+      .field("custom", &custom_str)
+      .field("locale", &self.locale)
+      .field("name", &self.name)
+      .field("get_default_value", &get_default_value_str)
+      .field("validators", &validators_str)
+      .field("filters", &filters_str)
       .finish()
   }
 }
@@ -237,70 +268,15 @@ where
   /// assert_eq!(input.validate_ref_detailed(""), Err(Violations(vec![Violation(TypeMismatch, "Value is too short".to_string())])));
   /// ```
   fn validate_ref_detailed(&self, value: &T) -> Result<(), Violations> {
-    let mut violations = vec![];
+    let custom_result = self.custom.map(|custom| custom(value));
+    let validators_iter = self
+      .validators
+      .as_deref()
+      .into_iter()
+      .flatten()
+      .map(|v| v(value));
 
-    // Validate custom
-    match if let Some(custom) = self.custom.as_deref() {
-      (custom)(value)
-    } else {
-      Ok(())
-    } {
-      Ok(()) => (),
-      Err(err_type) => violations.push(err_type),
-    }
-
-    if !violations.is_empty() && self.break_on_failure {
-      return Err(Violations(violations));
-    }
-
-    // Else validate against validators
-    if let Some(validators) = self.validators.as_deref() {
-      for validator in validators {
-        if let Err(err_type) = validator(value) {
-          violations.push(err_type);
-          if self.break_on_failure {
-            break;
-          }
-        }
-      }
-    }
-
-    // Resolve return value
-    if violations.is_empty() {
-      Ok(())
-    } else {
-      Err(Violations(violations))
-    }
-  }
-
-  /// Validates given value.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForUnsized, RefInput, RefInputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::TypeMismatch;
-  ///
-  /// let input = RefInputBuilder::<str, String>::default()
-  ///   .required(true)
-  ///   .validators(vec![
-  ///     &|value: &str| if value.len() > 5 {
-  ///       Ok(())
-  ///     } else {
-  ///       Err(Violation(TypeMismatch, "Value is too short".to_string()))
-  ///     }
-  ///   ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.validate_ref("Hello, World!"), Ok(()));
-  /// assert_eq!(input.validate_ref("Hi!"), Err(vec!["Value is too short".to_string()]));
-  /// assert_eq!(input.validate_ref(""), Err(vec!["Value is too short".to_string()]));
-  /// ```
-  fn validate_ref(&self, value: &T) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_ref_detailed(value) {
-      Ok(()) => Ok(()),
-      Err(violations) => Err(violations.to_string_vec()),
-    }
+    collect_violations(custom_result, validators_iter, self.break_on_failure)
   }
 
   /// Validates given "optional" value and returns detailed validation results if any violations
@@ -331,47 +307,7 @@ where
   fn validate_ref_option_detailed(&self, value: Option<&T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_ref_detailed(v),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(())
-        }
-      }
-    }
-  }
-
-  /// Validates given "optional" value.
-  ///
-  /// ```rust
-  /// use walrs_inputfilter::{FilterForUnsized, RefInput, RefInputBuilder, Violation, Violations};
-  /// use walrs_inputfilter::ViolationType::{TypeMismatch, ValueMissing};
-  ///
-  /// let input = RefInputBuilder::<str, String>::default()
-  ///   .required(true)
-  ///   .validators(vec![
-  ///     &|value: &str| if value.len() > 5 {
-  ///       Ok(())
-  ///     } else {
-  ///       Err(Violation(TypeMismatch, "Value is too short".to_string()))
-  ///     }
-  ///   ])
-  ///   .build()
-  ///   .unwrap();
-  ///
-  /// // Test
-  /// assert_eq!(input.validate_ref_option(Some("Hello, World!")), Ok(()));
-  /// assert_eq!(input.validate_ref_option(Some("Hi!")), Err(vec!["Value is too short".to_string()]));
-  /// assert_eq!(input.validate_ref_option(Some("")), Err(vec!["Value is too short".to_string()]));
-  /// assert_eq!(input.validate_ref_option(None), Err(vec!["Value is missing".to_string()]));
-  /// ```
-  fn validate_ref_option(&self, value: Option<&T>) -> Result<(), Vec<ViolationMessage>> {
-    match self.validate_ref_option_detailed(value) {
-      Ok(()) => Ok(()),
-      Err(violations) => Err(violations.to_string_vec()),
+      None => handle_missing_value(self.required, || (self.value_missing_msg_getter)(self)),
     }
   }
 
@@ -450,72 +386,6 @@ where
     }))
   }
 
-  /// Validates, and filters, incoming value.
-  ///
-  /// ```rust
-  /// use std::borrow::Cow;
-  /// use walrs_inputfilter::{
-  ///     RefInput,
-  ///     FilterForUnsized,
-  ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage,
-  ///     Violation,
-  ///     Violations
-  /// };
-  ///
-  /// // Create some validators
-  /// let alnum_regex = regex::Regex::new(r"(?i)^[a-z\d]+$").unwrap();
-  /// let alnum_only = move |value: &str| if alnum_regex.is_match(value) {
-  ///     Ok(())
-  ///   } else {
-  ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
-  ///   };
-  ///
-  /// // Create some input controls
-  /// let mut input = RefInput::<str, Cow<str>>::default();
-  ///
-  /// let mut input2 = RefInput::<str, String>::default();
-  /// input2.filters = Some(vec![&|value: String| value.to_lowercase()]);
-  ///
-  /// let mut alnum_input = RefInput::<str, Cow<str>>::default();
-  /// alnum_input.validators = Some(vec![
-  ///   &alnum_only
-  /// ]);
-  ///
-  /// let mut input_alnum_to_lower = RefInput::<str, Cow<str>>::default();
-  /// input_alnum_to_lower.filters = Some(vec![&|value: Cow<str>| value.to_lowercase().into()]);
-  /// input_alnum_to_lower.validators = Some(vec![&alnum_only]);
-  ///
-  /// let mut input_num_list = RefInput::<[u32], Vec<u32>>::default();
-  ///
-  /// // Disallow empty lists
-  /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
-  ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
-  /// } else {
-  ///   Ok(())
-  /// }]);
-  ///
-  /// // Transform to even numbers only
-  /// input_num_list.filters = Some(vec![&|value: Vec<u32>| value.into_iter().filter(|v| v % 2 == 0).collect()]);
-  ///
-  /// // Test
-  /// let value = vec![1, 2, 3, 4, 5, 6];
-  /// assert_eq!(input_num_list.filter_ref(&value).unwrap(), vec![2, 4, 6]);
-  /// assert_eq!(input_num_list.filter_ref(&vec![]), Err(vec!["Value is empty".to_string()]));
-  ///
-  /// let value = "Hello, World!";
-  ///
-  /// assert_eq!(input.filter_ref(value).unwrap(), Cow::Borrowed(value));
-  /// assert_eq!(input2.filter_ref(value).unwrap(), value.to_lowercase());
-  /// assert_eq!(alnum_input.filter_ref(value), Err(vec!["Value is not alpha-numeric".to_string()]));
-  /// ```
-  fn filter_ref(&self, value: &'b T) -> Result<FT, Vec<ViolationMessage>> {
-    match self.filter_ref_detailed(value) {
-      Ok(value) => Ok(value),
-      Err(violations) => Err(violations.to_string_vec()),
-    }
-  }
-
   /// Validates, and filters, incoming Option value.
   ///
   /// ```rust
@@ -581,81 +451,11 @@ where
   fn filter_ref_option_detailed(&self, value: Option<&'b T>) -> Result<Option<FT>, Violations> {
     match value {
       Some(value) => self.filter_ref_detailed(value).map(Some),
-      None => {
-        if self.required {
-          Err(Violations(vec![Violation(
-            ValueMissing,
-            (self.value_missing_msg_getter)(self),
-          )]))
-        } else {
-          Ok(self.get_default_value.and_then(|f| f()))
-        }
-      }
-    }
-  }
-
-  /// Validates, and filters, incoming Option value.
-  ///
-  /// ```rust
-  /// use std::borrow::Cow;
-  /// use walrs_inputfilter::{
-  ///     RefInput,
-  ///     FilterForUnsized, RefInputBuilder, Violation,
-  ///     ViolationType::TypeMismatch,
-  ///     ViolationMessage,
-  ///     Violations
-  /// };
-  ///
-  /// // Create some validators
-  /// let alnum_regex = regex::Regex::new(r"(?i)^[a-z\d]+$").unwrap();
-  /// let alnum_only = move |value: &str| if alnum_regex.is_match(value) {
-  ///     Ok(())
-  ///   } else {
-  ///     Err(Violation(TypeMismatch, "Value is not alpha-numeric".to_string()))
-  ///   };
-  ///
-  /// // Create some input controls
-  /// let mut input = RefInput::<str, Cow<str>>::default();
-  ///
-  /// let mut input2 = RefInput::<str, String>::default();
-  /// input2.filters = Some(vec![&|value: String| value.to_lowercase()]);
-  ///
-  /// let mut alnum_input = RefInput::<str, Cow<str>>::default();
-  /// alnum_input.validators = Some(vec![
-  ///   &alnum_only
-  /// ]);
-  ///
-  /// let mut input_alnum_to_lower = RefInput::<str, Cow<str>>::default();
-  /// input_alnum_to_lower.filters = Some(vec![&|value: Cow<str>| value.to_lowercase().into()]);
-  /// input_alnum_to_lower.validators = Some(vec![&alnum_only]);
-  ///
-  /// let mut input_num_list = RefInput::<[u32], Vec<u32>>::default();
-  ///
-  /// // Disallow empty lists
-  /// input_num_list.validators = Some(vec![&|value: &[u32]| if value.is_empty() {
-  ///    Err(Violation(TypeMismatch, "Value is empty".to_string()))
-  /// } else {
-  ///   Ok(())
-  /// }]);
-  ///
-  /// // Transform to even numbers only
-  /// input_num_list.filters = Some(vec![&|value: Vec<u32>| value.into_iter().filter(|v| v % 2 == 0).collect()]);
-  ///
-  /// // Test
-  /// let value = vec![1, 2, 3, 4, 5, 6];
-  /// assert_eq!(input_num_list.filter_ref_option(Some(&value)).unwrap(), Some(vec![2, 4, 6]));
-  /// assert_eq!(input_num_list.filter_ref_option(Some(&vec![])), Err(vec!["Value is empty".to_string()]));
-  ///
-  /// let value = "Hello, World!";
-  ///
-  /// assert_eq!(input.filter_ref_option(Some(value)).unwrap(), Some(Cow::Borrowed(value)));
-  /// assert_eq!(input2.filter_ref_option(Some(value)).unwrap(), Some(value.to_lowercase()));
-  /// assert_eq!(alnum_input.filter_ref_option(Some(value)), Err(vec!["Value is not alpha-numeric".to_string()]));
-  /// ```
-  fn filter_ref_option(&self, value: Option<&'b T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
-    match self.filter_ref_option_detailed(value) {
-      Ok(value) => Ok(value),
-      Err(violations) => Err(violations.to_string_vec()),
+      None => handle_missing_value_for_filter(
+        self.required,
+        || (self.value_missing_msg_getter)(self),
+        self.get_default_value.map(|f| move || f()),
+      ),
     }
   }
 }
@@ -663,7 +463,7 @@ where
 /// Ref Input builder.
 ///
 /// ```rust
-/// use walrs_inputfilter::{RefInput, RefInputBuilder, ValidatorForRef};
+/// use walrs_inputfilter::{RefInput, RefInputBuilder, RefValidator};
 /// use std::borrow::Cow;
 ///
 /// let input = RefInputBuilder::<str, Cow<str>>::default()
@@ -701,11 +501,11 @@ where
 {
   break_on_failure: Option<bool>,
   required: Option<bool>,
-  custom: Option<&'a ValidatorForRef<T>>,
+  custom: Option<&'a RefValidator<T>>,
   locale: Option<&'a str>,
   name: Option<&'a str>,
   get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
-  validators: Option<Vec<&'a ValidatorForRef<T>>>,
+  validators: Option<Vec<&'a RefValidator<T>>>,
   filters: Option<Vec<&'a FilterFn<FT>>>,
   value_missing_msg_getter:
     Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
@@ -726,7 +526,7 @@ where
     self
   }
 
-  pub fn custom(&mut self, custom: &'a ValidatorForRef<T>) -> &mut Self {
+  pub fn custom(&mut self, custom: &'a RefValidator<T>) -> &mut Self {
     self.custom = Some(custom);
     self
   }
@@ -749,7 +549,7 @@ where
     self
   }
 
-  pub fn validators(&mut self, validators: Vec<&'a ValidatorForRef<T>>) -> &mut Self {
+  pub fn validators(&mut self, validators: Vec<&'a RefValidator<T>>) -> &mut Self {
     self.validators = Some(validators);
     self
   }
@@ -809,6 +609,7 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
+  use crate::Violation;
   use crate::ViolationType::{PatternMismatch, ValueMissing};
   use regex::Regex;
   use std::borrow::Cow;
