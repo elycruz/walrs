@@ -1,11 +1,9 @@
 use crate::traits::ToAttributesList;
 use crate::ViolationType::PatternMismatch;
-use crate::{Validate, ValidateRef, ValidatorResult, Violation};
+use crate::{Message, MessageContext, MessageParams, Validate, ValidateRef, ValidatorResult, Violation};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
-
-pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + Send + Sync;
 
 /// A validator for checking that a string matches a specified regex pattern.
 ///
@@ -28,8 +26,8 @@ pub type PatternViolationCallback = dyn Fn(&PatternValidator, &str) -> String + 
 pub struct PatternValidator<'a> {
   pub pattern: Cow<'a, Regex>,
 
-  #[builder(default = "&pattern_vldr_pattern_mismatch_msg")]
-  pub pattern_mismatch: &'a PatternViolationCallback,
+  #[builder(default = "default_pattern_mismatch_msg()")]
+  pub pattern_mismatch: Message<str>,
 }
 
 impl<'a> PatternValidator<'a> {
@@ -97,10 +95,15 @@ impl ValidateRef<str> for PatternValidator<'_> {
   ///
   fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
-      false => Err(Violation(
-        PatternMismatch,
-        (self.pattern_mismatch)(self, value),
-      )),
+      false => {
+        let params = MessageParams::new("PatternValidator")
+          .with_pattern(self.pattern.as_str());
+        let ctx = MessageContext::new(value, params);
+        Err(Violation(
+          PatternMismatch,
+          self.pattern_mismatch.resolve_with_context(&ctx),
+        ))
+      }
       _ => Ok(()),
     }
   }
@@ -169,29 +172,30 @@ impl Display for PatternValidator<'_> {
 /// Returns generic pattern mismatch message.
 ///
 /// ```rust
-///  use walrs_validator::{PatternValidatorBuilder, pattern_vldr_pattern_mismatch_msg};
-///  use regex::Regex;
-///  use std::borrow::Cow;
-///
-///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
-///
-///  let vldtr = PatternValidatorBuilder::default()
-///    .pattern(Cow::Owned(rx))
-///    .build()
-///    .unwrap();
+///  use walrs_validator::pattern_vldr_pattern_mismatch_msg;
 ///
 ///  assert_eq!(
-///   pattern_vldr_pattern_mismatch_msg(&vldtr, "!@#)(*"),
+///   pattern_vldr_pattern_mismatch_msg("!@#)(*", r"^\w{2,55}$"),
 ///   "`!@#)(*` does not match pattern `^\\w{2,55}$`."
 ///  );
 /// ```
 ///
-pub fn pattern_vldr_pattern_mismatch_msg(rules: &PatternValidator, xs: &str) -> String {
+pub fn pattern_vldr_pattern_mismatch_msg(value: &str, pattern: &str) -> String {
   format!(
     "`{}` does not match pattern `{}`.",
-    xs,
-    &rules.pattern.to_string()
+    value,
+    pattern
   )
+}
+
+/// Returns default pattern mismatch Message provider.
+///
+/// This wraps `pattern_vldr_pattern_mismatch_msg` in a `Message::Provider` for use with `PatternValidator`.
+pub fn default_pattern_mismatch_msg() -> Message<str> {
+  Message::provider(|ctx: &MessageContext<str>| {
+    let pattern = ctx.params.pattern.as_deref().unwrap_or("?");
+    pattern_vldr_pattern_mismatch_msg(ctx.value, pattern)
+  })
 }
 
 
@@ -208,72 +212,66 @@ mod test {
     let standalone_instance = PatternValidator::new(Cow::Owned(_rx.clone()));
     assert_eq!(standalone_instance.pattern.as_str(), r"^\w{2,55}$");
 
-    fn on_custom_pattern_mismatch(_: &PatternValidator, _: &str) -> String {
-      "custom pattern mismatch err message".into()
-    }
+    let default_vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(_rx.clone()))
+      .build()?;
 
-    for (name, instance, passing_value, failing_value, _err_callback) in [
-      (
-        "Default",
-        PatternValidatorBuilder::default()
-          .pattern(Cow::Owned(_rx.clone()))
-          .build()?,
-        "abc",
-        "!@#)(*",
-        &pattern_vldr_pattern_mismatch_msg,
-      ),
-      (
-        "Custom ",
-        PatternValidatorBuilder::default()
-          .pattern(Cow::Owned(_rx.clone()))
-          .pattern_mismatch(&on_custom_pattern_mismatch)
-          .build()?,
-        "abc",
-        "!@#)(*",
-        &on_custom_pattern_mismatch,
-      ),
-    ]
-      as [(
-        &str,
-        PatternValidator,
-        &str,
-        &str,
-        &PatternViolationCallback,
-      ); 2]
+    // Test passing value
+    assert_eq!(default_vldtr.validate("abc"), Ok(()));
+    assert_eq!(default_vldtr.validate_ref("abc"), Ok(()));
+
+    // Test failing value
+    let result = default_vldtr.validate("!@#)(*");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.0, PatternMismatch);
+    assert_eq!(err.1, pattern_vldr_pattern_mismatch_msg("!@#)(*", r"^\w{2,55}$"));
+
+    #[cfg(feature = "fn_traits")]
     {
-      println!("{}", name);
-
-      // Test as an `Fn*` trait
-      #[cfg(feature = "fn_traits")]
-      {
-        assert_eq!((&instance)(passing_value), Ok(()));
-        assert_eq!(
-          (&instance)(failing_value),
-          Err(Violation(
-            PatternMismatch,
-            (instance.pattern_mismatch)(&instance, failing_value)
-          ))
-        );
-      }
-
-      // Test `validate` method directly
-      assert_eq!(instance.validate(passing_value), Ok(()));
-      assert_eq!(instance.validate_ref(passing_value), Ok(()));
-      assert_eq!(
-        instance.validate(failing_value),
-        Err(Violation(
-          PatternMismatch,
-          (instance.pattern_mismatch)(&instance, failing_value)
-        ))
-      );
-      assert_eq!(
-        instance.validate_ref(failing_value),
-        Err(Violation(
-          PatternMismatch,
-          (instance.pattern_mismatch)(&instance, failing_value)
-        ))
-      );
+      assert_eq!((&default_vldtr)("abc"), Ok(()));
+      assert!((&default_vldtr)("!@#)(*").is_err());
     }
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_custom_message() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\w{2,55}$")?;
+    let custom_msg: Message<str> = Message::static_msg("Invalid format!");
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .pattern_mismatch(custom_msg)
+      .build()?;
+
+    let result = vldtr.validate("!@#)(*");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.1, "Invalid format!");
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_message_provider() -> Result<(), Box<dyn Error>> {
+    let rx = Regex::new(r"^\d+$")?;
+    let custom_msg: Message<str> = Message::provider(|ctx: &MessageContext<str>| {
+      format!(
+        "'{}' must match pattern '{}'",
+        ctx.value,
+        ctx.params.pattern.as_deref().unwrap_or("?")
+      )
+    });
+    let vldtr = PatternValidatorBuilder::default()
+      .pattern(Cow::Owned(rx))
+      .pattern_mismatch(custom_msg)
+      .build()?;
+
+    let result = vldtr.validate("abc");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.1, "'abc' must match pattern '^\\d+$'");
 
     Ok(())
   }

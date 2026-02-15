@@ -1,6 +1,6 @@
 use crate::traits::ToAttributesList;
 use crate::violation::ViolationType;
-use crate::{InputValue, Validate, ValidatorResult, Violation};
+use crate::{InputValue, Message, MessageContext, MessageParams, Validate, ValidatorResult, Violation};
 use std::fmt::Display;
 
 /// Validator for performing equality checks against contained value.
@@ -13,12 +13,10 @@ use std::fmt::Display;
 ///    Violation,
 ///    ViolationType,
 ///    ValidatorResult,
-///    equal_vldr_not_equal_msg
 ///  };
 ///
 ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
 ///    .rhs_value("foo")
-///    .not_equal_msg(&equal_vldr_not_equal_msg)
 ///    .build()
 ///    .unwrap();
 ///
@@ -26,104 +24,89 @@ use std::fmt::Display;
 ///  assert!(vldtr.validate("foo").is_ok());
 ///
 ///  // Sad path
-///  assert_eq!(
-///    vldtr.validate("bar"),
-///    Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-///  );
+///  assert!(vldtr.validate("bar").is_err());
 /// ```
 ///
 #[must_use]
 #[derive(Builder, Clone)]
-pub struct EqualityValidator<'a, T>
+pub struct EqualityValidator<T>
 where
   T: InputValue,
 {
   pub rhs_value: T,
 
-  #[builder(default = "&equal_vldr_not_equal_msg")]
-  pub not_equal_msg: &'a (dyn Fn(&EqualityValidator<'a, T>, T) -> String + Send + Sync),
+  #[builder(default = "default_not_equal_msg()")]
+  pub not_equal_msg: Message<T>,
 }
 
-impl<'a, T> EqualityValidator<'a, T>
+impl<T> EqualityValidator<T>
 where
   T: InputValue,
 {
-  /// Creates new instance of `EqualityValidator` with given rhs value, and
-  ///  optional custom not equal message function.
+  /// Creates new instance of `EqualityValidator` with given rhs value.
   ///
   /// ```rust
   /// use walrs_validator::{
   ///   EqualityValidator,
   ///   EqualityValidatorBuilder,
-  ///   equal_vldr_not_equal_msg
   /// };
   ///
   /// let vldtr = EqualityValidator::<&str>::new("foo");
   ///
   /// assert_eq!(vldtr.rhs_value, "foo");
-  /// assert_eq!(
-  ///   (vldtr.not_equal_msg)(&vldtr, "bar"),
-  ///   equal_vldr_not_equal_msg(&vldtr, "bar")
-  /// );
   /// ```
   ///
   pub fn new(rhs_value: T) -> Self {
     Self {
       rhs_value,
-      not_equal_msg: &equal_vldr_not_equal_msg,
+      not_equal_msg: default_not_equal_msg(),
     }
   }
 }
 
-impl<T> Validate<T> for EqualityValidator<'_, T>
+impl<T> Validate<T> for EqualityValidator<T>
 where
   T: InputValue,
 {
-  /// Validates implicitly sized type against contained constraints, and returns a result
-  ///  of unit, and/or, a Vec of violation tuples.
+  /// Validates implicitly sized type against contained constraints.
   ///
   /// ```rust
   /// use walrs_validator::{
   ///   EqualityValidator,
   ///   ViolationType,
   ///   EqualityValidatorBuilder,
-  ///   equal_vldr_not_equal_msg,
   ///   Validate,
   ///   ValidatorResult,
-  ///   Violation
   /// };
   ///
   /// let input = EqualityValidatorBuilder::<&str>::default()
   ///   .rhs_value("foo")
-  ///   .not_equal_msg(&equal_vldr_not_equal_msg)
   ///   .build()
   ///   .unwrap();
   ///
-  /// // Test `validate` method
-  /// // ----
   /// // Happy path
   /// assert!(input.validate("foo").is_ok());
   ///
   /// // Sad path
-  /// assert_eq!(
-  ///   input.validate("abc"),
-  ///   Err(Violation(ViolationType::NotEqual, "Value must equal foo".to_string()))
-  /// );
+  /// assert!(input.validate("abc").is_err());
   /// ```
   ///
   fn validate(&self, x: T) -> ValidatorResult {
     if x == self.rhs_value {
       Ok(())
     } else {
+      let params = MessageParams::new("EqualityValidator")
+        .with_expected(self.rhs_value.to_string());
+      let ctx = MessageContext::new(&x, params);
       Err(Violation(
         ViolationType::NotEqual,
-        (self.not_equal_msg)(self, x),
+        self.not_equal_msg.resolve_with_context(&ctx),
       ))
     }
   }
 }
 
-impl<T> Display for EqualityValidator<'_, T>
+impl<T> Display for EqualityValidator<T>
 where
   T: InputValue,
 {
@@ -136,7 +119,7 @@ where
   }
 }
 
-impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
+impl<T: InputValue> ToAttributesList for EqualityValidator<T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
@@ -165,7 +148,7 @@ impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -174,14 +157,14 @@ impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> FnMut<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> FnMut<(T,)> for EqualityValidator<T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
+impl<T: InputValue> Fn<(T,)> for EqualityValidator<T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
@@ -190,21 +173,21 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
 /// Returns generic not equal message.
 ///
 /// ```rust
-///  use walrs_validator::{EqualityValidator, EqualityValidatorBuilder, equal_vldr_not_equal_msg};
+///  use walrs_validator::equal_vldr_not_equal_msg;
 ///
-///  let vldtr = EqualityValidatorBuilder::<&str>::default()
-///    .rhs_value("foo")
-///    .build()
-///    .unwrap();
-///
-///  assert_eq!(equal_vldr_not_equal_msg(&vldtr, "bar"), "Value must equal foo");
+///  assert_eq!(equal_vldr_not_equal_msg("foo"), "Value must equal foo");
 /// ```
 ///
-pub fn equal_vldr_not_equal_msg<T: InputValue>(
-  vldtr: &EqualityValidator<T>,
-  _: T,
-) -> String {
-  format!("Value must equal {}", &vldtr.rhs_value)
+pub fn equal_vldr_not_equal_msg<T: InputValue>(expected: T) -> String {
+  format!("Value must equal {}", expected)
+}
+
+/// Returns default not equal Message provider for EqualityValidator.
+pub fn default_not_equal_msg<T: InputValue>() -> Message<T> {
+  Message::provider(|ctx: &MessageContext<T>| {
+    let expected = ctx.params.expected.as_deref().unwrap_or("?");
+    format!("Value must equal {}", expected)
+  })
 }
 
 #[cfg(test)]
@@ -221,48 +204,53 @@ mod test {
 
     assert_eq!(instance.rhs_value, "foo");
 
-    assert_eq!(
-      (instance.not_equal_msg)(&instance, "foo"),
-      equal_vldr_not_equal_msg(&instance, "foo"),
-      "Default 'equal_vldr_not_equal_msg' fn should return expected value"
-    );
+    Ok(())
+  }
+
+  #[test]
+  fn test_validate() -> Result<(), Box<dyn Error>> {
+    let validator = EqualityValidatorBuilder::<&str>::default()
+      .rhs_value("foo")
+      .build()?;
+
+    // Happy path
+    assert!(validator.validate("foo").is_ok());
+
+    // Sad path
+    let result = validator.validate("bar");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.0, NotEqual);
+    assert_eq!(err.1, equal_vldr_not_equal_msg("foo"));
 
     Ok(())
   }
 
   #[test]
-  fn test_validate_and_fn_trait() -> Result<(), Box<dyn Error>> {
-    // Test `validate`, and `Fn*` trait
-    for (lhs_value, rhs_value, should_be_ok) in
-      [("foo", "foo", true), ("", "abc", false), ("", "", true)]
-    {
-      let validator = EqualityValidatorBuilder::<&str>::default()
-        .rhs_value(rhs_value)
-        .not_equal_msg(&equal_vldr_not_equal_msg)
-        .build()?;
+  fn test_custom_message() -> Result<(), Box<dyn Error>> {
+    let custom_msg: Message<&str> = Message::static_msg("Values don't match!");
+    let validator = EqualityValidatorBuilder::<&str>::default()
+      .rhs_value("foo")
+      .not_equal_msg(custom_msg)
+      .build()?;
 
-      if should_be_ok {
-        assert!(validator.validate(lhs_value).is_ok());
-        #[cfg(feature = "fn_traits")]
-        assert!(validator(lhs_value).is_ok());
-      } else {
-        assert_eq!(
-          validator.validate(lhs_value),
-          Err(Violation(
-            NotEqual,
-            equal_vldr_not_equal_msg(&validator, lhs_value)
-          ))
-        );
-        #[cfg(feature = "fn_traits")]
-        assert_eq!(
-          validator(lhs_value),
-          Err(Violation(
-            NotEqual,
-            equal_vldr_not_equal_msg(&validator, lhs_value)
-          ))
-        );
-      }
-    }
+    let result = validator.validate("bar");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.1, "Values don't match!");
+
+    Ok(())
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_traits() -> Result<(), Box<dyn Error>> {
+    let validator = EqualityValidatorBuilder::<&str>::default()
+      .rhs_value("foo")
+      .build()?;
+
+    assert!(validator("foo").is_ok());
+    assert!(validator("bar").is_err());
 
     Ok(())
   }

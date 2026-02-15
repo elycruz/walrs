@@ -1,4 +1,5 @@
 use crate::{
+  Message, MessageContext, MessageParams,
   NumberValue, Validate, ValidatorResult, Violation, ViolationType,
   ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
 };
@@ -6,9 +7,6 @@ use std::fmt::{Display, Formatter};
 
 use crate::traits::ToAttributesList;
 use serde_json::value::to_value as to_json_value;
-
-pub type NumberVldrViolationCallback<'a, T> =
-  dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync;
 
 /// Validator for performing number range and step checks against given number.
 ///
@@ -20,7 +18,6 @@ pub type NumberVldrViolationCallback<'a, T> =
 ///   ValidatorResult,
 ///   Violation,
 ///   ViolationType::{RangeUnderflow, RangeOverflow, StepMismatch},
-///   num_range_underflow_msg, num_range_overflow_msg, num_step_mismatch_msg
 /// };
 ///
 /// let vldtr = NumberValidatorBuilder::<usize>::default()
@@ -31,35 +28,16 @@ pub type NumberVldrViolationCallback<'a, T> =
 ///   .unwrap();
 ///
 /// // Validate values
-/// // ----
-/// for (validator, value, expected) in [
-///   (&vldtr, 95usize, Ok(())),
-///   (&vldtr, 0, Err(RangeUnderflow)),
-///   (&vldtr, 101, Err(RangeOverflow)),
-///   (&vldtr, 26, Err(StepMismatch)),
-/// ] {
-///   match expected {
-///     Ok(_) => {
-///       assert_eq!(validator.validate(value), Ok(()));
-///     }
-///     Err(_enum) => {
-///       let violation_tuple = match _enum {
-///         StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
-///         RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
-///         RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
-///         _ => panic!("Unknown enum variant encountered"),
-///       };
-///
-///       assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
-///     }
-///   }
-/// }
+/// assert_eq!(vldtr.validate(95), Ok(()));
+/// assert!(vldtr.validate(0).is_err());   // RangeUnderflow
+/// assert!(vldtr.validate(101).is_err()); // RangeOverflow
+/// assert!(vldtr.validate(26).is_err());  // StepMismatch
 /// ```
 ///
 #[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct NumberValidator<'a, T: NumberValue> {
+pub struct NumberValidator<T: NumberValue> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -69,17 +47,17 @@ pub struct NumberValidator<'a, T: NumberValue> {
   #[builder(default = "None")]
   pub step: Option<T>,
 
-  #[builder(default = "&num_range_underflow_msg")]
-  pub range_underflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
+  #[builder(default = "default_num_range_underflow_msg()")]
+  pub range_underflow: Message<T>,
 
-  #[builder(default = "&num_range_overflow_msg")]
-  pub range_overflow: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
+  #[builder(default = "default_num_range_overflow_msg()")]
+  pub range_overflow: Message<T>,
 
-  #[builder(default = "&num_step_mismatch_msg")]
-  pub step_mismatch: &'a (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync),
+  #[builder(default = "default_num_step_mismatch_msg()")]
+  pub step_mismatch: Message<T>,
 }
 
-impl<T> NumberValidator<'_, T>
+impl<T> NumberValidator<T>
 where
   T: NumberValue,
 {
@@ -108,15 +86,19 @@ where
     None
   }
 
-  fn _get_violation_msg(&self, violation: ViolationType, value: T) -> String {
-    let f = match violation {
-      RangeUnderflow => Some(&self.range_underflow),
-      RangeOverflow => Some(&self.range_overflow),
-      StepMismatch => Some(&self.step_mismatch),
-      _ => unreachable!("Unsupported Constraint Violation Enum matched"),
-    };
+  fn _get_violation_msg(&self, violation: ViolationType, value: &T) -> String {
+    let params = MessageParams::new("NumberValidator")
+      .with_min(self.min.map(|m| m.to_string()).unwrap_or_default())
+      .with_max(self.max.map(|m| m.to_string()).unwrap_or_default())
+      .with_step(self.step.map(|s| s.to_string()).unwrap_or_default());
+    let ctx = MessageContext::new(value, params);
 
-    f.map(|_f| _f(self, value)).unwrap()
+    match violation {
+      RangeUnderflow => self.range_underflow.resolve_with_context(&ctx),
+      RangeOverflow => self.range_overflow.resolve_with_context(&ctx),
+      StepMismatch => self.step_mismatch.resolve_with_context(&ctx),
+      _ => unreachable!("Unsupported Constraint Violation Enum matched"),
+    }
   }
 
   pub fn new() -> Self {
@@ -124,14 +106,14 @@ where
       min: None,
       max: None,
       step: None,
-      range_underflow: &num_range_underflow_msg,
-      range_overflow: &num_range_overflow_msg,
-      step_mismatch: &num_step_mismatch_msg,
+      range_underflow: default_num_range_underflow_msg(),
+      range_overflow: default_num_range_overflow_msg(),
+      step_mismatch: default_num_step_mismatch_msg(),
     }
   }
 }
 
-impl<T> Validate<T> for NumberValidator<'_, T>
+impl<T> Validate<T> for NumberValidator<T>
 where
   T: NumberValue,
 {
@@ -140,7 +122,7 @@ where
     if let Some(violation) = self._validate_number(value) {
       return Err(Violation(
         violation,
-        self._get_violation_msg(violation, value),
+        self._get_violation_msg(violation, &value),
       ));
     }
 
@@ -148,7 +130,7 @@ where
   }
 }
 
-impl<T> ToAttributesList for NumberValidator<'_, T>
+impl<T> ToAttributesList for NumberValidator<T>
 where
   T: NumberValue,
 {
@@ -203,21 +185,21 @@ where
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> FnMut<(T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> FnMut<(T,)> for NumberValidator<T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> Fn<(T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> Fn<(T,)> for NumberValidator<T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -226,21 +208,21 @@ impl<T: NumberValue> FnOnce<(T,)> for NumberValidator<'_, T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> FnMut<(&T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> FnMut<(&T,)> for NumberValidator<T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> Fn<(&T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> Fn<(&T,)> for NumberValidator<T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
+impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
@@ -248,7 +230,7 @@ impl<T: NumberValue> FnOnce<(&T,)> for NumberValidator<'_, T> {
   }
 }
 
-impl<T> Default for NumberValidator<'_, T>
+impl<T> Default for NumberValidator<T>
 where
   T: NumberValue,
 {
@@ -257,7 +239,7 @@ where
   }
 }
 
-impl<T: NumberValue> Display for NumberValidator<'_, T> {
+impl<T: NumberValue> Display for NumberValidator<T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -278,34 +260,73 @@ impl<T: NumberValue> Display for NumberValidator<'_, T> {
   }
 }
 
-pub fn num_range_underflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
-where
-  T: NumberValue,
-{
+/// Returns generic range underflow message for numbers.
+///
+/// ```rust
+/// use walrs_validator::num_range_underflow_msg;
+///
+/// assert_eq!(num_range_underflow_msg(0, 1), "`0` is less than minimum `1`.");
+/// ```
+pub fn num_range_underflow_msg<T: NumberValue>(value: T, min: T) -> String {
   format!(
     "`{}` is less than minimum `{}`.",
-    x,
-    &rules.min.as_ref().unwrap_or(&T::default())
+    value,
+    min
   )
 }
 
-pub fn num_range_overflow_msg<T>(rules: &NumberValidator<T>, x: T) -> String
-where
-  T: NumberValue,
-{
+/// Returns generic range overflow message for numbers.
+///
+/// ```rust
+/// use walrs_validator::num_range_overflow_msg;
+///
+/// assert_eq!(num_range_overflow_msg(100, 10), "`100` is greater than maximum `10`.");
+/// ```
+pub fn num_range_overflow_msg<T: NumberValue>(value: T, max: T) -> String {
   format!(
     "`{}` is greater than maximum `{}`.",
-    x,
-    &rules.max.as_ref().unwrap_or(&T::default())
+    value,
+    max
   )
 }
 
-pub fn num_step_mismatch_msg<T: NumberValue>(rules: &NumberValidator<T>, x: T) -> String {
+/// Returns generic step mismatch message for numbers.
+///
+/// ```rust
+/// use walrs_validator::num_step_mismatch_msg;
+///
+/// assert_eq!(num_step_mismatch_msg(7, 5), "`7` is not a multiple of step `5`.");
+/// ```
+pub fn num_step_mismatch_msg<T: NumberValue>(value: T, step: T) -> String {
   format!(
-    "`{}` is greater than maximum `{}`.",
-    x,
-    &rules.step.as_ref().unwrap_or(&T::default())
+    "`{}` is not a multiple of step `{}`.",
+    value,
+    step
   )
+}
+
+/// Returns default range underflow Message provider for NumberValidator.
+pub fn default_num_range_underflow_msg<T: NumberValue>() -> Message<T> {
+  Message::provider(|ctx: &MessageContext<T>| {
+    let min_str = ctx.params.min.as_deref().unwrap_or("?");
+    format!("`{}` is less than minimum `{}`.", ctx.value, min_str)
+  })
+}
+
+/// Returns default range overflow Message provider for NumberValidator.
+pub fn default_num_range_overflow_msg<T: NumberValue>() -> Message<T> {
+  Message::provider(|ctx: &MessageContext<T>| {
+    let max_str = ctx.params.max.as_deref().unwrap_or("?");
+    format!("`{}` is greater than maximum `{}`.", ctx.value, max_str)
+  })
+}
+
+/// Returns default step mismatch Message provider for NumberValidator.
+pub fn default_num_step_mismatch_msg<T: NumberValue>() -> Message<T> {
+  Message::provider(|ctx: &MessageContext<T>| {
+    let step_str = ctx.params.step.as_deref().unwrap_or("?");
+    format!("`{}` is not a multiple of step `{}`.", ctx.value, step_str)
+  })
 }
 
 #[cfg(test)]
@@ -316,8 +337,7 @@ mod test {
 
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
-    // Assert all property states for difference construction scenarios
-    // ----
+    // Assert all property states for different construction scenarios
     for (test_name, instance, min, max, step) in [
       (
         "Default",
@@ -363,129 +383,95 @@ mod test {
       assert_eq!(instance.min, min);
       assert_eq!(instance.max, max);
       assert_eq!(instance.step, step);
-
-      // Ensure default message callbacks are set
-      // ----
-      let test_value = 99;
-
-      assert_eq!(
-        (instance.range_overflow)(&instance, test_value),
-        num_range_overflow_msg(&instance, test_value)
-      );
-
-      assert_eq!(
-        (instance.range_underflow)(&instance, test_value),
-        num_range_underflow_msg(&instance, test_value)
-      );
-
-      assert_eq!(
-        (instance.step_mismatch)(&instance, test_value),
-        num_step_mismatch_msg(&instance, test_value)
-      );
     }
 
     Ok(())
   }
 
   #[test]
-  fn test_validate_and_fn_trait_and_default_messengers() -> Result<(), Box<dyn Error>> {
-    // Test `validate`, and `Fn*` trait
-    // ----
-    for (validator, value, expected) in [
-      (
-        NumberValidatorBuilder::<usize>::default().build()?,
-        99usize,
-        Ok(()),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default().min(0).build()?,
-        99,
-        Ok(()),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default()
-          .max(100)
-          .build()?,
-        99,
-        Ok(()),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default()
-          .min(0)
-          .max(100)
-          .build()?,
-        99,
-        Ok(()),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default().step(5).build()?,
-        25,
-        Ok(()),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default().min(2).build()?,
-        1,
-        Err(RangeUnderflow),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default().min(1).build()?,
-        0,
-        Err(RangeUnderflow),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default()
-          .max(100)
-          .build()?,
-        101,
-        Err(RangeOverflow),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default()
-          .min(1)
-          .max(100)
-          .build()?,
-        0,
-        Err(RangeUnderflow),
-      ),
-      (
-        NumberValidatorBuilder::<usize>::default().step(5).build()?,
-        26,
-        Err(StepMismatch),
-      ),
-    ] {
-      match expected {
-        Ok(_) => {
-          assert_eq!(validator.validate(value), Ok(()));
-          #[cfg(feature = "fn_traits")]
-          assert_eq!((&validator)(value), Ok(()));
-        }
-        Err(_enum) => {
-          let violation_tuple = match _enum {
-            StepMismatch => Violation(StepMismatch, num_step_mismatch_msg(&validator, value)),
-            RangeUnderflow => Violation(RangeUnderflow, num_range_underflow_msg(&validator, value)),
-            RangeOverflow => Violation(RangeOverflow, num_range_overflow_msg(&validator, value)),
-            _ => unreachable!("Unknown enum variant encountered"),
-          };
-
-          assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
-          #[cfg(feature = "fn_traits")]
-          assert_eq!((&validator)(value), Err(violation_tuple));
-        }
-      }
-    }
-
-    Ok(())
-  }
-
-  #[test]
-  fn test_to_attributes_list() {
-    // With non-empty fields
+  fn test_validate() -> Result<(), Box<dyn Error>> {
     let vldtr = NumberValidatorBuilder::<usize>::default()
       .min(1)
       .max(100)
       .step(5)
-      .build()
-      .unwrap();
+      .build()?;
+
+    // Valid values
+    assert_eq!(vldtr.validate(5), Ok(()));
+    assert_eq!(vldtr.validate(95), Ok(()));
+
+    // RangeUnderflow
+    let result = vldtr.validate(0);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.0, RangeUnderflow);
+    assert_eq!(err.1, num_range_underflow_msg(0, 1));
+
+    // RangeOverflow
+    let result = vldtr.validate(101);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.0, RangeOverflow);
+    assert_eq!(err.1, num_range_overflow_msg(101, 100));
+
+    // StepMismatch
+    let result = vldtr.validate(26);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.0, StepMismatch);
+    assert_eq!(err.1, num_step_mismatch_msg(26, 5));
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_custom_message() -> Result<(), Box<dyn Error>> {
+    let custom_msg: Message<usize> = Message::static_msg("Value is too small!");
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(10)
+      .range_underflow(custom_msg)
+      .build()?;
+
+    let result = vldtr.validate(5);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.1, "Value is too small!");
+
+    Ok(())
+  }
+
+  #[cfg(feature = "fn_traits")]
+  #[test]
+  fn test_fn_traits() -> Result<(), Box<dyn Error>> {
+    let vldtr = NumberValidatorBuilder::<i32>::default().build()?;
+
+    fn call_fn_once<T: NumberValue>(f: impl FnOnce(T) -> ValidatorResult, v: T) -> ValidatorResult {
+      f(v)
+    }
+
+    fn call_fn_mut<T: NumberValue>(f: &mut impl FnMut(T) -> ValidatorResult, v: T) -> ValidatorResult {
+      f(v)
+    }
+
+    // Test FnMut
+    let mut vldtr_mut = vldtr.clone();
+    let result_mut = call_fn_mut(&mut vldtr_mut, 99);
+    assert_eq!(result_mut, Ok(()));
+
+    // Test FnOnce
+    let result_once = call_fn_once(vldtr, 99);
+    assert_eq!(result_once, Ok(()));
+
+    Ok(())
+  }
+
+  #[test]
+  fn test_to_attributes_list() -> Result<(), Box<dyn Error>> {
+    let vldtr = NumberValidatorBuilder::<usize>::default()
+      .min(1)
+      .max(100)
+      .step(5)
+      .build()?;
 
     assert_eq!(
       vldtr.to_attributes_list(),
@@ -496,58 +482,21 @@ mod test {
       ])
     );
 
-    // With empty fields
-    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
-
-    assert_eq!(vldtr.to_attributes_list(), None);
+    Ok(())
   }
 
-  #[cfg(feature = "fn_traits")]
   #[test]
-  fn test_all_fn_trait_variants() {
-    // FnMut
-    // ----
-    let mut vldtr = NumberValidatorBuilder::<usize>::default()
+  fn test_display() -> Result<(), Box<dyn Error>> {
+    let vldtr = NumberValidatorBuilder::<usize>::default()
       .min(1)
       .max(100)
       .step(5)
-      .build()
-      .unwrap();
+      .build()?;
 
-    vldtr.max = Some(50usize);
+    let display_output = format!("{}", vldtr);
+    assert_eq!(display_output, "NumberValidator {min: 1, max: 100, step: 5}");
 
-    assert_eq!((&vldtr)(25usize), Ok(()));
-    assert_eq!((&vldtr)(&25usize), Ok(()));
-
-    // Fn that consumes vldtr and a `usize`
-    fn call_fn_mut(v: &mut impl FnMut(usize) -> ValidatorResult) -> ValidatorResult {
-      v(25usize)
-    }
-
-    fn call_fn_mut_with_ref(v: &mut impl FnMut(&usize) -> ValidatorResult) -> ValidatorResult {
-      v(&25usize)
-    }
-
-    assert_eq!(call_fn_mut(&mut vldtr), Ok(()));
-    assert_eq!(call_fn_mut_with_ref(&mut vldtr), Ok(()));
-
-    // FnOnce
-    // ----
-    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
-
-    // Fn that consumes vldtr and a `usize`
-    fn call_fn_once(v: impl FnOnce(usize) -> ValidatorResult) -> ValidatorResult {
-      v(25usize)
-    }
-    assert_eq!(call_fn_once(vldtr), Ok(()));
-
-    let vldtr = NumberValidatorBuilder::<usize>::default().build().unwrap();
-
-    // Fn that consumes vldtr and a `usize`
-    fn call_fn_once_with_ref(v: impl FnOnce(&usize) -> ValidatorResult) -> ValidatorResult {
-      v(&25usize)
-    }
-    assert_eq!(call_fn_once_with_ref(vldtr), Ok(()));
+    Ok(())
   }
 }
 

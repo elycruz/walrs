@@ -13,13 +13,16 @@ pub mod rule;
 pub mod traits;
 pub mod validators;
 
-// Re-export violation types from walrs_validator for backwards compatibility
-pub use walrs_validator::{Violation, Violations, ViolationType, ViolationMessage};
+// Re-export types from walrs_validator for backwards compatibility
+pub use walrs_validator::{
+    Message, MessageContext, MessageParams,
+    Violation, Violations, ViolationType, ViolationMessage
+};
 
 pub use filters::*;
 pub use input::*;
 pub use ref_input::*;
-pub use rule::{Condition, Message, MessageContext, MessageParams, Rule, RuleResult};
+pub use rule::{Condition, Rule, RuleResult};
 pub use traits::*;
 pub use validators::*;
 
