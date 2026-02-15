@@ -72,6 +72,7 @@ pub mod message;
 pub mod number;
 pub mod pattern;
 pub mod range;
+pub mod rule;
 pub mod traits;
 pub mod violation;
 
@@ -82,6 +83,7 @@ pub use message::*;
 pub use number::*;
 pub use pattern::*;
 pub use range::*;
+pub use rule::{Condition, Rule, RuleResult};
 pub use traits::*;
 pub use violation::*;
 
