@@ -45,6 +45,168 @@ use crate::Violation;
 pub type RuleResult = Result<(), Violation>;
 
 // ============================================================================
+// Message Enum
+// ============================================================================
+
+/// A validation error message that can be either a static string or a dynamic provider.
+///
+/// This enum enables:
+/// - **Static messages**: Simple strings, serializable to JSON/YAML
+/// - **Dynamic messages**: Closures that generate messages with context (value, rule params)
+///
+/// # Serialization
+///
+/// Only `Static` variants serialize. `Provider` is skipped and will deserialize
+/// using the default (empty string), which can be detected and replaced with
+/// a fallback message.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_inputfilter::rule::Message;
+///
+/// // Static message
+/// let msg: Message<String> = Message::from("Must be at least 8 characters");
+///
+/// // Dynamic message with value context
+/// let msg: Message<i32> = Message::provider(|v| format!("Value {} is out of range", v));
+/// ```
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum Message<T> {
+    /// A static message string (serializable)
+    Static(String),
+
+    /// A dynamic message provider (not serializable)
+    ///
+    /// The closure receives the value being validated and returns a formatted message.
+    #[serde(skip)]
+    Provider(Arc<dyn Fn(&T) -> String + Send + Sync>),
+}
+
+impl<T> Message<T> {
+    /// Creates a static message.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Message;
+    ///
+    /// let msg: Message<String> = Message::static_msg("Invalid value");
+    /// assert_eq!(msg.resolve(&"test".to_string()), "Invalid value");
+    /// ```
+    pub fn static_msg(msg: impl Into<String>) -> Self {
+        Message::Static(msg.into())
+    }
+
+    /// Creates a dynamic message provider.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Message;
+    ///
+    /// let msg: Message<i32> = Message::provider(|v| format!("Got {}, expected positive", v));
+    /// assert_eq!(msg.resolve(&-5), "Got -5, expected positive");
+    /// ```
+    pub fn provider(f: impl Fn(&T) -> String + Send + Sync + 'static) -> Self {
+        Message::Provider(Arc::new(f))
+    }
+
+    /// Resolves the message, using the value for dynamic providers.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Message;
+    ///
+    /// let static_msg: Message<String> = Message::from("Error");
+    /// assert_eq!(static_msg.resolve(&"any".to_string()), "Error");
+    ///
+    /// let dynamic_msg: Message<String> = Message::provider(|v| format!("Bad: {}", v));
+    /// assert_eq!(dynamic_msg.resolve(&"input".to_string()), "Bad: input");
+    /// ```
+    pub fn resolve(&self, value: &T) -> String {
+        match self {
+            Message::Static(s) => s.clone(),
+            Message::Provider(f) => f(value),
+        }
+    }
+
+    /// Resolves with a fallback if this is an empty static message.
+    ///
+    /// Useful for handling deserialized messages where `Provider` becomes
+    /// an empty `Static` string.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Message;
+    ///
+    /// let empty: Message<String> = Message::Static(String::new());
+    /// assert_eq!(empty.resolve_or(&"x".to_string(), "default"), "default");
+    ///
+    /// let filled: Message<String> = Message::from("custom");
+    /// assert_eq!(filled.resolve_or(&"x".to_string(), "default"), "custom");
+    /// ```
+    pub fn resolve_or(&self, value: &T, fallback: &str) -> String {
+        match self {
+            Message::Static(s) if s.is_empty() => fallback.to_string(),
+            Message::Static(s) => s.clone(),
+            Message::Provider(f) => f(value),
+        }
+    }
+
+    /// Returns `true` if this is a static message.
+    pub fn is_static(&self) -> bool {
+        matches!(self, Message::Static(_))
+    }
+
+    /// Returns `true` if this is a provider (closure-based) message.
+    pub fn is_provider(&self) -> bool {
+        matches!(self, Message::Provider(_))
+    }
+}
+
+impl<T> Debug for Message<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Static(s) => f.debug_tuple("Static").field(s).finish(),
+            Self::Provider(_) => write!(f, "Provider(<fn>)"),
+        }
+    }
+}
+
+impl<T> PartialEq for Message<T> {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Static(a), Self::Static(b)) => a == b,
+            // Providers are never equal (can't compare closures)
+            _ => false,
+        }
+    }
+}
+
+impl<T> Default for Message<T> {
+    fn default() -> Self {
+        Message::Static(String::new())
+    }
+}
+
+// Convenience conversions
+impl<T> From<&str> for Message<T> {
+    fn from(s: &str) -> Self {
+        Message::Static(s.to_string())
+    }
+}
+
+impl<T> From<String> for Message<T> {
+    fn from(s: String) -> Self {
+        Message::Static(s)
+    }
+}
+
+// ============================================================================
 // Condition Enum
 // ============================================================================
 
@@ -135,7 +297,7 @@ pub enum Rule<T> {
     /// Value must be present (non-empty)
     Required,
 
-    // ---- String Rules ----
+    // ---- `WithLength` type ----
     /// Minimum length constraint
     MinLength(usize),
 
@@ -145,6 +307,7 @@ pub enum Rule<T> {
     /// Exact length constraint
     ExactLength(usize),
 
+    // ---- String Rules ----
     /// Regex pattern match (stored as string for serialization)
     Pattern(String),
 
@@ -207,6 +370,18 @@ pub enum Rule<T> {
     /// Reference to a named rule (resolved at runtime)
     #[serde(skip)]
     Ref(String),
+
+    /// Wraps another rule with a custom error message.
+    ///
+    /// When the inner rule fails, the custom message is used instead of
+    /// the default message.
+    #[serde(skip)]
+    WithMessage {
+        /// The wrapped rule
+        rule: Box<Rule<T>>,
+        /// The custom message to use on failure
+        message: Message<T>,
+    },
 }
 
 impl<T: Debug> Debug for Rule<T> {
@@ -244,6 +419,11 @@ impl<T: Debug> Debug for Rule<T> {
                 .finish(),
             Self::Custom(_) => write!(f, "Custom(<fn>)"),
             Self::Ref(name) => f.debug_tuple("Ref").field(name).finish(),
+            Self::WithMessage { rule, message } => f
+                .debug_struct("WithMessage")
+                .field("rule", rule)
+                .field("message", message)
+                .finish(),
         }
     }
 }
@@ -283,6 +463,10 @@ impl<T: PartialEq> PartialEq for Rule<T> {
                 },
             ) => c1 == c2 && t1 == t2 && e1 == e2,
             (Self::Ref(a), Self::Ref(b)) => a == b,
+            (
+                Self::WithMessage { rule: r1, message: m1 },
+                Self::WithMessage { rule: r2, message: m2 },
+            ) => r1 == r2 && m1 == m2,
             // Custom rules are never equal
             (Self::Custom(_), Self::Custom(_)) => false,
             _ => false,
@@ -428,6 +612,50 @@ impl<T> Rule<T> {
     /// ```
     pub fn rule_ref(name: impl Into<String>) -> Rule<T> {
         Rule::Ref(name.into())
+    }
+
+    /// Attaches a static custom error message to this rule.
+    ///
+    /// When validation fails, the custom message is used instead of
+    /// the default message generated by the rule.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Rule;
+    ///
+    /// let rule = Rule::<String>::MinLength(8)
+    ///     .with_message("Password must be at least 8 characters");
+    /// ```
+    pub fn with_message(self, msg: impl Into<String>) -> Rule<T> {
+        Rule::WithMessage {
+            rule: Box::new(self),
+            message: Message::Static(msg.into()),
+        }
+    }
+
+    /// Attaches a dynamic message provider to this rule.
+    ///
+    /// The closure receives the value being validated and returns
+    /// a custom error message. Useful for including the actual value
+    /// in error messages.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use walrs_inputfilter::rule::Rule;
+    ///
+    /// let rule = Rule::<i32>::Min(0)
+    ///     .with_message_provider(|v| format!("Value {} must be non-negative", v));
+    /// ```
+    pub fn with_message_provider<F>(self, f: F) -> Rule<T>
+    where
+        F: Fn(&T) -> String + Send + Sync + 'static,
+    {
+        Rule::WithMessage {
+            rule: Box::new(self),
+            message: Message::Provider(Arc::new(f)),
+        }
     }
 }
 
@@ -660,6 +888,169 @@ mod tests {
             Rule::<i32>::range(0, 100),
             Rule::Range { min: 0, max: 100 }
         );
+    }
+
+    // ========================================================================
+    // Message Tests
+    // ========================================================================
+
+    #[test]
+    fn test_message_static() {
+        let msg: Message<String> = Message::static_msg("Error message");
+        assert!(msg.is_static());
+        assert!(!msg.is_provider());
+        assert_eq!(msg.resolve(&"any".to_string()), "Error message");
+    }
+
+    #[test]
+    fn test_message_provider() {
+        let msg: Message<i32> = Message::provider(|v| format!("Value {} is invalid", v));
+        assert!(msg.is_provider());
+        assert!(!msg.is_static());
+        assert_eq!(msg.resolve(&42), "Value 42 is invalid");
+    }
+
+    #[test]
+    fn test_message_resolve_or_with_empty() {
+        let empty: Message<String> = Message::Static(String::new());
+        assert_eq!(empty.resolve_or(&"x".to_string(), "fallback"), "fallback");
+    }
+
+    #[test]
+    fn test_message_resolve_or_with_value() {
+        let msg: Message<String> = Message::from("custom");
+        assert_eq!(msg.resolve_or(&"x".to_string(), "fallback"), "custom");
+    }
+
+    #[test]
+    fn test_message_from_str() {
+        let msg: Message<i32> = Message::from("test message");
+        assert_eq!(msg.resolve(&0), "test message");
+    }
+
+    #[test]
+    fn test_message_from_string() {
+        let msg: Message<i32> = Message::from("owned string".to_string());
+        assert_eq!(msg.resolve(&0), "owned string");
+    }
+
+    #[test]
+    fn test_message_equality() {
+        let a: Message<i32> = Message::from("same");
+        let b: Message<i32> = Message::from("same");
+        let c: Message<i32> = Message::from("different");
+
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_message_provider_never_equal() {
+        let a: Message<i32> = Message::provider(|_| "a".to_string());
+        let b: Message<i32> = Message::provider(|_| "a".to_string());
+
+        // Providers are never equal (can't compare closures)
+        assert_ne!(a, b);
+    }
+
+    #[test]
+    fn test_message_debug() {
+        let static_msg: Message<i32> = Message::from("test");
+        let debug_str = format!("{:?}", static_msg);
+        assert!(debug_str.contains("Static"));
+        assert!(debug_str.contains("test"));
+
+        let provider_msg: Message<i32> = Message::provider(|_| "x".to_string());
+        let debug_str = format!("{:?}", provider_msg);
+        assert!(debug_str.contains("Provider"));
+    }
+
+    #[test]
+    fn test_message_default() {
+        let msg: Message<i32> = Message::default();
+        assert_eq!(msg, Message::Static(String::new()));
+    }
+
+    #[test]
+    fn test_message_serialization() {
+        let msg: Message<i32> = Message::from("serialized");
+        let json = serde_json::to_string(&msg).unwrap();
+        assert!(json.contains("serialized"));
+
+        let deserialized: Message<i32> = serde_json::from_str(&json).unwrap();
+        assert_eq!(msg, deserialized);
+    }
+
+    // ========================================================================
+    // WithMessage Tests
+    // ========================================================================
+
+    #[test]
+    fn test_rule_with_message_static() {
+        let rule = Rule::<String>::MinLength(8)
+            .with_message("Password too short");
+
+        match rule {
+            Rule::WithMessage { rule: inner, message } => {
+                assert_eq!(*inner, Rule::MinLength(8));
+                assert_eq!(message, Message::from("Password too short"));
+            }
+            _ => panic!("Expected Rule::WithMessage"),
+        }
+    }
+
+    #[test]
+    fn test_rule_with_message_provider() {
+        let rule = Rule::<i32>::Min(0)
+            .with_message_provider(|v| format!("Got {}, expected >= 0", v));
+
+        match rule {
+            Rule::WithMessage { rule: inner, message } => {
+                assert_eq!(*inner, Rule::Min(0));
+                assert!(message.is_provider());
+                assert_eq!(message.resolve(&-5), "Got -5, expected >= 0");
+            }
+            _ => panic!("Expected Rule::WithMessage"),
+        }
+    }
+
+    #[test]
+    fn test_rule_with_message_equality() {
+        let a = Rule::<String>::MinLength(5).with_message("error");
+        let b = Rule::<String>::MinLength(5).with_message("error");
+        let c = Rule::<String>::MinLength(5).with_message("different");
+
+        assert_eq!(a, b);
+        assert_ne!(a, c);
+    }
+
+    #[test]
+    fn test_rule_with_message_debug() {
+        let rule = Rule::<String>::Required.with_message("Field is required");
+        let debug_str = format!("{:?}", rule);
+
+        assert!(debug_str.contains("WithMessage"));
+        assert!(debug_str.contains("Required"));
+        assert!(debug_str.contains("Field is required"));
+    }
+
+    #[test]
+    fn test_rule_with_message_chained() {
+        // You can chain with_message after combinators
+        let rule = Rule::<String>::MinLength(3)
+            .and(Rule::MaxLength(10))
+            .with_message("Length must be between 3 and 10");
+
+        match rule {
+            Rule::WithMessage { rule: inner, message } => {
+                match *inner {
+                    Rule::All(rules) => assert_eq!(rules.len(), 2),
+                    _ => panic!("Expected Rule::All inside WithMessage"),
+                }
+                assert_eq!(message.resolve(&"".to_string()), "Length must be between 3 and 10");
+            }
+            _ => panic!("Expected Rule::WithMessage"),
+        }
     }
 }
 
