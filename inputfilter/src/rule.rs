@@ -52,22 +52,42 @@ pub type RuleResult = Result<(), Violation>;
 ///
 /// When a rule fails validation, these parameters provide context about
 /// the constraint that was violated, enabling dynamic error messages.
+/// Each field corresponds to a variant or constraint from the `Rule` enum.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MessageParams {
     /// The name/type of the rule (e.g., "MinLength", "Range")
     pub rule_name: &'static str,
-    /// Minimum constraint (for length/range rules)
+
+    // ---- Presence ----
+    /// Whether the value is required (for `Required` rule).
+    pub required: bool,
+
+    // ---- Length constraints ----
+    /// Minimum length constraint (for `MinLength` rule).
+    pub min_length: Option<usize>,
+    /// Maximum length constraint (for `MaxLength` rule).
+    pub max_length: Option<usize>,
+    /// Exact length constraint (for `ExactLength` rule).
+    pub exact_length: Option<usize>,
+
+    // ---- Numeric constraints ----
+    /// Minimum value constraint (for `Min` or `Range` rules) converted to string
+    /// to keep the API simple (`MessageParams` would require a generic otherwise).
     pub min: Option<String>,
-    /// Maximum constraint (for length/range rules)
+    /// Maximum value constraint (for `Max` or `Range` rules) "".
     pub max: Option<String>,
-    /// Expected value (for equality rules)
-    pub expected: Option<String>,
-    /// Actual value (computed during validation)
-    pub actual: Option<String>,
-    /// Pattern string (for regex rules)
-    pub pattern: Option<String>,
-    /// Step value (for step rules)
+    /// Step value (for `Step` rule).
     pub step: Option<String>,
+
+    // ---- String constraints ----
+    /// Pattern string (for `Pattern` rule).
+    pub pattern: Option<String>,
+
+    // ---- Comparison constraints ----
+    /// Expected value (for `Equals` rule).
+    pub expected: Option<String>,
+    /// Allowed values (for `OneOf` rule).
+    pub one_of: Option<Vec<String>>,
 }
 
 impl MessageParams {
@@ -79,27 +99,45 @@ impl MessageParams {
         }
     }
 
-    /// Sets the minimum constraint.
+    /// Sets the required flag.
+    pub fn with_required(mut self, required: bool) -> Self {
+        self.required = required;
+        self
+    }
+
+    /// Sets the minimum length constraint.
+    pub fn with_min_length(mut self, len: usize) -> Self {
+        self.min_length = Some(len);
+        self
+    }
+
+    /// Sets the maximum length constraint.
+    pub fn with_max_length(mut self, len: usize) -> Self {
+        self.max_length = Some(len);
+        self
+    }
+
+    /// Sets the exact length constraint.
+    pub fn with_exact_length(mut self, len: usize) -> Self {
+        self.exact_length = Some(len);
+        self
+    }
+
+    /// Sets the minimum value constraint.
     pub fn with_min(mut self, min: impl ToString) -> Self {
         self.min = Some(min.to_string());
         self
     }
 
-    /// Sets the maximum constraint.
+    /// Sets the maximum value constraint.
     pub fn with_max(mut self, max: impl ToString) -> Self {
         self.max = Some(max.to_string());
         self
     }
 
-    /// Sets the expected value.
-    pub fn with_expected(mut self, expected: impl ToString) -> Self {
-        self.expected = Some(expected.to_string());
-        self
-    }
-
-    /// Sets the actual value.
-    pub fn with_actual(mut self, actual: impl ToString) -> Self {
-        self.actual = Some(actual.to_string());
+    /// Sets the step value constraint.
+    pub fn with_step(mut self, step: impl ToString) -> Self {
+        self.step = Some(step.to_string());
         self
     }
 
@@ -109,9 +147,15 @@ impl MessageParams {
         self
     }
 
-    /// Sets the step value.
-    pub fn with_step(mut self, step: impl ToString) -> Self {
-        self.step = Some(step.to_string());
+    /// Sets the expected value.
+    pub fn with_expected(mut self, expected: impl ToString) -> Self {
+        self.expected = Some(expected.to_string());
+        self
+    }
+
+    /// Sets the allowed values for `OneOf` rule.
+    pub fn with_one_of(mut self, values: Vec<String>) -> Self {
+        self.one_of = Some(values);
         self
     }
 }
@@ -128,9 +172,9 @@ impl MessageParams {
 ///
 /// let msg: Message<String> = Message::provider(|ctx| {
 ///     format!(
-///         "Value length {} is less than minimum {}",
-///         ctx.params.actual.as_deref().unwrap_or("?"),
-///         ctx.params.min.as_deref().unwrap_or("?")
+///         "Value '{}' must have at least {} characters",
+///         ctx.value,
+///         ctx.params.min_length.map(|n| n.to_string()).unwrap_or("?".to_string())
 ///     )
 /// });
 /// ```
@@ -1195,40 +1239,77 @@ mod tests {
     fn test_message_params_new() {
         let params = MessageParams::new("MinLength");
         assert_eq!(params.rule_name, "MinLength");
+        assert!(!params.required);
+        assert!(params.min_length.is_none());
+        assert!(params.max_length.is_none());
+        assert!(params.exact_length.is_none());
         assert!(params.min.is_none());
         assert!(params.max.is_none());
-        assert!(params.actual.is_none());
     }
 
     #[test]
     fn test_message_params_builder_pattern() {
         let params = MessageParams::new("Range")
             .with_min(0)
-            .with_max(100)
-            .with_actual(50);
+            .with_max(100);
 
         assert_eq!(params.rule_name, "Range");
         assert_eq!(params.min, Some("0".to_string()));
         assert_eq!(params.max, Some("100".to_string()));
-        assert_eq!(params.actual, Some("50".to_string()));
+    }
+
+    #[test]
+    fn test_message_params_length_fields() {
+        let params = MessageParams::new("MinLength")
+            .with_min_length(5)
+            .with_max_length(100)
+            .with_exact_length(50);
+
+        assert_eq!(params.min_length, Some(5));
+        assert_eq!(params.max_length, Some(100));
+        assert_eq!(params.exact_length, Some(50));
+    }
+
+    #[test]
+    fn test_message_params_required() {
+        let params = MessageParams::new("Required")
+            .with_required(true);
+
+        assert!(params.required);
+    }
+
+    #[test]
+    fn test_message_params_one_of() {
+        let params = MessageParams::new("OneOf")
+            .with_one_of(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+
+        assert_eq!(params.one_of, Some(vec!["a".to_string(), "b".to_string(), "c".to_string()]));
     }
 
     #[test]
     fn test_message_params_all_fields() {
         let params = MessageParams::new("Custom")
-            .with_min(1)
+            .with_required(true)
+            .with_min_length(1)
+            .with_max_length(100)
+            .with_exact_length(50)
+            .with_min(0)
             .with_max(10)
-            .with_expected("foo")
-            .with_actual("bar")
+            .with_step(2)
             .with_pattern(r"^\d+$")
-            .with_step(2);
+            .with_expected("foo")
+            .with_one_of(vec!["a".to_string(), "b".to_string()]);
 
-        assert_eq!(params.min, Some("1".to_string()));
+        assert!(params.required);
+        assert_eq!(params.min_length, Some(1));
+        assert_eq!(params.max_length, Some(100));
+        assert_eq!(params.exact_length, Some(50));
+        assert_eq!(params.min, Some("0".to_string()));
         assert_eq!(params.max, Some("10".to_string()));
-        assert_eq!(params.expected, Some("foo".to_string()));
-        assert_eq!(params.actual, Some("bar".to_string()));
-        assert_eq!(params.pattern, Some(r"^\d+$".to_string()));
         assert_eq!(params.step, Some("2".to_string()));
+        assert_eq!(params.pattern, Some(r"^\d+$".to_string()));
+        assert_eq!(params.expected, Some("foo".to_string()));
+        assert_eq!(params.one_of, Some(vec!["a".to_string(), "b".to_string()]));
     }
 
     // ========================================================================
@@ -1250,9 +1331,8 @@ mod tests {
     fn test_message_provider_with_params() {
         let msg: Message<String> = Message::provider(|ctx| {
             format!(
-                "Length must be at least {}, got {}",
-                ctx.params.min.as_deref().unwrap_or("?"),
-                ctx.params.actual.as_deref().unwrap_or("?")
+                "Length must be at least {}",
+                ctx.params.min_length.map(|n| n.to_string()).unwrap_or("?".to_string())
             )
         });
 
@@ -1264,22 +1344,21 @@ mod tests {
     fn test_message_provider_resolve_with_context() {
         let msg: Message<String> = Message::provider(|ctx| {
             format!(
-                "{} validation failed: expected min {}, got {}",
+                "{} validation failed: expected min length {}, got '{}'",
                 ctx.params.rule_name,
-                ctx.params.min.as_deref().unwrap_or("?"),
-                ctx.params.actual.as_deref().unwrap_or("?")
+                ctx.params.min_length.map(|n| n.to_string()).unwrap_or("?".to_string()),
+                ctx.value
             )
         });
 
         let params = MessageParams::new("MinLength")
-            .with_min(8)
-            .with_actual(3);
+            .with_min_length(8);
         let value = "abc".to_string();
         let ctx = MessageContext::new(&value, params);
 
         assert_eq!(
             msg.resolve_with_context(&ctx),
-            "MinLength validation failed: expected min 8, got 3"
+            "MinLength validation failed: expected min length 8, got 'abc'"
         );
     }
 
