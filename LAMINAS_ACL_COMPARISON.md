@@ -201,7 +201,8 @@ concurrent environments.
 | **PHP Serialize** | N/A | Supported |
 | **Custom Format** | Via `AclData` struct + serde | Via PHP serialization |
 
-walrs provides a structured JSON format for defining ACLs declaratively:
+walrs provides a structured JSON format for defining ACLs declaratively
+(JSON `null` maps to Rust `None`, meaning "no parents" or "all privileges"):
 
 ```json
 {
