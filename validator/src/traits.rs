@@ -94,88 +94,46 @@ use serde::Serialize;
 use std::fmt::Display;
 use std::ops::{Add, Div, Mul, Rem, Sub};
 
+/// Macro to implement a marker trait for multiple types.
+macro_rules! impl_marker_trait {
+  ($trait:ident for $($ty:ty),+ $(,)?) => {
+    $(impl $trait for $ty {})+
+  };
+}
+
 pub trait InputValue: Copy + Default + PartialEq + PartialOrd + Display + Serialize {}
 
-impl InputValue for i8 {}
-impl InputValue for i16 {}
-impl InputValue for i32 {}
-impl InputValue for i64 {}
-impl InputValue for i128 {}
-impl InputValue for isize {}
-
-impl InputValue for u8 {}
-impl InputValue for u16 {}
-impl InputValue for u32 {}
-impl InputValue for u64 {}
-impl InputValue for u128 {}
-impl InputValue for usize {}
-
-impl InputValue for f32 {}
-impl InputValue for f64 {}
-
-impl InputValue for bool {}
-impl InputValue for char {}
-impl InputValue for &str {}
+impl_marker_trait!(InputValue for
+  i8, i16, i32, i64, i128, isize,
+  u8, u16, u32, u64, u128, usize,
+  f32, f64,
+  bool, char, &str
+);
 
 pub trait ScalarValue: InputValue {}
 
-impl ScalarValue for i8 {}
-impl ScalarValue for i16 {}
-impl ScalarValue for i32 {}
-impl ScalarValue for i64 {}
-impl ScalarValue for i128 {}
-impl ScalarValue for isize {}
-
-impl ScalarValue for u8 {}
-impl ScalarValue for u16 {}
-impl ScalarValue for u32 {}
-impl ScalarValue for u64 {}
-impl ScalarValue for u128 {}
-impl ScalarValue for usize {}
-
-impl ScalarValue for f32 {}
-impl ScalarValue for f64 {}
-
-impl ScalarValue for bool {}
-impl ScalarValue for char {}
+impl_marker_trait!(ScalarValue for
+  i8, i16, i32, i64, i128, isize,
+  u8, u16, u32, u64, u128, usize,
+  f32, f64,
+  bool, char
+);
 
 pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
 
-impl NumberValue for i8 {}
-impl NumberValue for i16 {}
-impl NumberValue for i32 {}
-impl NumberValue for i64 {}
-impl NumberValue for i128 {}
-impl NumberValue for isize {}
-
-impl NumberValue for u8 {}
-impl NumberValue for u16 {}
-impl NumberValue for u32 {}
-impl NumberValue for u64 {}
-impl NumberValue for u128 {}
-impl NumberValue for usize {}
-
-impl NumberValue for f32 {}
-impl NumberValue for f64 {}
+impl_marker_trait!(NumberValue for
+  i8, i16, i32, i64, i128, isize,
+  u8, u16, u32, u64, u128, usize,
+  f32, f64
+);
 
 pub trait SteppableValue: NumberValue + Rem<Output = Self> {}
 
-impl SteppableValue for i8 {}
-impl SteppableValue for i16 {}
-impl SteppableValue for i32 {}
-impl SteppableValue for i64 {}
-impl SteppableValue for i128 {}
-impl SteppableValue for isize {}
-
-impl SteppableValue for u8 {}
-impl SteppableValue for u16 {}
-impl SteppableValue for u32 {}
-impl SteppableValue for u64 {}
-impl SteppableValue for u128 {}
-impl SteppableValue for usize {}
-
-impl SteppableValue for f32 {}
-impl SteppableValue for f64 {}
+impl_marker_trait!(SteppableValue for
+  i8, i16, i32, i64, i128, isize,
+  u8, u16, u32, u64, u128, usize,
+  f32, f64
+);
 
 /// Trait for types that can be converted to HTML form element attributes.
 pub trait ToAttributesList {
