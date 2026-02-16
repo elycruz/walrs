@@ -319,6 +319,7 @@ impl Default for RbacBuilder {
 ///
 /// let rbac = RbacBuilder::try_from(&data)?.build()?;
 /// assert!(rbac.is_granted("admin", "read.public"));
+/// assert!(!rbac.is_granted("guest", "admin.panel"));
 /// # Ok::<(), walrs_rbac::RbacError>(())
 /// ```
 impl<'a> TryFrom<&'a RbacData> for RbacBuilder {
@@ -574,6 +575,17 @@ mod tests {
       .build();
 
     assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_three_node_cycle_detection() {
+    let result = RbacBuilder::new()
+      .add_role("a", &[], Some(&["b"])).unwrap()
+      .add_role("b", &[], Some(&["c"])).unwrap()
+      .add_role("c", &[], Some(&["a"])).unwrap()
+      .build();
+
+    assert!(matches!(result, Err(RbacError::CycleDetected(_))));
   }
 
   #[test]
