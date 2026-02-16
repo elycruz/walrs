@@ -35,7 +35,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
-use crate::{Message, MessageContext, Violation};
+use crate::{Message, MessageContext, SteppableValue, Violation};
 
 // ============================================================================
 // Result Types
@@ -1085,53 +1085,7 @@ impl Rule<String> {
 // Rule Validation - Numeric Types
 // ============================================================================
 
-/// Trait for numeric validation operations.
-pub trait RuleNumber: Copy + PartialOrd + std::fmt::Display + Default {
-  /// Returns the remainder when dividing by another value.
-  fn rem_check(self, divisor: Self) -> bool;
-}
-
-macro_rules! impl_rule_number {
-    ($($t:ty),*) => {
-        $(
-            impl RuleNumber for $t {
-                fn rem_check(self, divisor: Self) -> bool {
-                    if divisor == 0 as $t {
-                        false
-                    } else {
-                        self % divisor == 0 as $t
-                    }
-                }
-            }
-        )*
-    };
-}
-
-impl_rule_number!(
-  i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
-);
-
-impl RuleNumber for f32 {
-  fn rem_check(self, divisor: Self) -> bool {
-    if divisor == 0.0 {
-      false
-    } else {
-      (self % divisor).abs() < f32::EPSILON
-    }
-  }
-}
-
-impl RuleNumber for f64 {
-  fn rem_check(self, divisor: Self) -> bool {
-    if divisor == 0.0 {
-      false
-    } else {
-      (self % divisor).abs() < f64::EPSILON
-    }
-  }
-}
-
-impl<T: RuleNumber + PartialEq + IsEmpty> Rule<T> {
+impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violation)` on first failure.
@@ -1472,7 +1426,7 @@ impl Rule<String> {
   }
 }
 
-impl<T: RuleNumber + PartialEq + IsEmpty + Clone> Rule<T> {
+impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
   /// Compiles this rule for efficient repeated validation.
   pub fn compile(self) -> CompiledRule<T> {
     CompiledRule::new(self)
@@ -1660,7 +1614,7 @@ impl CompiledRule<String> {
   }
 }
 
-impl<T: RuleNumber + PartialEq + IsEmpty + Clone> CompiledRule<T> {
+impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value using the compiled rule.
   pub fn validate(&self, value: T) -> RuleResult {
     self.rule.validate(value)
@@ -1690,13 +1644,13 @@ impl ValidateRef<str> for CompiledRule<String> {
   }
 }
 
-impl<T: RuleNumber + PartialEq + IsEmpty + Clone> Validate<T> for Rule<T> {
+impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T> {
   fn validate(&self, value: T) -> crate::ValidatorResult {
     Rule::validate(self, value)
   }
 }
 
-impl<T: RuleNumber + PartialEq + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
+impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
   fn validate(&self, value: T) -> crate::ValidatorResult {
     CompiledRule::validate(self, value)
   }

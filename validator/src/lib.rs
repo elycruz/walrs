@@ -10,8 +10,8 @@
 //!
 //! - [`LengthValidator`] - Validates string/collection length constraints
 //! - [`PatternValidator`] - Validates strings against regex patterns
-//! - [`RangeValidator`] - Validates numeric values within a range
-//! - [`NumberValidator`] - Validates numbers with min/max/step constraints
+//! - [`RangeValidator`] - Validates scalar values within a range (numbers, chars, etc.)
+//! - [`StepValidator`] - Validates that numeric values are multiples of a step
 //! - [`EqualityValidator`] - Validates equality against a specified value
 //!
 //! ## Combinators
@@ -69,7 +69,6 @@ pub mod combinators;
 pub mod equal;
 pub mod length;
 pub mod message;
-pub mod number;
 pub mod pattern;
 pub mod range;
 pub mod rule;
@@ -81,10 +80,9 @@ pub use combinators::*;
 pub use equal::*;
 pub use length::*;
 pub use message::*;
-pub use number::*;
 pub use pattern::*;
 pub use range::*;
-pub use rule::{CompiledRule, Condition, IsEmpty, Rule, RuleNumber, RuleResult};
+pub use rule::{CompiledRule, Condition, IsEmpty, Rule, RuleResult};
 pub use step::*;
 pub use traits::*;
 pub use violation::*;

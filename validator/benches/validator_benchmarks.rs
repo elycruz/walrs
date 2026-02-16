@@ -5,9 +5,8 @@ use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_ma
 use regex::Regex;
 use std::borrow::Cow;
 use walrs_validator::{
-  EqualityValidatorBuilder, LengthValidatorBuilder, NumberValidatorBuilder,
-  PatternValidatorBuilder, RangeValidatorBuilder, StepValidatorBuilder, Validate, ValidateExt,
-  ValidateRef,
+  EqualityValidatorBuilder, LengthValidatorBuilder, PatternValidatorBuilder, RangeValidatorBuilder,
+  StepValidatorBuilder, Validate, ValidateExt, ValidateRef,
 };
 fn bench_length_validator(c: &mut Criterion) {
   let mut group = c.benchmark_group("LengthValidator");
@@ -48,27 +47,6 @@ fn bench_range_validator(c: &mut Criterion) {
     ("middle", 50),
     ("at_max", 100),
     ("above_max", 150),
-  ];
-  for (name, input) in inputs {
-    group.bench_with_input(BenchmarkId::new("validate", name), &input, |b, input| {
-      b.iter(|| validator.validate(black_box(*input)))
-    });
-  }
-  group.finish();
-}
-fn bench_number_validator(c: &mut Criterion) {
-  let mut group = c.benchmark_group("NumberValidator");
-  let validator = NumberValidatorBuilder::<i32>::default()
-    .min(0)
-    .max(100)
-    .step(5)
-    .build()
-    .unwrap();
-  let inputs = [
-    ("valid", 50),
-    ("invalid_step", 51),
-    ("below_min", -5),
-    ("above_max", 105),
   ];
   for (name, input) in inputs {
     group.bench_with_input(BenchmarkId::new("validate", name), &input, |b, input| {
@@ -190,7 +168,6 @@ criterion_group!(
   benches,
   bench_length_validator,
   bench_range_validator,
-  bench_number_validator,
   bench_step_validator,
   bench_pattern_validator,
   bench_equality_validator,

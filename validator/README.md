@@ -8,8 +8,8 @@ This crate provides reusable validator implementations that can validate input v
 
 - **`LengthValidator`** - Validates string/collection length constraints
 - **`PatternValidator`** - Validates strings against regex patterns
-- **`RangeValidator`** - Validates numeric values within a range
-- **`NumberValidator`** - Validates numbers with min/max/step constraints
+- **`RangeValidator`** - Validates scalar values within a range (numbers, chars, etc.)
+- **`StepValidator`** - Validates that numeric values are multiples of a step.
 - **`EqualityValidator`** - Validates equality against a specified value
 
 ## Combinators
@@ -122,7 +122,7 @@ cargo bench -p walrs_validator -- PatternValidator
 Benchmark groups include:
 - **LengthValidator** - Tests length validation with various string sizes
 - **RangeValidator** - Tests numeric range validation
-- **NumberValidator** - Tests number validation with step constraints
+- **StepValidator** - Tests step/multiple validation
 - **PatternValidator** - Tests regex pattern matching
 - **EqualityValidator** - Tests equality comparisons
 - **CombinedValidators** - Tests combinator performance

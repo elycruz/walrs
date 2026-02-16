@@ -5,8 +5,8 @@
 use regex::Regex;
 use std::borrow::Cow;
 use walrs_validator::{
-  EqualityValidatorBuilder, LengthValidatorBuilder, NumberValidatorBuilder,
-  PatternValidatorBuilder, RangeValidatorBuilder, StepValidatorBuilder, Validate, ValidateRef,
+  EqualityValidatorBuilder, LengthValidatorBuilder, PatternValidatorBuilder, RangeValidatorBuilder,
+  StepValidatorBuilder, Validate, ValidateExt, ValidateRef,
 };
 
 fn main() {
@@ -67,19 +67,23 @@ fn main() {
 
   println!();
 
-  // NumberValidator example with step
-  println!("--- NumberValidator (with step) ---");
-  let number_validator = NumberValidatorBuilder::<i32>::default()
+  // RangeValidator + StepValidator combined example
+  println!("--- RangeValidator + StepValidator (combined) ---");
+  let range_with_step = RangeValidatorBuilder::<i32>::default()
     .min(0)
     .max(100)
+    .build()
+    .unwrap();
+  let step_check = StepValidatorBuilder::<i32>::default()
     .step(5)
     .build()
     .unwrap();
+  let combined_validator = range_with_step.and(step_check);
 
   let numbers = [0, 5, 7, 25, 100, 103];
 
   for n in numbers {
-    let result = number_validator.validate(n);
+    let result = combined_validator.validate(n);
     let status = if result.is_ok() {
       "✓ PASS"
     } else {

@@ -119,7 +119,7 @@ impl_marker_trait!(ScalarValue for
   bool, char
 );
 
-pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div + Rem<Output = Self> {}
+pub trait NumberValue: ScalarValue + Add + Sub + Mul + Div {}
 
 impl_marker_trait!(NumberValue for
   i8, i16, i32, i64, i128, isize,
@@ -127,13 +127,55 @@ impl_marker_trait!(NumberValue for
   f32, f64
 );
 
-pub trait SteppableValue: NumberValue + Rem<Output = Self> {}
+/// Trait for numeric types that support step/remainder validation.
+///
+/// This extends `NumberValue` with a `rem_check` method for validating
+/// that a value is a multiple of a given step.
+pub trait SteppableValue: NumberValue + Rem<Output = Self> {
+  /// Returns `true` if `self` is evenly divisible by `divisor`.
+  ///
+  /// For integer types, returns `false` if divisor is zero.
+  /// For floating-point types, uses epsilon comparison.
+  fn rem_check(self, divisor: Self) -> bool;
+}
 
-impl_marker_trait!(SteppableValue for
-  i8, i16, i32, i64, i128, isize,
-  u8, u16, u32, u64, u128, usize,
-  f32, f64
-);
+macro_rules! impl_steppable_integer {
+  ($($t:ty),*) => {
+    $(
+      impl SteppableValue for $t {
+        fn rem_check(self, divisor: Self) -> bool {
+          if divisor == 0 {
+            false
+          } else {
+            self % divisor == 0
+          }
+        }
+      }
+    )*
+  };
+}
+
+impl_steppable_integer!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+
+impl SteppableValue for f32 {
+  fn rem_check(self, divisor: Self) -> bool {
+    if divisor == 0.0 {
+      false
+    } else {
+      (self % divisor).abs() < f32::EPSILON
+    }
+  }
+}
+
+impl SteppableValue for f64 {
+  fn rem_check(self, divisor: Self) -> bool {
+    if divisor == 0.0 {
+      false
+    } else {
+      (self % divisor).abs() < f64::EPSILON
+    }
+  }
+}
 
 /// Trait for types that can be converted to HTML form element attributes.
 pub trait ToAttributesList {
