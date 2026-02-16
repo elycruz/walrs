@@ -1,6 +1,8 @@
-use crate::{FilterForSized, OwnedValidator, ViolationMessage, Violations};
-use crate::input_common::{collect_violations, handle_missing_value, handle_missing_value_for_filter};
+use crate::input_common::{
+  collect_violations, handle_missing_value, handle_missing_value_for_filter,
+};
 use crate::traits::FilterFn;
+use crate::{FilterForSized, OwnedValidator, ViolationMessage, Violations};
 use crate::{debug_closure_field, debug_vec_closure_field};
 use std::fmt::{Debug, Display, Formatter};
 

@@ -1,6 +1,8 @@
 use crate::traits::ToAttributesList;
 use crate::violation::ViolationType;
-use crate::{InputValue, Message, MessageContext, MessageParams, Validate, ValidatorResult, Violation};
+use crate::{
+  InputValue, Message, MessageContext, MessageParams, Validate, ValidatorResult, Violation,
+};
 use std::fmt::Display;
 
 /// Validator for performing equality checks against contained value.
@@ -95,8 +97,8 @@ where
     if x == self.rhs_value {
       Ok(())
     } else {
-      let params = MessageParams::new("EqualityValidator")
-        .with_expected(self.rhs_value.to_string());
+      let params =
+        MessageParams::new("EqualityValidator").with_expected(self.rhs_value.to_string());
       let ctx = MessageContext::new(&x, params);
       Err(Violation(
         ViolationType::NotEqual,
@@ -255,4 +257,3 @@ mod test {
     Ok(())
   }
 }
-

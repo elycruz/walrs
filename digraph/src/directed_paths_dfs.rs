@@ -85,8 +85,8 @@ impl DirectedPathsDFS {
 
 #[cfg(test)]
 mod test {
-  use std::num::NonZeroUsize;
   use crate::disymgraph::DisymGraph;
+  use std::num::NonZeroUsize;
 
   use super::*;
 

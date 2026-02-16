@@ -259,9 +259,10 @@ mod test {
 
   #[test]
   fn test_violations_error() {
-    let vs = Violations(vec![
-      Violation(ValueMissing, "value is missing".to_string()),
-    ]);
+    let vs = Violations(vec![Violation(
+      ValueMissing,
+      "value is missing".to_string(),
+    )]);
 
     // Test that Violations implements Error
     let err: &dyn Error = &vs;
@@ -273,4 +274,3 @@ mod test {
     assert!(empty_err.source().is_none());
   }
 }
-

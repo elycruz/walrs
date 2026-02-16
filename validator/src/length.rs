@@ -1,4 +1,6 @@
-use crate::{Message, MessageContext, MessageParams, ValidateRef, ValidatorResult, Violation, ViolationType};
+use crate::{
+  Message, MessageContext, MessageParams, ValidateRef, ValidatorResult, Violation, ViolationType,
+};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Trait used by `LengthValidator` to get the length of a value.
@@ -243,8 +245,7 @@ impl<T: WithLength + ?Sized> Default for LengthValidator<T> {
 pub fn len_too_short_msg(actual_len: usize, min_len: usize) -> String {
   format!(
     "Value length `{}` is less than allowed minimum `{}`.",
-    actual_len,
-    min_len
+    actual_len, min_len
   )
 }
 
@@ -264,8 +265,7 @@ pub fn len_too_short_msg(actual_len: usize, min_len: usize) -> String {
 pub fn len_too_long_msg(actual_len: usize, max_len: usize) -> String {
   format!(
     "Value length `{}` is greater than allowed maximum `{}`.",
-    actual_len,
-    max_len
+    actual_len, max_len
   )
 }
 
@@ -351,7 +351,7 @@ mod test {
     assert_eq!(len_one_to_ten.validate_ref("a"), Ok(()));
     assert_eq!(len_one_to_ten.validate_ref(just_right_str), Ok(()));
     assert_eq!(gte_than_8.validate_ref("12345678"), Ok(()));
-    
+
     // Test gte_than_8 fail
     let result = gte_than_8.validate_ref("1234567");
     assert!(result.is_err());
@@ -378,7 +378,7 @@ mod test {
       .unwrap();
 
     assert_eq!(len_two_to_five.validate_ref(&[1, 2, 3]), Ok(()));
-    
+
     let result = len_two_to_five.validate_ref(&[1]);
     assert!(result.is_err());
     let err = result.unwrap_err();
@@ -389,7 +389,10 @@ mod test {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert_eq!(err.0, TooLong);
-    assert_eq!(err.1, "Value length `6` is greater than allowed maximum `5`.");
+    assert_eq!(
+      err.1,
+      "Value length `6` is greater than allowed maximum `5`."
+    );
 
     #[cfg(feature = "fn_traits")]
     {
@@ -465,4 +468,3 @@ mod test {
     assert_eq!(call_fn_once(vldtr, "abc"), Ok(()));
   }
 }
-

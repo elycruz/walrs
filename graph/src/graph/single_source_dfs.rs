@@ -174,8 +174,8 @@ impl<'a> DFS<'a> {
 
 #[cfg(test)]
 mod test {
-  use crate::graph::symbol_graph::SymbolGraph;
   use crate::graph::GenericSymbol;
+  use crate::graph::symbol_graph::SymbolGraph;
   use std::fs::File;
   use std::io::BufReader;
 

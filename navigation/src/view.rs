@@ -127,11 +127,7 @@ fn render_menu_page(page: &Page, html: &mut String, depth: usize) {
   let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
 
-  let class_attr = if page.active {
-    " class=\"active\""
-  } else {
-    ""
-  };
+  let class_attr = if page.active { " class=\"active\"" } else { "" };
 
   html.push_str(&format!(
     "{}<li{}><a href=\"{}\">{}</a>",
@@ -150,12 +146,7 @@ fn render_menu_page(page: &Page, html: &mut String, depth: usize) {
   html.push_str("</li>\n");
 }
 
-fn render_menu_page_with_class(
-  page: &Page,
-  html: &mut String,
-  depth: usize,
-  active_class: &str,
-) {
+fn render_menu_page_with_class(page: &Page, html: &mut String, depth: usize, active_class: &str) {
   let indent = "  ".repeat(depth);
   let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
@@ -296,10 +287,7 @@ fn render_sitemap_page(page: &Page, html: &mut String, depth: usize) {
   let label = html_escape(page.label.as_deref().unwrap_or(""));
   let href = html_escape(&page.href().unwrap_or_else(|| "#".to_string()));
 
-  html.push_str(&format!(
-    "{}<li><a href=\"{}\">{}</a>",
-    indent, href, label
-  ));
+  html.push_str(&format!("{}<li><a href=\"{}\">{}</a>", indent, href, label));
 
   let visible_children: Vec<_> = page.pages.iter().filter(|p| p.visible).collect();
   if !visible_children.is_empty() {
@@ -337,7 +325,8 @@ mod tests {
         .uri("/products/electronics")
         .build(),
     );
-    nav.add_page(
+    nav
+      .add_page(
         Page::builder()
           .label("Home")
           .uri("/")
@@ -386,8 +375,15 @@ mod tests {
   #[test]
   fn test_render_menu_hidden_pages() {
     let mut nav = Container::new();
-    nav.add_page(Page::builder().label("Visible").uri("/v").build())
-       .add_page(Page::builder().label("Hidden").uri("/h").visible(false).build());
+    nav
+      .add_page(Page::builder().label("Visible").uri("/v").build())
+      .add_page(
+        Page::builder()
+          .label("Hidden")
+          .uri("/h")
+          .visible(false)
+          .build(),
+      );
 
     let html = render_menu(&nav);
     assert!(html.contains("Visible"));
@@ -443,10 +439,7 @@ mod tests {
   #[test]
   fn test_render_breadcrumbs() {
     let mut nav = Container::new();
-    let mut products = Page::builder()
-      .label("Products")
-      .uri("/products")
-      .build();
+    let mut products = Page::builder().label("Products").uri("/products").build();
     products.add_page(
       Page::builder()
         .label("Books")
@@ -482,13 +475,7 @@ mod tests {
   #[test]
   fn test_render_breadcrumbs_single_active() {
     let mut nav = Container::new();
-    nav.add_page(
-      Page::builder()
-        .label("Home")
-        .uri("/")
-        .active(true)
-        .build(),
-    );
+    nav.add_page(Page::builder().label("Home").uri("/").active(true).build());
     let html = render_breadcrumbs(&nav, " > ");
     assert_eq!(html, "<span class=\"active\">Home</span>");
   }
@@ -509,8 +496,9 @@ mod tests {
   #[test]
   fn test_render_sitemap_hides_invisible() {
     let mut nav = Container::new();
-    nav.add_page(Page::builder().label("V").uri("/v").build())
-       .add_page(Page::builder().label("H").uri("/h").visible(false).build());
+    nav
+      .add_page(Page::builder().label("V").uri("/v").build())
+      .add_page(Page::builder().label("H").uri("/h").visible(false).build());
 
     let html = render_sitemap(&nav);
     assert!(html.contains("V"));
@@ -534,7 +522,13 @@ mod tests {
   fn test_render_sitemap_hierarchical_hides_invisible() {
     let mut nav = Container::new();
     let mut parent = Page::builder().label("P").uri("/p").build();
-    parent.add_page(Page::builder().label("Hidden").uri("/h").visible(false).build());
+    parent.add_page(
+      Page::builder()
+        .label("Hidden")
+        .uri("/h")
+        .visible(false)
+        .build(),
+    );
     parent.add_page(Page::builder().label("Visible").uri("/v").build());
     nav.add_page(parent);
 

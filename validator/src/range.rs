@@ -1,6 +1,9 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{Message, MessageContext, MessageParams, ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
+use crate::{
+  Message, MessageContext, MessageParams, ScalarValue, Validate, ValidatorResult, Violation,
+  ViolationType,
+};
 
 /// A validator for checking that a scalar value falls within a specified range.
 ///
@@ -253,10 +256,10 @@ mod test {
     // Setup validators and test cases
     // ---
     let usize_required = RangeValidatorBuilder::<usize>::default()
-        .min(1)
-        .max(10)
-        .build()
-        .unwrap();
+      .min(1)
+      .max(10)
+      .build()
+      .unwrap();
 
     let empty_vldtr = RangeValidator::<usize>::new();
 
@@ -305,15 +308,16 @@ mod test {
   #[cfg(feature = "fn_traits")]
   #[test]
   fn test_fn_traits() {
-    let vldtr = RangeValidatorBuilder::<i32>::default()
-        .build()
-        .unwrap();
+    let vldtr = RangeValidatorBuilder::<i32>::default().build().unwrap();
 
     fn call_fn_once<T: ScalarValue>(f: impl FnOnce(T) -> ValidatorResult, v: T) -> ValidatorResult {
       f(v)
     }
 
-    fn call_fn_mut<T: ScalarValue>(f: &mut impl FnMut(T) -> ValidatorResult, v: T) -> ValidatorResult {
+    fn call_fn_mut<T: ScalarValue>(
+      f: &mut impl FnMut(T) -> ValidatorResult,
+      v: T,
+    ) -> ValidatorResult {
       f(v)
     }
 
@@ -344,4 +348,3 @@ mod test {
     assert_eq!(debug_output, expected_output);
   }
 }
-

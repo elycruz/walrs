@@ -1,6 +1,6 @@
 // acl_data.rs
-use serde_derive::{Deserialize, Serialize};
 use crate::prelude::{String, Vec};
+use serde_derive::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
 use core::convert::TryFrom;
@@ -19,10 +19,10 @@ pub struct AclData {
 
 #[cfg(feature = "std")]
 impl<'a> TryFrom<&'a mut File> for AclData {
-    type Error = serde_json::Error;
+  type Error = serde_json::Error;
 
-    fn try_from(file: &mut File) -> Result<Self, Self::Error> {
-        let buf = BufReader::new(file);
-        serde_json::from_reader(buf)
-    }
+  fn try_from(file: &mut File) -> Result<Self, Self::Error> {
+    let buf = BufReader::new(file);
+    serde_json::from_reader(buf)
+  }
 }

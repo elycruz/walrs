@@ -6,13 +6,13 @@ use std::fmt::{Debug, Display};
 // ============================================================================
 
 /// Validator function type for owned/copied values.
-/// 
+///
 /// Used with `Input` struct for `Copy` types.
-/// 
+///
 /// # Example
 /// ```rust
 /// use walrs_inputfilter::{OwnedValidator, Violation, ViolationType};
-/// 
+///
 /// let is_positive: &OwnedValidator<i32> = &|value: i32| {
 ///     if value > 0 {
 ///         Ok(())
@@ -24,13 +24,13 @@ use std::fmt::{Debug, Display};
 pub type OwnedValidator<T> = dyn Fn(T) -> Result<(), Violation> + Send + Sync;
 
 /// Validator function type for referenced values.
-/// 
+///
 /// Used with `RefInput` struct for unsized/referenced types like `str`, `[T]`, etc.
-/// 
+///
 /// # Example
 /// ```rust
 /// use walrs_inputfilter::{RefValidator, Violation, ViolationType};
-/// 
+///
 /// let is_not_empty: &RefValidator<str> = &|value: &str| {
 ///     if !value.is_empty() {
 ///         Ok(())
@@ -53,7 +53,7 @@ pub type ValidatorForRef<T> = RefValidator<T>;
 // ============================================================================
 
 /// Filter/transformation function type.
-/// 
+///
 /// Takes an owned value and returns a transformed value of the same type.
 pub type FilterFn<T> = dyn Fn(T) -> T + Send + Sync;
 
@@ -158,7 +158,9 @@ where
   /// assert_eq!(input.validate_ref_option(None), Err(vec!["Value is missing".to_string()]));
   /// ```
   fn validate_ref_option(&self, x: Option<&T>) -> Result<(), Vec<ViolationMessage>> {
-    self.validate_ref_option_detailed(x).map_err(|v| v.to_string_vec())
+    self
+      .validate_ref_option_detailed(x)
+      .map_err(|v| v.to_string_vec())
   }
 
   /// Validates, and filters, the given reference and returns the filtered value
@@ -210,7 +212,9 @@ where
   /// assert_eq!(alnum_input.filter_ref(value), Err(vec!["Value is not alpha-numeric".to_string()]));
   /// ```
   fn filter_ref(&self, value: &'a T) -> Result<FT, Vec<ViolationMessage>> {
-    self.filter_ref_detailed(value).map_err(|v| v.to_string_vec())
+    self
+      .filter_ref_detailed(value)
+      .map_err(|v| v.to_string_vec())
   }
 
   /// Validates, and filters, the given optional reference and returns the filtered value
@@ -262,7 +266,9 @@ where
   /// assert_eq!(alnum_input.filter_ref_option(Some(value)), Err(vec!["Value is not alpha-numeric".to_string()]));
   /// ```
   fn filter_ref_option(&self, value: Option<&'a T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
-    self.filter_ref_option_detailed(value).map_err(|v| v.to_string_vec())
+    self
+      .filter_ref_option_detailed(value)
+      .map_err(|v| v.to_string_vec())
   }
 }
 
@@ -347,7 +353,9 @@ where
   /// assert_eq!(input.validate_option(Some('b')), Err(vec!["Only vowels allowed".to_string()]));
   /// ```
   fn validate_option(&self, x: Option<T>) -> Result<(), Vec<ViolationMessage>> {
-    self.validate_option_detailed(x).map_err(|v| v.to_string_vec())
+    self
+      .validate_option_detailed(x)
+      .map_err(|v| v.to_string_vec())
   }
 
   /// Validates, and filters, the given value and returns the filtered value
@@ -419,7 +427,8 @@ where
   /// assert_eq!(vowel_input.filter_option(Some('b')), Ok(Some('e')));
   /// ```
   fn filter_option(&self, value: Option<T>) -> Result<Option<FT>, Vec<ViolationMessage>> {
-    self.filter_option_detailed(value).map_err(|v| v.to_string_vec())
+    self
+      .filter_option_detailed(value)
+      .map_err(|v| v.to_string_vec())
   }
 }
-

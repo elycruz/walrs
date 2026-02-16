@@ -465,7 +465,10 @@ impl<T: ?Sized> ValidateRef<T> for ValidatorAll<'_, T> {
 impl<T: ?Sized> std::fmt::Debug for ValidatorAll<'_, T> {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     f.debug_struct("ValidatorAll")
-      .field("validators", &format!("[{} validators]", self.validators.len()))
+      .field(
+        "validators",
+        &format!("[{} validators]", self.validators.len()),
+      )
       .finish()
   }
 }
@@ -643,4 +646,3 @@ mod tests {
     assert!(combined.validate(150).is_err()); // > 50 but not in range
   }
 }
-

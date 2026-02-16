@@ -191,14 +191,9 @@ mod test {
     thread::scope(|scope| {
       scope.spawn(|| {
         assert_eq!(filter.filter("Hello".into()), "Hello");
+        assert_eq!(filter.filter("<script>alert('hello');</script>".into()), "");
         assert_eq!(
-          filter.filter("<script>alert('hello');</script>".into()),
-          ""
-        );
-        assert_eq!(
-          filter.filter(
-            "<p>The quick brown fox</p><style>p { font-weight: bold; }</style>".into()
-          ),
+          filter.filter("<p>The quick brown fox</p><style>p { font-weight: bold; }</style>".into()),
           "<p>The quick brown fox</p>"
         );
       });
@@ -211,8 +206,8 @@ mod test {
     let additional_allowed_tags = vec!["style"];
 
     sanitizer
-        .add_tags(&additional_allowed_tags)
-        .rm_clean_content_tags(&additional_allowed_tags);
+      .add_tags(&additional_allowed_tags)
+      .rm_clean_content_tags(&additional_allowed_tags);
 
     let filter = StripTagsFilter {
       ammonia: Some(sanitizer),

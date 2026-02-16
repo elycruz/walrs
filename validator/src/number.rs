@@ -1,6 +1,6 @@
 use crate::{
-  Message, MessageContext, MessageParams,
-  NumberValue, Validate, ValidatorResult, Violation, ViolationType,
+  Message, MessageContext, MessageParams, NumberValue, Validate, ValidatorResult, Violation,
+  ViolationType,
   ViolationType::{RangeOverflow, RangeUnderflow, StepMismatch},
 };
 use std::fmt::{Display, Formatter};
@@ -176,11 +176,7 @@ where
       attrs.push(("step".to_string(), to_json_value(step).unwrap()));
     }
 
-    if attrs.is_empty() {
-      None
-    } else {
-      Some(attrs)
-    }
+    if attrs.is_empty() { None } else { Some(attrs) }
   }
 }
 
@@ -268,11 +264,7 @@ impl<T: NumberValue> Display for NumberValidator<T> {
 /// assert_eq!(num_range_underflow_msg(0, 1), "`0` is less than minimum `1`.");
 /// ```
 pub fn num_range_underflow_msg<T: NumberValue>(value: T, min: T) -> String {
-  format!(
-    "`{}` is less than minimum `{}`.",
-    value,
-    min
-  )
+  format!("`{}` is less than minimum `{}`.", value, min)
 }
 
 /// Returns generic range overflow message for numbers.
@@ -283,11 +275,7 @@ pub fn num_range_underflow_msg<T: NumberValue>(value: T, min: T) -> String {
 /// assert_eq!(num_range_overflow_msg(100, 10), "`100` is greater than maximum `10`.");
 /// ```
 pub fn num_range_overflow_msg<T: NumberValue>(value: T, max: T) -> String {
-  format!(
-    "`{}` is greater than maximum `{}`.",
-    value,
-    max
-  )
+  format!("`{}` is greater than maximum `{}`.", value, max)
 }
 
 /// Returns generic step mismatch message for numbers.
@@ -298,11 +286,7 @@ pub fn num_range_overflow_msg<T: NumberValue>(value: T, max: T) -> String {
 /// assert_eq!(num_step_mismatch_msg(7, 5), "`7` is not a multiple of step `5`.");
 /// ```
 pub fn num_step_mismatch_msg<T: NumberValue>(value: T, step: T) -> String {
-  format!(
-    "`{}` is not a multiple of step `{}`.",
-    value,
-    step
-  )
+  format!("`{}` is not a multiple of step `{}`.", value, step)
 }
 
 /// Returns default range underflow Message provider for NumberValidator.
@@ -449,7 +433,10 @@ mod test {
       f(v)
     }
 
-    fn call_fn_mut<T: NumberValue>(f: &mut impl FnMut(T) -> ValidatorResult, v: T) -> ValidatorResult {
+    fn call_fn_mut<T: NumberValue>(
+      f: &mut impl FnMut(T) -> ValidatorResult,
+      v: T,
+    ) -> ValidatorResult {
       f(v)
     }
 
@@ -494,9 +481,11 @@ mod test {
       .build()?;
 
     let display_output = format!("{}", vldtr);
-    assert_eq!(display_output, "NumberValidator {min: 1, max: 100, step: 5}");
+    assert_eq!(
+      display_output,
+      "NumberValidator {min: 1, max: 100, step: 5}"
+    );
 
     Ok(())
   }
 }
-

@@ -163,4 +163,3 @@ pub trait ToAttributesList {
   /// Returns the validator's rules as key/value pairs suitable for HTML attributes.
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>>;
 }
-

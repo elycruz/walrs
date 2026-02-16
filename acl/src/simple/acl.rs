@@ -1,8 +1,8 @@
-use crate::prelude::{String, Vec, vec, format};
+use crate::prelude::{String, Vec, format, vec};
 use walrs_digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
-use crate::simple::rule::{Rule};
 use crate::simple::resource_role_rules::ResourceRoleRules;
+use crate::simple::rule::Rule;
 
 // Note: Rules structure:
 // Resources contain roles, roles contain privileges,
@@ -62,7 +62,11 @@ impl Acl {
 
   /// Creates an Acl instance from its constituent parts.
   /// This is primarily used by `AclBuilder`.
-  pub(crate) fn from_parts(roles: DisymGraph, resources: DisymGraph, rules: ResourceRoleRules) -> Self {
+  pub(crate) fn from_parts(
+    roles: DisymGraph,
+    resources: DisymGraph,
+    rules: ResourceRoleRules,
+  ) -> Self {
     Acl {
       _roles: roles,
       _resources: resources,
@@ -198,7 +202,8 @@ impl Acl {
       .index(resource)
       .zip(self._resources.index(inherits))
     {
-      return DirectedPathsDFS::new(self._resources.graph(), v1).and_then(|dfs| dfs.has_path_to(v2));
+      return DirectedPathsDFS::new(self._resources.graph(), v1)
+        .and_then(|dfs| dfs.has_path_to(v2));
     }
     Err(format!("{} is not in symbol graph", inherits))
   }
@@ -243,10 +248,14 @@ impl Acl {
   /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_roles_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._roles.graph()).cycle() {
-      if cycles.is_empty() { return Ok(()); }
-      let cycles_repr = self._roles.names(cycles).unwrap()
-          .join(" <- ");
-      return Err(format!("Acl contains cyclic edges in \"roles\" graph: {:?}", cycles_repr));
+      if cycles.is_empty() {
+        return Ok(());
+      }
+      let cycles_repr = self._roles.names(cycles).unwrap().join(" <- ");
+      return Err(format!(
+        "Acl contains cyclic edges in \"roles\" graph: {:?}",
+        cycles_repr
+      ));
     }
     Ok(())
   }
@@ -255,10 +264,14 @@ impl Acl {
   /// `Err(String)` with a message indicating the cycle(s) found.
   pub fn check_resources_for_cycles(&self) -> Result<(), String> {
     if let Some(cycles) = DirectedCycle::new(self._resources.graph()).cycle() {
-      if cycles.is_empty() { return Ok(()); }
-      let cycles_repr = self._resources.names(cycles).unwrap()
-          .join(" <- ");
-      return Err(format!("Acl contains cycles in 'resources' graph: {:?}", cycles_repr));
+      if cycles.is_empty() {
+        return Ok(());
+      }
+      let cycles_repr = self._resources.names(cycles).unwrap().join(" <- ");
+      return Err(format!(
+        "Acl contains cycles in 'resources' graph: {:?}",
+        cycles_repr
+      ));
     }
     Ok(())
   }
@@ -382,7 +395,11 @@ impl Acl {
         }
       }
 
-      if inherited.is_empty() { None } else { Some(inherited) }
+      if inherited.is_empty() {
+        None
+      } else {
+        Some(inherited)
+      }
     });
 
     // Get ALL inherited resources (including transitive parents) using DFS
@@ -399,7 +416,11 @@ impl Acl {
         }
       }
 
-      if inherited.is_empty() { None } else { Some(inherited) }
+      if inherited.is_empty() {
+        None
+      } else {
+        Some(inherited)
+      }
     });
 
     // CRITICAL: Check for explicit Deny on the DIRECT role/resource combo FIRST
@@ -408,14 +429,21 @@ impl Acl {
     let has_explicit_deny = if let Some(priv_id) = privilege {
       // Checking a specific privilege - look for explicit Deny in the map
       if resource.is_some() {
-        let role_rules = self._rules.get_role_privilege_rules(resource).get_privilege_rules(role);
-        role_rules.by_privilege_id.as_ref()
+        let role_rules = self
+          ._rules
+          .get_role_privilege_rules(resource)
+          .get_privilege_rules(role);
+        role_rules
+          .by_privilege_id
+          .as_ref()
           .and_then(|map| map.get(priv_id))
           .map(|rule| rule == &Rule::Deny)
           .unwrap_or(false)
       } else {
         let role_rules = self._rules.for_all_resources.get_privilege_rules(role);
-        role_rules.by_privilege_id.as_ref()
+        role_rules
+          .by_privilege_id
+          .as_ref()
           .and_then(|map| map.get(priv_id))
           .map(|rule| rule == &Rule::Deny)
           .unwrap_or(false)
@@ -450,10 +478,9 @@ impl Acl {
       .zip(_roles.as_ref())
       .map(|(_resources, _roles2)| {
         _resources.iter().rev().any(|_resource| {
-          _roles2
-            .iter()
-            .rev()
-            .any(|_role| self._matches_rule_no_dfs(Some(_role), Some(_resource), privilege, &Rule::Allow))
+          _roles2.iter().rev().any(|_role| {
+            self._matches_rule_no_dfs(Some(_role), Some(_resource), privilege, &Rule::Allow)
+          })
         })
       })
       // If no inherited roles/resources directly allowed check direct allow on incoming (role, resource, privilege)
@@ -485,7 +512,9 @@ impl Acl {
         }
         // Else check for direct allowance
         else {
-          self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow).into()
+          self
+            ._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow)
+            .into()
         }
       })
       .unwrap()
@@ -689,7 +718,7 @@ impl Default for Acl {
 
 #[cfg(test)]
 mod test_acl {
-  use crate::simple::acl::{Acl};
+  use crate::simple::acl::Acl;
   use crate::simple::acl_builder::AclBuilder;
   use crate::simple::privilege_rules::PrivilegeRules;
   use crate::simple::rule::Rule;
@@ -699,12 +728,26 @@ mod test_acl {
     let acl = Acl::default();
     assert_eq!(acl.has_resource("index"), false);
     assert_eq!(acl.has_role("admin"), false);
-    assert_eq!(acl._rules.for_all_resources.for_all_roles.for_all_privileges, Rule::Deny);
+    assert_eq!(
+      acl
+        ._rules
+        .for_all_resources
+        .for_all_roles
+        .for_all_privileges,
+      Rule::Deny
+    );
 
     let acl2 = Acl::new();
     assert_eq!(acl2.has_resource("index"), false);
     assert_eq!(acl2.has_role("admin"), false);
-    assert_eq!(acl2._rules.for_all_resources.for_all_roles.for_all_privileges, Rule::Deny);
+    assert_eq!(
+      acl2
+        ._rules
+        .for_all_resources
+        .for_all_roles
+        .for_all_privileges,
+      Rule::Deny
+    );
   }
 
   #[test]
@@ -831,7 +874,8 @@ mod test_acl {
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
       let mut builder = AclBuilder::new();
-      builder.add_role(guest_role, None)?
+      builder
+        .add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
@@ -985,7 +1029,8 @@ mod test_acl {
 
     let build_acl_with_symbols = || -> Result<AclBuilder, String> {
       let mut builder = AclBuilder::new();
-      builder.add_role(guest_role, None)?
+      builder
+        .add_role(guest_role, None)?
         .add_role(user_role, Some(&[guest_role]))?
         .add_role(admin_role, Some(&[user_role]))?
         .add_resource(index_resource, None)?
@@ -1098,16 +1143,17 @@ mod test_acl {
         Some(acl) => AclBuilder::try_from(acl),
         None => {
           let mut builder = AclBuilder::new();
-          builder.add_roles(&[
-            (guest, None),
-            (user, Some(&[guest])),
-            (moderator, Some(&[user])),
-            (admin, Some(&[moderator]))
-          ])?
-          .add_resource(blog, None)?
-          .add_resource(account, None)?
-          .add_resource(admin_panel, None)?
-          .add_resource(secret, None)?;
+          builder
+            .add_roles(&[
+              (guest, None),
+              (user, Some(&[guest])),
+              (moderator, Some(&[user])),
+              (admin, Some(&[moderator])),
+            ])?
+            .add_resource(blog, None)?
+            .add_resource(account, None)?
+            .add_resource(admin_panel, None)?
+            .add_resource(secret, None)?;
           Ok(builder)
         }
       }
@@ -1141,7 +1187,11 @@ mod test_acl {
 
     // Test 3: Deny multiple privileges at once
     let acl3 = build_base_acl(Some(&acl2))?
-      .deny(Some(&[guest]), Some(&[blog]), Some(&[write, delete, publish]))?
+      .deny(
+        Some(&[guest]),
+        Some(&[blog]),
+        Some(&[write, delete, publish]),
+      )?
       .build()?;
     assert!(
       !acl3.is_allowed(Some(guest), Some(blog), Some(write)),
@@ -1171,7 +1221,11 @@ mod test_acl {
 
     // Test 5: Deny across multiple resources
     let acl5 = build_base_acl(Some(&acl4))?
-      .deny(Some(&[moderator]), Some(&[secret, admin_panel]), Some(&[delete]))?
+      .deny(
+        Some(&[moderator]),
+        Some(&[secret, admin_panel]),
+        Some(&[delete]),
+      )?
       .build()?;
     assert!(
       !acl5.is_allowed(Some(moderator), Some(secret), Some(delete)),
@@ -1267,7 +1321,6 @@ mod test_acl {
     assert!(acl.inherits_resource("a", "d"));
   }
 
-
   // ============================
   // Tests for check_resources_for_cycles
   // ============================
@@ -1301,9 +1354,7 @@ mod test_acl {
 
   #[test]
   fn test_check_resources_for_cycles_single_resource() -> Result<(), Box<dyn std::error::Error>> {
-    let acl = AclBuilder::new()
-      .add_resource("blog", None)?
-      .build()?;
+    let acl = AclBuilder::new().add_resource("blog", None)?.build()?;
 
     // Single resource should not have cycles
     let result = acl.check_resources_for_cycles();
@@ -1313,7 +1364,8 @@ mod test_acl {
   }
 
   #[test]
-  fn test_check_resources_for_cycles_detects_simple_cycle() -> Result<(), Box<dyn std::error::Error>> {
+  fn test_check_resources_for_cycles_detects_simple_cycle() -> Result<(), Box<dyn std::error::Error>>
+  {
     // Create a simple cycle: a -> b -> a
     // The build() method should detect this cycle
     let result = AclBuilder::new()
@@ -1327,15 +1379,18 @@ mod test_acl {
     assert!(result.is_err(), "Should detect simple cycle");
 
     if let Err(msg) = result {
-      assert!(msg.contains("cycle") || msg.contains("Cycle"), "Error message should mention cycles");
+      assert!(
+        msg.contains("cycle") || msg.contains("Cycle"),
+        "Error message should mention cycles"
+      );
     }
 
     Ok(())
   }
 
   #[test]
-  fn test_check_resources_for_cycles_detects_self_cycle() -> Result<(), Box<dyn std::error::Error>> {
-
+  fn test_check_resources_for_cycles_detects_self_cycle() -> Result<(), Box<dyn std::error::Error>>
+  {
     // Create a self-referencing resource
     // The build() method should detect this cycle
     let result = AclBuilder::new()
@@ -1350,7 +1405,8 @@ mod test_acl {
   }
 
   #[test]
-  fn test_check_resources_for_cycles_detects_complex_cycle() -> Result<(), Box<dyn std::error::Error>> {
+  fn test_check_resources_for_cycles_detects_complex_cycle()
+  -> Result<(), Box<dyn std::error::Error>> {
     // Create a complex cycle: a -> b -> c -> d -> b
     // The build() method should detect this cycle
     let result = AclBuilder::new()
@@ -1371,8 +1427,8 @@ mod test_acl {
   }
 
   #[test]
-  fn test_check_resources_for_cycles_with_diamond_structure() -> Result<(), Box<dyn std::error::Error>> {
-
+  fn test_check_resources_for_cycles_with_diamond_structure()
+  -> Result<(), Box<dyn std::error::Error>> {
     // Create a diamond structure (not a cycle)
     //       top
     //      /   \
@@ -1388,7 +1444,10 @@ mod test_acl {
 
     // Diamond structure is valid (no cycles)
     let result = acl.check_resources_for_cycles();
-    assert!(result.is_ok(), "Diamond structure should not be detected as a cycle");
+    assert!(
+      result.is_ok(),
+      "Diamond structure should not be detected as a cycle"
+    );
 
     Ok(())
   }
@@ -1399,7 +1458,6 @@ mod test_acl {
 
   #[test]
   fn test_check_for_cycles_no_cycles() -> Result<(), Box<dyn std::error::Error>> {
-
     // Add valid roles and resources - build will check for cycles
     let acl = AclBuilder::new()
       .add_role("guest", None)?
@@ -1443,8 +1501,13 @@ mod test_acl {
     assert!(result.is_err(), "Should detect cycle in roles");
 
     if let Err(msg) = result {
-      assert!(msg.contains("role") || msg.contains("Role") || msg.contains("Cycle") || msg.contains("cycle"),
-        "Error message should mention roles or cycles");
+      assert!(
+        msg.contains("role")
+          || msg.contains("Role")
+          || msg.contains("Cycle")
+          || msg.contains("cycle"),
+        "Error message should mention roles or cycles"
+      );
     }
 
     Ok(())
@@ -1465,8 +1528,13 @@ mod test_acl {
     assert!(result.is_err(), "Should detect cycle in resources");
 
     if let Err(msg) = result {
-      assert!(msg.contains("resource") || msg.contains("Resource") || msg.contains("Cycle") || msg.contains("cycle"),
-        "Error message should mention resources or cycles");
+      assert!(
+        msg.contains("resource")
+          || msg.contains("Resource")
+          || msg.contains("Cycle")
+          || msg.contains("cycle"),
+        "Error message should mention resources or cycles"
+      );
     }
 
     Ok(())
@@ -1490,15 +1558,21 @@ mod test_acl {
     assert!(result.is_err(), "Should detect cycles");
 
     if let Err(msg) = result {
-      assert!(msg.contains("role") || msg.contains("Role") || msg.contains("Cycle") || msg.contains("cycle"),
-        "Error message should mention roles or cycles (roles checked first)");
+      assert!(
+        msg.contains("role")
+          || msg.contains("Role")
+          || msg.contains("Cycle")
+          || msg.contains("cycle"),
+        "Error message should mention roles or cycles (roles checked first)"
+      );
     }
 
     Ok(())
   }
 
   #[test]
-  fn test_check_for_cycles_with_complex_valid_structure() -> Result<(), Box<dyn std::error::Error>> {
+  fn test_check_for_cycles_with_complex_valid_structure() -> Result<(), Box<dyn std::error::Error>>
+  {
     // Create complex valid role and resource hierarchy - should succeed
     let acl = AclBuilder::new()
       .add_role("guest", None)?
@@ -1514,7 +1588,10 @@ mod test_acl {
 
     // Should not detect any cycles (already validated by build)
     let result = acl.check_for_cycles();
-    assert!(result.is_ok(), "Should not detect cycles in complex valid structure");
+    assert!(
+      result.is_ok(),
+      "Should not detect cycles in complex valid structure"
+    );
 
     Ok(())
   }

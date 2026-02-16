@@ -307,10 +307,10 @@ impl TryFrom<File> for DisymGraph {
 #[cfg(test)]
 mod test {
   use std::fs::File;
-  use std::io::{BufReader};
+  use std::io::BufReader;
 
   use crate::disymgraph::DisymGraph;
-  use crate::{invalid_vert_symbol_msg};
+  use crate::invalid_vert_symbol_msg;
 
   #[test]
   fn test_new() -> Result<(), String> {
@@ -921,13 +921,8 @@ mod test {
     // Create graph (impls for `From<BufReader<R: std::io::Read>>` and `From<File>` are defined for `DisymGraph` struct
     let dg: DisymGraph = (&mut reader).try_into()?;
 
-    assert!(dg.vert_count() > 0,
-      "Vert count is invalid"
-    );
-    assert!(
-      dg.edge_count() > 0,
-      "Edge count is invalid"
-    );
+    assert!(dg.vert_count() > 0, "Vert count is invalid");
+    assert!(dg.edge_count() > 0, "Edge count is invalid");
 
     Ok(())
   }
@@ -952,7 +947,10 @@ mod test {
     // Create test data: a simple graph with roles hierarchy
     // Note: Using Option<Vec<String>> to represent edges - None means no edges
     let data: DisymGraphData = vec![
-      ("admin".to_string(), Some(vec!["user".to_string(), "moderator".to_string()])),
+      (
+        "admin".to_string(),
+        Some(vec!["user".to_string(), "moderator".to_string()]),
+      ),
       ("user".to_string(), Some(vec!["guest".to_string()])),
       ("moderator".to_string(), Some(vec!["user".to_string()])),
       ("guest".to_string(), None), // No edges - leaf node
@@ -965,25 +963,45 @@ mod test {
     assert_eq!(graph.vert_count(), 4, "Should have 4 vertices");
     assert!(graph.has_vertex("admin"), "Should have admin vertex");
     assert!(graph.has_vertex("user"), "Should have user vertex");
-    assert!(graph.has_vertex("moderator"), "Should have moderator vertex");
+    assert!(
+      graph.has_vertex("moderator"),
+      "Should have moderator vertex"
+    );
     assert!(graph.has_vertex("guest"), "Should have guest vertex");
 
     // Verify edges
     let admin_adj = graph.adj("admin").expect("Admin should have adjacencies");
     assert_eq!(admin_adj.len(), 2, "Admin should have 2 edges");
-    assert!(admin_adj.contains(&"user"), "Admin should be connected to user");
-    assert!(admin_adj.contains(&"moderator"), "Admin should be connected to moderator");
+    assert!(
+      admin_adj.contains(&"user"),
+      "Admin should be connected to user"
+    );
+    assert!(
+      admin_adj.contains(&"moderator"),
+      "Admin should be connected to moderator"
+    );
 
     let user_adj = graph.adj("user").expect("User should have adjacencies");
     assert_eq!(user_adj.len(), 1, "User should have 1 edge");
-    assert!(user_adj.contains(&"guest"), "User should be connected to guest");
+    assert!(
+      user_adj.contains(&"guest"),
+      "User should be connected to guest"
+    );
 
-    let moderator_adj = graph.adj("moderator").expect("Moderator should have adjacencies");
+    let moderator_adj = graph
+      .adj("moderator")
+      .expect("Moderator should have adjacencies");
     assert_eq!(moderator_adj.len(), 1, "Moderator should have 1 edge");
-    assert!(moderator_adj.contains(&"user"), "Moderator should be connected to user");
+    assert!(
+      moderator_adj.contains(&"user"),
+      "Moderator should be connected to user"
+    );
 
     let guest_adj = graph.adj("guest");
-    assert!(guest_adj.is_none() || guest_adj.unwrap().is_empty(), "Guest should have no edges");
+    assert!(
+      guest_adj.is_none() || guest_adj.unwrap().is_empty(),
+      "Guest should have no edges"
+    );
 
     Ok(())
   }
@@ -1040,7 +1058,10 @@ mod test {
 
     // Create test data: a simple graph with roles hierarchy
     let data: DisymGraphData = vec![
-      ("root".to_string(), Some(vec!["branch_a".to_string(), "branch_b".to_string()])),
+      (
+        "root".to_string(),
+        Some(vec!["branch_a".to_string(), "branch_b".to_string()]),
+      ),
       ("branch_a".to_string(), Some(vec!["leaf".to_string()])),
       ("branch_b".to_string(), Some(vec!["leaf".to_string()])),
       ("leaf".to_string(), None),
@@ -1059,19 +1080,38 @@ mod test {
     // Verify edges
     let root_adj = graph.adj("root").expect("Root should have adjacencies");
     assert_eq!(root_adj.len(), 2, "Root should have 2 edges");
-    assert!(root_adj.contains(&"branch_a"), "Root should be connected to branch_a");
-    assert!(root_adj.contains(&"branch_b"), "Root should be connected to branch_b");
+    assert!(
+      root_adj.contains(&"branch_a"),
+      "Root should be connected to branch_a"
+    );
+    assert!(
+      root_adj.contains(&"branch_b"),
+      "Root should be connected to branch_b"
+    );
 
-    let branch_a_adj = graph.adj("branch_a").expect("Branch_a should have adjacencies");
+    let branch_a_adj = graph
+      .adj("branch_a")
+      .expect("Branch_a should have adjacencies");
     assert_eq!(branch_a_adj.len(), 1, "Branch_a should have 1 edge");
-    assert!(branch_a_adj.contains(&"leaf"), "Branch_a should be connected to leaf");
+    assert!(
+      branch_a_adj.contains(&"leaf"),
+      "Branch_a should be connected to leaf"
+    );
 
-    let branch_b_adj = graph.adj("branch_b").expect("Branch_b should have adjacencies");
+    let branch_b_adj = graph
+      .adj("branch_b")
+      .expect("Branch_b should have adjacencies");
     assert_eq!(branch_b_adj.len(), 1, "Branch_b should have 1 edge");
-    assert!(branch_b_adj.contains(&"leaf"), "Branch_b should be connected to leaf");
+    assert!(
+      branch_b_adj.contains(&"leaf"),
+      "Branch_b should be connected to leaf"
+    );
 
     let leaf_adj = graph.adj("leaf");
-    assert!(leaf_adj.is_none() || leaf_adj.unwrap().is_empty(), "Leaf should have no edges");
+    assert!(
+      leaf_adj.is_none() || leaf_adj.unwrap().is_empty(),
+      "Leaf should have no edges"
+    );
 
     Ok(())
   }
@@ -1103,22 +1143,34 @@ mod test {
     assert!(admin_entry.1.is_some(), "Admin should have edges");
     let admin_edges = admin_entry.1.as_ref().unwrap();
     assert_eq!(admin_edges.len(), 2, "Admin should have 2 edges");
-    assert!(admin_edges.contains(&"user".to_string()), "Admin should connect to user");
-    assert!(admin_edges.contains(&"moderator".to_string()), "Admin should connect to moderator");
+    assert!(
+      admin_edges.contains(&"user".to_string()),
+      "Admin should connect to user"
+    );
+    assert!(
+      admin_edges.contains(&"moderator".to_string()),
+      "Admin should connect to moderator"
+    );
 
     // Verify user vertex
     let user_entry = find_entry("user").expect("Should have user entry");
     assert!(user_entry.1.is_some(), "User should have edges");
     let user_edges = user_entry.1.as_ref().unwrap();
     assert_eq!(user_edges.len(), 1, "User should have 1 edge");
-    assert!(user_edges.contains(&"guest".to_string()), "User should connect to guest");
+    assert!(
+      user_edges.contains(&"guest".to_string()),
+      "User should connect to guest"
+    );
 
     // Verify moderator vertex
     let moderator_entry = find_entry("moderator").expect("Should have moderator entry");
     assert!(moderator_entry.1.is_some(), "Moderator should have edges");
     let moderator_edges = moderator_entry.1.as_ref().unwrap();
     assert_eq!(moderator_edges.len(), 1, "Moderator should have 1 edge");
-    assert!(moderator_edges.contains(&"user".to_string()), "Moderator should connect to user");
+    assert!(
+      moderator_edges.contains(&"user".to_string()),
+      "Moderator should connect to user"
+    );
 
     // Verify guest vertex (no edges)
     let guest_entry = find_entry("guest").expect("Should have guest entry");
@@ -1159,11 +1211,14 @@ mod test {
     use crate::disymgraph::DisymGraphData;
 
     // Create original data
-    let original_data: DisymGraphData = vec! [
-      ("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
-      , ("b".to_string(), Some(vec!["d".to_string()]))
-      , ("c".to_string(), Some(vec!["d".to_string()]))
-      , ("d".to_string(), None)
+    let original_data: DisymGraphData = vec![
+      (
+        "a".to_string(),
+        Some(vec!["b".to_string(), "c".to_string()]),
+      ),
+      ("b".to_string(), Some(vec!["d".to_string()])),
+      ("c".to_string(), Some(vec!["d".to_string()])),
+      ("d".to_string(), None),
     ];
 
     // Convert to graph
@@ -1173,25 +1228,38 @@ mod test {
     let reconstructed_data = DisymGraphData::try_from(&graph)?;
 
     // Verify the round-trip preserves structure
-    assert_eq!(reconstructed_data.len(), original_data.len(), "Should have same number of vertices");
+    assert_eq!(
+      reconstructed_data.len(),
+      original_data.len(),
+      "Should have same number of vertices"
+    );
 
     // Verify all vertices from original are in reconstructed
     for (orig_vertex, orig_edges) in &original_data {
-      let reconstructed_entry = reconstructed_data.iter()
+      let reconstructed_entry = reconstructed_data
+        .iter()
         .find(|(v, _)| v == orig_vertex)
         .expect(&format!("Should contain vertex {}", orig_vertex));
 
       // Check edges match
       match (orig_edges, &reconstructed_entry.1) {
-        (None, None) => {}, // Both have no edges - OK
+        (None, None) => {} // Both have no edges - OK
         (Some(orig_edge_list), Some(recon_edge_list)) => {
-          assert_eq!(orig_edge_list.len(), recon_edge_list.len(),
-            "Vertex {} should have same number of edges", orig_vertex);
+          assert_eq!(
+            orig_edge_list.len(),
+            recon_edge_list.len(),
+            "Vertex {} should have same number of edges",
+            orig_vertex
+          );
           for edge in orig_edge_list {
-            assert!(recon_edge_list.contains(edge),
-              "Vertex {} should have edge to {}", orig_vertex, edge);
+            assert!(
+              recon_edge_list.contains(edge),
+              "Vertex {} should have edge to {}",
+              orig_vertex,
+              edge
+            );
           }
-        },
+        }
         _ => panic!("Edge presence mismatch for vertex {}", orig_vertex),
       }
     }

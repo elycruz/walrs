@@ -87,16 +87,11 @@ where
   }
 }
 
-
 /// Helper macro for generating Debug format strings for closure fields.
 #[macro_export]
 macro_rules! debug_closure_field {
   ($value:expr, $some_str:literal) => {
-    if $value.is_some() {
-      $some_str
-    } else {
-      "None"
-    }
+    if $value.is_some() { $some_str } else { "None" }
   };
 }
 
@@ -111,4 +106,3 @@ macro_rules! debug_vec_closure_field {
     }
   };
 }
-

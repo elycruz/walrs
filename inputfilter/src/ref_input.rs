@@ -1,7 +1,9 @@
-use crate::input_common::{collect_violations, handle_missing_value, handle_missing_value_for_filter};
+use crate::input_common::{
+  collect_violations, handle_missing_value, handle_missing_value_for_filter,
+};
 use crate::traits::FilterFn;
-use crate::{debug_closure_field, debug_vec_closure_field};
 use crate::{FilterForUnsized, RefValidator, ViolationMessage, Violations};
+use crate::{debug_closure_field, debug_vec_closure_field};
 use std::fmt::{Debug, Display, Formatter};
 
 /// Returns a generic message for "Value is missing" violation.
@@ -561,9 +563,9 @@ where
 
   pub fn value_missing_msg_getter(
     &mut self,
-    value_missing_msg_getter: &'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage
-           + Send
-           + Sync),
+    value_missing_msg_getter: &'a (
+          dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync
+        ),
   ) -> &mut Self {
     self.value_missing_msg_getter = Some(value_missing_msg_getter);
     self

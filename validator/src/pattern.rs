@@ -1,6 +1,8 @@
-use crate::traits::ToAttributesList;
 use crate::ViolationType::PatternMismatch;
-use crate::{Message, MessageContext, MessageParams, Validate, ValidateRef, ValidatorResult, Violation};
+use crate::traits::ToAttributesList;
+use crate::{
+  Message, MessageContext, MessageParams, Validate, ValidateRef, ValidatorResult, Violation,
+};
 use regex::Regex;
 use std::borrow::Cow;
 use std::fmt::Display;
@@ -96,8 +98,7 @@ impl ValidateRef<str> for PatternValidator<'_> {
   fn validate_ref(&self, value: &str) -> ValidatorResult {
     match self.pattern.is_match(value) {
       false => {
-        let params = MessageParams::new("PatternValidator")
-          .with_pattern(self.pattern.as_str());
+        let params = MessageParams::new("PatternValidator").with_pattern(self.pattern.as_str());
         let ctx = MessageContext::new(value, params);
         Err(Violation(
           PatternMismatch,
@@ -181,11 +182,7 @@ impl Display for PatternValidator<'_> {
 /// ```
 ///
 pub fn pattern_vldr_pattern_mismatch_msg(value: &str, pattern: &str) -> String {
-  format!(
-    "`{}` does not match pattern `{}`.",
-    value,
-    pattern
-  )
+  format!("`{}` does not match pattern `{}`.", value, pattern)
 }
 
 /// Returns default pattern mismatch Message provider.
@@ -197,7 +194,6 @@ pub fn default_pattern_mismatch_msg() -> Message<str> {
     pattern_vldr_pattern_mismatch_msg(ctx.value, pattern)
   })
 }
-
 
 #[cfg(test)]
 mod test {
@@ -225,7 +221,10 @@ mod test {
     assert!(result.is_err());
     let err = result.unwrap_err();
     assert_eq!(err.0, PatternMismatch);
-    assert_eq!(err.1, pattern_vldr_pattern_mismatch_msg("!@#)(*", r"^\w{2,55}$"));
+    assert_eq!(
+      err.1,
+      pattern_vldr_pattern_mismatch_msg("!@#)(*", r"^\w{2,55}$")
+    );
 
     #[cfg(feature = "fn_traits")]
     {
@@ -332,4 +331,3 @@ mod test {
     Ok(())
   }
 }
-

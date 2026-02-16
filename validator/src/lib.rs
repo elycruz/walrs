@@ -86,4 +86,3 @@ pub use range::*;
 pub use rule::{CompiledRule, Condition, IsEmpty, Rule, RuleNumber, RuleResult};
 pub use traits::*;
 pub use violation::*;
-
