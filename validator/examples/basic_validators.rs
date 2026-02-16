@@ -6,7 +6,7 @@ use regex::Regex;
 use std::borrow::Cow;
 use walrs_validator::{
   EqualityValidatorBuilder, LengthValidatorBuilder, NumberValidatorBuilder,
-  PatternValidatorBuilder, RangeValidatorBuilder, Validate, ValidateRef,
+  PatternValidatorBuilder, RangeValidatorBuilder, StepValidatorBuilder, Validate, ValidateRef,
 };
 
 fn main() {
@@ -80,6 +80,30 @@ fn main() {
 
   for n in numbers {
     let result = number_validator.validate(n);
+    let status = if result.is_ok() {
+      "✓ PASS"
+    } else {
+      "✗ FAIL"
+    };
+    println!("  {} -> {}", n, status);
+    if let Err(violation) = result {
+      println!("    Error: {}", violation);
+    }
+  }
+
+  println!();
+
+  // StepValidator example
+  println!("--- StepValidator ---");
+  let step_validator = StepValidatorBuilder::<i32>::default()
+    .step(5)
+    .build()
+    .unwrap();
+
+  let numbers = [0, 5, 7, 10, 25, 26, -10, -7];
+
+  for n in numbers {
+    let result = step_validator.validate(n);
     let status = if result.is_ok() {
       "✓ PASS"
     } else {

@@ -158,6 +158,25 @@ impl NumberValue for usize {}
 impl NumberValue for f32 {}
 impl NumberValue for f64 {}
 
+pub trait SteppableValue: NumberValue + Rem<Output = Self> {}
+
+impl SteppableValue for i8 {}
+impl SteppableValue for i16 {}
+impl SteppableValue for i32 {}
+impl SteppableValue for i64 {}
+impl SteppableValue for i128 {}
+impl SteppableValue for isize {}
+
+impl SteppableValue for u8 {}
+impl SteppableValue for u16 {}
+impl SteppableValue for u32 {}
+impl SteppableValue for u64 {}
+impl SteppableValue for u128 {}
+impl SteppableValue for usize {}
+
+impl SteppableValue for f32 {}
+impl SteppableValue for f64 {}
+
 /// Trait for types that can be converted to HTML form element attributes.
 pub trait ToAttributesList {
   /// Returns the validator's rules as key/value pairs suitable for HTML attributes.
