@@ -1,0 +1,15 @@
+{
+  "name": "walrs-rbac-tests",
+  "version": "0.1.0",
+  "type": "module",
+  "private": true,
+  "description": "Unit tests for walrs_rbac WASM module",
+  "scripts": {
+    "test": "node --test",
+    "test:verbose": "node --test --test-reporter=spec",
+    "test:watch": "node --test --watch"
+  },
+  "keywords": ["rbac", "wasm", "test"],
+  "author": "",
+  "license": "MIT"
+}
