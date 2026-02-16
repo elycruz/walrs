@@ -1,0 +1,45 @@
+[package]
+name = "walrs_rbac"
+version = "0.1.0"
+edition = "2024"
+description = "Role-Based Access Control (RBAC) permissions management"
+license = "Apache-2.0 AND GPL-3.0-only"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = ["std"]
+std = ["serde/std", "serde_json/std"]
+yaml = ["serde_yaml"]
+wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
+
+[dependencies]
+serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0.149", default-features = false, features = ["alloc"], optional = true }
+serde_yaml = { version = "0.9", optional = true }
+serde_derive = "1.0.228"
+wasm-bindgen = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys = { version = "0.3", optional = true }
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+
+[[example]]
+name = "rbac_builder_example"
+path = "examples/rbac_builder_example.rs"
+
+[[example]]
+name = "rbac_try_from_json"
+path = "examples/rbac_try_from_json.rs"
+
+[[example]]
+name = "benchmark_rbac"
+path = "benchmarks/benchmark_rbac.rs"
+
+[[bench]]
+name = "rbac_benchmarks"
+harness = false
