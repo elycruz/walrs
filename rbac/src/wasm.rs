@@ -17,6 +17,8 @@ pub struct JsRbac {
 }
 
 #[wasm_bindgen]
+/// JavaScript-compatible implementation of the Rbac type.
+/// Wraps the Rust `Rbac` struct for use in JS/WASM environments.
 impl JsRbac {
   /// Creates a new empty RBAC
   #[wasm_bindgen(constructor)]
@@ -83,6 +85,8 @@ pub struct JsRbacBuilder {
 }
 
 #[wasm_bindgen]
+/// JavaScript-compatible implementation of the RbacBuilder type.
+/// Wraps the Rust `RbacBuilder` struct for use in JS/WASM environments.
 impl JsRbacBuilder {
   /// Creates a new RBAC builder
   #[wasm_bindgen(constructor)]

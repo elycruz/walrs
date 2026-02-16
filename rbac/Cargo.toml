@@ -16,7 +16,7 @@ wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
 
 [dependencies]
 serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
-serde_json = { version = "1.0.149", default-features = false, features = ["alloc"], optional = true }
+serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
 serde_yaml = { version = "0.9", optional = true }
 serde_derive = "1.0.228"
 wasm-bindgen = { version = "0.2", optional = true }
