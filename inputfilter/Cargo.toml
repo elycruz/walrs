@@ -12,3 +12,10 @@ derive_builder = "0.13.0"
 serde = { version = "1.0.103", features = ["derive"] }
 serde_json = "1.0.82"
 ammonia = "3.3.1"
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "inputfilter_benchmarks"
+harness = false

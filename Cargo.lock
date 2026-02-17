@@ -1974,6 +1974,7 @@ version = "0.1.0"
 dependencies = [
  "ammonia",
  "bytes",
+ "criterion",
  "derive_builder",
  "regex",
  "serde",
