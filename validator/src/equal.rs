@@ -64,6 +64,22 @@ where
       not_equal_msg: default_not_equal_msg(),
     }
   }
+
+  /// Returns a builder for constructing an `EqualityValidator`.
+  ///
+  /// ```rust
+  /// use walrs_validator::EqualityValidator;
+  ///
+  /// let vldtr = EqualityValidator::<&str>::builder()
+  ///   .rhs_value("foo")
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(vldtr.rhs_value, "foo");
+  /// ```
+  pub fn builder() -> EqualityValidatorBuilder<T> {
+    EqualityValidatorBuilder::default()
+  }
 }
 
 impl<T> Validate<T> for EqualityValidator<T>

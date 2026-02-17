@@ -63,6 +63,24 @@ impl<T: ScalarValue> RangeValidator<T> {
       range_overflow_msg: default_range_overflow_msg(),
     }
   }
+
+  /// Returns a builder for constructing a `RangeValidator`.
+  ///
+  /// ```rust
+  /// use walrs_validator::RangeValidator;
+  ///
+  /// let vldtr = RangeValidator::<usize>::builder()
+  ///   .min(1)
+  ///   .max(10)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(vldtr.min, Some(1));
+  /// assert_eq!(vldtr.max, Some(10));
+  /// ```
+  pub fn builder() -> RangeValidatorBuilder<T> {
+    RangeValidatorBuilder::default()
+  }
 }
 
 impl<T: ScalarValue> Validate<T> for RangeValidator<T> {

@@ -78,6 +78,22 @@ where
       step_mismatch: default_step_mismatch_msg(),
     }
   }
+
+  /// Returns a builder for constructing a `StepValidator`.
+  ///
+  /// ```rust
+  /// use walrs_validator::StepValidator;
+  ///
+  /// let vldtr = StepValidator::<usize>::builder()
+  ///   .step(5)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(vldtr.step, Some(5));
+  /// ```
+  pub fn builder() -> StepValidatorBuilder<T> {
+    StepValidatorBuilder::default()
+  }
 }
 
 impl<T> Validate<T> for StepValidator<T>

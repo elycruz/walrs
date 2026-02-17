@@ -84,6 +84,24 @@ impl<T: WithLength + ?Sized> LengthValidator<T> {
   pub fn new() -> Self {
     LengthValidatorBuilder::default().build().unwrap()
   }
+
+  /// Returns a builder for constructing a `LengthValidator`.
+  ///
+  /// ```rust
+  /// use walrs_validator::LengthValidator;
+  ///
+  /// let vldtr = LengthValidator::<str>::builder()
+  ///   .min_length(1)
+  ///   .max_length(10)
+  ///   .build()
+  ///   .unwrap();
+  ///
+  /// assert_eq!(vldtr.min_length, Some(1));
+  /// assert_eq!(vldtr.max_length, Some(10));
+  /// ```
+  pub fn builder() -> LengthValidatorBuilder<T> {
+    LengthValidatorBuilder::default()
+  }
 }
 
 // ====

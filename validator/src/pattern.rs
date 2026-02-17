@@ -52,6 +52,25 @@ impl<'a> PatternValidator<'a> {
       .build()
       .unwrap()
   }
+
+  /// Returns a builder for constructing a `PatternValidator`.
+  ///
+  /// ```rust
+  ///  use walrs_validator::PatternValidator;
+  ///  use regex::Regex;
+  ///  use std::borrow::Cow;
+  ///
+  ///  let rx = Regex::new(r"^\w{2,55}$").unwrap();
+  ///  let vldtr = PatternValidator::builder()
+  ///    .pattern(Cow::Owned(rx))
+  ///    .build()
+  ///    .unwrap();
+  ///
+  ///  assert_eq!(vldtr.pattern.as_str(), r"^\w{2,55}$");
+  /// ```
+  pub fn builder() -> PatternValidatorBuilder<'a> {
+    PatternValidatorBuilder::default()
+  }
 }
 
 impl Validate<&str> for PatternValidator<'_> {
