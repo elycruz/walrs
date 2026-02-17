@@ -69,6 +69,9 @@ impl RbacData {
   /// let json = r#"{"roles":[["admin",["manage"],null]]}"#;
   /// let data = RbacData::from_json(json).unwrap();
   /// assert_eq!(data.roles.len(), 1);
+  ///
+  /// let invalid = RbacData::from_json("not valid json");
+  /// assert!(invalid.is_err());
   /// ```
   #[cfg(feature = "std")]
   pub fn from_json(json: &str) -> Result<Self> {

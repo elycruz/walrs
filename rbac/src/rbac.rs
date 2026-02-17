@@ -293,6 +293,13 @@ mod tests {
   }
 
   #[test]
+  fn test_is_granted_safe_role_not_found_error() {
+    let rbac = Rbac::new();
+    let result = rbac.is_granted_safe("nonexistent", "manage");
+    assert!(matches!(result, Err(RbacError::RoleNotFound(name)) if name == "nonexistent"));
+  }
+
+  #[test]
   fn test_is_granted_deep_inheritance() {
     let mut level3 = Role::new("reader");
     level3.add_permission("read");
