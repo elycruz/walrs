@@ -10,7 +10,7 @@ use serde_json::value::to_value as to_json_value;
 use crate::traits::ToAttributesList;
 
 pub type NumberVldrViolationCallback<'a, T> =
-  (dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync);
+  dyn Fn(&NumberValidator<'a, T>, T) -> String + Send + Sync;
 
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
@@ -40,25 +40,22 @@ where
 {
   fn _validate_number(&self, v: T) -> Option<ViolationType> {
     // Test Min
-    if let Some(min) = self.min {
-      if v < min {
+    if let Some(min) = self.min
+      && v < min {
         return Some(RangeUnderflow);
       }
-    }
 
     // Test Max
-    if let Some(max) = self.max {
-      if v > max {
+    if let Some(max) = self.max
+      && v > max {
         return Some(RangeOverflow);
       }
-    }
 
     // Test Step
-    if let Some(step) = self.step {
-      if step != Default::default() && v % step != Default::default() {
+    if let Some(step) = self.step
+      && step != Default::default() && v % step != Default::default() {
         return Some(StepMismatch);
       }
-    }
 
     None
   }
@@ -363,7 +360,7 @@ mod test {
       match expected {
         Ok(_) => {
           assert_eq!(validator.validate(value), Ok(()));
-          assert_eq!((&validator)(value), Ok(()));
+          assert_eq!(validator(value), Ok(()));
         }
         Err(_enum) => {
           let violation_tuple = match _enum {
@@ -374,7 +371,7 @@ mod test {
           };
 
           assert_eq!(validator.validate(value), Err(violation_tuple.clone()));
-          assert_eq!((&validator)(value), Err(violation_tuple));
+          assert_eq!(validator(value), Err(violation_tuple));
         }
       }
     }

@@ -1,6 +1,6 @@
 use std::fmt::{Debug, Display, Formatter};
 
-use crate::{ScalarValue, Validate, ValidateRef, ValidatorResult, Violation, ViolationType};
+use crate::{ScalarValue, Validate, ValidatorResult, Violation, ViolationType};
 
 /// A validator for checking that a scalar value falls within a specified range.
 ///
@@ -106,24 +106,22 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// ```
   fn validate(&self, value: T) -> ValidatorResult {
     // Test lower bound
-    if let Some(min) = self.min {
-      if value < min {
+    if let Some(min) = self.min
+      && value < min {
         return Err(Violation(
           ViolationType::RangeUnderflow,
           (self.range_underflow_msg)(self, value),
         ));
       }
-    }
 
     // Test upper bound
-    if let Some(max) = self.max {
-      if value > max {
+    if let Some(max) = self.max
+      && value > max {
         return Err(Violation(
           ViolationType::RangeOverflow,
           (self.range_overflow_msg)(self, value),
         ));
       }
-    }
 
     Ok(())
   }

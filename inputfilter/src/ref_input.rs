@@ -1,7 +1,8 @@
 use crate::ViolationType::ValueMissing;
 use crate::{FilterForUnsized, ValidatorForRef, Violation, ViolationMessage, Violations};
 use std::fmt::{Debug, Display, Formatter};
-use crate::traits::FilterFn;
+use crate::traits::{FilterFn, ToAttributesList};
+use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -240,7 +241,7 @@ where
     let mut violations = vec![];
 
     // Validate custom
-    match if let Some(custom) = self.custom.as_deref() {
+    match if let Some(custom) = self.custom {
       (custom)(value)
     } else {
       Ok(())
@@ -707,6 +708,7 @@ where
   get_default_value: Option<&'a (dyn Fn() -> Option<FT> + Send + Sync)>,
   validators: Option<Vec<&'a ValidatorForRef<T>>>,
   filters: Option<Vec<&'a FilterFn<FT>>>,
+  #[allow(clippy::type_complexity)]
   value_missing_msg_getter:
     Option<&'a (dyn Fn(&RefInput<'a, 'b, T, FT>) -> ViolationMessage + Send + Sync)>,
 }
@@ -806,6 +808,154 @@ where
   }
 }
 
+impl<'b, T, FT> Serialize for RefInput<'_, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    let mut state = serializer.serialize_struct("RefInput", 4)?;
+    state.serialize_field("break_on_failure", &self.break_on_failure)?;
+    state.serialize_field("required", &self.required)?;
+    state.serialize_field("locale", &self.locale)?;
+    state.serialize_field("name", &self.name)?;
+    state.end()
+  }
+}
+
+/// Serializes the data fields of `RefInput` to a list of HTML form attributes.
+///
+/// ```rust
+/// use std::borrow::Cow;
+/// use walrs_inputfilter::RefInputBuilder;
+/// use walrs_inputfilter::traits::ToAttributesList;
+///
+/// let input = RefInputBuilder::<str, Cow<str>>::default()
+///   .required(true)
+///   .name("username")
+///   .build()
+///   .unwrap();
+///
+/// let attrs = input.to_attributes_list().unwrap();
+///
+/// assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+/// assert!(attrs.iter().any(|(k, v)| k == "name" && v == "username"));
+/// ```
+impl<'b, T, FT> ToAttributesList for RefInput<'_, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    let mut attrs = Vec::new();
+
+    if self.required {
+      attrs.push(("required".into(), serde_json::Value::Bool(true)));
+    }
+    if let Some(name) = self.name {
+      attrs.push(("name".into(), serde_json::Value::String(name.to_string())));
+    }
+
+    if attrs.is_empty() {
+      None
+    } else {
+      Some(attrs)
+    }
+  }
+}
+
+/// Allows `RefInput` to be called as a function with `&T`, equivalent to calling `filter_ref`.
+///
+/// ```rust
+/// use std::borrow::Cow;
+/// use walrs_inputfilter::RefInputBuilder;
+///
+/// let input = RefInputBuilder::<str, Cow<str>>::default()
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(input("hello"), Ok(Cow::Borrowed("hello")));
+/// ```
+impl<'a, 'b, T, FT> FnOnce<(&'b T,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  type Output = Result<FT, Vec<ViolationMessage>>;
+
+  extern "rust-call" fn call_once(self, args: (&'b T,)) -> Self::Output {
+    self.filter_ref(args.0)
+  }
+}
+
+impl<'a, 'b, T, FT> FnMut<(&'b T,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  extern "rust-call" fn call_mut(&mut self, args: (&'b T,)) -> Self::Output {
+    self.filter_ref(args.0)
+  }
+}
+
+impl<'a, 'b, T, FT> Fn<(&'b T,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  extern "rust-call" fn call(&self, args: (&'b T,)) -> Self::Output {
+    self.filter_ref(args.0)
+  }
+}
+
+/// Allows `RefInput` to be called as a function with `Option<&T>`, equivalent to calling `filter_ref_option`.
+///
+/// ```rust
+/// use std::borrow::Cow;
+/// use walrs_inputfilter::RefInputBuilder;
+///
+/// let input = RefInputBuilder::<str, Cow<str>>::default()
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(input(Some("hello")), Ok(Some(Cow::Borrowed("hello"))));
+/// assert_eq!(input(None), Ok(None));
+/// ```
+impl<'a, 'b, T, FT> FnOnce<(Option<&'b T>,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  type Output = Result<Option<FT>, Vec<ViolationMessage>>;
+
+  extern "rust-call" fn call_once(self, args: (Option<&'b T>,)) -> Self::Output {
+    self.filter_ref_option(args.0)
+  }
+}
+
+impl<'a, 'b, T, FT> FnMut<(Option<&'b T>,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  extern "rust-call" fn call_mut(&mut self, args: (Option<&'b T>,)) -> Self::Output {
+    self.filter_ref_option(args.0)
+  }
+}
+
+impl<'a, 'b, T, FT> Fn<(Option<&'b T>,)> for RefInput<'a, 'b, T, FT>
+where
+  T: ?Sized + 'b,
+  FT: From<&'b T>,
+{
+  extern "rust-call" fn call(&self, args: (Option<&'b T>,)) -> Self::Output {
+    self.filter_ref_option(args.0)
+  }
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
@@ -900,6 +1050,7 @@ mod test {
   }
 
   #[test]
+  #[allow(clippy::type_complexity)]
   fn test_e2e() {
     // Prepare validators and filters
     // ----
@@ -1137,6 +1288,102 @@ mod test {
         ValueMissing,
         ref_input_value_missing_msg_getter(&required_input)
       )]))
+    );
+  }
+
+  #[test]
+  fn test_serialize() {
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+      .required(true)
+      .name("username")
+      .locale("en_US")
+      .break_on_failure(true)
+      .build()
+      .unwrap();
+
+    let json = serde_json::to_string(&input).unwrap();
+    assert!(json.contains("\"required\":true"));
+    assert!(json.contains("\"name\":\"username\""));
+    assert!(json.contains("\"locale\":\"en_US\""));
+    assert!(json.contains("\"break_on_failure\":true"));
+
+    // Default ref input
+    let default_input = RefInput::<str, Cow<str>>::default();
+    let json = serde_json::to_string(&default_input).unwrap();
+    assert!(json.contains("\"required\":false"));
+    assert!(json.contains("\"name\":null"));
+    assert!(json.contains("\"locale\":null"));
+    assert!(json.contains("\"break_on_failure\":false"));
+  }
+
+  #[test]
+  fn test_to_attributes_list() {
+    // With required and name set
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+      .required(true)
+      .name("username")
+      .build()
+      .unwrap();
+
+    let attrs = input.to_attributes_list().unwrap();
+    assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+    assert!(attrs.iter().any(|(k, v)| k == "name" && v == "username"));
+
+    // Without required and name set (should return None)
+    let input_no_attrs = RefInput::<str, Cow<str>>::default();
+    assert!(input_no_attrs.to_attributes_list().is_none());
+
+    // With only required set
+    let input_req_only = RefInputBuilder::<str, Cow<str>>::default()
+      .required(true)
+      .build()
+      .unwrap();
+    let attrs = input_req_only.to_attributes_list().unwrap();
+    assert_eq!(attrs.len(), 1);
+    assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+  }
+
+  #[test]
+  fn test_fn_traits() {
+    let validate_not_empty = |s: &str| -> Result<(), Violation> {
+      if !s.is_empty() {
+        Ok(())
+      } else {
+        Err(Violation(
+          crate::ViolationType::ValueMissing,
+          "Value empty".to_string(),
+        ))
+      }
+    };
+
+    let input = RefInputBuilder::<str, Cow<str>>::default()
+      .validators(vec![&validate_not_empty])
+      .build()
+      .unwrap();
+
+    // Call as a function with &T
+    assert_eq!(input("hello"), Ok(Cow::Borrowed("hello")));
+    assert_eq!(input(""), Err(vec!["Value empty".to_string()]));
+
+    // Call as a function with Option<&T>
+    assert_eq!(
+      input(Some("hello")),
+      Ok(Some(Cow::Borrowed("hello")))
+    );
+    assert_eq!(input(Some("")), Err(vec!["Value empty".to_string()]));
+    assert_eq!(input(None), Ok(None)); // Not required, so None is ok
+
+    // Required input with Fn traits
+    let req_input = RefInputBuilder::<str, Cow<str>>::default()
+      .required(true)
+      .validators(vec![&validate_not_empty])
+      .build()
+      .unwrap();
+
+    assert_eq!(req_input("hello"), Ok(Cow::Borrowed("hello")));
+    assert_eq!(
+      req_input(None),
+      Err(vec![ref_input_value_missing_msg_getter(&req_input)])
     );
   }
 }

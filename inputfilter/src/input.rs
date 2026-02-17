@@ -4,7 +4,8 @@ use crate::{
 };
 
 use std::fmt::{Debug, Display, Formatter};
-use crate::traits::FilterFn;
+use crate::traits::{FilterFn, ToAttributesList};
+use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 /// Returns a generic message for "Value is missing" violation.
 ///
@@ -135,6 +136,7 @@ where
   /// Triggered when value being validated is "required" and is missing (triggered from *_option
   ///  filter, and/or validation, methods).
   #[builder(default = "&value_missing_msg_getter")]
+  #[allow(clippy::type_complexity)]
   pub value_missing_msg_getter:
     &'a (dyn Fn(&Input<'a, T, FilterT>) -> ViolationMessage + Send + Sync),
 }
@@ -239,7 +241,7 @@ impl<T: Copy, FT: From<T>> FilterForSized<T, FT> for Input<'_, T, FT> {
     let mut violations = vec![];
 
     // Validate custom
-    match if let Some(custom) = self.custom.as_deref() {
+    match if let Some(custom) = self.custom {
       (custom)(value)
     } else {
       Ok(())
@@ -652,6 +654,119 @@ impl<T: Copy, FT: From<T>> Debug for Input<'_, T, FT> {
   }
 }
 
+impl<T: Copy, FT: From<T>> Serialize for Input<'_, T, FT> {
+  fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+  where
+    S: Serializer,
+  {
+    let mut state = serializer.serialize_struct("Input", 4)?;
+    state.serialize_field("break_on_failure", &self.break_on_failure)?;
+    state.serialize_field("required", &self.required)?;
+    state.serialize_field("locale", &self.locale)?;
+    state.serialize_field("name", &self.name)?;
+    state.end()
+  }
+}
+
+/// Serializes the data fields of `Input` to a list of HTML form attributes.
+///
+/// ```rust
+/// use walrs_inputfilter::{Input, InputBuilder};
+/// use walrs_inputfilter::traits::ToAttributesList;
+///
+/// let input = InputBuilder::<usize, usize>::default()
+///   .required(true)
+///   .name("age")
+///   .build()
+///   .unwrap();
+///
+/// let attrs = input.to_attributes_list().unwrap();
+///
+/// assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+/// assert!(attrs.iter().any(|(k, v)| k == "name" && v == "age"));
+/// ```
+impl<T: Copy, FT: From<T>> ToAttributesList for Input<'_, T, FT> {
+  fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
+    let mut attrs = Vec::new();
+
+    if self.required {
+      attrs.push(("required".into(), serde_json::Value::Bool(true)));
+    }
+    if let Some(name) = self.name {
+      attrs.push(("name".into(), serde_json::Value::String(name.to_string())));
+    }
+
+    if attrs.is_empty() {
+      None
+    } else {
+      Some(attrs)
+    }
+  }
+}
+
+/// Allows `Input` to be called as a function, equivalent to calling `filter`.
+///
+/// ```rust
+/// use walrs_inputfilter::InputBuilder;
+///
+/// let input = InputBuilder::<usize, usize>::default()
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(input(42), Ok(42));
+/// ```
+impl<T: Copy, FT: From<T>> FnOnce<(T,)> for Input<'_, T, FT> {
+  type Output = Result<FT, Vec<ViolationMessage>>;
+
+  extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
+    self.filter(args.0)
+  }
+}
+
+impl<T: Copy, FT: From<T>> FnMut<(T,)> for Input<'_, T, FT> {
+  extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
+    self.filter(args.0)
+  }
+}
+
+impl<T: Copy, FT: From<T>> Fn<(T,)> for Input<'_, T, FT> {
+  extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
+    self.filter(args.0)
+  }
+}
+
+/// Allows `Input` to be called as a function with `Option<T>`, equivalent to calling `filter_option`.
+///
+/// ```rust
+/// use walrs_inputfilter::InputBuilder;
+///
+/// let input = InputBuilder::<usize, usize>::default()
+///   .build()
+///   .unwrap();
+///
+/// assert_eq!(input(Some(42)), Ok(Some(42)));
+/// assert_eq!(input(None), Ok(None));
+/// ```
+impl<T: Copy, FT: From<T>> FnOnce<(Option<T>,)> for Input<'_, T, FT> {
+  type Output = Result<Option<FT>, Vec<ViolationMessage>>;
+
+  extern "rust-call" fn call_once(self, args: (Option<T>,)) -> Self::Output {
+    self.filter_option(args.0)
+  }
+}
+
+impl<T: Copy, FT: From<T>> FnMut<(Option<T>,)> for Input<'_, T, FT> {
+  extern "rust-call" fn call_mut(&mut self, args: (Option<T>,)) -> Self::Output {
+    self.filter_option(args.0)
+  }
+}
+
+impl<T: Copy, FT: From<T>> Fn<(Option<T>,)> for Input<'_, T, FT> {
+  extern "rust-call" fn call(&self, args: (Option<T>,)) -> Self::Output {
+    self.filter_option(args.0)
+  }
+}
+
 #[cfg(test)]
 mod test {
   use super::*;
@@ -659,12 +774,13 @@ mod test {
   use std::error::Error;
 
   #[test]
+  #[allow(clippy::type_complexity)]
   fn test_validate_methods() {
     // Ensure each logic case in method is sound, and that method is callable for each scalar type:
     // 1) Test method logic
     // ----
     let validate_is_even = |x: usize| {
-      if x % 2 != 0 {
+      if !x.is_multiple_of(2) {
         // @todo Populate custom error here.
         Err(Violation(CustomError, "Must be even".to_string()))
       } else {
@@ -977,5 +1093,95 @@ mod test {
     }
 
     Ok(())
+  }
+
+  #[test]
+  fn test_serialize() {
+    let input = InputBuilder::<usize, usize>::default()
+      .required(true)
+      .name("age")
+      .locale("en_US")
+      .break_on_failure(true)
+      .build()
+      .unwrap();
+
+    let json = serde_json::to_string(&input).unwrap();
+    assert!(json.contains("\"required\":true"));
+    assert!(json.contains("\"name\":\"age\""));
+    assert!(json.contains("\"locale\":\"en_US\""));
+    assert!(json.contains("\"break_on_failure\":true"));
+
+    // Default input
+    let default_input = Input::<usize, usize>::new();
+    let json = serde_json::to_string(&default_input).unwrap();
+    assert!(json.contains("\"required\":false"));
+    assert!(json.contains("\"name\":null"));
+    assert!(json.contains("\"locale\":null"));
+    assert!(json.contains("\"break_on_failure\":false"));
+  }
+
+  #[test]
+  fn test_to_attributes_list() {
+    // With required and name set
+    let input = InputBuilder::<usize, usize>::default()
+      .required(true)
+      .name("age")
+      .build()
+      .unwrap();
+
+    let attrs = input.to_attributes_list().unwrap();
+    assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+    assert!(attrs.iter().any(|(k, v)| k == "name" && v == "age"));
+
+    // Without required and name set (should return None)
+    let input_no_attrs = Input::<usize, usize>::new();
+    assert!(input_no_attrs.to_attributes_list().is_none());
+
+    // With only required set
+    let input_req_only = InputBuilder::<usize, usize>::default()
+      .required(true)
+      .build()
+      .unwrap();
+    let attrs = input_req_only.to_attributes_list().unwrap();
+    assert_eq!(attrs.len(), 1);
+    assert!(attrs.iter().any(|(k, v)| k == "required" && v == true));
+  }
+
+  #[test]
+  fn test_fn_traits() {
+    let validate_is_even = |x: usize| {
+      if !x.is_multiple_of(2) {
+        Err(Violation(CustomError, "Must be even".to_string()))
+      } else {
+        Ok(())
+      }
+    };
+
+    let input = InputBuilder::<usize, usize>::default()
+      .validators(vec![&validate_is_even])
+      .build()
+      .unwrap();
+
+    // Call as a function with T
+    assert_eq!(input(2), Ok(2));
+    assert_eq!(input(3), Err(vec!["Must be even".to_string()]));
+
+    // Call as a function with Option<T>
+    assert_eq!(input(Some(4)), Ok(Some(4)));
+    assert_eq!(input(Some(5)), Err(vec!["Must be even".to_string()]));
+    assert_eq!(input(None), Ok(None)); // Not required, so None is ok
+
+    // Required input with Fn traits
+    let req_input = InputBuilder::<usize, usize>::default()
+      .required(true)
+      .validators(vec![&validate_is_even])
+      .build()
+      .unwrap();
+
+    assert_eq!(req_input(2), Ok(2));
+    assert_eq!(
+      req_input(None),
+      Err(vec![value_missing_msg_getter(&req_input)])
+    );
   }
 }

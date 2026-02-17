@@ -119,23 +119,21 @@ where
   /// ```
   fn validate_ref(&self, value: &T) -> ValidatorResult {
     if let Some(len) = value.length() {
-      if let Some(min_length) = self.min_length {
-        if len < min_length {
+      if let Some(min_length) = self.min_length
+        && len < min_length {
           return Err(Violation(
             ViolationType::TooShort,
             (self.too_short_msg)(self, value),
           ));
         }
-      }
 
-      if let Some(max_length) = self.max_length {
-        if len > max_length {
+      if let Some(max_length) = self.max_length
+        && len > max_length {
           return Err(Violation(
             ViolationType::TooLong,
             (self.too_long_msg)(self, value),
           ));
         }
-      }
     }
 
     Ok(())
