@@ -25,6 +25,7 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 /// use walrs_inputfilter::field_filter::{FieldFilter, CrossFieldRule, CrossFieldRuleType};
 /// use walrs_inputfilter::field::FieldBuilder;
 /// use walrs_form_core::Value;
+/// use walrs_validator::Rule;
 /// use serde_json::json;
 /// use std::collections::HashMap;
 ///
@@ -32,7 +33,7 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 ///
 /// // Add field definitions
 /// field_filter.add_field("email", FieldBuilder::<Value>::default()
-///     .required(true)
+///     .rules(vec![Rule::Required])
 ///     .build()
 ///     .unwrap());
 ///
@@ -431,6 +432,7 @@ mod tests {
     use super::*;
     use crate::field::FieldBuilder;
     use serde_json::json;
+    use walrs_validator::Rule;
 
     fn make_data(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
         pairs
@@ -445,7 +447,7 @@ mod tests {
         filter.add_field(
             "email",
             FieldBuilder::<Value>::default()
-                .required(true)
+                .rules(vec![Rule::Required])
                 .build()
                 .unwrap(),
         );
@@ -588,7 +590,7 @@ mod tests {
         field_filter.add_field(
             "email",
             FieldBuilder::<Value>::default()
-                .required(true)
+                .rules(vec![Rule::Required])
                 .filters(vec![crate::filter_enum::Filter::Trim])
                 .build()
                 .unwrap(),

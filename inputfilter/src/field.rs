@@ -28,8 +28,7 @@ use walrs_validator::{Rule, Violation, Violations};
 ///
 /// let field = FieldBuilder::<String>::default()
 ///     .name("email".to_string())
-///     .required(true)
-///     .rules(vec![Rule::Email])
+///     .rules(vec![Rule::Required, Rule::Email])
 ///     .filters(vec![Filter::Trim, Filter::Lowercase])
 ///     .build()
 ///     .unwrap();
@@ -50,10 +49,6 @@ where
     #[serde(skip_serializing_if = "Option::is_none")]
     #[builder(default)]
     pub name: Option<String>,
-
-    /// Whether the field is required (non-empty value).
-    #[builder(default = "false")]
-    pub required: bool,
 
     /// Optional locale for localized error messages.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -79,7 +74,6 @@ impl<T: Clone> Default for Field<T> {
     fn default() -> Self {
         Self {
             name: None,
-            required: false,
             locale: None,
             rules: Vec::new(),
             filters: Vec::new(),
@@ -95,7 +89,6 @@ where
 {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
-            && self.required == other.required
             && self.locale == other.locale
             && self.rules == other.rules
             && self.filters == other.filters
@@ -118,17 +111,6 @@ impl Field<String> {
     /// Returns `Ok(())` if all rules pass, or `Err(Violations)` with all failures.
     pub fn validate(&self, value: &String) -> Result<(), Violations> {
         let mut violations = Violations::empty();
-
-        // Check required
-        if self.required && value.trim().is_empty() {
-            violations.push(Violation::new(
-                walrs_validator::ViolationType::ValueMissing,
-                "Value is required",
-            ));
-            if self.break_on_failure {
-                return Err(violations);
-            }
-        }
 
         // Apply rules
         for rule in &self.rules {
@@ -178,21 +160,20 @@ impl Field<Value> {
 
         let mut violations = Violations::empty();
 
-        // Check required
-        if self.required && value.is_empty_value() {
-            violations.push(Violation::new(
-                walrs_validator::ViolationType::ValueMissing,
-                "Value is required",
-            ));
-            if self.break_on_failure {
-                return Err(violations);
+        // Check required using ValueExt trait
+        // TODO: Implement Rule<Value> in walrs_validator for full rule support
+        // For now, we check for Required rule manually
+        for rule in &self.rules {
+            if matches!(rule, Rule::Required) && value.is_empty_value() {
+                violations.push(Violation::new(
+                    walrs_validator::ViolationType::ValueMissing,
+                    "Value is required",
+                ));
+                if self.break_on_failure {
+                    return Err(violations);
+                }
             }
         }
-
-        // For string values, we can validate using string rules
-        // This requires converting Rule<Value> to work with the underlying type
-        // For now, rules on Value fields are limited to the required check above
-        // TODO: Implement Rule<Value> in walrs_validator for full support
 
         if violations.is_empty() {
             Ok(())
@@ -221,7 +202,6 @@ mod tests {
     fn test_field_builder_defaults() {
         let field = FieldBuilder::<String>::default().build().unwrap();
         assert_eq!(field.name, None);
-        assert!(!field.required);
         assert!(field.rules.is_empty());
         assert!(field.filters.is_empty());
     }
@@ -230,15 +210,13 @@ mod tests {
     fn test_field_builder_with_values() {
         let field = FieldBuilder::<String>::default()
             .name("email".to_string())
-            .required(true)
-            .rules(vec![Rule::MinLength(5)])
+            .rules(vec![Rule::Required, Rule::MinLength(5)])
             .filters(vec![Filter::Trim])
             .build()
             .unwrap();
 
         assert_eq!(field.name, Some("email".to_string()));
-        assert!(field.required);
-        assert_eq!(field.rules.len(), 1);
+        assert_eq!(field.rules.len(), 2);
         assert_eq!(field.filters.len(), 1);
     }
 
@@ -276,7 +254,7 @@ mod tests {
     #[test]
     fn test_string_field_required() {
         let field = FieldBuilder::<String>::default()
-            .required(true)
+            .rules(vec![Rule::Required])
             .build()
             .unwrap();
 
@@ -311,7 +289,7 @@ mod tests {
     #[test]
     fn test_value_field_required() {
         let field = FieldBuilder::<Value>::default()
-            .required(true)
+            .rules(vec![Rule::Required])
             .build()
             .unwrap();
 
@@ -323,8 +301,7 @@ mod tests {
     #[test]
     fn test_break_on_failure() {
         let field = FieldBuilder::<String>::default()
-            .required(true)
-            .rules(vec![Rule::MinLength(5), Rule::MaxLength(10)])
+            .rules(vec![Rule::Required, Rule::MinLength(5), Rule::MaxLength(10)])
             .break_on_failure(true)
             .build()
             .unwrap();
@@ -339,8 +316,7 @@ mod tests {
     #[test]
     fn test_collect_all_violations() {
         let field = FieldBuilder::<String>::default()
-            .required(true)
-            .rules(vec![Rule::MinLength(5)])
+            .rules(vec![Rule::Required, Rule::MinLength(5)])
             .break_on_failure(false)
             .build()
             .unwrap();
@@ -356,13 +332,13 @@ mod tests {
     fn test_field_serialization() {
         let field = FieldBuilder::<String>::default()
             .name("username".to_string())
-            .required(true)
+            .rules(vec![Rule::Required])
             .build()
             .unwrap();
 
         let json = serde_json::to_string(&field).unwrap();
         assert!(json.contains("username"));
-        assert!(json.contains("required"));
+        assert!(json.contains("required")); // lowercase due to serde rename_all
     }
 }
 

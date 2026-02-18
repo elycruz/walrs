@@ -8,10 +8,11 @@ Unified field configuration for validation and filtering:
 ```rust
 use walrs_inputfilter::{Field, FieldBuilder};
 use walrs_inputfilter::filter_enum::Filter;
+use walrs_validator::Rule;
 use walrs_form_core::Value;
 use serde_json::json;
 let field: Field<Value> = FieldBuilder::default()
-    .required(true)
+    .rules(vec![Rule::Required])
     .filters(vec![Filter::Trim, Filter::Lowercase])
     .build()
     .unwrap();
@@ -50,12 +51,13 @@ Multi-field validation with cross-field rules:
 ```rust
 use walrs_inputfilter::{FieldFilter, Field, FieldBuilder};
 use walrs_inputfilter::field_filter::CrossFieldRule;
+use walrs_validator::Rule;
 use std::collections::HashMap;
 use serde_json::json;
 let filter = FieldFilter::new()
-    .with_field("email", FieldBuilder::default().required(true).build().unwrap())
-    .with_field("password", FieldBuilder::default().required(true).build().unwrap())
-    .with_field("confirm_password", FieldBuilder::default().required(true).build().unwrap())
+    .with_field("email", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
+    .with_field("password", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
+    .with_field("confirm_password", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
     .with_cross_field_rule(CrossFieldRule::FieldsEqual {
         fields: vec!["password".to_string(), "confirm_password".to_string()],
         message: "Passwords must match".to_string(),

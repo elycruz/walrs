@@ -57,7 +57,7 @@ pub type RuleResult = Result<(), Violation>;
 /// Conditions determine whether the `then_rule` or `else_rule` of a `When` rule
 /// should be applied. Most variants are serializable for config-driven validation.
 #[derive(Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+#[serde(tag = "type", rename_all = "lowercase")]
 pub enum Condition<T> {
   /// Value is empty (for strings: empty or whitespace-only)
   IsEmpty,
@@ -389,7 +389,7 @@ pub fn exact_items_violation(expected: usize, actual: usize) -> Violation {
 /// - Programmatic validation with full control
 /// - Integration with existing validation pipelines
 #[derive(Clone, Serialize, Deserialize)]
-#[serde(tag = "type", content = "config")]
+#[serde(tag = "type", content = "config", rename_all = "lowercase")]
 pub enum Rule<T> {
   // ---- Presence ----
   /// Value must be present (non-empty)
@@ -2134,7 +2134,7 @@ mod tests {
   fn test_rule_serialization() {
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
     let json = serde_json::to_string(&rule).unwrap();
-    assert!(json.contains("Range"));
+    assert!(json.contains("range")); // lowercase due to rename_all
     assert!(json.contains("0"));
     assert!(json.contains("100"));
 

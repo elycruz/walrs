@@ -25,9 +25,8 @@
 //! // Create a field with filters and rules
 //! let email_field = FieldBuilder::<String>::default()
 //!     .name("email".to_string())
-//!     .required(true)
 //!     .filters(vec![FilterEnum::Trim, FilterEnum::Lowercase])
-//!     .rules(vec![Rule::Email])
+//!     .rules(vec![Rule::Required, Rule::Email])
 //!     .build()
 //!     .unwrap();
 //!

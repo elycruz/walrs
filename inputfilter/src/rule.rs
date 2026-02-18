@@ -19,8 +19,8 @@
 //! // Conditional rule
 //! let conditional = Rule::<String>::When {
 //!     condition: Condition::IsNotEmpty,
-//!     then_rules: vec![Rule::MinLength(5)],
-//!     else_rules: None,
+//!     then_rule: Box::new(Rule::MinLength(5)),
+//!     else_rule: None,
 //! };
 //! ```
 
