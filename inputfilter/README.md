@@ -11,17 +11,20 @@ use walrs_inputfilter::filter_enum::Filter;
 use walrs_validator::Rule;
 use walrs_form_core::Value;
 use serde_json::json;
+// Single rule
 let field: Field<Value> = FieldBuilder::default()
-    .rules(vec![Rule::Required])
+    .rule(Rule::Required)
     .filters(vec![Filter::Trim, Filter::Lowercase])
+    .build()
+    .unwrap();
+// Multiple rules using Rule::All (via .and() combinator)
+let field: Field<Value> = FieldBuilder::default()
+    .rule(Rule::Required.and(Rule::MinLength(3)))
     .build()
     .unwrap();
 // Validate
 let result = field.validate(&json!(""));
 assert!(result.is_err()); // Required field is empty
-// Process (filter + validate)
-let (filtered, result) = field.process(&json!("  HELLO  "));
-assert_eq!(filtered.as_str(), Some("hello"));
 ```
 ### Filter<T> Enum
 Serializable filters for value transformation:
@@ -55,9 +58,9 @@ use walrs_validator::Rule;
 use std::collections::HashMap;
 use serde_json::json;
 let filter = FieldFilter::new()
-    .with_field("email", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
-    .with_field("password", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
-    .with_field("confirm_password", FieldBuilder::default().rules(vec![Rule::Required]).build().unwrap())
+    .with_field("email", FieldBuilder::default().rule(Rule::Required).build().unwrap())
+    .with_field("password", FieldBuilder::default().rule(Rule::Required).build().unwrap())
+    .with_field("confirm_password", FieldBuilder::default().rule(Rule::Required).build().unwrap())
     .with_cross_field_rule(CrossFieldRule::FieldsEqual {
         fields: vec!["password".to_string(), "confirm_password".to_string()],
         message: "Passwords must match".to_string(),

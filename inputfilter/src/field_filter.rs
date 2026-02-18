@@ -33,7 +33,7 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 ///
 /// // Add field definitions
 /// field_filter.add_field("email", FieldBuilder::<Value>::default()
-///     .rules(vec![Rule::Required])
+///     .rule(Rule::Required)
 ///     .build()
 ///     .unwrap());
 ///
@@ -447,7 +447,7 @@ mod tests {
         filter.add_field(
             "email",
             FieldBuilder::<Value>::default()
-                .rules(vec![Rule::Required])
+                .rule(Rule::Required)
                 .build()
                 .unwrap(),
         );
@@ -590,7 +590,7 @@ mod tests {
         field_filter.add_field(
             "email",
             FieldBuilder::<Value>::default()
-                .rules(vec![Rule::Required])
+                .rule(Rule::Required)
                 .filters(vec![crate::filter_enum::Filter::Trim])
                 .build()
                 .unwrap(),

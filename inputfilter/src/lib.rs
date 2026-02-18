@@ -22,11 +22,11 @@
 //! use walrs_form_core::Value;
 //! use serde_json::json;
 //!
-//! // Create a field with filters and rules
+//! // Create a field with filters and rule (use Rule::All for multiple rules)
 //! let email_field = FieldBuilder::<String>::default()
 //!     .name("email".to_string())
 //!     .filters(vec![FilterEnum::Trim, FilterEnum::Lowercase])
-//!     .rules(vec![Rule::Required, Rule::Email])
+//!     .rule(Rule::Required.and(Rule::Email))
 //!     .build()
 //!     .unwrap();
 //!

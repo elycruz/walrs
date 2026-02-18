@@ -26,9 +26,18 @@ use walrs_validator::{Rule, Violation, Violations};
 /// use walrs_inputfilter::filter_enum::Filter;
 /// use walrs_validator::Rule;
 ///
+/// // Single rule
+/// let field = FieldBuilder::<String>::default()
+///     .name("username".to_string())
+///     .rule(Rule::Required)
+///     .filters(vec![Filter::Trim])
+///     .build()
+///     .unwrap();
+///
+/// // Multiple rules using Rule::All
 /// let field = FieldBuilder::<String>::default()
 ///     .name("email".to_string())
-///     .rules(vec![Rule::Required, Rule::Email])
+///     .rule(Rule::Required.and(Rule::Email))
 ///     .filters(vec![Filter::Trim, Filter::Lowercase])
 ///     .build()
 ///     .unwrap();
@@ -55,10 +64,10 @@ where
     #[builder(default)]
     pub locale: Option<String>,
 
-    /// Validation rules to apply.
-    #[serde(default)]
+    /// Validation rule to apply. Use `Rule::All` for multiple rules.
+    #[serde(skip_serializing_if = "Option::is_none")]
     #[builder(default)]
-    pub rules: Vec<Rule<T>>,
+    pub rule: Option<Rule<T>>,
 
     /// Filters to apply before validation.
     #[serde(default)]
@@ -75,7 +84,7 @@ impl<T: Clone> Default for Field<T> {
         Self {
             name: None,
             locale: None,
-            rules: Vec::new(),
+            rule: None,
             filters: Vec::new(),
             break_on_failure: false,
         }
@@ -90,7 +99,7 @@ where
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
             && self.locale == other.locale
-            && self.rules == other.rules
+            && self.rule == other.rule
             && self.filters == other.filters
             && self.break_on_failure == other.break_on_failure
     }
@@ -106,26 +115,25 @@ impl Field<String> {
         self.filters.iter().fold(value, |v, f| f.apply(v))
     }
 
-    /// Validate the value against all rules.
+    /// Validate the value against the rule.
     ///
-    /// Returns `Ok(())` if all rules pass, or `Err(Violations)` with all failures.
+    /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
     pub fn validate(&self, value: &String) -> Result<(), Violations> {
-        let mut violations = Violations::empty();
-
-        // Apply rules
-        for rule in &self.rules {
-            if let Err(violation) = rule.validate_ref(value) {
-                violations.push(violation);
+        match &self.rule {
+            Some(rule) => {
                 if self.break_on_failure {
-                    return Err(violations);
+                    // Return on first error
+                    rule.validate_ref(value).map_err(|v| {
+                        let mut violations = Violations::empty();
+                        violations.push(v);
+                        violations
+                    })
+                } else {
+                    // Collect all violations
+                    rule.validate_ref_all(value)
                 }
             }
-        }
-
-        if violations.is_empty() {
-            Ok(())
-        } else {
-            Err(violations)
+            None => Ok(()),
         }
     }
 
@@ -149,36 +157,30 @@ impl Field<Value> {
         self.filters.iter().fold(value, |v, f| f.apply(v))
     }
 
-    /// Validate the value against all rules.
+    /// Validate the value against the rule.
     ///
-    /// Returns `Ok(())` if all rules pass, or `Err(Violations)` with all failures.
+    /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
     ///
     /// Note: For `Value` fields, rules are applied based on the underlying type.
-    /// String values are extracted and validated with string rules.
+    /// Currently supports `Rule::Required` check via `ValueExt::is_empty_value()`.
     pub fn validate(&self, value: &Value) -> Result<(), Violations> {
         use walrs_form_core::ValueExt;
 
-        let mut violations = Violations::empty();
-
-        // Check required using ValueExt trait
-        // TODO: Implement Rule<Value> in walrs_validator for full rule support
-        // For now, we check for Required rule manually
-        for rule in &self.rules {
-            if matches!(rule, Rule::Required) && value.is_empty_value() {
-                violations.push(Violation::new(
-                    walrs_validator::ViolationType::ValueMissing,
-                    "Value is required",
-                ));
-                if self.break_on_failure {
+        match &self.rule {
+            Some(rule) => {
+                // Check if rule requires value (Required or All containing Required)
+                if rule.requires_value() && value.is_empty_value() {
+                    let mut violations = Violations::empty();
+                    violations.push(Violation::new(
+                        walrs_validator::ViolationType::ValueMissing,
+                        "Value is required",
+                    ));
                     return Err(violations);
                 }
+                // TODO: Implement full Rule<Value> validation in walrs_validator
+                Ok(())
             }
-        }
-
-        if violations.is_empty() {
-            Ok(())
-        } else {
-            Err(violations)
+            None => Ok(()),
         }
     }
 
@@ -202,7 +204,7 @@ mod tests {
     fn test_field_builder_defaults() {
         let field = FieldBuilder::<String>::default().build().unwrap();
         assert_eq!(field.name, None);
-        assert!(field.rules.is_empty());
+        assert!(field.rule.is_none());
         assert!(field.filters.is_empty());
     }
 
@@ -210,13 +212,13 @@ mod tests {
     fn test_field_builder_with_values() {
         let field = FieldBuilder::<String>::default()
             .name("email".to_string())
-            .rules(vec![Rule::Required, Rule::MinLength(5)])
+            .rule(Rule::Required.and(Rule::MinLength(5)))
             .filters(vec![Filter::Trim])
             .build()
             .unwrap();
 
         assert_eq!(field.name, Some("email".to_string()));
-        assert_eq!(field.rules.len(), 2);
+        assert!(field.rule.is_some());
         assert_eq!(field.filters.len(), 1);
     }
 
@@ -234,7 +236,7 @@ mod tests {
     #[test]
     fn test_string_field_validate_passes() {
         let field = FieldBuilder::<String>::default()
-            .rules(vec![Rule::MinLength(3)])
+            .rule(Rule::MinLength(3))
             .build()
             .unwrap();
 
@@ -244,7 +246,7 @@ mod tests {
     #[test]
     fn test_string_field_validate_fails() {
         let field = FieldBuilder::<String>::default()
-            .rules(vec![Rule::MinLength(10)])
+            .rule(Rule::MinLength(10))
             .build()
             .unwrap();
 
@@ -254,7 +256,7 @@ mod tests {
     #[test]
     fn test_string_field_required() {
         let field = FieldBuilder::<String>::default()
-            .rules(vec![Rule::Required])
+            .rule(Rule::Required)
             .build()
             .unwrap();
 
@@ -267,7 +269,7 @@ mod tests {
     fn test_string_field_process() {
         let field = FieldBuilder::<String>::default()
             .filters(vec![Filter::Trim])
-            .rules(vec![Rule::MinLength(3)])
+            .rule(Rule::MinLength(3))
             .build()
             .unwrap();
 
@@ -289,7 +291,7 @@ mod tests {
     #[test]
     fn test_value_field_required() {
         let field = FieldBuilder::<Value>::default()
-            .rules(vec![Rule::Required])
+            .rule(Rule::Required)
             .build()
             .unwrap();
 
@@ -301,7 +303,7 @@ mod tests {
     #[test]
     fn test_break_on_failure() {
         let field = FieldBuilder::<String>::default()
-            .rules(vec![Rule::Required, Rule::MinLength(5), Rule::MaxLength(10)])
+            .rule(Rule::Required.and(Rule::MinLength(5)).and(Rule::MaxLength(10)))
             .break_on_failure(true)
             .build()
             .unwrap();
@@ -310,13 +312,13 @@ mod tests {
         let result = field.validate(&"".to_string());
         assert!(result.is_err());
         let violations = result.unwrap_err();
-        assert_eq!(violations.len(), 1); // Only required violation
+        assert_eq!(violations.len(), 1); // Only first violation
     }
 
     #[test]
     fn test_collect_all_violations() {
         let field = FieldBuilder::<String>::default()
-            .rules(vec![Rule::Required, Rule::MinLength(5)])
+            .rule(Rule::Required.and(Rule::MinLength(5)))
             .break_on_failure(false)
             .build()
             .unwrap();
@@ -332,7 +334,7 @@ mod tests {
     fn test_field_serialization() {
         let field = FieldBuilder::<String>::default()
             .name("username".to_string())
-            .rules(vec![Rule::Required])
+            .rule(Rule::Required)
             .build()
             .unwrap();
 

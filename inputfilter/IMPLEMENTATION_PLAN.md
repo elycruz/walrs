@@ -1177,8 +1177,7 @@ use walrs_inputfilter::{Field, FieldBuilder, Rule, Input, InputBuilder};
 fn bench_field_validation(c: &mut Criterion) {
     let field = FieldBuilder::default()
         .name("email".to_string())
-        .required(true)
-        .rules(vec![Rule::Email, Rule::MinLength(5)])
+        .rule(Rule::Required.and(Rule::Email).and(Rule::MinLength(5)))
         .build()
         .unwrap();
     
@@ -1220,10 +1219,7 @@ criterion_main!(benches);
 fn test_field_validation() {
     let field = FieldBuilder::default()
         .name("username".to_string())
-        .rules(vec![
-            Rule::MinLength(3),
-            Rule::MaxLength(20),
-        ])
+        .rule(Rule::MinLength(3).and(Rule::MaxLength(20)))
         .build()
         .unwrap();
     
@@ -1498,107 +1494,4 @@ impl Form {
 **Use case:** Pre-populate forms with default values when FormData is empty.
 
 ---
-
-## Dependencies
-
-### Crate Dependency Graph
-
-```
-walrs_form_core (no deps)
-    ↓
-    ├── walrs_validator (Rule<T> impl)
-    ├── walrs_filter (filter impls)
-    ↓
-walrs_inputfilter (Field<T>, Filter<T> enum)
-    ↓
-walrs_form (elements, FormData)
-    ↓
-walrs_form_serde (loading, schemas)
-```
-
-### External Dependencies
-
-- `serde` + `serde_json` + `serde_yaml`: Serialization
-- `derive_builder`: Builder pattern
-- `thiserror`: Error handling
-- `criterion`: Benchmarking
-- `wasm-bindgen`: WASM bindings
-- `web-sys`: Browser APIs
-- `serde-wasm-bindgen`: Serde for WASM
-
----
-
-## Timeline and Phases
-
-### Phase 1: Core Foundation (Week 1-2)
-- ✅ `walrs_validator` (already complete)
-- ✅ `walrs_filter` (already complete)
-- ✅ `Rule<T>` enum (already complete)
-- [ ] Create `walrs_form_core` crate
-- [ ] Implement `Field<T>` in `walrs_inputfilter`
-- [ ] Implement `Filter<T>` enum
-- [ ] Deprecate old `Input`/`RefInput`
-- [ ] Write migration guide
-
-### Phase 2: Form Structure (Week 3-4)
-- [ ] Create `walrs_form` crate structure
-- [ ] Implement type enums (InputType, SelectType, ButtonType)
-- [ ] Implement element structs (minimal fields)
-- [ ] Implement Element enum
-- [ ] Implement FormData with path resolution
-- [ ] Implement Fieldset and Form
-
-### Phase 3: WASM Support (Week 5)
-- [ ] Add WASM feature flags
-- [ ] Implement WASM bindings for `walrs_form`
-- [ ] Implement `TryFrom<web_sys::FormData>`
-- [ ] Create WASM build scripts
-- [ ] Test WASM compilation
-
-### Phase 4: Serialization (Week 6)
-- [ ] Create `walrs_form_serde` crate
-- [ ] Implement FormLoader trait
-- [ ] Implement JSON Schema generation
-- [ ] Implement TypeScript generation
-- [ ] Add WASM bindings
-
-### Phase 5: Integration & Testing (Week 7-8)
-- [ ] Create Actix-web example
-- [ ] Create Axum example
-- [ ] Create YAML form example
-- [ ] Create WASM HTML example
-- [ ] Write comprehensive tests
-- [ ] Create benchmarks
-- [ ] Write JavaScript tests
-
-### Phase 6: Documentation & Release (Week 9-10)
-- [ ] API documentation
-- [ ] Usage examples
-- [ ] Migration guide
-- [ ] Performance benchmarks report
-- [ ] README files for each crate
-- [ ] Release notes
-
----
-
-## Success Criteria
-
-- [ ] All tests passing
-- [ ] WASM compilation successful for all targets
-- [ ] Benchmarks show comparable or better performance than old API
-- [ ] Examples demonstrate key use cases
-- [ ] Documentation complete
-- [ ] Migration guide available
-- [ ] No breaking changes to existing `walrs_validator`/`walrs_filter` crates
-
----
-
-## Notes
-
-- `_recycler/form` kept for reference only
-- `walrs_form_view` rendering crate deferred to future work
-- File upload handling in WASM deferred (returns error)
-- Array indexing kept simple (single integer, no ranges)
-- Element structs minimal (attributes field for extras)
-- Pattern matching enabled via tuple variants in Element enum
 
