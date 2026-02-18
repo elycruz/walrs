@@ -31,21 +31,20 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 ///
 /// let mut field_filter = FieldFilter::new();
 ///
-/// // Add field definitions
-/// field_filter.add_field("email", FieldBuilder::<Value>::default()
-///     .rule(Rule::Required)
-///     .build()
-///     .unwrap());
-///
-/// // Add cross-field rule
-/// field_filter.add_cross_field_rule(CrossFieldRule {
-///     name: Some("password_match".to_string()),
-///     fields: vec!["password".to_string(), "password_confirm".to_string()],
-///     rule: CrossFieldRuleType::FieldsEqual {
-///         field_a: "password".to_string(),
-///         field_b: "password_confirm".to_string(),
-///     },
-/// });
+/// // Fluent API - chain add_field and add_cross_field_rule calls
+/// field_filter
+///     .add_field("email", FieldBuilder::<Value>::default()
+///         .rule(Rule::Required)
+///         .build()
+///         .unwrap())
+///     .add_cross_field_rule(CrossFieldRule {
+///         name: Some("password_match".to_string()),
+///         fields: vec!["password".to_string(), "password_confirm".to_string()],
+///         rule: CrossFieldRuleType::FieldsEqual {
+///             field_a: "password".to_string(),
+///             field_b: "password_confirm".to_string(),
+///         },
+///     });
 /// ```
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FieldFilter {
@@ -65,8 +64,9 @@ impl FieldFilter {
     }
 
     /// Adds a field definition.
-    pub fn add_field<S: Into<String>>(&mut self, name: S, field: Field<Value>) {
+    pub fn add_field<S: Into<String>>(&mut self, name: S, field: Field<Value>) -> &mut Self {
         self.fields.insert(name.into(), field);
+        self
     }
 
     /// Removes a field definition.
@@ -80,8 +80,9 @@ impl FieldFilter {
     }
 
     /// Adds a cross-field validation rule.
-    pub fn add_cross_field_rule(&mut self, rule: CrossFieldRule) {
+    pub fn add_cross_field_rule(&mut self, rule: CrossFieldRule) -> &mut Self {
         self.cross_field_rules.push(rule);
+        self
     }
 
     /// Validates form data against all fields and cross-field rules.

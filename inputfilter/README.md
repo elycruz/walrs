@@ -52,19 +52,30 @@ Available filters:
 ### FieldFilter
 Multi-field validation with cross-field rules:
 ```rust
-use walrs_inputfilter::{FieldFilter, Field, FieldBuilder};
-use walrs_inputfilter::field_filter::CrossFieldRule;
+use walrs_inputfilter::FieldFilter;
+use walrs_inputfilter::field::FieldBuilder;
+use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
+use walrs_form_core::Value;
 use walrs_validator::Rule;
 use std::collections::HashMap;
 use serde_json::json;
-let filter = FieldFilter::new()
-    .with_field("email", FieldBuilder::default().rule(Rule::Required).build().unwrap())
-    .with_field("password", FieldBuilder::default().rule(Rule::Required).build().unwrap())
-    .with_field("confirm_password", FieldBuilder::default().rule(Rule::Required).build().unwrap())
-    .with_cross_field_rule(CrossFieldRule::FieldsEqual {
+
+let mut filter = FieldFilter::new();
+
+// Fluent API - chain add_field and add_cross_field_rule calls
+filter
+    .add_field("email", FieldBuilder::<Value>::default().rule(Rule::Required).build().unwrap())
+    .add_field("password", FieldBuilder::<Value>::default().rule(Rule::Required).build().unwrap())
+    .add_field("confirm_password", FieldBuilder::<Value>::default().rule(Rule::Required).build().unwrap())
+    .add_cross_field_rule(CrossFieldRule {
+        name: Some("password_match".to_string()),
         fields: vec!["password".to_string(), "confirm_password".to_string()],
-        message: "Passwords must match".to_string(),
+        rule: CrossFieldRuleType::FieldsEqual {
+            field_a: "password".to_string(),
+            field_b: "confirm_password".to_string(),
+        },
     });
+
 let mut data = HashMap::new();
 data.insert("email".to_string(), json!("user@example.com"));
 data.insert("password".to_string(), json!("secret123"));
