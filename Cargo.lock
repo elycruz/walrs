@@ -1990,6 +1990,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "walrs_form"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "js-sys",
+ "regex",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "thiserror",
+ "walrs_form_core",
+ "walrs_inputfilter",
+ "walrs_validator",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "walrs_form_core"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "walrs_graph"
 version = "0.1.0"
 dependencies = [
@@ -2009,6 +2035,7 @@ dependencies = [
  "serde_json",
  "thiserror",
  "walrs_filter",
+ "walrs_form_core",
  "walrs_validator",
 ]
 

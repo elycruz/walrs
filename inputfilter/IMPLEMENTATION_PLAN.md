@@ -1,8 +1,21 @@
 # ECMS Form Ecosystem Implementation Plan
 
 **Date:** February 17, 2026  
-**Status:** Active Implementation  
+**Updated:** February 18, 2026  
+**Status:** Implementation Complete (except walrs_form_serde)  
 **Goal:** Implement a holistic form ecosystem for validation, filtering, and serialization supporting both frontend (WASM) and backend web applications.
+
+---
+
+## Implementation Status
+
+| Step | Component | Status |
+|------|-----------|--------|
+| Step 1 | `walrs_form_core` crate | ✅ Complete |
+| Step 2 | `Field<T>` in `walrs_inputfilter` | ✅ Complete |
+| Step 3 | `FieldFilter` multi-field validation | ✅ Complete |
+| Step 4 | `walrs_form` crate | ✅ Complete |
+| Step 5 | `walrs_form_serde` crate | ⏳ Not Implemented |
 
 ---
 
@@ -172,11 +185,16 @@ pub use attributes::Attributes;
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option))]
 pub struct Field<T> {
-    pub name: String,
+    pub name: Option<String>,
     
     #[builder(default = "false")]
     pub required: bool,
-    
+
+    // TODO: Do we need to add a `default_value`, or `get_default_value`, field or is  default value functionality handled for us by `Rule<T>`?
+  
+    #[builder(default = "None")]
+    pub locale: Option<String>,
+  
     #[builder(default)]
     pub rules: Vec<Rule<T>>,
     
@@ -185,7 +203,7 @@ pub struct Field<T> {
     
     /// Stops validation at first error when true
     #[builder(default = "false")]
-    pub break_on_failure: bool,
+    pub break_on_failure: bool, 
 }
 ```
 
@@ -207,7 +225,7 @@ pub struct FieldFilter {
 /// Cross-field validation rule
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CrossFieldRule {
-    pub name: String,
+    pub name: Option<String>,
     pub fields: Vec<String>,
     pub rule: CrossFieldRuleType,
 }
@@ -395,7 +413,7 @@ pub enum InputType {
     Number,
     Checkbox,
     Radio,
-    File,
+    File, // for file upload validation see laminas framework laminas-form for inspiration
     Date,
     #[serde(rename = "datetime-local")]
     DateTime,
@@ -437,6 +455,20 @@ pub enum ButtonType {
 
 #### 4.3 Element Structs (Minimal Fields)
 
+Element struct implementation rules:
+
+**Note:** Textarea, Select, and Input elements must contain all of the following fields: `name`, `_type`, `attributes`, `field`, `value` (captures last value injected, and/or, which is being validated, or which is set directly by the user/builder), `validation_message` (captures last validation run's first validation [err] message), `help_message`, `label`,
+`disabled` and `required`.  These fields should all be `Option`able except for the `_type` one.
+
+The `attributes` fields need to be `Option<Attributes>` and lazily constructed
+when it's needed.
+
+Other criteria:
+
+- All created Element structs should derive, and/or implement, a builder pattern.
+- All option values should be skipped in serialization if they are `None` (using `#[serde(skip_serializing_if = "Option::is_none")]`, etc.).
+- All creates Element structs should populate the `_type` field with variant that matches it's html counterpart (InputType::Text for InputElement, SelectType::Single for SelectElement, FieldsetType::Fieldset for FieldsetElement, etc.).
+
 **`walrs/form/src/input_element.rs`:**
 ```rust
 /// Input element
@@ -448,7 +480,7 @@ pub struct InputElement {
     pub _type: InputType,
     
     pub value: Option<Value>,
-    pub attributes: Attributes,
+    pub attributes: Option<Attributes>,
     pub field: Option<Field<Value>>,
 }
 
@@ -466,26 +498,29 @@ impl InputElement {
 ```rust
 /// HTML option element
 #[derive(Clone, Debug, Serialize, Deserialize)]
-#[builder(setter(into, strip_option), default = "None")]
 pub struct SelectOption {
-    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
-    pub value: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>, // Should be any type that has `ToString` impl
   
-    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
 
-    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub selected: Option<bool>,
     
-    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub disabled: Option<bool>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    /// When populated serves parent `SelectOption` serves as an 'optgroup'.
+    pub options: Option<Vec<SelectOption>>,
 }
 ```
 
 **`walrs/form/src/select_element.rs`:**
 ```rust
 /// Select element
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Builder, Clone, Debug, Serialize, Deserialize)]
 pub struct SelectElement {
     pub name: String,
     
@@ -498,12 +533,16 @@ pub struct SelectElement {
     pub label: Option<String>,
     pub options: Vec<SelectOption>,
     pub attributes: Attributes,
-    pub multiple: bool,
-    pub required: bool,
+    pub multiple: Option<bool>,
+    pub required: Option<bool>,
+    pub disabled: Option<bool>,
     pub field: Option<Field<Value>>,
+    /// Stores first encountered validation message from
+    /// each 'validate', and/or 'validate_all' call.
+    pub validation_message: Option<String>,
     
     /// Help text to display below html representation of this form control.
-    pub help_message: Option<String>,
+    pub help_message: Option<String>
 }
 
 impl SelectElement {
@@ -515,15 +554,19 @@ impl SelectElement {
 }
 ```
 
-**`walrs/form/src/button_element.rs`:**
+**`walrs/form/src/button_element.rs`:**Button and Fieldset elements must contain:
+- `name`
+- `attributes`
+- `disabled`
 ```rust
 /// Button element (no validation needed)
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ButtonElement {
-    pub name: Option<String>,
+    pub name: String,
     pub button_type: ButtonType,
-    pub label: String,
-    pub attributes: Attributes,
+    pub label: Option<String>,
+    pub attributes: Option<Attributes>,
+    pub disabled: Option<bool>,
 }
 ```
 
@@ -568,6 +611,9 @@ pub enum Element {
     
     /// Textarea element (no type variants)
     Textarea(TextareaElement),
+  
+    // Fieldset element that contains other elements
+    Fieldset(FieldsetElement),
 }
 ```
 
@@ -646,7 +692,8 @@ impl TryFrom<web_sys::FormData> for FormData {
 - Array indexing: `"items[0]"` → single integer index only
 - Combined: `"items[0].name"` → array then object
 - Out of bounds: Returns `None`
-- No negative indices or ranges
+- Allows negative indexing
+- No support for array range syntax
 
 #### 4.6 Fieldset and Form
 
@@ -654,11 +701,12 @@ impl TryFrom<web_sys::FormData> for FormData {
 ```rust
 /// Group of related form elements
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Fieldset {
-    pub name: String,
+pub struct Fieldset { // TODO: Rename to `FieldsetElement` 
+    pub name: Option<String>,
     pub legend: Option<String>,
-    pub elements: Vec<Element>,
-    pub attributes: Attributes,
+    pub disabled: Option<bool>,
+    pub elements: Option<Vec<Element>>,
+    pub attributes: Option<Attributes>,
 }
 
 impl Fieldset {
@@ -685,7 +733,6 @@ pub struct Form {
     pub method: Option<FormMethod>,
     pub enctype: Option<FormEnctype>,
     pub elements: Option<Vec<Element>>,    // Lazily created
-    pub fieldsets: Option<Vec<Fieldset>>,  // Lazily created,
     pub attributes: Option<Attributes>,    // Lazily created,
   
     // Should not show up in JSON
@@ -726,6 +773,8 @@ impl Form {
 ```
 
 #### 4.7 WASM Bindings
+
+TODO: Change all WASM binding name prefixes to `Walrs*`, instead of `Js*`.
 
 **`walrs/form/src/wasm.rs`:**
 ```rust

@@ -20,4 +20,5 @@ serde_json = "1.0.82"
 ammonia = "3.3.1"
 thiserror = "1.0"
 walrs_filter = { path = "../filter" }
+walrs_form_core = { path = "../form_core" }
 walrs_validator = { path = "../validator" }
