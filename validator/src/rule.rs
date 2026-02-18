@@ -26,8 +26,8 @@
 //! // Conditional rule
 //! let conditional = Rule::<String>::When {
 //!     condition: Condition::IsNotEmpty,
-//!     then_rules: vec![Rule::MinLength(5)],
-//!     else_rules: None,
+//!     then_rule: Box::new(Rule::MinLength(5)),
+//!     else_rule: None,
 //! };
 //! ```
 
@@ -39,6 +39,7 @@ use std::sync::Arc;
 use crate::length::WithLength;
 use crate::traits::ToAttributesList;
 use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::ViolationType;
 
 // ============================================================================
 // Result Types
@@ -53,7 +54,7 @@ pub type RuleResult = Result<(), Violation>;
 
 /// Conditions for `When` rules.
 ///
-/// Conditions determine whether the `then_rules` or `else_rules` of a `When` rule
+/// Conditions determine whether the `then_rule` or `else_rule` of a `When` rule
 /// should be applied. Most variants are serializable for config-driven validation.
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -211,8 +212,6 @@ impl Condition<String> {
 // ============================================================================
 // Violation Message Helpers
 // ============================================================================
-
-use crate::ViolationType;
 
 /// Creates a "value missing" violation for `Required` rule.
 pub fn value_missing_violation() -> Violation {
@@ -455,10 +454,10 @@ pub enum Rule<T> {
   When {
     /// Condition to evaluate
     condition: Condition<T>,
-    /// Rules to apply if condition is true
-    then_rules: Vec<Rule<T>>,
-    /// Rules to apply if condition is false (optional)
-    else_rules: Option<Vec<Rule<T>>>,
+    /// Rule to apply if condition is true
+    then_rule: Box<Rule<T>>,
+    /// Rule to apply if condition is false (optional)
+    else_rule: Option<Box<Rule<T>>>,
   },
 
   // ---- Custom ----
@@ -508,13 +507,13 @@ impl<T: Debug> Debug for Rule<T> {
       Self::Not(rule) => f.debug_tuple("Not").field(rule).finish(),
       Self::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => f
         .debug_struct("When")
         .field("condition", condition)
-        .field("then_rules", then_rules)
-        .field("else_rules", else_rules)
+        .field("then_rule", then_rule)
+        .field("else_rule", else_rule)
         .finish(),
       Self::Custom(_) => write!(f, "Custom(<fn>)"),
       Self::Ref(name) => f.debug_tuple("Ref").field(name).finish(),
@@ -549,13 +548,13 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (
         Self::When {
           condition: c1,
-          then_rules: t1,
-          else_rules: e1,
+          then_rule: t1,
+          else_rule: e1,
         },
         Self::When {
           condition: c2,
-          then_rules: t2,
-          else_rules: e2,
+          then_rule: t2,
+          else_rule: e2,
         },
       ) => c1 == c2 && t1 == t2 && e1 == e2,
       (Self::Ref(a), Self::Ref(b)) => a == b,
@@ -667,8 +666,8 @@ impl<T> Rule<T> {
   pub fn when(self, condition: Condition<T>) -> Rule<T> {
     Rule::When {
       condition,
-      then_rules: vec![self],
-      else_rules: None,
+      then_rule: Box::new(self),
+      else_rule: None,
     }
   }
 
@@ -682,14 +681,14 @@ impl<T> Rule<T> {
   /// let rule = Rule::<i32>::Min(0)
   ///     .when_else(
   ///         Condition::GreaterThan(0),
-  ///         vec![Rule::Max(100)],  // else rules
+  ///         Rule::Max(100),  // else rule
   ///     );
   /// ```
-  pub fn when_else(self, condition: Condition<T>, else_rules: Vec<Rule<T>>) -> Rule<T> {
+  pub fn when_else(self, condition: Condition<T>, else_rule: Rule<T>) -> Rule<T> {
     Rule::When {
       condition,
-      then_rules: vec![self],
-      else_rules: Some(else_rules),
+      then_rule: Box::new(self),
+      else_rule: Some(Box::new(else_rule)),
     }
   }
 
@@ -977,22 +976,18 @@ impl Rule<String> {
       },
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         let should_apply = condition.evaluate_str(value);
-        let rules_to_apply = if should_apply {
-          then_rules
+        if should_apply {
+          then_rule.validate_ref(value)
         } else {
-          match else_rules {
-            Some(rules) => rules,
-            None => return Ok(()),
+          match else_rule {
+            Some(rule) => rule.validate_ref(value),
+            None => Ok(()),
           }
-        };
-        for rule in rules_to_apply {
-          rule.validate_ref(value)?;
         }
-        Ok(())
       }
       Rule::Custom(f) => f(&value.to_string()),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
@@ -1088,19 +1083,13 @@ impl Rule<String> {
       }
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         let should_apply = condition.evaluate_str(value);
-        let rules_to_apply = if should_apply {
-          then_rules
-        } else {
-          match else_rules {
-            Some(rules) => rules,
-            None => return,
-          }
-        };
-        for rule in rules_to_apply {
+        if should_apply {
+          then_rule.collect_violations_ref(value, violations);
+        } else if let Some(rule) = else_rule {
           rule.collect_violations_ref(value, violations);
         }
       }
@@ -1214,22 +1203,18 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       },
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         let should_apply = condition.evaluate(&value);
-        let rules_to_apply = if should_apply {
-          then_rules
+        if should_apply {
+          then_rule.validate(value)
         } else {
-          match else_rules {
-            Some(rules) => rules,
-            None => return Ok(()),
+          match else_rule {
+            Some(rule) => rule.validate(value),
+            None => Ok(()),
           }
-        };
-        for rule in rules_to_apply {
-          rule.validate(value)?;
         }
-        Ok(())
       }
       Rule::Custom(f) => f(&value),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
@@ -1321,19 +1306,13 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       }
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         let should_apply = condition.evaluate(&value);
-        let rules_to_apply = if should_apply {
-          then_rules
-        } else {
-          match else_rules {
-            Some(rules) => rules,
-            None => return,
-          }
-        };
-        for rule in rules_to_apply {
+        if should_apply {
+          then_rule.collect_violations(value, violations);
+        } else if let Some(rule) = else_rule {
           rule.collect_violations(value, violations);
         }
       }
@@ -1616,22 +1595,18 @@ impl CompiledRule<String> {
       },
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         let should_apply = condition.evaluate_str(value);
-        let rules_to_apply = if should_apply {
-          then_rules
+        if should_apply {
+          CompiledRule::new((**then_rule).clone()).validate_ref(value)
         } else {
-          match else_rules {
-            Some(rules) => rules,
-            None => return Ok(()),
+          match else_rule {
+            Some(rule) => CompiledRule::new((**rule).clone()).validate_ref(value),
+            None => Ok(()),
           }
-        };
-        for rule in rules_to_apply {
-          CompiledRule::new(rule.clone()).validate_ref(value)?;
         }
-        Ok(())
       }
       Rule::Custom(f) => f(&value.to_string()),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
@@ -1898,16 +1873,14 @@ impl<T: WithLength> Rule<T> {
       },
       Rule::When {
         condition: _,
-        then_rules,
-        else_rules: _,
+        then_rule,
+        else_rule: _,
       } => {
         // For collections, we only support simple condition evaluation based on emptiness
         // Full condition evaluation would require additional trait bounds
-        // For now, always apply then_rules if value is not empty
+        // For now, always apply then_rule if value is not empty
         if value.length() > 0 {
-          for rule in then_rules {
-            rule.validate_len_ref(value)?;
-          }
+          then_rule.validate_len_ref(value)?;
         }
         Ok(())
       }
@@ -2024,14 +1997,12 @@ impl<T: WithLength> Rule<T> {
       }
       Rule::When {
         condition: _,
-        then_rules,
-        else_rules: _,
+        then_rule,
+        else_rule: _,
       } => {
-        // For collections, apply then_rules if not empty
+        // For collections, apply then_rule if not empty
         if value.length() > 0 {
-          for rule in then_rules {
-            rule.collect_len_violations_ref(value, violations);
-          }
+          then_rule.collect_len_violations_ref(value, violations);
         }
       }
       Rule::WithMessage { rule, message: _ } => {
@@ -2121,12 +2092,12 @@ mod tests {
     match rule {
       Rule::When {
         condition,
-        then_rules,
-        else_rules,
+        then_rule,
+        else_rule,
       } => {
         assert_eq!(condition, Condition::IsNotEmpty);
-        assert_eq!(then_rules.len(), 1);
-        assert!(else_rules.is_none());
+        assert_eq!(*then_rule, Rule::MinLength(8));
+        assert!(else_rule.is_none());
       }
       _ => panic!("Expected Rule::When"),
     }
@@ -2383,10 +2354,10 @@ mod tests {
   fn test_validate_ref_when() {
     let rule = Rule::<String>::When {
       condition: Condition::IsNotEmpty,
-      then_rules: vec![Rule::MinLength(5)],
-      else_rules: None,
+      then_rule: Box::new(Rule::MinLength(5)),
+      else_rule: None,
     };
-    assert!(rule.validate_ref("").is_ok()); // Empty, condition false, no rules applied
+    assert!(rule.validate_ref("").is_ok()); // Empty, condition false, no rule applied
     assert!(rule.validate_ref("hello").is_ok()); // Not empty, MinLength(5) passes
     assert!(rule.validate_ref("hi").is_err()); // Not empty, MinLength(5) fails
   }
@@ -3131,8 +3102,8 @@ mod tests {
     // When doesn't map to HTML attributes
     let rule = Rule::<String>::When {
       condition: Condition::IsNotEmpty,
-      then_rules: vec![Rule::MinLength(3)],
-      else_rules: None,
+      then_rule: Box::new(Rule::MinLength(3)),
+      else_rule: None,
     };
     assert!(rule.to_attributes_list().is_none());
   }
