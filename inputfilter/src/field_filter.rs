@@ -129,6 +129,10 @@ impl FieldFilter {
     }
 
     /// Filters and then validates the data.
+    /// @todo Consider adding a field, or a method param, that will allow to switch
+    ///     the execution order:
+    ///     - filtering first, then validation or
+    ///     - vice-versa
     pub fn process(
         &self,
         data: HashMap<String, Value>,

@@ -11,8 +11,9 @@ impl FormData {
     pub fn new() -> Self {
         Self(HashMap::new())
     }
-    pub fn insert<K: Into<String>>(&mut self, key: K, value: Value) {
+    pub fn insert<K: Into<String>>(&mut self, key: K, value: Value) -> &mut Self {
         self.0.insert(key.into(), value);
+        self
     }
     pub fn get_direct(&self, key: &str) -> Option<&Value> {
         self.0.get(key)
@@ -39,20 +40,20 @@ impl FormData {
         }
         current
     }
-    pub fn set(&mut self, path: &str, value: Value) {
+    pub fn set(&mut self, path: &str, value: Value) -> &mut Self {
         let segments = match parse_path(path) {
             Ok(s) if !s.is_empty() => s,
-            _ => return,
+            _ => return self,
         };
         if segments.len() == 1 {
             if let PathSegment::Field(name) = &segments[0] {
                 self.0.insert(name.clone(), value);
             }
-            return;
+            return self;
         }
         let first = match &segments[0] {
             PathSegment::Field(name) => name.clone(),
-            _ => return,
+            _ => return self,
         };
         let root = self.0.entry(first).or_insert_with(|| {
             match segments.get(1) {
@@ -61,6 +62,7 @@ impl FormData {
             }
         });
         set_nested(root, &segments[1..], value);
+        self
     }
     pub fn remove(&mut self, key: &str) -> Option<Value> {
         self.0.remove(key)

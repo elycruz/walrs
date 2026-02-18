@@ -70,12 +70,13 @@ impl FormViolations {
     }
 
     /// Adds violations for a field.
-    pub fn add_field_violations<S: Into<String>>(&mut self, field_name: S, violations: Violations) {
+    pub fn add_field_violations<S: Into<String>>(&mut self, field_name: S, violations: Violations) -> &mut Self {
         let name = field_name.into();
         self.fields
             .entry(name)
             .or_insert_with(Violations::empty)
             .extend(violations);
+        self
     }
 
     /// Adds a single violation for a field.
@@ -83,22 +84,25 @@ impl FormViolations {
         &mut self,
         field_name: S,
         violation: walrs_validator::Violation,
-    ) {
+    ) -> &mut Self {
         let name = field_name.into();
         self.fields
             .entry(name)
             .or_insert_with(Violations::empty)
             .push(violation);
+        self
     }
 
     /// Adds a form-level violation.
-    pub fn add_form_violation(&mut self, violation: walrs_validator::Violation) {
+    pub fn add_form_violation(&mut self, violation: walrs_validator::Violation) -> &mut Self {
         self.form.push(violation);
+        self
     }
 
     /// Adds multiple form-level violations.
-    pub fn add_form_violations(&mut self, violations: Violations) {
+    pub fn add_form_violations(&mut self, violations: Violations) -> &mut Self {
         self.form.extend(violations);
+        self
     }
 
     /// Returns an iterator over all field names with violations.
@@ -107,17 +111,19 @@ impl FormViolations {
     }
 
     /// Merges another `FormViolations` into this one.
-    pub fn merge(&mut self, other: FormViolations) {
+    pub fn merge(&mut self, other: FormViolations) -> &mut Self {
         for (field, violations) in other.fields {
             self.add_field_violations(field, violations);
         }
         self.form.extend(other.form);
+        self
     }
 
     /// Clears all violations.
-    pub fn clear(&mut self) {
+    pub fn clear(&mut self) -> &mut Self {
         self.fields.clear();
         self.form.clear();
+        self
     }
 }
 

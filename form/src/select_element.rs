@@ -143,8 +143,9 @@ impl SelectElement {
     /// select.add_option(SelectOption::new("lg", "Large"));
     /// assert_eq!(select.options.len(), 2);
     /// ```
-    pub fn add_option(&mut self, option: SelectOption) {
+    pub fn add_option(&mut self, option: SelectOption) -> &mut Self {
         self.options.push(option);
+        self
     }
 }
 #[cfg(test)]

@@ -58,7 +58,7 @@ impl Form {
             ..Default::default()
         }
     }
-    pub fn bind_data(&mut self, data: FormData) {
+    pub fn bind_data(&mut self, data: FormData) -> &mut Self {
         if let Some(ref mut elements) = self.elements {
             for element in elements.iter_mut() {
                 if let Some(name) = element.name() {
@@ -68,6 +68,7 @@ impl Form {
                 }
             }
         }
+        self
     }
     fn set_element_value(element: &mut Element, value: walrs_form_core::Value) {
         match element {
@@ -109,8 +110,9 @@ impl Form {
             }
         }
     }
-    pub fn add_element(&mut self, element: Element) {
+    pub fn add_element(&mut self, element: Element) -> &mut Self {
         self.elements.get_or_insert_with(Vec::new).push(element);
+        self
     }
     pub fn get_element(&self, name: &str) -> Option<&Element> {
         self.elements.as_ref()?.iter().find(|el| el.name() == Some(name))

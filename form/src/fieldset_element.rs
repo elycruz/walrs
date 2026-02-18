@@ -101,8 +101,9 @@ impl FieldsetElement {
     /// fieldset.add_element(InputElement::new("field1", InputType::Text).into());
     /// assert_eq!(fieldset.elements.as_ref().unwrap().len(), 1);
     /// ```
-    pub fn add_element(&mut self, element: Element) {
+    pub fn add_element(&mut self, element: Element) -> &mut Self {
         self.elements.get_or_insert_with(Vec::new).push(element);
+        self
     }
     /// Returns an iterator over all elements.
     pub fn iter_elements(&self) -> impl Iterator<Item = &Element> {

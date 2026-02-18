@@ -118,31 +118,28 @@ fn main() {
 fn simulate_form_validation() -> FormViolations {
     let mut violations = FormViolations::new();
 
-    // Simulate validation of a registration form
-    violations.add_field_violation(
-        "username",
-        Violation::new(ViolationType::TooShort, "Username must be at least 3 characters"),
-    );
-
-    violations.add_field_violation(
-        "email",
-        Violation::new(ViolationType::TypeMismatch, "Please enter a valid email address"),
-    );
-
-    violations.add_field_violation(
-        "password",
-        Violation::new(ViolationType::TooShort, "Password must be at least 8 characters"),
-    );
-
-    violations.add_field_violation(
-        "password",
-        Violation::new(ViolationType::PatternMismatch, "Password must contain at least one uppercase letter"),
-    );
-
-    violations.add_form_violation(Violation::new(
-        ViolationType::CustomError,
-        "Password confirmation does not match",
-    ));
+    // Simulate validation of a registration form using fluent interface
+    violations
+        .add_field_violation(
+            "username",
+            Violation::new(ViolationType::TooShort, "Username must be at least 3 characters"),
+        )
+        .add_field_violation(
+            "email",
+            Violation::new(ViolationType::TypeMismatch, "Please enter a valid email address"),
+        )
+        .add_field_violation(
+            "password",
+            Violation::new(ViolationType::TooShort, "Password must be at least 8 characters"),
+        )
+        .add_field_violation(
+            "password",
+            Violation::new(ViolationType::PatternMismatch, "Password must contain at least one uppercase letter"),
+        )
+        .add_form_violation(Violation::new(
+            ViolationType::CustomError,
+            "Password confirmation does not match",
+        ));
 
     violations
 }

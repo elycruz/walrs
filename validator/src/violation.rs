@@ -143,8 +143,9 @@ impl Violations {
   }
 
   /// Adds a violation to the collection.
-  pub fn push(&mut self, violation: Violation) {
+  pub fn push(&mut self, violation: Violation) -> &mut Self {
     self.0.push(violation);
+    self
   }
 
   /// Converts the violations into a vector of violation messages.

@@ -80,8 +80,9 @@ impl Attributes {
     }
 
     /// Clears all attributes.
-    pub fn clear(&mut self) {
-        self.0.clear()
+    pub fn clear(&mut self) -> &mut Self {
+        self.0.clear();
+        self
     }
 
     /// Renders attributes as an HTML attribute string.
@@ -116,8 +117,9 @@ impl Attributes {
     /// Merges another Attributes instance into this one.
     ///
     /// Existing keys will be overwritten.
-    pub fn merge(&mut self, other: Attributes) {
+    pub fn merge(&mut self, other: Attributes) -> &mut Self {
         self.0.extend(other.0);
+        self
     }
 }
 
