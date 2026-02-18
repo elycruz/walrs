@@ -26,15 +26,14 @@ use walrs_validator::{Rule, Violation, Violations};
 /// use walrs_inputfilter::filter_enum::Filter;
 /// use walrs_validator::Rule;
 ///
-/// // Single rule
+/// // Simple field with just a rule (no filters)
 /// let field = FieldBuilder::<String>::default()
 ///     .name("username".to_string())
 ///     .rule(Rule::Required)
-///     .filters(vec![Filter::Trim])
 ///     .build()
 ///     .unwrap();
 ///
-/// // Multiple rules using Rule::All
+/// // Field with rule and filters
 /// let field = FieldBuilder::<String>::default()
 ///     .name("email".to_string())
 ///     .rule(Rule::Required.and(Rule::Email))
@@ -56,23 +55,23 @@ where
 {
     /// Optional field name for error reporting.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
 
     /// Optional locale for localized error messages.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub locale: Option<String>,
 
     /// Validation rule to apply. Use `Rule::All` for multiple rules.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub rule: Option<Rule<T>>,
 
-    /// Filters to apply before validation.
-    #[serde(default)]
-    #[builder(default)]
-    pub filters: Vec<Filter<T>>,
+    /// Filters to apply before validation. Use `Filter::Chain` for multiple filters.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[builder(default = "None")]
+    pub filters: Option<Vec<Filter<T>>>,
 
     /// When true, stops validation at the first error.
     #[builder(default = "false")]
@@ -85,7 +84,7 @@ impl<T: Clone> Default for Field<T> {
             name: None,
             locale: None,
             rule: None,
-            filters: Vec::new(),
+            filters: None,
             break_on_failure: false,
         }
     }
@@ -112,7 +111,10 @@ where
 impl Field<String> {
     /// Apply all filters to the value sequentially.
     pub fn filter(&self, value: String) -> String {
-        self.filters.iter().fold(value, |v, f| f.apply(v))
+        match &self.filters {
+            Some(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
+            None => value,
+        }
     }
 
     /// Validate the value against the rule.
@@ -154,7 +156,10 @@ impl Field<String> {
 impl Field<Value> {
     /// Apply all filters to the value sequentially.
     pub fn filter(&self, value: Value) -> Value {
-        self.filters.iter().fold(value, |v, f| f.apply(v))
+        match &self.filters {
+            Some(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
+            None => value,
+        }
     }
 
     /// Validate the value against the rule.
@@ -205,7 +210,7 @@ mod tests {
         let field = FieldBuilder::<String>::default().build().unwrap();
         assert_eq!(field.name, None);
         assert!(field.rule.is_none());
-        assert!(field.filters.is_empty());
+        assert!(field.filters.is_none());
     }
 
     #[test]
@@ -219,7 +224,7 @@ mod tests {
 
         assert_eq!(field.name, Some("email".to_string()));
         assert!(field.rule.is_some());
-        assert_eq!(field.filters.len(), 1);
+        assert_eq!(field.filters.as_ref().map(|f| f.len()), Some(1));
     }
 
     #[test]

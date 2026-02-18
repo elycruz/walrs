@@ -30,25 +30,25 @@ pub enum FormEnctype {
 #[builder(setter(into, strip_option), default)]
 pub struct Form {
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub action: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub method: Option<FormMethod>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub enctype: Option<FormEnctype>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub elements: Option<Vec<Element>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
     #[serde(skip)]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub field_filter: Option<FieldFilter>,
 }
 impl Form {

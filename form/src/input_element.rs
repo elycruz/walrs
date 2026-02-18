@@ -41,43 +41,43 @@ use crate::input_type::InputType;
 pub struct InputElement {
     /// Element name attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     /// Input type.
     #[serde(rename = "type")]
-    #[builder(default)]
+    #[builder(default = "InputType::Text")]
     pub _type: InputType,
     /// Current value.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub value: Option<Value>,
     /// Label text.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub label: Option<String>,
     /// Additional HTML attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
     /// Validation field configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub field: Option<Field<Value>>,
     /// Whether the field is required.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub required: Option<bool>,
     /// Whether the field is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
     /// Validation error message from last validation.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub validation_message: Option<String>,
     /// Help text to display.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub help_message: Option<String>,
 }
 impl InputElement {

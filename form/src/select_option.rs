@@ -39,23 +39,23 @@ use serde::{Deserialize, Serialize};
 pub struct SelectOption {
     /// Option value attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub value: Option<String>,
     /// Display label for the option.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub label: Option<String>,
     /// Whether this option is selected.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub selected: Option<bool>,
     /// Whether this option is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
     /// Nested options (makes this an optgroup).
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub options: Option<Vec<SelectOption>>,
 }
 impl SelectOption {

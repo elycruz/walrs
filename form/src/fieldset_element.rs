@@ -38,23 +38,23 @@ use crate::element::Element;
 pub struct FieldsetElement {
     /// Fieldset name.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     /// Legend text.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub legend: Option<String>,
     /// Whether the fieldset is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
     /// Child elements.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub elements: Option<Vec<Element>>,
     /// Additional HTML attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
 }
 impl FieldsetElement {

@@ -37,39 +37,39 @@ use walrs_validator::Violations;
 pub struct TextareaElement {
     /// Element name attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     /// Current value.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub value: Option<String>,
     /// Number of visible text rows.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub rows: Option<u32>,
     /// Number of visible text columns.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub cols: Option<u32>,
     /// Label text.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub label: Option<String>,
     /// Additional HTML attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
     /// Validation field configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub field: Option<Field<Value>>,
     /// Whether the field is required.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub required: Option<bool>,
     /// Whether the field is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
 }
 impl TextareaElement {

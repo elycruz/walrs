@@ -44,19 +44,19 @@ use crate::select_type::SelectType;
 pub struct SelectElement {
     /// Element name attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     /// Select type (single or multiple).
     #[serde(rename = "type")]
-    #[builder(default)]
+    #[builder(default = "SelectType::Single")]
     pub _type: SelectType,
     /// Current value.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub value: Option<Value>,
     /// Label text.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub label: Option<String>,
     /// Available options.
     #[serde(default)]
@@ -64,19 +64,19 @@ pub struct SelectElement {
     pub options: Vec<SelectOption>,
     /// Additional HTML attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
     /// Whether the field is required.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub required: Option<bool>,
     /// Whether the field is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
     /// Validation field configuration.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub field: Option<Field<Value>>,
 }
 impl SelectElement {

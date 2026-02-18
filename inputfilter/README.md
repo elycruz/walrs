@@ -11,15 +11,15 @@ use walrs_inputfilter::filter_enum::Filter;
 use walrs_validator::Rule;
 use walrs_form_core::Value;
 use serde_json::json;
-// Single rule
+// Simple field with just a rule (filters are optional)
 let field: Field<Value> = FieldBuilder::default()
     .rule(Rule::Required)
-    .filters(vec![Filter::Trim, Filter::Lowercase])
     .build()
     .unwrap();
-// Multiple rules using Rule::All (via .and() combinator)
+// Field with rule and filters
 let field: Field<Value> = FieldBuilder::default()
     .rule(Rule::Required.and(Rule::MinLength(3)))
+    .filters(vec![Filter::Trim, Filter::Lowercase])
     .build()
     .unwrap();
 // Validate

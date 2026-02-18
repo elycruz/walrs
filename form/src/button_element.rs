@@ -41,23 +41,23 @@ use crate::button_type::ButtonType;
 pub struct ButtonElement {
     /// Element name attribute.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub name: Option<String>,
     /// Button type (submit, reset, button).
     #[serde(rename = "type")]
-    #[builder(default)]
+    #[builder(default = "ButtonType::Button")]
     pub _type: ButtonType,
     /// Button label/text content.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub label: Option<String>,
     /// Additional HTML attributes.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub attributes: Option<Attributes>,
     /// Whether the button is disabled.
     #[serde(skip_serializing_if = "Option::is_none")]
-    #[builder(default)]
+    #[builder(default = "None")]
     pub disabled: Option<bool>,
 }
 impl ButtonElement {
