@@ -68,7 +68,7 @@ This plan outlines the implementation of the ECMS form ecosystem, replacing the 
 
 | Crate | Responsibility | Key Types |
 |-------|----------------|-----------|
-| `walrs_form_core` | Shared types, no dependencies | `Value`, `Attributes` |
+| `walrs_form_core` | Shared types, re-exports | `Value` (re-export of `serde_json::Value`), `ValueExt`, `Attributes` |
 | `walrs_validator` | Individual validator implementations | `Rule<T>` enum with validation logic |
 | `walrs_filter` | Individual filter implementations | `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` |
 | `walrs_inputfilter` | Field-level validation & filtering | `Field<T>`, `FieldFilter`, `Filter<T>` enum, cross-field rules |
@@ -81,7 +81,7 @@ This plan outlines the implementation of the ECMS form ecosystem, replacing the 
 
 ### Step 1: Create `walrs_form_core` Crate
 
-**Purpose:** Shared foundation types with no dependencies for use across all form-related crates.
+**Purpose:** Shared foundation types and re-exports (notably `serde_json::Value`) for use across all form-related crates.
 
 **Files to Create:**
 
@@ -105,31 +105,37 @@ default = []
 
 #### 1.2 `walrs/form_core/src/value.rs`
 ```rust
-/// Dynamic value type for form data
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum Value {
-    Null,
-    Bool(bool),
-    Int(i64),
-    Float(f64),
-    String(String),
-    Array(Vec<Value>),
-    Object(HashMap<String, Value>),
+/// Re-export serde_json::Value as our dynamic value type for form data.
+/// This provides all necessary features: serialization, helper methods
+/// (as_str, as_i64, as_f64, as_bool, as_array, as_object), and From impls.
+pub use serde_json::Value;
+
+/// Extension trait for Value to add form-specific helper methods
+pub trait ValueExt {
+    /// Checks if the value is "empty" (null, empty string, empty array, or empty object)
+    fn is_empty_value(&self) -> bool;
+}
+
+impl ValueExt for Value {
+    fn is_empty_value(&self) -> bool {
+        match self {
+            Value::Null => true,
+            Value::String(s) => s.is_empty(),
+            Value::Array(arr) => arr.is_empty(),
+            Value::Object(obj) => obj.is_empty(),
+            _ => false,
+        }
+    }
 }
 ```
 
 **Features:**
-- `#[serde(untagged)]` for transparent JSON mapping
-- Conversion traits: `From<String>`, `From<&str>`, `From<i32>`, `From<i64>`, `From<f64>`, `From<bool>`, `From<Vec<Value>>`, `From<HashMap<String, Value>>`
-- Helper methods:
-  - `as_str() -> Option<&str>`
-  - `as_bool() -> Option<bool>`
-  - `as_i64() -> Option<i64>`
-  - `as_f64() -> Option<f64>`
-  - `as_array() -> Option<&Vec<Value>>`
-  - `as_object() -> Option<&HashMap<String, Value>>`
-  - `is_empty() -> bool` (checks for null/empty string/empty array/empty object)
+- Uses `serde_json::Value` directly — no custom enum needed
+- `serde_json::Value` already provides:
+  - Transparent JSON serialization/deserialization
+  - Conversion traits: `From<String>`, `From<&str>`, `From<i32>`, `From<i64>`, `From<f64>`, `From<bool>`, `From<Vec<Value>>`, `From<serde_json::Map<String, Value>>`
+  - Helper methods: `as_str()`, `as_bool()`, `as_i64()`, `as_f64()`, `as_array()`, `as_object()`, `is_null()`, etc.
+- `ValueExt` trait adds `is_empty_value()` for form-specific "empty" checking
 
 #### 1.3 `walrs/form_core/src/attributes.rs`
 ```rust
@@ -148,7 +154,7 @@ pub struct Attributes(HashMap<String, String>);
 pub mod value;
 pub mod attributes;
 
-pub use value::Value;
+pub use value::{Value, ValueExt};
 pub use attributes::Attributes;
 ```
 
@@ -431,22 +437,6 @@ pub enum ButtonType {
 
 #### 4.3 Element Structs (Minimal Fields)
 
-**`walrs/form/src/select_option.rs`:**
-```rust
-/// HTML option element
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SelectOption {
-    pub value: String,
-    pub label: String,
-    
-    #[serde(default)]
-    pub selected: bool,
-    
-    #[serde(default)]
-    pub disabled: bool,
-}
-```
-
 **`walrs/form/src/input_element.rs`:**
 ```rust
 /// Input element
@@ -472,6 +462,26 @@ impl InputElement {
 }
 ```
 
+**`walrs/form/src/select_option.rs`:**
+```rust
+/// HTML option element
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[builder(setter(into, strip_option), default = "None")]
+pub struct SelectOption {
+    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    pub value: Option<String>,
+  
+    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    pub label: Option<String>,
+
+    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    pub selected: Option<bool>,
+    
+    #[serde(setter(into), skip_serializing_if = "Option::is_none")]
+    pub disabled: Option<bool>,
+}
+```
+
 **`walrs/form/src/select_element.rs`:**
 ```rust
 /// Select element
@@ -484,9 +494,16 @@ pub struct SelectElement {
     
     /// Single value for Single, array for Multiple
     pub value: Option<Value>,
+    pub values: Option<Vec<Value>>,
+    pub label: Option<String>,
     pub options: Vec<SelectOption>,
     pub attributes: Attributes,
+    pub multiple: bool,
+    pub required: bool,
     pub field: Option<Field<Value>>,
+    
+    /// Help text to display below html representation of this form control.
+    pub help_message: Option<String>,
 }
 
 impl SelectElement {
@@ -661,14 +678,18 @@ impl Fieldset {
 /// HTML form
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Form {
-    pub name: String,
+    // Fields that are non (at serialization time) should not show up in JSON string
+    // ----
+    pub name: Option<String>,
     pub action: Option<String>,
-    pub method: FormMethod,
-    pub enctype: FormEnctype,
-    pub elements: Vec<Element>,
-    pub fieldsets: Vec<Fieldset>,
-    pub attributes: Attributes,
-    pub field_filter: Option<FieldFilter>,
+    pub method: Option<FormMethod>,
+    pub enctype: Option<FormEnctype>,
+    pub elements: Option<Vec<Element>>,    // Lazily created
+    pub fieldsets: Option<Vec<Fieldset>>,  // Lazily created,
+    pub attributes: Option<Attributes>,    // Lazily created,
+  
+    // Should not show up in JSON
+    pub field_filter: Option<FieldFilter>, 
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
