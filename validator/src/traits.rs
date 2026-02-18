@@ -155,7 +155,9 @@ macro_rules! impl_steppable_integer {
   };
 }
 
-impl_steppable_integer!(i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize);
+impl_steppable_integer!(
+  i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize
+);
 
 impl SteppableValue for f32 {
   fn rem_check(self, divisor: Self) -> bool {

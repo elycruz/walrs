@@ -36,10 +36,10 @@ use serde_json::value::to_value as to_json_value;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
+use crate::ViolationType;
 use crate::length::WithLength;
 use crate::traits::ToAttributesList;
 use crate::{Message, MessageContext, SteppableValue, Violation};
-use crate::ViolationType;
 
 // ============================================================================
 // Result Types
@@ -1720,7 +1720,10 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>> {
     match self {
       // Presence
-      Rule::Required => Some(vec![("required".to_string(), serde_json::Value::Bool(true))]),
+      Rule::Required => Some(vec![(
+        "required".to_string(),
+        serde_json::Value::Bool(true),
+      )]),
 
       // Length Rules
       Rule::MinLength(n) => Some(vec![("minlength".to_string(), serde_json::Value::from(*n))]),
@@ -1731,13 +1734,20 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
       ]),
 
       // String Rules
-      Rule::Pattern(p) => Some(vec![("pattern".to_string(), serde_json::Value::from(p.clone()))]),
+      Rule::Pattern(p) => Some(vec![(
+        "pattern".to_string(),
+        serde_json::Value::from(p.clone()),
+      )]),
       Rule::Email => Some(vec![("type".to_string(), serde_json::Value::from("email"))]),
       Rule::Url => Some(vec![("type".to_string(), serde_json::Value::from("url"))]),
 
       // Numeric Rules
-      Rule::Min(v) => to_json_value(v).ok().map(|val| vec![("min".to_string(), val)]),
-      Rule::Max(v) => to_json_value(v).ok().map(|val| vec![("max".to_string(), val)]),
+      Rule::Min(v) => to_json_value(v)
+        .ok()
+        .map(|val| vec![("min".to_string(), val)]),
+      Rule::Max(v) => to_json_value(v)
+        .ok()
+        .map(|val| vec![("max".to_string(), val)]),
       Rule::Range { min, max } => {
         let min_val = to_json_value(min).ok()?;
         let max_val = to_json_value(max).ok()?;
@@ -1746,7 +1756,9 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
           ("max".to_string(), max_val),
         ])
       }
-      Rule::Step(v) => to_json_value(v).ok().map(|val| vec![("step".to_string(), val)]),
+      Rule::Step(v) => to_json_value(v)
+        .ok()
+        .map(|val| vec![("step".to_string(), val)]),
 
       // Comparison - Equals doesn't have a direct HTML attribute equivalent
       Rule::Equals(_) => None,
@@ -1760,11 +1772,7 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
             attrs.extend(child_attrs);
           }
         }
-        if attrs.is_empty() {
-          None
-        } else {
-          Some(attrs)
-        }
+        if attrs.is_empty() { None } else { Some(attrs) }
       }
       Rule::Any(rules) => {
         let mut attrs = Vec::new();
@@ -1773,11 +1781,7 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
             attrs.extend(child_attrs);
           }
         }
-        if attrs.is_empty() {
-          None
-        } else {
-          Some(attrs)
-        }
+        if attrs.is_empty() { None } else { Some(attrs) }
       }
 
       // Not - negation doesn't map to HTML attributes

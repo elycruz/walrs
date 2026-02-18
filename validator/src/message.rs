@@ -722,10 +722,7 @@ mod tests {
     // Test English (default)
     let params_en = MessageParams::new("Custom");
     let ctx_en = MessageContext::with_locale("test", params_en, None);
-    assert_eq!(
-      msg.resolve_with_context(&ctx_en),
-      "Value 'test' is invalid"
-    );
+    assert_eq!(msg.resolve_with_context(&ctx_en), "Value 'test' is invalid");
 
     // Test Spanish
     let params_es = MessageParams::new("Custom");

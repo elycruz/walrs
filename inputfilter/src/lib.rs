@@ -56,8 +56,8 @@ pub mod validators;
 
 // Re-export types from walrs_validator for backwards compatibility
 pub use walrs_validator::{
-    CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Violation, ViolationMessage,
-    ViolationType, Violations,
+  CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Violation, ViolationMessage,
+  ViolationType, Violations,
 };
 
 // Re-export types from walrs_form_core

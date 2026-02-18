@@ -286,17 +286,13 @@ mod test {
   #[test]
   fn test_construction() -> Result<(), Box<dyn Error>> {
     for (test_name, instance, step) in [
-      ("Default", StepValidatorBuilder::<usize>::default().build()?, None),
       (
-        "Default 2",
-        StepValidator::<usize>::new(),
+        "Default",
+        StepValidatorBuilder::<usize>::default().build()?,
         None,
       ),
-      (
-        "Default 3",
-        StepValidator::<usize>::default(),
-        None,
-      ),
+      ("Default 2", StepValidator::<usize>::new(), None),
+      ("Default 3", StepValidator::<usize>::default(), None),
       (
         "With step",
         StepValidatorBuilder::<usize>::default().step(5).build()?,
@@ -312,9 +308,7 @@ mod test {
 
   #[test]
   fn test_validate() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<usize>::default()
-      .step(5)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<usize>::default().step(5).build()?;
 
     // Valid multiples of 5
     assert_eq!(vldtr.validate(0), Ok(()));
@@ -353,9 +347,7 @@ mod test {
 
   #[test]
   fn test_validate_step_zero() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<usize>::default()
-      .step(0)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<usize>::default().step(0).build()?;
 
     // Step of 0 should not validate (division by zero protection)
     assert_eq!(vldtr.validate(0), Ok(()));
@@ -367,9 +359,7 @@ mod test {
 
   #[test]
   fn test_validate_signed_integers() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<i32>::default()
-      .step(5)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<i32>::default().step(5).build()?;
 
     // Valid multiples of 5 (including negative)
     assert_eq!(vldtr.validate(0), Ok(()));
@@ -386,9 +376,7 @@ mod test {
 
   #[test]
   fn test_validate_floats() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<f64>::default()
-      .step(0.5)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<f64>::default().step(0.5).build()?;
 
     // Valid multiples of 0.5
     assert_eq!(vldtr.validate(0.0), Ok(()));
@@ -405,9 +393,7 @@ mod test {
 
   #[test]
   fn test_to_attributes_list() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<usize>::default()
-      .step(5)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<usize>::default().step(5).build()?;
 
     assert_eq!(
       vldtr.to_attributes_list(),
@@ -423,9 +409,7 @@ mod test {
 
   #[test]
   fn test_display() -> Result<(), Box<dyn Error>> {
-    let vldtr = StepValidatorBuilder::<usize>::default()
-      .step(5)
-      .build()?;
+    let vldtr = StepValidatorBuilder::<usize>::default().step(5).build()?;
 
     let display_output = format!("{}", vldtr);
     assert_eq!(display_output, "StepValidator {step: 5}");
@@ -449,4 +433,3 @@ mod test {
     );
   }
 }
-

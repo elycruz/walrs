@@ -74,7 +74,7 @@ pub use form::{Form, FormBuilder, FormEnctype, FormMethod};
 pub use form_data::FormData;
 pub use input_element::{InputElement, InputElementBuilder};
 pub use input_type::InputType;
-pub use path::{parse_path, PathError, PathSegment};
+pub use path::{PathError, PathSegment, parse_path};
 pub use select_element::{SelectElement, SelectElementBuilder};
 pub use select_option::{SelectOption, SelectOptionBuilder};
 pub use select_type::SelectType;

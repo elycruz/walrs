@@ -83,8 +83,8 @@ pub use message::*;
 pub use pattern::*;
 pub use range::*;
 pub use rule::{
-  exact_items_violation, too_few_items_violation, too_many_items_violation, CompiledRule,
-  Condition, IsEmpty, Rule, RuleResult,
+  CompiledRule, Condition, IsEmpty, Rule, RuleResult, exact_items_violation,
+  too_few_items_violation, too_many_items_violation,
 };
 pub use step::*;
 pub use traits::*;
