@@ -31,7 +31,7 @@ use std::fmt::Display;
 ///
 #[must_use]
 #[derive(Builder, Clone)]
-pub struct EqualityValidator<T>
+pub struct EqualityValidator<'a, T>
 where
   T: InputValue,
 {
@@ -39,9 +39,13 @@ where
 
   #[builder(default = "default_not_equal_msg()")]
   pub not_equal_msg: Message<T>,
+
+  /// Optional locale for internationalized error messages.
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 }
 
-impl<T> EqualityValidator<T>
+impl<T> EqualityValidator<'_, T>
 where
   T: InputValue,
 {
@@ -62,6 +66,7 @@ where
     Self {
       rhs_value,
       not_equal_msg: default_not_equal_msg(),
+      locale: None,
     }
   }
 
@@ -77,12 +82,12 @@ where
   ///
   /// assert_eq!(vldtr.rhs_value, "foo");
   /// ```
-  pub fn builder() -> EqualityValidatorBuilder<T> {
+  pub fn builder() -> EqualityValidatorBuilder<'static, T> {
     EqualityValidatorBuilder::default()
   }
 }
 
-impl<T> Validate<T> for EqualityValidator<T>
+impl<T> Validate<T> for EqualityValidator<'_, T>
 where
   T: InputValue,
 {
@@ -115,7 +120,7 @@ where
     } else {
       let params =
         MessageParams::new("EqualityValidator").with_expected(self.rhs_value.to_string());
-      let ctx = MessageContext::new(&x, params);
+      let ctx = MessageContext::with_locale(&x, params, self.locale);
       Err(Violation(
         ViolationType::NotEqual,
         self.not_equal_msg.resolve_with_context(&ctx),
@@ -124,7 +129,7 @@ where
   }
 }
 
-impl<T> Display for EqualityValidator<T>
+impl<T> Display for EqualityValidator<'_, T>
 where
   T: InputValue,
 {
@@ -137,7 +142,7 @@ where
   }
 }
 
-impl<T: InputValue> ToAttributesList for EqualityValidator<T> {
+impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
@@ -166,7 +171,7 @@ impl<T: InputValue> ToAttributesList for EqualityValidator<T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<T> {
+impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -175,14 +180,14 @@ impl<T: InputValue> FnOnce<(T,)> for EqualityValidator<T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> FnMut<(T,)> for EqualityValidator<T> {
+impl<T: InputValue> FnMut<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: InputValue> Fn<(T,)> for EqualityValidator<T> {
+impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }

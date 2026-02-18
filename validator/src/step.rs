@@ -34,15 +34,19 @@ use std::fmt::{Debug, Display, Formatter};
 #[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct StepValidator<T: SteppableValue> {
+pub struct StepValidator<'a, T: SteppableValue> {
   #[builder(default = "None")]
   pub step: Option<T>,
 
   #[builder(default = "default_step_mismatch_msg()")]
   pub step_mismatch: Message<T>,
+
+  /// Optional locale for internationalized error messages.
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 }
 
-impl<T> StepValidator<T>
+impl<T> StepValidator<'_, T>
 where
   T: SteppableValue,
 {
@@ -58,7 +62,7 @@ where
   fn _get_violation_msg(&self, value: &T) -> String {
     let params = MessageParams::new("StepValidator")
       .with_step(self.step.map(|s| s.to_string()).unwrap_or_default());
-    let ctx = MessageContext::new(value, params);
+    let ctx = MessageContext::with_locale(value, params, self.locale);
     self.step_mismatch.resolve_with_context(&ctx)
   }
 
@@ -76,6 +80,7 @@ where
     StepValidator {
       step: None,
       step_mismatch: default_step_mismatch_msg(),
+      locale: None,
     }
   }
 
@@ -91,12 +96,12 @@ where
   ///
   /// assert_eq!(vldtr.step, Some(5));
   /// ```
-  pub fn builder() -> StepValidatorBuilder<T> {
+  pub fn builder() -> StepValidatorBuilder<'static, T> {
     StepValidatorBuilder::default()
   }
 }
 
-impl<T> Validate<T> for StepValidator<T>
+impl<T> Validate<T> for StepValidator<'_, T>
 where
   T: SteppableValue,
 {
@@ -135,7 +140,7 @@ where
   }
 }
 
-impl<T> ToAttributesList for StepValidator<T>
+impl<T> ToAttributesList for StepValidator<'_, T>
 where
   T: SteppableValue,
 {
@@ -171,21 +176,21 @@ where
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> FnMut<(T,)> for StepValidator<T> {
+impl<T: SteppableValue> FnMut<(T,)> for StepValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> Fn<(T,)> for StepValidator<T> {
+impl<T: SteppableValue> Fn<(T,)> for StepValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> FnOnce<(T,)> for StepValidator<T> {
+impl<T: SteppableValue> FnOnce<(T,)> for StepValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -194,21 +199,21 @@ impl<T: SteppableValue> FnOnce<(T,)> for StepValidator<T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> FnMut<(&T,)> for StepValidator<T> {
+impl<T: SteppableValue> FnMut<(&T,)> for StepValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> Fn<(&T,)> for StepValidator<T> {
+impl<T: SteppableValue> Fn<(&T,)> for StepValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate(*args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: SteppableValue> FnOnce<(&T,)> for StepValidator<T> {
+impl<T: SteppableValue> FnOnce<(&T,)> for StepValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
@@ -216,7 +221,7 @@ impl<T: SteppableValue> FnOnce<(&T,)> for StepValidator<T> {
   }
 }
 
-impl<T> Default for StepValidator<T>
+impl<T> Default for StepValidator<'_, T>
 where
   T: SteppableValue,
 {
@@ -225,7 +230,7 @@ where
   }
 }
 
-impl<T: SteppableValue> Display for StepValidator<T> {
+impl<T: SteppableValue> Display for StepValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -238,7 +243,7 @@ impl<T: SteppableValue> Display for StepValidator<T> {
   }
 }
 
-impl<T: SteppableValue> Debug for StepValidator<T> {
+impl<T: SteppableValue> Debug for StepValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }

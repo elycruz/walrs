@@ -53,7 +53,7 @@ pub trait WithLength {
 #[must_use]
 #[derive(Builder, Clone)]
 #[builder(pattern = "owned", setter(strip_option))]
-pub struct LengthValidator<T>
+pub struct LengthValidator<'a, T>
 where
   T: WithLength + ?Sized + 'static,
 {
@@ -68,9 +68,13 @@ where
 
   #[builder(default = "default_len_too_long_msg()")]
   pub too_long_msg: Message<T>,
+
+  /// Optional locale for internationalized error messages.
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 }
 
-impl<T: WithLength + ?Sized> LengthValidator<T> {
+impl<T: WithLength + ?Sized> LengthValidator<'_, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust
@@ -99,7 +103,7 @@ impl<T: WithLength + ?Sized> LengthValidator<T> {
   /// assert_eq!(vldtr.min_length, Some(1));
   /// assert_eq!(vldtr.max_length, Some(10));
   /// ```
-  pub fn builder() -> LengthValidatorBuilder<T> {
+  pub fn builder() -> LengthValidatorBuilder<'static, T> {
     LengthValidatorBuilder::default()
   }
 }
@@ -146,7 +150,7 @@ validate_type_with_len!(VecDeque<T>, T);
 // /End of validator_types crate rip.
 // ====
 
-impl<T> ValidateRef<T> for LengthValidator<T>
+impl<T> ValidateRef<T> for LengthValidator<'_, T>
 where
   T: WithLength + ?Sized,
 {
@@ -183,7 +187,7 @@ where
         let params = MessageParams::new("LengthValidator")
           .with_min_length(min_length)
           .with_max_length(self.max_length.unwrap_or(0));
-        let ctx = MessageContext::new(value, params);
+        let ctx = MessageContext::with_locale(value, params, self.locale);
         return Err(Violation(
           ViolationType::TooShort,
           self.too_short_msg.resolve_with_context(&ctx),
@@ -196,7 +200,7 @@ where
         let params = MessageParams::new("LengthValidator")
           .with_min_length(self.min_length.unwrap_or(0))
           .with_max_length(max_length);
-        let ctx = MessageContext::new(value, params);
+        let ctx = MessageContext::with_locale(value, params, self.locale);
         return Err(Violation(
           ViolationType::TooLong,
           self.too_long_msg.resolve_with_context(&ctx),
@@ -209,7 +213,7 @@ where
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: WithLength + ?Sized> FnOnce<(&T,)> for LengthValidator<T> {
+impl<T: WithLength + ?Sized> FnOnce<(&T,)> for LengthValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (&T,)) -> Self::Output {
@@ -218,20 +222,20 @@ impl<T: WithLength + ?Sized> FnOnce<(&T,)> for LengthValidator<T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: WithLength + ?Sized> FnMut<(&T,)> for LengthValidator<T> {
+impl<T: WithLength + ?Sized> FnMut<(&T,)> for LengthValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (&T,)) -> Self::Output {
     self.validate_ref(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: WithLength + ?Sized> Fn<(&T,)> for LengthValidator<T> {
+impl<T: WithLength + ?Sized> Fn<(&T,)> for LengthValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (&T,)) -> Self::Output {
     self.validate_ref(args.0)
   }
 }
 
-impl<T: WithLength + ?Sized> Default for LengthValidator<T> {
+impl<T: WithLength + ?Sized> Default for LengthValidator<'_, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust

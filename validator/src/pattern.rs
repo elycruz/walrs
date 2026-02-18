@@ -30,6 +30,10 @@ pub struct PatternValidator<'a> {
 
   #[builder(default = "default_pattern_mismatch_msg()")]
   pub pattern_mismatch: Message<str>,
+
+  /// Optional locale for internationalized error messages.
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 }
 
 impl<'a> PatternValidator<'a> {
@@ -118,7 +122,7 @@ impl ValidateRef<str> for PatternValidator<'_> {
     match self.pattern.is_match(value) {
       false => {
         let params = MessageParams::new("PatternValidator").with_pattern(self.pattern.as_str());
-        let ctx = MessageContext::new(value, params);
+        let ctx = MessageContext::with_locale(value, params, self.locale);
         Err(Violation(
           PatternMismatch,
           self.pattern_mismatch.resolve_with_context(&ctx),

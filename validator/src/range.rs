@@ -27,7 +27,7 @@ use crate::{
 #[must_use]
 #[derive(Builder, Clone)]
 #[builder(setter(strip_option))]
-pub struct RangeValidator<T: ScalarValue> {
+pub struct RangeValidator<'a, T: ScalarValue> {
   #[builder(default = "None")]
   pub min: Option<T>,
 
@@ -39,9 +39,13 @@ pub struct RangeValidator<T: ScalarValue> {
 
   #[builder(default = "default_range_overflow_msg()")]
   pub range_overflow_msg: Message<T>,
+
+  /// Optional locale for internationalized error messages.
+  #[builder(default = "None")]
+  pub locale: Option<&'a str>,
 }
 
-impl<T: ScalarValue> RangeValidator<T> {
+impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
   /// use walrs_validator::{
@@ -61,6 +65,7 @@ impl<T: ScalarValue> RangeValidator<T> {
       max: None,
       range_underflow_msg: default_range_underflow_msg(),
       range_overflow_msg: default_range_overflow_msg(),
+      locale: None,
     }
   }
 
@@ -78,12 +83,12 @@ impl<T: ScalarValue> RangeValidator<T> {
   /// assert_eq!(vldtr.min, Some(1));
   /// assert_eq!(vldtr.max, Some(10));
   /// ```
-  pub fn builder() -> RangeValidatorBuilder<T> {
+  pub fn builder() -> RangeValidatorBuilder<'static, T> {
     RangeValidatorBuilder::default()
   }
 }
 
-impl<T: ScalarValue> Validate<T> for RangeValidator<T> {
+impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// Validates given value against contained constraints and returns a result of unit and/or a Vec of violation tuples
   /// if value doesn't pass validation.
   ///
@@ -119,7 +124,7 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<T> {
         let params = MessageParams::new("RangeValidator")
           .with_min(min)
           .with_max(self.max.map(|m| m.to_string()).unwrap_or_default());
-        let ctx = MessageContext::new(&value, params);
+        let ctx = MessageContext::with_locale(&value, params, self.locale);
         return Err(Violation(
           ViolationType::RangeUnderflow,
           self.range_underflow_msg.resolve_with_context(&ctx),
@@ -133,7 +138,7 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<T> {
         let params = MessageParams::new("RangeValidator")
           .with_min(self.min.map(|m| m.to_string()).unwrap_or_default())
           .with_max(max);
-        let ctx = MessageContext::new(&value, params);
+        let ctx = MessageContext::with_locale(&value, params, self.locale);
         return Err(Violation(
           ViolationType::RangeOverflow,
           self.range_overflow_msg.resolve_with_context(&ctx),
@@ -146,21 +151,21 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<T> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: ScalarValue> FnMut<(T,)> for RangeValidator<T> {
+impl<T: ScalarValue> FnMut<(T,)> for RangeValidator<'_, T> {
   extern "rust-call" fn call_mut(&mut self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: ScalarValue> Fn<(T,)> for RangeValidator<T> {
+impl<T: ScalarValue> Fn<(T,)> for RangeValidator<'_, T> {
   extern "rust-call" fn call(&self, args: (T,)) -> Self::Output {
     self.validate(args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<T> {
+impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
   type Output = ValidatorResult;
 
   extern "rust-call" fn call_once(self, args: (T,)) -> Self::Output {
@@ -210,7 +215,7 @@ pub fn default_range_overflow_msg<T: ScalarValue>() -> Message<T> {
   })
 }
 
-impl<T: ScalarValue> Default for RangeValidator<T> {
+impl<T: ScalarValue> Default for RangeValidator<'_, T> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
@@ -230,7 +235,7 @@ impl<T: ScalarValue> Default for RangeValidator<T> {
   }
 }
 
-impl<T: ScalarValue> Display for RangeValidator<T> {
+impl<T: ScalarValue> Display for RangeValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(
       f,
@@ -241,7 +246,7 @@ impl<T: ScalarValue> Display for RangeValidator<T> {
   }
 }
 
-impl<T: ScalarValue> Debug for RangeValidator<T> {
+impl<T: ScalarValue> Debug for RangeValidator<'_, T> {
   fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
     write!(f, "{}", &self)
   }

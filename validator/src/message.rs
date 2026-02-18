@@ -169,12 +169,45 @@ pub struct MessageContext<'a, T: ?Sized> {
   pub value: &'a T,
   /// Parameters extracted from the validator
   pub params: MessageParams,
+  /// Optional locale for internationalization (e.g., "en-US", "fr-FR")
+  pub locale: Option<&'a str>,
 }
 
 impl<'a, T: ?Sized> MessageContext<'a, T> {
-  /// Creates a new message context.
+  /// Creates a new message context without locale.
   pub fn new(value: &'a T, params: MessageParams) -> Self {
-    Self { value, params }
+    Self {
+      value,
+      params,
+      locale: None,
+    }
+  }
+
+  /// Creates a new message context with an optional locale.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use walrs_validator::{Message, MessageContext, MessageParams};
+  ///
+  /// let msg: Message<str> = Message::provider(|ctx| {
+  ///     match ctx.locale {
+  ///         Some("es") => format!("Valor '{}' es inválido", ctx.value),
+  ///         Some("fr") => format!("Valeur '{}' est invalide", ctx.value),
+  ///         _ => format!("Value '{}' is invalid", ctx.value),
+  ///     }
+  /// });
+  ///
+  /// let params = MessageParams::new("Custom");
+  /// let ctx = MessageContext::with_locale("test", params, Some("es"));
+  /// assert_eq!(msg.resolve_with_context(&ctx), "Valor 'test' es inválido");
+  /// ```
+  pub fn with_locale(value: &'a T, params: MessageParams, locale: Option<&'a str>) -> Self {
+    Self {
+      value,
+      params,
+      locale,
+    }
   }
 }
 
@@ -656,5 +689,58 @@ mod tests {
     let ctx = MessageContext::new(&42, params);
 
     assert_eq!(msg.resolve_with_context(&ctx), "Value: 42");
+  }
+
+  #[test]
+  fn test_message_context_with_locale() {
+    // Test that MessageContext::with_locale correctly stores the locale
+    let params = MessageParams::new("Test");
+    let ctx = MessageContext::with_locale("value", params, Some("es"));
+
+    assert_eq!(ctx.locale, Some("es"));
+    assert_eq!(ctx.value, "value");
+  }
+
+  #[test]
+  fn test_message_context_with_locale_none() {
+    // Test that MessageContext::with_locale works with None locale
+    let params = MessageParams::new("Test");
+    let ctx = MessageContext::with_locale("value", params, None);
+
+    assert_eq!(ctx.locale, None);
+  }
+
+  #[test]
+  fn test_message_provider_locale_aware() {
+    // Test a locale-aware message provider
+    let msg: Message<str> = Message::provider(|ctx| match ctx.locale {
+      Some("es") => format!("El valor '{}' es inválido", ctx.value),
+      Some("fr") => format!("La valeur '{}' est invalide", ctx.value),
+      _ => format!("Value '{}' is invalid", ctx.value),
+    });
+
+    // Test English (default)
+    let params_en = MessageParams::new("Custom");
+    let ctx_en = MessageContext::with_locale("test", params_en, None);
+    assert_eq!(
+      msg.resolve_with_context(&ctx_en),
+      "Value 'test' is invalid"
+    );
+
+    // Test Spanish
+    let params_es = MessageParams::new("Custom");
+    let ctx_es = MessageContext::with_locale("test", params_es, Some("es"));
+    assert_eq!(
+      msg.resolve_with_context(&ctx_es),
+      "El valor 'test' es inválido"
+    );
+
+    // Test French
+    let params_fr = MessageParams::new("Custom");
+    let ctx_fr = MessageContext::with_locale("test", params_fr, Some("fr"));
+    assert_eq!(
+      msg.resolve_with_context(&ctx_fr),
+      "La valeur 'test' est invalide"
+    );
   }
 }
