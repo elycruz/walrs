@@ -89,11 +89,14 @@ impl FieldFilter {
   /// Validates form data against all fields and cross-field rules.
   ///
   /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
-  /// all field and form-level violations.
+  /// the collected field- and form-level violations.
   ///
   /// If a field has `break_on_failure` set to `true` and fails validation,
-  /// the method returns immediately without checking the remaining fields or
-  /// any cross-field rules.
+  /// the method returns immediately with the violations collected so far,
+  /// without checking the remaining fields or any cross-field rules. In that
+  /// case, the returned `FormViolations` is a partial result and does not
+  /// contain violations from fields or cross-field rules that were not
+  /// evaluated before the early exit.
   ///
   /// **Note**: Because `fields` is a `HashMap`, iteration order is
   /// non-deterministic. When more than one field has `break_on_failure = true`,
