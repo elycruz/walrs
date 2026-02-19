@@ -275,7 +275,7 @@ pub fn range_underflow_violation<T: std::fmt::Display>(min: &T) -> Violation {
 pub fn range_overflow_violation<T: std::fmt::Display>(max: &T) -> Violation {
   Violation::new(
     ViolationType::RangeOverflow,
-    format!("Value must be at most {}", max),
+    format!("Value must be at most {}.", max),
   )
 }
 
@@ -307,7 +307,7 @@ pub fn not_one_of_violation() -> Violation {
 pub fn unresolved_ref_violation(name: &str) -> Violation {
   Violation::new(
     ViolationType::CustomError,
-    format!("Unresolved rule reference: {}", name),
+    format!("Unresolved rule reference: {}.", name),
   )
 }
 
@@ -315,7 +315,7 @@ pub fn unresolved_ref_violation(name: &str) -> Violation {
 pub fn negation_failed_violation() -> Violation {
   Violation::new(
     ViolationType::CustomError,
-    "Value must not satisfy the negated rule",
+    "Value must not satisfy the negated rule.",
   )
 }
 
@@ -324,7 +324,7 @@ pub fn too_few_items_violation(min: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooShort,
     format!(
-      "Collection must have at least {} items (got {})",
+      "Collection must have at least {} items (got {}).",
       min, actual
     ),
   )
@@ -335,7 +335,7 @@ pub fn too_many_items_violation(max: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooLong,
     format!(
-      "Collection must have at most {} items (got {})",
+      "Collection must have at most {} items (got {}).",
       max, actual
     ),
   )
@@ -346,7 +346,7 @@ pub fn exact_items_violation(expected: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooShort, // or TooLong depending on direction
     format!(
-      "Collection must have exactly {} items (got {})",
+      "Collection must have exactly {} items (got {}).",
       expected, actual
     ),
   )
@@ -705,7 +705,7 @@ impl<T> Rule<T> {
   ///     if value % 2 == 0 {
   ///         Ok(())
   ///     } else {
-  ///         Err(Violation::new(ViolationType::CustomError, "Value must be even"))
+  ///         Err(Violation::new(ViolationType::CustomError, "Value must be even."))
   ///     }
   /// }));
   /// ```
@@ -739,7 +739,7 @@ impl<T> Rule<T> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(8)
-  ///     .with_message("Password must be at least 8 characters");
+  ///     .with_message("Password must be at least 8 characters.");
   /// ```
   pub fn with_message(self, msg: impl Into<String>) -> Rule<T> {
     Rule::WithMessage {
@@ -759,7 +759,7 @@ impl<T> Rule<T> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<i32>::Min(0)
-  ///     .with_message_provider(|ctx| format!("Value {} must be non-negative", ctx.value));
+  ///     .with_message_provider(|ctx| format!("Value {} must be non-negative.", ctx.value));
   /// ```
   pub fn with_message_provider<F>(self, f: F) -> Rule<T>
   where
@@ -880,8 +880,8 @@ impl Rule<String> {
   /// let i18n_rule = Rule::<String>::MinLength(5)
   ///     .with_message_provider(|ctx| {
   ///         match ctx.locale {
-  ///             Some("es") => format!("Mínimo {} caracteres", 5),
-  ///             _ => format!("Minimum {} characters", 5),
+  ///             Some("es") => format!("Mínimo {} caracteres.", 5),
+  ///             _ => format!("Minimum {} characters.", 5),
   ///         }
   ///     });
   /// let result = i18n_rule.validate_ref("hi", Some("es"));
@@ -1158,8 +1158,8 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// let i18n_rule = Rule::<i32>::Min(0)
   ///     .with_message_provider(|ctx| {
   ///         match ctx.locale {
-  ///             Some("es") => format!("El valor debe ser al menos 0"),
-  ///             _ => format!("Value must be at least 0"),
+  ///             Some("es") => format!("El valor debe ser al menos 0."),
+  ///             _ => format!("Value must be at least 0."),
   ///         }
   ///     });
   /// let result = i18n_rule.validate(-5, Some("es"));
@@ -2216,7 +2216,7 @@ mod tests {
 
   #[test]
   fn test_rule_with_message_static() {
-    let rule = Rule::<String>::MinLength(8).with_message("Password too short");
+    let rule = Rule::<String>::MinLength(8).with_message("Password too short.");
 
     match rule {
       Rule::WithMessage {
@@ -2224,7 +2224,7 @@ mod tests {
         message,
       } => {
         assert_eq!(*inner, Rule::MinLength(8));
-        assert_eq!(message, Message::from("Password too short"));
+        assert_eq!(message, Message::from("Password too short."));
       }
       _ => panic!("Expected Rule::WithMessage"),
     }
@@ -2233,7 +2233,7 @@ mod tests {
   #[test]
   fn test_rule_with_message_provider() {
     let rule =
-      Rule::<i32>::Min(0).with_message_provider(|ctx| format!("Got {}, expected >= 0", ctx.value));
+      Rule::<i32>::Min(0).with_message_provider(|ctx| format!("Got {}, expected >= 0.", ctx.value));
 
     match rule {
       Rule::WithMessage {
@@ -2242,7 +2242,7 @@ mod tests {
       } => {
         assert_eq!(*inner, Rule::Min(0));
         assert!(message.is_provider());
-        assert_eq!(message.resolve(&-5, None), "Got -5, expected >= 0");
+        assert_eq!(message.resolve(&-5, None), "Got -5, expected >= 0.");
       }
       _ => panic!("Expected Rule::WithMessage"),
     }
@@ -2250,9 +2250,9 @@ mod tests {
 
   #[test]
   fn test_rule_with_message_equality() {
-    let a = Rule::<String>::MinLength(5).with_message("error");
-    let b = Rule::<String>::MinLength(5).with_message("error");
-    let c = Rule::<String>::MinLength(5).with_message("different");
+    let a = Rule::<String>::MinLength(5).with_message("error.");
+    let b = Rule::<String>::MinLength(5).with_message("error.");
+    let c = Rule::<String>::MinLength(5).with_message("different.");
 
     assert_eq!(a, b);
     assert_ne!(a, c);
@@ -2260,12 +2260,12 @@ mod tests {
 
   #[test]
   fn test_rule_with_message_debug() {
-    let rule = Rule::<String>::Required.with_message("Field is required");
+    let rule = Rule::<String>::Required.with_message("Field is required.");
     let debug_str = format!("{:?}", rule);
 
     assert!(debug_str.contains("WithMessage"));
     assert!(debug_str.contains("Required"));
-    assert!(debug_str.contains("Field is required"));
+    assert!(debug_str.contains("Field is required."));
   }
 
   #[test]
@@ -2273,7 +2273,7 @@ mod tests {
     // You can chain with_message after combinators
     let rule = Rule::<String>::MinLength(3)
       .and(Rule::MaxLength(10))
-      .with_message("Length must be between 3 and 10");
+      .with_message("Length must be between 3 and 10.");
 
     match rule {
       Rule::WithMessage {
@@ -2286,7 +2286,7 @@ mod tests {
         }
         assert_eq!(
           message.resolve(&"".to_string(), None),
-          "Length must be between 3 and 10"
+          "Length must be between 3 and 10."
         );
       }
       _ => panic!("Expected Rule::WithMessage"),
@@ -2409,12 +2409,12 @@ mod tests {
 
   #[test]
   fn test_validate_ref_with_message() {
-    let rule = Rule::<String>::MinLength(8).with_message("Password too short");
+    let rule = Rule::<String>::MinLength(8).with_message("Password too short.");
 
     let result = rule.validate_ref("hi", None);
     assert!(result.is_err());
     let violation = result.unwrap_err();
-    assert_eq!(violation.message(), "Password too short");
+    assert_eq!(violation.message(), "Password too short.");
   }
 
   #[test]
@@ -2521,12 +2521,12 @@ mod tests {
 
   #[test]
   fn test_validate_with_message_numeric() {
-    let rule = Rule::<i32>::Min(0).with_message("Must be non-negative");
+    let rule = Rule::<i32>::Min(0).with_message("Must be non-negative.");
 
     let result = rule.validate(-5, None);
     assert!(result.is_err());
     let violation = result.unwrap_err();
-    assert_eq!(violation.message(), "Must be non-negative");
+    assert_eq!(violation.message(), "Must be non-negative.");
   }
 
   #[test]
@@ -2966,7 +2966,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have at least 3 items (got 1)"
+      "Collection must have at least 3 items (got 1)."
     );
 
     let rule = Rule::<Vec<i32>>::MaxLength(2);
@@ -2975,7 +2975,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have at most 2 items (got 4)"
+      "Collection must have at most 2 items (got 4)."
     );
 
     let rule = Rule::<Vec<i32>>::ExactLength(3);
@@ -2984,7 +2984,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have exactly 3 items (got 2)"
+      "Collection must have exactly 3 items (got 2)."
     );
   }
 
@@ -3158,7 +3158,7 @@ mod tests {
     let inner_rule = Rule::<String>::MinLength(5);
     let rule = Rule::WithMessage {
       rule: Box::new(inner_rule),
-      message: Message::Static("Custom message".to_string()),
+      message: Message::Static("Custom message.".to_string()),
     };
     let attrs = rule.to_attributes_list().unwrap();
     assert_eq!(attrs.len(), 1);

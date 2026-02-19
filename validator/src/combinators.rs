@@ -200,7 +200,7 @@ where
 ///     .build()
 ///     .unwrap();
 ///
-/// let not_in_range = ValidatorNot::new(in_range, "Value must not be between 0 and 10");
+/// let not_in_range = ValidatorNot::new(in_range, "Value must not be between 0 and 10.");
 ///
 /// assert!(not_in_range.validate(15).is_ok());
 /// assert!(not_in_range.validate(-5).is_ok());
@@ -590,7 +590,7 @@ mod tests {
       .build()
       .unwrap();
 
-    let not_in_range = in_range.not("Value must not be between 0 and 10");
+    let not_in_range = in_range.not("Value must not be between 0 and 10.");
 
     assert!(not_in_range.validate(15).is_ok());
     assert!(not_in_range.validate(-5).is_ok());

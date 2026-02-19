@@ -315,7 +315,7 @@ mod test {
 
   #[test]
   fn test_custom_message() {
-    let custom_msg: Message<usize> = Message::static_msg("Value too small!");
+    let custom_msg: Message<usize> = Message::static_msg("Value too small.");
     let vldtr = RangeValidatorBuilder::<usize>::default()
       .min(10)
       .range_underflow_msg(custom_msg)
@@ -325,7 +325,7 @@ mod test {
     let result = vldtr.validate(5);
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "Value too small!");
+    assert_eq!(err.1, "Value too small.");
   }
 
   #[cfg(feature = "fn_traits")]

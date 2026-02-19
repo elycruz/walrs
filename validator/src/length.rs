@@ -439,7 +439,7 @@ mod test {
 
   #[test]
   fn test_custom_message() {
-    let custom_msg: Message<str> = Message::static_msg("Custom error: too short!");
+    let custom_msg: Message<str> = Message::static_msg("Custom error: too short.");
     let vldtr = LengthValidatorBuilder::<str>::default()
       .min_length(5)
       .too_short_msg(custom_msg)
@@ -449,14 +449,14 @@ mod test {
     let result = vldtr.validate_ref("abc");
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "Custom error: too short!");
+    assert_eq!(err.1, "Custom error: too short.");
   }
 
   #[test]
   fn test_message_provider() {
     let custom_msg: Message<str> = Message::provider(|ctx| {
       format!(
-        "String '{}' is too short (min: {})",
+        "String '{}' is too short (min: {}).",
         ctx.value,
         ctx.params.min_length.unwrap_or(0)
       )
@@ -470,7 +470,7 @@ mod test {
     let result = vldtr.validate_ref("abc");
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "String 'abc' is too short (min: 5)");
+    assert_eq!(err.1, "String 'abc' is too short (min: 5).");
   }
 
   #[cfg(feature = "fn_traits")]

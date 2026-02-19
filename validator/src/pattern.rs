@@ -261,7 +261,7 @@ mod test {
   #[test]
   fn test_custom_message() -> Result<(), Box<dyn Error>> {
     let rx = Regex::new(r"^\w{2,55}$")?;
-    let custom_msg: Message<str> = Message::static_msg("Invalid format!");
+    let custom_msg: Message<str> = Message::static_msg("Invalid format.");
     let vldtr = PatternValidatorBuilder::default()
       .pattern(Cow::Owned(rx))
       .pattern_mismatch(custom_msg)
@@ -270,7 +270,7 @@ mod test {
     let result = vldtr.validate("!@#)(*");
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "Invalid format!");
+    assert_eq!(err.1, "Invalid format.");
 
     Ok(())
   }
@@ -280,7 +280,7 @@ mod test {
     let rx = Regex::new(r"^\d+$")?;
     let custom_msg: Message<str> = Message::provider(|ctx: &MessageContext<str>| {
       format!(
-        "'{}' must match pattern '{}'",
+        "'{}' must match pattern '{}'.",
         ctx.value,
         ctx.params.pattern.as_deref().unwrap_or("?")
       )
@@ -293,7 +293,7 @@ mod test {
     let result = vldtr.validate("abc");
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "'abc' must match pattern '^\\d+$'");
+    assert_eq!(err.1, "'abc' must match pattern '^\\d+$'.");
 
     Ok(())
   }

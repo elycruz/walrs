@@ -51,13 +51,13 @@ impl Violation {
 /// ```rust
 /// use walrs_validator::{ViolationType::ValueMissing, Violation};
 ///
-/// let violation = Violation(ValueMissing, "Value missing".to_string());
+/// let violation = Violation(ValueMissing, "Value missing.".to_string());
 /// let displayed = format!("{}", violation);
 ///
-/// assert_eq!(&displayed, "Value missing");
+/// assert_eq!(&displayed, "Value missing.");
 ///
 /// // `Display` impl, gives us `to_string()` for free:
-/// assert_eq!(&violation.to_string(), "Value missing");
+/// assert_eq!(&violation.to_string(), "Value missing.");
 /// ```
 impl Display for Violation {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -252,17 +252,17 @@ mod test {
   #[test]
   fn test_violations_display() {
     let vs = Violations(vec![
-      Violation(ValueMissing, "value is missing".to_string()),
-      Violation(TypeMismatch, "type mismatch".to_string()),
+      Violation(ValueMissing, "value is missing.".to_string()),
+      Violation(TypeMismatch, "type mismatch.".to_string()),
     ]);
-    assert_eq!(format!("{}", vs), "value is missing; type mismatch");
+    assert_eq!(format!("{}", vs), "value is missing.; type mismatch.");
   }
 
   #[test]
   fn test_violations_error() {
     let vs = Violations(vec![Violation(
       ValueMissing,
-      "value is missing".to_string(),
+      "value is missing.".to_string(),
     )]);
 
     // Test that Violations implements Error
