@@ -28,17 +28,29 @@ fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
   println!("User permissions (inherits from guest):");
   println!("  read.public: {}", rbac.is_granted("user", "read.public"));
   println!("  write.post: {}", rbac.is_granted("user", "write.post"));
-  println!("  comment.post: {}", rbac.is_granted("user", "comment.post"));
+  println!(
+    "  comment.post: {}",
+    rbac.is_granted("user", "comment.post")
+  );
   println!("  edit.post: {}", rbac.is_granted("user", "edit.post"));
   println!();
 
   // Test editor permissions (inherits from user)
   println!("Editor permissions (inherits from user):");
-  println!("  read.public: {}", rbac.is_granted("editor", "read.public"));
+  println!(
+    "  read.public: {}",
+    rbac.is_granted("editor", "read.public")
+  );
   println!("  write.post: {}", rbac.is_granted("editor", "write.post"));
   println!("  edit.post: {}", rbac.is_granted("editor", "edit.post"));
-  println!("  publish.post: {}", rbac.is_granted("editor", "publish.post"));
-  println!("  admin.panel: {}", rbac.is_granted("editor", "admin.panel"));
+  println!(
+    "  publish.post: {}",
+    rbac.is_granted("editor", "publish.post")
+  );
+  println!(
+    "  admin.panel: {}",
+    rbac.is_granted("editor", "admin.panel")
+  );
   println!();
 
   // Test admin permissions (inherits from editor)
@@ -46,7 +58,10 @@ fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
   println!("  read.public: {}", rbac.is_granted("admin", "read.public"));
   println!("  edit.post: {}", rbac.is_granted("admin", "edit.post"));
   println!("  admin.panel: {}", rbac.is_granted("admin", "admin.panel"));
-  println!("  manage.users: {}", rbac.is_granted("admin", "manage.users"));
+  println!(
+    "  manage.users: {}",
+    rbac.is_granted("admin", "manage.users")
+  );
   println!();
 
   // Show counts

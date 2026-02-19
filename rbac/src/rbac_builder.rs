@@ -1,18 +1,18 @@
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap as HashMap;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
 use core::convert::TryFrom;
 
 #[cfg(feature = "std")]
 use std::fs::File;
 
-use crate::prelude::{String, Vec, ToString, format};
-use crate::rbac::Rbac;
-use crate::role::Role;
-use crate::rbac_data::RbacData;
 use crate::error::{RbacError, Result};
+use crate::prelude::{String, ToString, Vec, format};
+use crate::rbac::Rbac;
+use crate::rbac_data::RbacData;
+use crate::role::Role;
 
 /// Builder for constructing `Rbac` instances with a fluent interface.
 ///
@@ -108,10 +108,7 @@ impl RbacBuilder {
   /// # Ok::<(), walrs_rbac::RbacError>(())
   /// ```
   #[allow(clippy::type_complexity)]
-  pub fn add_roles(
-    &mut self,
-    roles: &[(&str, &[&str], Option<&[&str]>)],
-  ) -> Result<&mut Self> {
+  pub fn add_roles(&mut self, roles: &[(&str, &[&str], Option<&[&str]>)]) -> Result<&mut Self> {
     for &(name, permissions, children) in roles {
       self.add_role(name, permissions, children)?;
     }
@@ -137,7 +134,8 @@ impl RbacBuilder {
   /// # Ok::<(), walrs_rbac::RbacError>(())
   /// ```
   pub fn add_permission(&mut self, role_name: &str, permission: &str) -> Result<&mut Self> {
-    let entry = self.roles
+    let entry = self
+      .roles
       .entry(role_name.to_string())
       .or_insert_with(|| (Vec::new(), Vec::new()));
     entry.0.push(permission.to_string());
@@ -164,7 +162,8 @@ impl RbacBuilder {
   /// # Ok::<(), walrs_rbac::RbacError>(())
   /// ```
   pub fn add_child(&mut self, parent_name: &str, child_name: &str) -> Result<&mut Self> {
-    let entry = self.roles
+    let entry = self
+      .roles
       .entry(parent_name.to_string())
       .or_insert_with(|| (Vec::new(), Vec::new()));
     entry.1.push(child_name.to_string());
@@ -194,9 +193,10 @@ impl RbacBuilder {
     for (name, (_, children)) in &self.roles {
       for child_name in children {
         if !self.roles.contains_key(child_name) {
-          return Err(RbacError::InvalidConfiguration(
-            format!("Role '{}' references child '{}' which does not exist", name, child_name)
-          ));
+          return Err(RbacError::InvalidConfiguration(format!(
+            "Role '{}' references child '{}' which does not exist",
+            name, child_name
+          )));
         }
       }
     }
@@ -233,7 +233,9 @@ impl RbacBuilder {
       return Ok(role.clone());
     }
 
-    let (permissions, children_names) = self.roles.get(name)
+    let (permissions, children_names) = self
+      .roles
+      .get(name)
       .ok_or_else(|| RbacError::RoleNotFound(name.to_string()))?;
 
     let mut role = Role::new(name);
@@ -252,10 +254,10 @@ impl RbacBuilder {
 
   /// Checks for cycles in the role hierarchy using DFS.
   fn check_for_cycles(&self) -> Result<()> {
-    #[cfg(feature = "std")]
-    use std::collections::HashSet;
     #[cfg(not(feature = "std"))]
     use alloc::collections::BTreeSet as HashSet;
+    #[cfg(feature = "std")]
+    use std::collections::HashSet;
 
     fn dfs(
       name: &str,
@@ -264,9 +266,10 @@ impl RbacBuilder {
       path: &mut Vec<String>,
     ) -> Result<()> {
       if path.contains(&name.to_string()) {
-        return Err(RbacError::CycleDetected(
-          format!("Cycle detected at role '{}'", name)
-        ));
+        return Err(RbacError::CycleDetected(format!(
+          "Cycle detected at role '{}'",
+          name
+        )));
       }
       if visited.contains(name) {
         return Ok(());
@@ -391,10 +394,7 @@ impl TryFrom<&Rbac> for RbacBuilder {
   fn try_from(rbac: &Rbac) -> Result<Self> {
     let mut builder = RbacBuilder::new();
 
-    fn extract_role(
-      role: &Role,
-      builder: &mut RbacBuilder,
-    ) -> Result<()> {
+    fn extract_role(role: &Role, builder: &mut RbacBuilder) -> Result<()> {
       let perms: Vec<&str> = role.permissions().map(|s| s.as_str()).collect();
       let children_names: Vec<&str> = role.children().iter().map(|c| c.name()).collect();
       let children: Option<&[&str]> = if children_names.is_empty() {
@@ -464,8 +464,10 @@ mod tests {
   #[test]
   fn test_add_role() {
     let rbac = RbacBuilder::new()
-      .add_role("admin", &["manage.users"], None).unwrap()
-      .build().unwrap();
+      .add_role("admin", &["manage.users"], None)
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.has_role("admin"));
     assert!(rbac.is_granted("admin", "manage.users"));
@@ -474,9 +476,12 @@ mod tests {
   #[test]
   fn test_add_role_with_children() {
     let rbac = RbacBuilder::new()
-      .add_role("guest", &["read"], None).unwrap()
-      .add_role("user", &["write"], Some(&["guest"])).unwrap()
-      .build().unwrap();
+      .add_role("guest", &["read"], None)
+      .unwrap()
+      .add_role("user", &["write"], Some(&["guest"]))
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("user", "write"));
     assert!(rbac.is_granted("user", "read")); // inherited
@@ -490,8 +495,10 @@ mod tests {
         ("guest", &["read"], None),
         ("user", &["write"], Some(&["guest"])),
         ("admin", &["admin"], Some(&["user"])),
-      ]).unwrap()
-      .build().unwrap();
+      ])
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("admin", "read"));
     assert!(rbac.is_granted("admin", "write"));
@@ -502,9 +509,12 @@ mod tests {
   #[test]
   fn test_add_permission() {
     let rbac = RbacBuilder::new()
-      .add_role("user", &["read"], None).unwrap()
-      .add_permission("user", "write").unwrap()
-      .build().unwrap();
+      .add_role("user", &["read"], None)
+      .unwrap()
+      .add_permission("user", "write")
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("user", "read"));
     assert!(rbac.is_granted("user", "write"));
@@ -513,8 +523,10 @@ mod tests {
   #[test]
   fn test_add_permission_creates_role() {
     let rbac = RbacBuilder::new()
-      .add_permission("user", "read").unwrap()
-      .build().unwrap();
+      .add_permission("user", "read")
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.has_role("user"));
     assert!(rbac.is_granted("user", "read"));
@@ -523,10 +535,14 @@ mod tests {
   #[test]
   fn test_add_child() {
     let rbac = RbacBuilder::new()
-      .add_role("editor", &["edit"], None).unwrap()
-      .add_role("admin", &["admin"], None).unwrap()
-      .add_child("admin", "editor").unwrap()
-      .build().unwrap();
+      .add_role("editor", &["edit"], None)
+      .unwrap()
+      .add_role("admin", &["admin"], None)
+      .unwrap()
+      .add_child("admin", "editor")
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("admin", "admin"));
     assert!(rbac.is_granted("admin", "edit"));
@@ -535,9 +551,12 @@ mod tests {
   #[test]
   fn test_add_child_creates_parent() {
     let rbac = RbacBuilder::new()
-      .add_role("editor", &["edit"], None).unwrap()
-      .add_child("admin", "editor").unwrap()
-      .build().unwrap();
+      .add_role("editor", &["edit"], None)
+      .unwrap()
+      .add_child("admin", "editor")
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.has_role("admin"));
     assert!(rbac.is_granted("admin", "edit"));
@@ -546,7 +565,8 @@ mod tests {
   #[test]
   fn test_missing_child_role_error() {
     let result = RbacBuilder::new()
-      .add_role("admin", &["manage"], Some(&["nonexistent"])).unwrap()
+      .add_role("admin", &["manage"], Some(&["nonexistent"]))
+      .unwrap()
       .build();
 
     assert!(result.is_err());
@@ -561,8 +581,10 @@ mod tests {
   #[test]
   fn test_cycle_detection() {
     let result = RbacBuilder::new()
-      .add_role("a", &[], Some(&["b"])).unwrap()
-      .add_role("b", &[], Some(&["a"])).unwrap()
+      .add_role("a", &[], Some(&["b"]))
+      .unwrap()
+      .add_role("b", &[], Some(&["a"]))
+      .unwrap()
       .build();
 
     assert!(result.is_err());
@@ -571,7 +593,8 @@ mod tests {
   #[test]
   fn test_self_cycle_detection() {
     let result = RbacBuilder::new()
-      .add_role("a", &[], Some(&["a"])).unwrap()
+      .add_role("a", &[], Some(&["a"]))
+      .unwrap()
       .build();
 
     assert!(result.is_err());
@@ -580,9 +603,12 @@ mod tests {
   #[test]
   fn test_three_node_cycle_detection() {
     let result = RbacBuilder::new()
-      .add_role("a", &[], Some(&["b"])).unwrap()
-      .add_role("b", &[], Some(&["c"])).unwrap()
-      .add_role("c", &[], Some(&["a"])).unwrap()
+      .add_role("a", &[], Some(&["b"]))
+      .unwrap()
+      .add_role("b", &[], Some(&["c"]))
+      .unwrap()
+      .add_role("c", &[], Some(&["a"]))
+      .unwrap()
       .build();
 
     assert!(matches!(result, Err(RbacError::CycleDetected(_))));
@@ -591,11 +617,16 @@ mod tests {
   #[test]
   fn test_deep_hierarchy() {
     let rbac = RbacBuilder::new()
-      .add_role("level4", &["perm4"], None).unwrap()
-      .add_role("level3", &["perm3"], Some(&["level4"])).unwrap()
-      .add_role("level2", &["perm2"], Some(&["level3"])).unwrap()
-      .add_role("level1", &["perm1"], Some(&["level2"])).unwrap()
-      .build().unwrap();
+      .add_role("level4", &["perm4"], None)
+      .unwrap()
+      .add_role("level3", &["perm3"], Some(&["level4"]))
+      .unwrap()
+      .add_role("level2", &["perm2"], Some(&["level3"]))
+      .unwrap()
+      .add_role("level1", &["perm1"], Some(&["level2"]))
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("level1", "perm1"));
     assert!(rbac.is_granted("level1", "perm2"));
@@ -607,10 +638,14 @@ mod tests {
   #[test]
   fn test_multiple_children() {
     let rbac = RbacBuilder::new()
-      .add_role("reader", &["read"], None).unwrap()
-      .add_role("writer", &["write"], None).unwrap()
-      .add_role("admin", &["admin"], Some(&["reader", "writer"])).unwrap()
-      .build().unwrap();
+      .add_role("reader", &["read"], None)
+      .unwrap()
+      .add_role("writer", &["write"], None)
+      .unwrap()
+      .add_role("admin", &["admin"], Some(&["reader", "writer"]))
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("admin", "read"));
     assert!(rbac.is_granted("admin", "write"));
@@ -620,11 +655,16 @@ mod tests {
   #[test]
   fn test_diamond_hierarchy() {
     let rbac = RbacBuilder::new()
-      .add_role("base", &["base.perm"], None).unwrap()
-      .add_role("left", &["left.perm"], Some(&["base"])).unwrap()
-      .add_role("right", &["right.perm"], Some(&["base"])).unwrap()
-      .add_role("top", &["top.perm"], Some(&["left", "right"])).unwrap()
-      .build().unwrap();
+      .add_role("base", &["base.perm"], None)
+      .unwrap()
+      .add_role("left", &["left.perm"], Some(&["base"]))
+      .unwrap()
+      .add_role("right", &["right.perm"], Some(&["base"]))
+      .unwrap()
+      .add_role("top", &["top.perm"], Some(&["left", "right"]))
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.is_granted("top", "top.perm"));
     assert!(rbac.is_granted("top", "left.perm"));
@@ -635,8 +675,10 @@ mod tests {
   #[test]
   fn test_empty_permissions() {
     let rbac = RbacBuilder::new()
-      .add_role("empty", &[], None).unwrap()
-      .build().unwrap();
+      .add_role("empty", &[], None)
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(rbac.has_role("empty"));
     assert!(!rbac.is_granted("empty", "anything"));
@@ -645,12 +687,17 @@ mod tests {
   #[test]
   fn test_try_from_rbac_ref() {
     let original = RbacBuilder::new()
-      .add_role("user", &["read"], None).unwrap()
-      .build().unwrap();
+      .add_role("user", &["read"], None)
+      .unwrap()
+      .build()
+      .unwrap();
 
-    let modified = RbacBuilder::try_from(&original).unwrap()
-      .add_role("admin", &["admin"], Some(&["user"])).unwrap()
-      .build().unwrap();
+    let modified = RbacBuilder::try_from(&original)
+      .unwrap()
+      .add_role("admin", &["admin"], Some(&["user"]))
+      .unwrap()
+      .build()
+      .unwrap();
 
     assert!(modified.is_granted("admin", "read"));
     assert!(modified.is_granted("admin", "admin"));
@@ -663,7 +710,11 @@ mod tests {
     let data = RbacData {
       roles: vec![
         ("guest".to_string(), vec!["read".to_string()], None),
-        ("admin".to_string(), vec!["admin".to_string()], Some(vec!["guest".to_string()])),
+        (
+          "admin".to_string(),
+          vec!["admin".to_string()],
+          Some(vec!["guest".to_string()]),
+        ),
       ],
     };
 
@@ -675,9 +726,7 @@ mod tests {
   #[test]
   fn test_try_from_rbac_data() {
     let data = RbacData {
-      roles: vec![
-        ("user".to_string(), vec!["read".to_string()], None),
-      ],
+      roles: vec![("user".to_string(), vec!["read".to_string()], None)],
     };
 
     let rbac = RbacBuilder::try_from(data).unwrap().build().unwrap();

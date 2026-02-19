@@ -677,7 +677,10 @@ mod tests {
     });
 
     // resolve() creates a default MessageParams
-    assert_eq!(msg.resolve(&"test".to_string(), None), "min: none, max: none");
+    assert_eq!(
+      msg.resolve(&"test".to_string(), None),
+      "min: none, max: none"
+    );
   }
 
   #[test]
@@ -761,10 +764,7 @@ mod tests {
     });
 
     // Default (English)
-    assert_eq!(
-      msg.resolve("abc", None),
-      "Error: value 'abc' is invalid"
-    );
+    assert_eq!(msg.resolve("abc", None), "Error: value 'abc' is invalid");
 
     // Spanish
     assert_eq!(

@@ -3,12 +3,12 @@
 //! This module provides JavaScript-compatible wrappers around the RBAC structure from
 //! the walrs_rbac crate.
 
-use wasm_bindgen::prelude::*;
+use crate::prelude::{String, Vec, format};
 use crate::rbac::Rbac;
 use crate::rbac_builder::RbacBuilder;
 use crate::rbac_data::RbacData;
 use crate::role::Role;
-use crate::prelude::{String, Vec, format};
+use wasm_bindgen::prelude::*;
 
 /// JavaScript-compatible wrapper for Rbac
 #[wasm_bindgen]
@@ -23,9 +23,7 @@ impl JsRbac {
   /// Creates a new empty RBAC
   #[wasm_bindgen(constructor)]
   pub fn new() -> Self {
-    Self {
-      inner: Rbac::new(),
-    }
+    Self { inner: Rbac::new() }
   }
 
   /// Creates an RBAC from a JSON string
@@ -102,8 +100,8 @@ impl JsRbacBuilder {
     let rbac_data: RbacData = serde_json::from_str(json)
       .map_err(|e| JsValue::from_str(&format!("Failed to parse JSON: {}", e)))?;
 
-    let builder = RbacBuilder::try_from(&rbac_data)
-      .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
+    let builder =
+      RbacBuilder::try_from(&rbac_data).map_err(|e| JsValue::from_str(&format!("{}", e)))?;
 
     Ok(JsRbacBuilder { inner: builder })
   }
@@ -126,7 +124,8 @@ impl JsRbacBuilder {
       .as_ref()
       .map(|c| c.iter().map(|s| s.as_str()).collect());
 
-    self.inner
+    self
+      .inner
       .add_role(name, &perm_refs, child_refs.as_deref())
       .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
 
@@ -144,7 +143,8 @@ impl JsRbacBuilder {
     role_name: &str,
     permission: &str,
   ) -> Result<JsRbacBuilder, JsValue> {
-    self.inner
+    self
+      .inner
       .add_permission(role_name, permission)
       .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
 
@@ -162,7 +162,8 @@ impl JsRbacBuilder {
     parent_name: &str,
     child_name: &str,
   ) -> Result<JsRbacBuilder, JsValue> {
-    self.inner
+    self
+      .inner
       .add_child(parent_name, child_name)
       .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
 
@@ -172,7 +173,9 @@ impl JsRbacBuilder {
   /// Builds the final RBAC
   #[wasm_bindgen(js_name = build)]
   pub fn build(self) -> Result<JsRbac, JsValue> {
-    let rbac = self.inner.build()
+    let rbac = self
+      .inner
+      .build()
       .map_err(|e| JsValue::from_str(&format!("{}", e)))?;
 
     Ok(JsRbac { inner: rbac })
@@ -187,11 +190,7 @@ pub fn create_rbac_from_json(json: &str) -> Result<JsRbac, JsValue> {
 
 /// Convenience function to check a permission directly
 #[wasm_bindgen(js_name = checkPermission)]
-pub fn check_permission(
-  rbac_json: &str,
-  role: &str,
-  permission: &str,
-) -> Result<bool, JsValue> {
+pub fn check_permission(rbac_json: &str, role: &str, permission: &str) -> Result<bool, JsValue> {
   let rbac = JsRbac::from_json(rbac_json)?;
   Ok(rbac.is_granted(role, permission))
 }

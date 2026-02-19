@@ -1018,7 +1018,11 @@ impl Rule<String> {
   /// Validates a string value and collects all violations.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violations)` with all failures.
-  pub fn validate_ref_all(&self, value: &str, locale: Option<&str>) -> Result<(), crate::Violations> {
+  pub fn validate_ref_all(
+    &self,
+    value: &str,
+    locale: Option<&str>,
+  ) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_violations_ref(value, locale, &mut violations);
     if violations.is_empty() {
@@ -1057,7 +1061,11 @@ impl Rule<String> {
   }
 
   /// Validates an optional string value and collects all violations.
-  pub fn validate_ref_option_all(&self, value: Option<&str>, locale: Option<&str>) -> Result<(), crate::Violations> {
+  pub fn validate_ref_option_all(
+    &self,
+    value: Option<&str>,
+    locale: Option<&str>,
+  ) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_ref_all(v, locale),
       None if self.requires_value() => Err(crate::Violations::from(value_missing_violation())),
@@ -1066,7 +1074,12 @@ impl Rule<String> {
   }
 
   /// Helper to collect all violations recursively.
-  fn collect_violations_ref(&self, value: &str, locale: Option<&str>, violations: &mut crate::Violations) {
+  fn collect_violations_ref(
+    &self,
+    value: &str,
+    locale: Option<&str>,
+    violations: &mut crate::Violations,
+  ) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
@@ -1295,7 +1308,11 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value and collects all violations.
-  pub fn validate_option_all(&self, value: Option<T>, locale: Option<&str>) -> Result<(), crate::Violations> {
+  pub fn validate_option_all(
+    &self,
+    value: Option<T>,
+    locale: Option<&str>,
+  ) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_all(v, locale),
       None => Err(crate::Violations::from(value_missing_violation())),
