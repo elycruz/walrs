@@ -120,19 +120,21 @@ impl Field<String> {
   /// Validate the value against the rule.
   ///
   /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
+  /// Uses the field's locale for internationalized error messages.
   pub fn validate(&self, value: &String) -> Result<(), Violations> {
     match &self.rule {
       Some(rule) => {
+        let locale = self.locale.as_deref();
         if self.break_on_failure {
           // Return on first error
-          rule.validate_ref(value).map_err(|v| {
+          rule.validate_ref(value, locale).map_err(|v| {
             let mut violations = Violations::empty();
             violations.push(v);
             violations
           })
         } else {
           // Collect all violations
-          rule.validate_ref_all(value)
+          rule.validate_ref_all(value, locale)
         }
       }
       None => Ok(()),

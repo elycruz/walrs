@@ -270,7 +270,7 @@ impl<T: ?Sized> Message<T> {
   /// use walrs_validator::Message;
   ///
   /// let msg: Message<str> = Message::static_msg("Invalid value");
-  /// assert_eq!(msg.resolve("test"), "Invalid value");
+  /// assert_eq!(msg.resolve("test", None), "Invalid value");
   /// ```
   pub fn static_msg(msg: impl Into<String>) -> Self {
     Message::Static(msg.into())
@@ -284,7 +284,7 @@ impl<T: ?Sized> Message<T> {
   /// use walrs_validator::Message;
   ///
   /// let msg: Message<i32> = Message::provider(|ctx| format!("Got {}, expected positive", ctx.value));
-  /// assert_eq!(msg.resolve(&-5), "Got -5, expected positive");
+  /// assert_eq!(msg.resolve(&-5, None), "Got -5, expected positive");
   /// ```
   pub fn provider(f: impl Fn(&MessageContext<T>) -> String + Send + Sync + 'static) -> Self {
     Message::Provider(Arc::new(f))
@@ -301,16 +301,26 @@ impl<T: ?Sized> Message<T> {
   /// use walrs_validator::Message;
   ///
   /// let static_msg: Message<str> = Message::from("Error");
-  /// assert_eq!(static_msg.resolve("any"), "Error");
+  /// assert_eq!(static_msg.resolve("any", None), "Error");
   ///
   /// let dynamic_msg: Message<str> = Message::provider(|ctx| format!("Bad: {}", ctx.value));
-  /// assert_eq!(dynamic_msg.resolve("input"), "Bad: input");
+  /// assert_eq!(dynamic_msg.resolve("input", None), "Bad: input");
+  ///
+  /// // With locale for internationalized messages
+  /// let i18n_msg: Message<str> = Message::provider(|ctx| {
+  ///     match ctx.locale {
+  ///         Some("es") => format!("Valor '{}' es inválido", ctx.value),
+  ///         _ => format!("Value '{}' is invalid", ctx.value),
+  ///     }
+  /// });
+  /// assert_eq!(i18n_msg.resolve("test", Some("es")), "Valor 'test' es inválido");
+  /// assert_eq!(i18n_msg.resolve("test", None), "Value 'test' is invalid");
   /// ```
-  pub fn resolve(&self, value: &T) -> String {
+  pub fn resolve(&self, value: &T, locale: Option<&str>) -> String {
     match self {
       Message::Static(s) => s.clone(),
       Message::Provider(f) => {
-        let ctx = MessageContext::new(value, MessageParams::default());
+        let ctx = MessageContext::with_locale(value, MessageParams::default(), locale);
         f(&ctx)
       }
     }
@@ -355,15 +365,15 @@ impl<T: ?Sized> Message<T> {
   /// use walrs_validator::Message;
   ///
   /// let empty: Message<str> = Message::Static(String::new());
-  /// assert_eq!(empty.resolve_or("x", "default"), "default");
+  /// assert_eq!(empty.resolve_or("x", "default", None), "default");
   ///
   /// let filled: Message<str> = Message::from("custom");
-  /// assert_eq!(filled.resolve_or("x", "default"), "custom");
+  /// assert_eq!(filled.resolve_or("x", "default", None), "custom");
   /// ```
-  pub fn resolve_or(&self, value: &T, fallback: &str) -> String {
+  pub fn resolve_or(&self, value: &T, fallback: &str, locale: Option<&str>) -> String {
     match self {
       Message::Static(s) if s.is_empty() => fallback.to_string(),
-      _ => self.resolve(value),
+      _ => self.resolve(value, locale),
     }
   }
 
@@ -429,7 +439,7 @@ mod tests {
     let msg: Message<str> = Message::static_msg("Error message");
     assert!(msg.is_static());
     assert!(!msg.is_provider());
-    assert_eq!(msg.resolve("any"), "Error message");
+    assert_eq!(msg.resolve("any", None), "Error message");
   }
 
   #[test]
@@ -437,31 +447,31 @@ mod tests {
     let msg: Message<i32> = Message::provider(|ctx| format!("Value {} is invalid", ctx.value));
     assert!(msg.is_provider());
     assert!(!msg.is_static());
-    assert_eq!(msg.resolve(&42), "Value 42 is invalid");
+    assert_eq!(msg.resolve(&42, None), "Value 42 is invalid");
   }
 
   #[test]
   fn test_message_resolve_or_with_empty() {
     let empty: Message<str> = Message::Static(String::new());
-    assert_eq!(empty.resolve_or("x", "fallback"), "fallback");
+    assert_eq!(empty.resolve_or("x", "fallback", None), "fallback");
   }
 
   #[test]
   fn test_message_resolve_or_with_value() {
     let msg: Message<str> = Message::from("custom");
-    assert_eq!(msg.resolve_or("x", "fallback"), "custom");
+    assert_eq!(msg.resolve_or("x", "fallback", None), "custom");
   }
 
   #[test]
   fn test_message_from_str() {
     let msg: Message<i32> = Message::from("test message");
-    assert_eq!(msg.resolve(&0), "test message");
+    assert_eq!(msg.resolve(&0, None), "test message");
   }
 
   #[test]
   fn test_message_from_string() {
     let msg: Message<i32> = Message::from("owned string".to_string());
-    assert_eq!(msg.resolve(&0), "owned string");
+    assert_eq!(msg.resolve(&0, None), "owned string");
   }
 
   #[test]
@@ -567,7 +577,7 @@ mod tests {
   #[test]
   fn test_message_with_unsized_str() {
     let msg: Message<str> = Message::provider(|ctx| format!("Value: {}", ctx.value));
-    assert_eq!(msg.resolve("hello"), "Value: hello");
+    assert_eq!(msg.resolve("hello", None), "Value: hello");
   }
 
   #[test]
@@ -576,7 +586,7 @@ mod tests {
       format!("Length: {}", ctx.value.len())
     }));
     let arr = [1, 2, 3];
-    assert_eq!(msg.resolve(&arr), "Length: 3");
+    assert_eq!(msg.resolve(&arr, None), "Length: 3");
   }
 
   #[test]
@@ -667,7 +677,7 @@ mod tests {
     });
 
     // resolve() creates a default MessageParams
-    assert_eq!(msg.resolve(&"test".to_string()), "min: none, max: none");
+    assert_eq!(msg.resolve(&"test".to_string(), None), "min: none, max: none");
   }
 
   #[test]
@@ -739,5 +749,49 @@ mod tests {
       msg.resolve_with_context(&ctx_fr),
       "La valeur 'test' est invalide"
     );
+  }
+
+  #[test]
+  fn test_resolve_with_locale() {
+    // Test locale-aware message resolution
+    let msg: Message<str> = Message::provider(|ctx| match ctx.locale {
+      Some("es") => format!("Error: el valor '{}' es inválido", ctx.value),
+      Some("de") => format!("Fehler: Wert '{}' ist ungültig", ctx.value),
+      _ => format!("Error: value '{}' is invalid", ctx.value),
+    });
+
+    // Default (English)
+    assert_eq!(
+      msg.resolve("abc", None),
+      "Error: value 'abc' is invalid"
+    );
+
+    // Spanish
+    assert_eq!(
+      msg.resolve("abc", Some("es")),
+      "Error: el valor 'abc' es inválido"
+    );
+
+    // German
+    assert_eq!(
+      msg.resolve("abc", Some("de")),
+      "Fehler: Wert 'abc' ist ungültig"
+    );
+
+    // Unknown locale falls back to default
+    assert_eq!(
+      msg.resolve("abc", Some("unknown")),
+      "Error: value 'abc' is invalid"
+    );
+  }
+
+  #[test]
+  fn test_resolve_static_ignores_locale() {
+    // Static messages should ignore locale
+    let msg: Message<str> = Message::from("Static message");
+
+    assert_eq!(msg.resolve("x", None), "Static message");
+    assert_eq!(msg.resolve("x", Some("es")), "Static message");
+    assert_eq!(msg.resolve("x", Some("fr")), "Static message");
   }
 }

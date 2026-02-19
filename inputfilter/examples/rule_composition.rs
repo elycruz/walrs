@@ -18,16 +18,16 @@ fn main() {
 
   println!(
     "   Required rule on 'hello': {:?}",
-    required.validate_ref("hello")
+    required.validate_ref("hello", None)
   );
-  println!("   Required rule on '': {:?}", required.validate_ref(""));
+  println!("   Required rule on '': {:?}", required.validate_ref("", None));
   println!(
     "   MinLength(3) on 'hi': {:?}",
-    min_length.validate_ref("hi")
+    min_length.validate_ref("hi", None)
   );
   println!(
     "   MinLength(3) on 'hello': {:?}",
-    min_length.validate_ref("hello")
+    min_length.validate_ref("hello", None)
   );
 
   // Example 2: Combining rules with .and()
@@ -38,15 +38,15 @@ fn main() {
 
   println!(
     "   Combined rule on 'ab': {:?}",
-    username_rule.validate_ref("ab")
+    username_rule.validate_ref("ab", None)
   );
   println!(
     "   Combined rule on 'john': {:?}",
-    username_rule.validate_ref("john")
+    username_rule.validate_ref("john", None)
   );
   println!(
     "   Combined rule on 'this_username_is_way_too_long': {:?}",
-    username_rule.validate_ref("this_username_is_way_too_long")
+    username_rule.validate_ref("this_username_is_way_too_long", None)
   );
 
   // Example 3: Using Rule::All directly
@@ -60,11 +60,11 @@ fn main() {
 
   println!(
     "   'password': {:?}",
-    password_rule.validate_ref("password")
+    password_rule.validate_ref("password", None)
   );
   println!(
     "   'Password123': {:?}",
-    password_rule.validate_ref("Password123")
+    password_rule.validate_ref("Password123", None)
   );
 
   // Example 4: Using .or() combinator (Any must pass)
@@ -73,10 +73,10 @@ fn main() {
 
   println!(
     "   'user@example.com': {:?}",
-    contact_rule.validate_ref("user@example.com")
+    contact_rule.validate_ref("user@example.com", None)
   );
-  println!("   '555-1234': {:?}", contact_rule.validate_ref("555-1234"));
-  println!("   'invalid': {:?}", contact_rule.validate_ref("invalid"));
+  println!("   '555-1234': {:?}", contact_rule.validate_ref("555-1234", None));
+  println!("   'invalid': {:?}", contact_rule.validate_ref("invalid", None));
 
   // Example 5: Using Rule::Any directly
   println!("\n5. Using Rule::Any directly:");
@@ -88,11 +88,11 @@ fn main() {
 
   println!(
     "   'user@example.com': {:?}",
-    flexible_id.validate_ref("user@example.com")
+    flexible_id.validate_ref("user@example.com", None)
   );
-  println!("   '123456': {:?}", flexible_id.validate_ref("123456"));
-  println!("   'AB123456': {:?}", flexible_id.validate_ref("AB123456"));
-  println!("   'invalid': {:?}", flexible_id.validate_ref("invalid"));
+  println!("   '123456': {:?}", flexible_id.validate_ref("123456", None));
+  println!("   'AB123456': {:?}", flexible_id.validate_ref("AB123456", None));
+  println!("   'invalid': {:?}", flexible_id.validate_ref("invalid", None));
 
   // Example 6: Negation with .not()
   println!("\n6. Negation with .not():");
@@ -101,11 +101,11 @@ fn main() {
 
   println!(
     "   not(MinLength(1)) on '': {:?}",
-    is_empty.validate_ref("")
+    is_empty.validate_ref("", None)
   );
   println!(
     "   not(MinLength(1)) on 'hello': {:?}",
-    is_empty.validate_ref("hello")
+    is_empty.validate_ref("hello", None)
   );
 
   // Example 7: Conditional rules with .when()
@@ -114,15 +114,15 @@ fn main() {
 
   println!(
     "   MinLength(8).when(IsNotEmpty) on '': {:?}",
-    conditional_rule.validate_ref("")
+    conditional_rule.validate_ref("", None)
   );
   println!(
     "   MinLength(8).when(IsNotEmpty) on 'short': {:?}",
-    conditional_rule.validate_ref("short")
+    conditional_rule.validate_ref("short", None)
   );
   println!(
     "   MinLength(8).when(IsNotEmpty) on 'longenough': {:?}",
-    conditional_rule.validate_ref("longenough")
+    conditional_rule.validate_ref("longenough", None)
   );
 
   // Example 8: Conditional with else using .when_else()
@@ -143,23 +143,23 @@ fn main() {
 
   println!(
     "   Email on 'test@example.com': {:?}",
-    email_pattern.validate_ref("test@example.com")
+    email_pattern.validate_ref("test@example.com", None)
   );
   println!(
     "   Email on 'invalid': {:?}",
-    email_pattern.validate_ref("invalid")
+    email_pattern.validate_ref("invalid", None)
   );
   println!(
     "   Url on 'https://example.com': {:?}",
-    url_pattern.validate_ref("https://example.com")
+    url_pattern.validate_ref("https://example.com", None)
   );
   println!(
     "   Pattern([a-z]+) on 'hello': {:?}",
-    custom_pattern.validate_ref("hello")
+    custom_pattern.validate_ref("hello", None)
   );
   println!(
     "   Pattern([a-z]+) on 'Hello': {:?}",
-    custom_pattern.validate_ref("Hello")
+    custom_pattern.validate_ref("Hello", None)
   );
 
   // Example 10: Numeric rules
@@ -170,16 +170,16 @@ fn main() {
     max: 100.0,
   };
 
-  println!("   Age rule on -5: {:?}", age_rule.validate(-5));
-  println!("   Age rule on 25: {:?}", age_rule.validate(25));
-  println!("   Age rule on 200: {:?}", age_rule.validate(200));
+  println!("   Age rule on -5: {:?}", age_rule.validate(-5, None));
+  println!("   Age rule on 25: {:?}", age_rule.validate(25, None));
+  println!("   Age rule on 200: {:?}", age_rule.validate(200, None));
   println!(
     "   Percentage on 50.5: {:?}",
-    percentage_rule.validate(50.5)
+    percentage_rule.validate(50.5, None)
   );
   println!(
     "   Percentage on 150.0: {:?}",
-    percentage_rule.validate(150.0)
+    percentage_rule.validate(150.0, None)
   );
 
   // Example 11: Exact length
@@ -187,9 +187,9 @@ fn main() {
   let pin_code = Rule::<String>::ExactLength(4);
   let zip_code = Rule::<String>::ExactLength(5);
 
-  println!("   PIN(4) on '123': {:?}", pin_code.validate_ref("123"));
-  println!("   PIN(4) on '1234': {:?}", pin_code.validate_ref("1234"));
-  println!("   ZIP(5) on '12345': {:?}", zip_code.validate_ref("12345"));
+  println!("   PIN(4) on '123': {:?}", pin_code.validate_ref("123", None));
+  println!("   PIN(4) on '1234': {:?}", pin_code.validate_ref("1234", None));
+  println!("   ZIP(5) on '12345': {:?}", zip_code.validate_ref("12345", None));
 
   // Example 12: OneOf for enum-like values
   println!("\n12. OneOf for enum-like values:");
@@ -202,11 +202,11 @@ fn main() {
 
   println!(
     "   Status 'active': {:?}",
-    status_rule.validate_ref("active")
+    status_rule.validate_ref("active", None)
   );
   println!(
     "   Status 'invalid': {:?}",
-    status_rule.validate_ref("invalid")
+    status_rule.validate_ref("invalid", None)
   );
 
   // Example 13: Custom messages
@@ -214,7 +214,7 @@ fn main() {
   let with_message =
     Rule::<String>::MinLength(8).with_message("Password must be at least 8 characters");
 
-  match with_message.validate_ref("short") {
+  match with_message.validate_ref("short", None) {
     Ok(()) => println!("   Valid"),
     Err(violation) => println!("   Error: {}", violation.message()),
   }
@@ -226,7 +226,7 @@ fn main() {
     .and(Rule::Pattern(r"[0-9]".to_string()).with_message("Must contain a number"))
     .and(Rule::Pattern(r"[A-Z]".to_string()).with_message("Must contain uppercase"));
 
-  match strict_rule.validate_ref_all("abc") {
+  match strict_rule.validate_ref_all("abc", None) {
     Ok(()) => println!("   All rules passed!"),
     Err(violations) => {
       println!("   Found {} violations:", violations.len());

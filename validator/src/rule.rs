@@ -865,6 +865,7 @@ impl Rule<String> {
   /// Validates a string value against this rule.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violation)` on first failure.
+  /// Pass an optional locale for internationalized error messages.
   ///
   /// # Example
   ///
@@ -872,10 +873,21 @@ impl Rule<String> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(10));
-  /// assert!(rule.validate_ref("hello").is_ok());
-  /// assert!(rule.validate_ref("hi").is_err());
+  /// assert!(rule.validate_ref("hello", None).is_ok());
+  /// assert!(rule.validate_ref("hi", None).is_err());
+  ///
+  /// // With locale for i18n messages
+  /// let i18n_rule = Rule::<String>::MinLength(5)
+  ///     .with_message_provider(|ctx| {
+  ///         match ctx.locale {
+  ///             Some("es") => format!("Mínimo {} caracteres", 5),
+  ///             _ => format!("Minimum {} characters", 5),
+  ///         }
+  ///     });
+  /// let result = i18n_rule.validate_ref("hi", Some("es"));
+  /// assert!(result.unwrap_err().message().contains("Mínimo"));
   /// ```
-  pub fn validate_ref(&self, value: &str) -> RuleResult {
+  pub fn validate_ref(&self, value: &str, locale: Option<&str>) -> RuleResult {
     match self {
       Rule::Required => {
         if value.trim().is_empty() {
@@ -953,7 +965,7 @@ impl Rule<String> {
       }
       Rule::All(rules) => {
         for rule in rules {
-          rule.validate_ref(value)?;
+          rule.validate_ref(value, locale)?;
         }
         Ok(())
       }
@@ -963,14 +975,14 @@ impl Rule<String> {
         }
         let mut last_err = None;
         for rule in rules {
-          match rule.validate_ref(value) {
+          match rule.validate_ref(value, locale) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
           }
         }
         Err(last_err.unwrap())
       }
-      Rule::Not(inner) => match inner.validate_ref(value) {
+      Rule::Not(inner) => match inner.validate_ref(value, locale) {
         Ok(()) => Err(negation_failed_violation()),
         Err(_) => Ok(()),
       },
@@ -981,20 +993,20 @@ impl Rule<String> {
       } => {
         let should_apply = condition.evaluate_str(value);
         if should_apply {
-          then_rule.validate_ref(value)
+          then_rule.validate_ref(value, locale)
         } else {
           match else_rule {
-            Some(rule) => rule.validate_ref(value),
+            Some(rule) => rule.validate_ref(value, locale),
             None => Ok(()),
           }
         }
       }
       Rule::Custom(f) => f(&value.to_string()),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
-      Rule::WithMessage { rule, message } => match rule.validate_ref(value) {
+      Rule::WithMessage { rule, message } => match rule.validate_ref(value, locale) {
         Ok(()) => Ok(()),
         Err(violation) => {
-          let custom_msg = message.resolve(&value.to_string());
+          let custom_msg = message.resolve(&value.to_string(), locale);
           Err(Violation::new(violation.violation_type(), custom_msg))
         }
       },
@@ -1006,9 +1018,9 @@ impl Rule<String> {
   /// Validates a string value and collects all violations.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violations)` with all failures.
-  pub fn validate_ref_all(&self, value: &str) -> Result<(), crate::Violations> {
+  pub fn validate_ref_all(&self, value: &str, locale: Option<&str>) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
-    self.collect_violations_ref(value, &mut violations);
+    self.collect_violations_ref(value, locale, &mut violations);
     if violations.is_empty() {
       Ok(())
     } else {
@@ -1028,37 +1040,37 @@ impl Rule<String> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(3);
-  /// assert!(rule.validate_ref_option(None).is_ok()); // None is OK for non-required
-  /// assert!(rule.validate_ref_option(Some("hello")).is_ok());
-  /// assert!(rule.validate_ref_option(Some("hi")).is_err());
+  /// assert!(rule.validate_ref_option(None, None).is_ok()); // None is OK for non-required
+  /// assert!(rule.validate_ref_option(Some("hello"), None).is_ok());
+  /// assert!(rule.validate_ref_option(Some("hi"), None).is_err());
   ///
   /// let required = Rule::<String>::Required;
-  /// assert!(required.validate_ref_option(None).is_err()); // None fails Required
-  /// assert!(required.validate_ref_option(Some("value")).is_ok());
+  /// assert!(required.validate_ref_option(None, None).is_err()); // None fails Required
+  /// assert!(required.validate_ref_option(Some("value"), None).is_ok());
   /// ```
-  pub fn validate_ref_option(&self, value: Option<&str>) -> RuleResult {
+  pub fn validate_ref_option(&self, value: Option<&str>, locale: Option<&str>) -> RuleResult {
     match value {
-      Some(v) => self.validate_ref(v),
+      Some(v) => self.validate_ref(v, locale),
       None if self.requires_value() => Err(value_missing_violation()),
       None => Ok(()),
     }
   }
 
   /// Validates an optional string value and collects all violations.
-  pub fn validate_ref_option_all(&self, value: Option<&str>) -> Result<(), crate::Violations> {
+  pub fn validate_ref_option_all(&self, value: Option<&str>, locale: Option<&str>) -> Result<(), crate::Violations> {
     match value {
-      Some(v) => self.validate_ref_all(v),
+      Some(v) => self.validate_ref_all(v, locale),
       None if self.requires_value() => Err(crate::Violations::from(value_missing_violation())),
       None => Ok(()),
     }
   }
 
   /// Helper to collect all violations recursively.
-  fn collect_violations_ref(&self, value: &str, violations: &mut crate::Violations) {
+  fn collect_violations_ref(&self, value: &str, locale: Option<&str>, violations: &mut crate::Violations) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
-          rule.collect_violations_ref(value, violations);
+          rule.collect_violations_ref(value, locale, violations);
         }
       }
       Rule::Any(rules) => {
@@ -1067,7 +1079,7 @@ impl Rule<String> {
         let mut any_passed = false;
         for rule in rules {
           let mut rule_violations = crate::Violations::default();
-          rule.collect_violations_ref(value, &mut rule_violations);
+          rule.collect_violations_ref(value, locale, &mut rule_violations);
           if rule_violations.is_empty() {
             any_passed = true;
             break;
@@ -1088,21 +1100,21 @@ impl Rule<String> {
       } => {
         let should_apply = condition.evaluate_str(value);
         if should_apply {
-          then_rule.collect_violations_ref(value, violations);
+          then_rule.collect_violations_ref(value, locale, violations);
         } else if let Some(rule) = else_rule {
-          rule.collect_violations_ref(value, violations);
+          rule.collect_violations_ref(value, locale, violations);
         }
       }
       Rule::WithMessage { rule, message } => {
         let mut inner_violations = crate::Violations::default();
-        rule.collect_violations_ref(value, &mut inner_violations);
+        rule.collect_violations_ref(value, locale, &mut inner_violations);
         for violation in inner_violations {
-          let custom_msg = message.resolve(&value.to_string());
+          let custom_msg = message.resolve(&value.to_string(), locale);
           violations.push(Violation::new(violation.violation_type(), custom_msg));
         }
       }
       _ => {
-        if let Err(v) = self.validate_ref(value) {
+        if let Err(v) = self.validate_ref(value, locale) {
           violations.push(v);
         }
       }
@@ -1118,6 +1130,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violation)` on first failure.
+  /// Pass an optional locale for internationalized error messages.
   ///
   /// # Example
   ///
@@ -1125,10 +1138,21 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-  /// assert!(rule.validate(50).is_ok());
-  /// assert!(rule.validate(-5).is_err());
+  /// assert!(rule.validate(50, None).is_ok());
+  /// assert!(rule.validate(-5, None).is_err());
+  ///
+  /// // With locale for i18n messages
+  /// let i18n_rule = Rule::<i32>::Min(0)
+  ///     .with_message_provider(|ctx| {
+  ///         match ctx.locale {
+  ///             Some("es") => format!("El valor debe ser al menos 0"),
+  ///             _ => format!("Value must be at least 0"),
+  ///         }
+  ///     });
+  /// let result = i18n_rule.validate(-5, Some("es"));
+  /// assert!(result.unwrap_err().message().contains("al menos"));
   /// ```
-  pub fn validate(&self, value: T) -> RuleResult {
+  pub fn validate(&self, value: T, locale: Option<&str>) -> RuleResult {
     match self {
       Rule::Required => {
         // Numeric values are always "present"
@@ -1180,7 +1204,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       }
       Rule::All(rules) => {
         for rule in rules {
-          rule.validate(value)?;
+          rule.validate(value, locale)?;
         }
         Ok(())
       }
@@ -1190,14 +1214,14 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         }
         let mut last_err = None;
         for rule in rules {
-          match rule.validate(value) {
+          match rule.validate(value, locale) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
           }
         }
         Err(last_err.unwrap())
       }
-      Rule::Not(inner) => match inner.validate(value) {
+      Rule::Not(inner) => match inner.validate(value, locale) {
         Ok(()) => Err(negation_failed_violation()),
         Err(_) => Ok(()),
       },
@@ -1208,20 +1232,20 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       } => {
         let should_apply = condition.evaluate(&value);
         if should_apply {
-          then_rule.validate(value)
+          then_rule.validate(value, locale)
         } else {
           match else_rule {
-            Some(rule) => rule.validate(value),
+            Some(rule) => rule.validate(value, locale),
             None => Ok(()),
           }
         }
       }
       Rule::Custom(f) => f(&value),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
-      Rule::WithMessage { rule, message } => match rule.validate(value) {
+      Rule::WithMessage { rule, message } => match rule.validate(value, locale) {
         Ok(()) => Ok(()),
         Err(violation) => {
-          let custom_msg = message.resolve(&value);
+          let custom_msg = message.resolve(&value, locale);
           Err(Violation::new(violation.violation_type(), custom_msg))
         }
       },
@@ -1238,9 +1262,9 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value and collects all violations.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violations)` with all failures.
-  pub fn validate_all(&self, value: T) -> Result<(), crate::Violations> {
+  pub fn validate_all(&self, value: T, locale: Option<&str>) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
-    self.collect_violations(value, &mut violations);
+    self.collect_violations(value, locale, &mut violations);
     if violations.is_empty() {
       Ok(())
     } else {
@@ -1259,31 +1283,31 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-  /// assert!(rule.validate_option(None).is_err()); // None is an error
-  /// assert!(rule.validate_option(Some(50)).is_ok());
-  /// assert!(rule.validate_option(Some(-5)).is_err());
+  /// assert!(rule.validate_option(None, None).is_err()); // None is an error
+  /// assert!(rule.validate_option(Some(50), None).is_ok());
+  /// assert!(rule.validate_option(Some(-5), None).is_err());
   /// ```
-  pub fn validate_option(&self, value: Option<T>) -> RuleResult {
+  pub fn validate_option(&self, value: Option<T>, locale: Option<&str>) -> RuleResult {
     match value {
-      Some(v) => self.validate(v),
+      Some(v) => self.validate(v, locale),
       None => Err(value_missing_violation()),
     }
   }
 
   /// Validates an optional numeric value and collects all violations.
-  pub fn validate_option_all(&self, value: Option<T>) -> Result<(), crate::Violations> {
+  pub fn validate_option_all(&self, value: Option<T>, locale: Option<&str>) -> Result<(), crate::Violations> {
     match value {
-      Some(v) => self.validate_all(v),
+      Some(v) => self.validate_all(v, locale),
       None => Err(crate::Violations::from(value_missing_violation())),
     }
   }
 
   /// Helper to collect all violations recursively.
-  fn collect_violations(&self, value: T, violations: &mut crate::Violations) {
+  fn collect_violations(&self, value: T, locale: Option<&str>, violations: &mut crate::Violations) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
-          rule.collect_violations(value, violations);
+          rule.collect_violations(value, locale, violations);
         }
       }
       Rule::Any(rules) => {
@@ -1291,7 +1315,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         let mut any_passed = false;
         for rule in rules {
           let mut rule_violations = crate::Violations::default();
-          rule.collect_violations(value, &mut rule_violations);
+          rule.collect_violations(value, locale, &mut rule_violations);
           if rule_violations.is_empty() {
             any_passed = true;
             break;
@@ -1311,21 +1335,21 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       } => {
         let should_apply = condition.evaluate(&value);
         if should_apply {
-          then_rule.collect_violations(value, violations);
+          then_rule.collect_violations(value, locale, violations);
         } else if let Some(rule) = else_rule {
-          rule.collect_violations(value, violations);
+          rule.collect_violations(value, locale, violations);
         }
       }
       Rule::WithMessage { rule, message } => {
         let mut inner_violations = crate::Violations::default();
-        rule.collect_violations(value, &mut inner_violations);
+        rule.collect_violations(value, locale, &mut inner_violations);
         for violation in inner_violations {
-          let custom_msg = message.resolve(&value);
+          let custom_msg = message.resolve(&value, locale);
           violations.push(Violation::new(violation.violation_type(), custom_msg));
         }
       }
       _ => {
-        if let Err(v) = self.validate(value) {
+        if let Err(v) = self.validate(value, locale) {
           violations.push(v);
         }
       }
@@ -1614,7 +1638,7 @@ impl CompiledRule<String> {
         match CompiledRule::new((**rule).clone()).validate_ref(value) {
           Ok(()) => Ok(()),
           Err(violation) => {
-            let custom_msg = message.resolve(&value.to_string());
+            let custom_msg = message.resolve(&value.to_string(), None);
             Err(Violation::new(violation.violation_type(), custom_msg))
           }
         }
@@ -1625,19 +1649,19 @@ impl CompiledRule<String> {
 
   /// Validates a string value and collects all violations.
   pub fn validate_ref_all(&self, value: &str) -> Result<(), crate::Violations> {
-    self.rule.validate_ref_all(value)
+    self.rule.validate_ref_all(value, None)
   }
 }
 
 impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value using the compiled rule.
   pub fn validate(&self, value: T) -> RuleResult {
-    self.rule.validate(value)
+    self.rule.validate(value, None)
   }
 
   /// Validates a numeric value and collects all violations.
   pub fn validate_all(&self, value: T) -> Result<(), crate::Violations> {
-    self.rule.validate_all(value)
+    self.rule.validate_all(value, None)
   }
 }
 
@@ -1649,7 +1673,7 @@ use crate::traits::{Validate, ValidateRef};
 
 impl ValidateRef<str> for Rule<String> {
   fn validate_ref(&self, value: &str) -> crate::ValidatorResult {
-    Rule::validate_ref(self, value)
+    Rule::validate_ref(self, value, None)
   }
 }
 
@@ -1661,7 +1685,7 @@ impl ValidateRef<str> for CompiledRule<String> {
 
 impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T> {
   fn validate(&self, value: T) -> crate::ValidatorResult {
-    Rule::validate(self, value)
+    Rule::validate(self, value, None)
   }
 }
 
@@ -2201,7 +2225,7 @@ mod tests {
       } => {
         assert_eq!(*inner, Rule::Min(0));
         assert!(message.is_provider());
-        assert_eq!(message.resolve(&-5), "Got -5, expected >= 0");
+        assert_eq!(message.resolve(&-5, None), "Got -5, expected >= 0");
       }
       _ => panic!("Expected Rule::WithMessage"),
     }
@@ -2244,7 +2268,7 @@ mod tests {
           _ => panic!("Expected Rule::All inside WithMessage"),
         }
         assert_eq!(
-          message.resolve(&"".to_string()),
+          message.resolve(&"".to_string(), None),
           "Length must be between 3 and 10"
         );
       }
@@ -2259,99 +2283,99 @@ mod tests {
   #[test]
   fn test_validate_ref_required() {
     let rule = Rule::<String>::Required;
-    assert!(rule.validate_ref("hello").is_ok());
-    assert!(rule.validate_ref("").is_err());
-    assert!(rule.validate_ref("   ").is_err());
+    assert!(rule.validate_ref("hello", None).is_ok());
+    assert!(rule.validate_ref("", None).is_err());
+    assert!(rule.validate_ref("   ", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_min_length() {
     let rule = Rule::<String>::MinLength(3);
-    assert!(rule.validate_ref("hello").is_ok());
-    assert!(rule.validate_ref("abc").is_ok());
-    assert!(rule.validate_ref("ab").is_err());
-    assert!(rule.validate_ref("").is_err());
+    assert!(rule.validate_ref("hello", None).is_ok());
+    assert!(rule.validate_ref("abc", None).is_ok());
+    assert!(rule.validate_ref("ab", None).is_err());
+    assert!(rule.validate_ref("", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_max_length() {
     let rule = Rule::<String>::MaxLength(5);
-    assert!(rule.validate_ref("hello").is_ok());
-    assert!(rule.validate_ref("hi").is_ok());
-    assert!(rule.validate_ref("").is_ok());
-    assert!(rule.validate_ref("hello!").is_err());
+    assert!(rule.validate_ref("hello", None).is_ok());
+    assert!(rule.validate_ref("hi", None).is_ok());
+    assert!(rule.validate_ref("", None).is_ok());
+    assert!(rule.validate_ref("hello!", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_exact_length() {
     let rule = Rule::<String>::ExactLength(5);
-    assert!(rule.validate_ref("hello").is_ok());
-    assert!(rule.validate_ref("hi").is_err());
-    assert!(rule.validate_ref("hello!").is_err());
+    assert!(rule.validate_ref("hello", None).is_ok());
+    assert!(rule.validate_ref("hi", None).is_err());
+    assert!(rule.validate_ref("hello!", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_pattern() {
     let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
-    assert!(rule.validate_ref("123").is_ok());
-    assert!(rule.validate_ref("abc").is_err());
-    assert!(rule.validate_ref("12a").is_err());
+    assert!(rule.validate_ref("123", None).is_ok());
+    assert!(rule.validate_ref("abc", None).is_err());
+    assert!(rule.validate_ref("12a", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_email() {
     let rule = Rule::<String>::Email;
-    assert!(rule.validate_ref("user@example.com").is_ok());
-    assert!(rule.validate_ref("user@sub.example.com").is_ok());
-    assert!(rule.validate_ref("invalid").is_err());
-    assert!(rule.validate_ref("@example.com").is_err());
+    assert!(rule.validate_ref("user@example.com", None).is_ok());
+    assert!(rule.validate_ref("user@sub.example.com", None).is_ok());
+    assert!(rule.validate_ref("invalid", None).is_err());
+    assert!(rule.validate_ref("@example.com", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_url() {
     let rule = Rule::<String>::Url;
-    assert!(rule.validate_ref("http://example.com").is_ok());
-    assert!(rule.validate_ref("https://example.com/path").is_ok());
-    assert!(rule.validate_ref("not-a-url").is_err());
-    assert!(rule.validate_ref("ftp://example.com").is_err()); // Only http/https
+    assert!(rule.validate_ref("http://example.com", None).is_ok());
+    assert!(rule.validate_ref("https://example.com/path", None).is_ok());
+    assert!(rule.validate_ref("not-a-url", None).is_err());
+    assert!(rule.validate_ref("ftp://example.com", None).is_err()); // Only http/https
   }
 
   #[test]
   fn test_validate_ref_equals() {
     let rule = Rule::<String>::Equals("secret".to_string());
-    assert!(rule.validate_ref("secret").is_ok());
-    assert!(rule.validate_ref("wrong").is_err());
+    assert!(rule.validate_ref("secret", None).is_ok());
+    assert!(rule.validate_ref("wrong", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_one_of() {
     let rule = Rule::<String>::OneOf(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
-    assert!(rule.validate_ref("a").is_ok());
-    assert!(rule.validate_ref("b").is_ok());
-    assert!(rule.validate_ref("d").is_err());
+    assert!(rule.validate_ref("a", None).is_ok());
+    assert!(rule.validate_ref("b", None).is_ok());
+    assert!(rule.validate_ref("d", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_all() {
     let rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(10));
-    assert!(rule.validate_ref("hello").is_ok());
-    assert!(rule.validate_ref("hi").is_err());
-    assert!(rule.validate_ref("hello world!").is_err());
+    assert!(rule.validate_ref("hello", None).is_ok());
+    assert!(rule.validate_ref("hi", None).is_err());
+    assert!(rule.validate_ref("hello world!", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_any() {
     let rule = Rule::<String>::Email.or(Rule::Url);
-    assert!(rule.validate_ref("user@example.com").is_ok());
-    assert!(rule.validate_ref("http://example.com").is_ok());
-    assert!(rule.validate_ref("neither").is_err());
+    assert!(rule.validate_ref("user@example.com", None).is_ok());
+    assert!(rule.validate_ref("http://example.com", None).is_ok());
+    assert!(rule.validate_ref("neither", None).is_err());
   }
 
   #[test]
   fn test_validate_ref_not() {
     let rule = Rule::<String>::MinLength(5).not();
-    assert!(rule.validate_ref("hi").is_ok()); // Less than 5 chars, so NOT passes
-    assert!(rule.validate_ref("hello").is_err()); // 5 chars, so NOT fails
+    assert!(rule.validate_ref("hi", None).is_ok()); // Less than 5 chars, so NOT passes
+    assert!(rule.validate_ref("hello", None).is_err()); // 5 chars, so NOT fails
   }
 
   #[test]
@@ -2361,16 +2385,16 @@ mod tests {
       then_rule: Box::new(Rule::MinLength(5)),
       else_rule: None,
     };
-    assert!(rule.validate_ref("").is_ok()); // Empty, condition false, no rule applied
-    assert!(rule.validate_ref("hello").is_ok()); // Not empty, MinLength(5) passes
-    assert!(rule.validate_ref("hi").is_err()); // Not empty, MinLength(5) fails
+    assert!(rule.validate_ref("", None).is_ok()); // Empty, condition false, no rule applied
+    assert!(rule.validate_ref("hello", None).is_ok()); // Not empty, MinLength(5) passes
+    assert!(rule.validate_ref("hi", None).is_err()); // Not empty, MinLength(5) fails
   }
 
   #[test]
   fn test_validate_ref_with_message() {
     let rule = Rule::<String>::MinLength(8).with_message("Password too short");
 
-    let result = rule.validate_ref("hi");
+    let result = rule.validate_ref("hi", None);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(violation.message(), "Password too short");
@@ -2383,10 +2407,10 @@ mod tests {
       .and(Rule::Pattern(r"^\d+$".to_string()));
 
     // Valid
-    assert!(rule.validate_ref_all("123").is_ok());
+    assert!(rule.validate_ref_all("123", None).is_ok());
 
     // Multiple violations
-    let result = rule.validate_ref_all("ab");
+    let result = rule.validate_ref_all("ab", None);
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert!(violations.len() >= 1); // At least TooShort
@@ -2399,90 +2423,90 @@ mod tests {
   #[test]
   fn test_validate_min() {
     let rule = Rule::<i32>::Min(0);
-    assert!(rule.validate(0).is_ok());
-    assert!(rule.validate(100).is_ok());
-    assert!(rule.validate(-1).is_err());
+    assert!(rule.validate(0, None).is_ok());
+    assert!(rule.validate(100, None).is_ok());
+    assert!(rule.validate(-1, None).is_err());
   }
 
   #[test]
   fn test_validate_max() {
     let rule = Rule::<i32>::Max(100);
-    assert!(rule.validate(100).is_ok());
-    assert!(rule.validate(0).is_ok());
-    assert!(rule.validate(101).is_err());
+    assert!(rule.validate(100, None).is_ok());
+    assert!(rule.validate(0, None).is_ok());
+    assert!(rule.validate(101, None).is_err());
   }
 
   #[test]
   fn test_validate_range() {
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
-    assert!(rule.validate(0).is_ok());
-    assert!(rule.validate(50).is_ok());
-    assert!(rule.validate(100).is_ok());
-    assert!(rule.validate(-1).is_err());
-    assert!(rule.validate(101).is_err());
+    assert!(rule.validate(0, None).is_ok());
+    assert!(rule.validate(50, None).is_ok());
+    assert!(rule.validate(100, None).is_ok());
+    assert!(rule.validate(-1, None).is_err());
+    assert!(rule.validate(101, None).is_err());
   }
 
   #[test]
   fn test_validate_step() {
     let rule = Rule::<i32>::Step(5);
-    assert!(rule.validate(0).is_ok());
-    assert!(rule.validate(5).is_ok());
-    assert!(rule.validate(10).is_ok());
-    assert!(rule.validate(3).is_err());
+    assert!(rule.validate(0, None).is_ok());
+    assert!(rule.validate(5, None).is_ok());
+    assert!(rule.validate(10, None).is_ok());
+    assert!(rule.validate(3, None).is_err());
   }
 
   #[test]
   fn test_validate_step_float() {
     let rule = Rule::<f64>::Step(0.5);
-    assert!(rule.validate(0.0).is_ok());
-    assert!(rule.validate(0.5).is_ok());
-    assert!(rule.validate(1.0).is_ok());
-    assert!(rule.validate(0.3).is_err());
+    assert!(rule.validate(0.0, None).is_ok());
+    assert!(rule.validate(0.5, None).is_ok());
+    assert!(rule.validate(1.0, None).is_ok());
+    assert!(rule.validate(0.3, None).is_err());
   }
 
   #[test]
   fn test_validate_equals_numeric() {
     let rule = Rule::<i32>::Equals(42);
-    assert!(rule.validate(42).is_ok());
-    assert!(rule.validate(0).is_err());
+    assert!(rule.validate(42, None).is_ok());
+    assert!(rule.validate(0, None).is_err());
   }
 
   #[test]
   fn test_validate_one_of_numeric() {
     let rule = Rule::<i32>::OneOf(vec![1, 2, 3]);
-    assert!(rule.validate(1).is_ok());
-    assert!(rule.validate(2).is_ok());
-    assert!(rule.validate(4).is_err());
+    assert!(rule.validate(1, None).is_ok());
+    assert!(rule.validate(2, None).is_ok());
+    assert!(rule.validate(4, None).is_err());
   }
 
   #[test]
   fn test_validate_all_numeric() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100)).and(Rule::Step(10));
-    assert!(rule.validate(50).is_ok());
-    assert!(rule.validate(55).is_err()); // Not step of 10
-    assert!(rule.validate(-10).is_err()); // Below min
+    assert!(rule.validate(50, None).is_ok());
+    assert!(rule.validate(55, None).is_err()); // Not step of 10
+    assert!(rule.validate(-10, None).is_err()); // Below min
   }
 
   #[test]
   fn test_validate_any_numeric() {
     let rule = Rule::<i32>::Equals(0).or(Rule::Equals(100));
-    assert!(rule.validate(0).is_ok());
-    assert!(rule.validate(100).is_ok());
-    assert!(rule.validate(50).is_err());
+    assert!(rule.validate(0, None).is_ok());
+    assert!(rule.validate(100, None).is_ok());
+    assert!(rule.validate(50, None).is_err());
   }
 
   #[test]
   fn test_validate_not_numeric() {
     let rule = Rule::<i32>::Min(0).not();
-    assert!(rule.validate(-1).is_ok()); // Below 0, so NOT passes
-    assert!(rule.validate(0).is_err()); // At 0, Min passes, so NOT fails
+    assert!(rule.validate(-1, None).is_ok()); // Below 0, so NOT passes
+    assert!(rule.validate(0, None).is_err()); // At 0, Min passes, so NOT fails
   }
 
   #[test]
   fn test_validate_with_message_numeric() {
     let rule = Rule::<i32>::Min(0).with_message("Must be non-negative");
 
-    let result = rule.validate(-5);
+    let result = rule.validate(-5, None);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(violation.message(), "Must be non-negative");
@@ -2493,10 +2517,10 @@ mod tests {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(10)).and(Rule::Step(3));
 
     // Valid
-    assert!(rule.validate_all(6).is_ok());
+    assert!(rule.validate_all(6, None).is_ok());
 
     // Multiple violations: 15 is > 10 and not step of 3
-    let result = rule.validate_all(15);
+    let result = rule.validate_all(15, None);
     assert!(result.is_err());
   }
 
@@ -2675,22 +2699,22 @@ mod tests {
   fn test_validate_ref_option_none_non_required() {
     // None is OK for non-required rules
     let rule = Rule::<String>::MinLength(3);
-    assert!(rule.validate_ref_option(None).is_ok());
+    assert!(rule.validate_ref_option(None, None).is_ok());
 
     let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
-    assert!(rule.validate_ref_option(None).is_ok());
+    assert!(rule.validate_ref_option(None, None).is_ok());
 
     let rule = Rule::<String>::Email;
-    assert!(rule.validate_ref_option(None).is_ok());
+    assert!(rule.validate_ref_option(None, None).is_ok());
   }
 
   #[test]
   fn test_validate_ref_option_none_required() {
     // None fails for Required rule
     let rule = Rule::<String>::Required;
-    assert!(rule.validate_ref_option(None).is_err());
+    assert!(rule.validate_ref_option(None, None).is_err());
 
-    let violation = rule.validate_ref_option(None).unwrap_err();
+    let violation = rule.validate_ref_option(None, None).unwrap_err();
     assert_eq!(
       violation.violation_type(),
       crate::ViolationType::ValueMissing
@@ -2701,26 +2725,26 @@ mod tests {
   fn test_validate_ref_option_none_all_with_required() {
     // None fails if All contains Required
     let rule = Rule::<String>::Required.and(Rule::MinLength(3));
-    assert!(rule.validate_ref_option(None).is_err());
+    assert!(rule.validate_ref_option(None, None).is_err());
   }
 
   #[test]
   fn test_validate_ref_option_none_all_without_required() {
     // None is OK if All doesn't contain Required
     let rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(10));
-    assert!(rule.validate_ref_option(None).is_ok());
+    assert!(rule.validate_ref_option(None, None).is_ok());
   }
 
   #[test]
   fn test_validate_ref_option_some_valid() {
     let rule = Rule::<String>::MinLength(3);
-    assert!(rule.validate_ref_option(Some("hello")).is_ok());
+    assert!(rule.validate_ref_option(Some("hello"), None).is_ok());
   }
 
   #[test]
   fn test_validate_ref_option_some_invalid() {
     let rule = Rule::<String>::MinLength(5);
-    assert!(rule.validate_ref_option(Some("hi")).is_err());
+    assert!(rule.validate_ref_option(Some("hi"), None).is_err());
   }
 
   #[test]
@@ -2728,42 +2752,42 @@ mod tests {
     let rule = Rule::<String>::Required.and(Rule::MinLength(3));
 
     // None with Required in All
-    let result = rule.validate_ref_option_all(None);
+    let result = rule.validate_ref_option_all(None, None);
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert_eq!(violations.len(), 1);
 
     // Some valid
-    assert!(rule.validate_ref_option_all(Some("hello")).is_ok());
+    assert!(rule.validate_ref_option_all(Some("hello"), None).is_ok());
 
     // Some invalid
-    assert!(rule.validate_ref_option_all(Some("hi")).is_err());
+    assert!(rule.validate_ref_option_all(Some("hi"), None).is_err());
   }
 
   #[test]
   fn test_validate_option_numeric_none() {
     // None is an error for numeric rules
     let rule = Rule::<i32>::Min(0);
-    assert!(rule.validate_option(None).is_err());
+    assert!(rule.validate_option(None, None).is_err());
 
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
-    assert!(rule.validate_option(None).is_err());
+    assert!(rule.validate_option(None, None).is_err());
 
     let rule = Rule::<f64>::Step(0.5);
-    assert!(rule.validate_option(None).is_err());
+    assert!(rule.validate_option(None, None).is_err());
   }
 
   #[test]
   fn test_validate_option_numeric_some_valid() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-    assert!(rule.validate_option(Some(50)).is_ok());
+    assert!(rule.validate_option(Some(50), None).is_ok());
   }
 
   #[test]
   fn test_validate_option_numeric_some_invalid() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-    assert!(rule.validate_option(Some(-5)).is_err());
-    assert!(rule.validate_option(Some(150)).is_err());
+    assert!(rule.validate_option(Some(-5), None).is_err());
+    assert!(rule.validate_option(Some(150), None).is_err());
   }
 
   #[test]
@@ -2771,13 +2795,13 @@ mod tests {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100)).and(Rule::Step(10));
 
     // None is an error
-    assert!(rule.validate_option_all(None).is_err());
+    assert!(rule.validate_option_all(None, None).is_err());
 
     // Some valid
-    assert!(rule.validate_option_all(Some(50)).is_ok());
+    assert!(rule.validate_option_all(Some(50), None).is_ok());
 
     // Some invalid
-    let result = rule.validate_option_all(Some(55));
+    let result = rule.validate_option_all(Some(55), None);
     assert!(result.is_err());
   }
 
