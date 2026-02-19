@@ -1,11 +1,11 @@
-#[cfg(feature = "std")]
-use std::collections::HashMap;
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeMap as HashMap;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 
+use crate::error::{RbacError, Result};
 use crate::prelude::{String, ToString};
 use crate::role::Role;
-use crate::error::{RbacError, Result};
 use serde_derive::{Deserialize, Serialize};
 
 /// Role-Based Access Control (RBAC) permissions management.
@@ -152,7 +152,8 @@ impl Rbac {
   /// # Ok::<(), walrs_rbac::RbacError>(())
   /// ```
   pub fn is_granted(&self, role_name: &str, permission: &str) -> bool {
-    self.roles
+    self
+      .roles
       .get(role_name)
       .is_some_and(|role| role.has_permission_recursive(permission))
   }
@@ -174,7 +175,8 @@ impl Rbac {
   /// assert!(rbac.is_granted_safe("nonexistent", "manage").is_err());
   /// ```
   pub fn is_granted_safe(&self, role_name: &str, permission: &str) -> Result<bool> {
-    self.roles
+    self
+      .roles
       .get(role_name)
       .map(|role| role.has_permission_recursive(permission))
       .ok_or_else(|| RbacError::RoleNotFound(role_name.to_string()))
@@ -219,7 +221,8 @@ mod tests {
   #[test]
   fn test_add_role_chaining() {
     let mut rbac = Rbac::new();
-    rbac.add_role(Role::new("admin"))
+    rbac
+      .add_role(Role::new("admin"))
       .add_role(Role::new("user"))
       .add_role(Role::new("guest"));
     assert_eq!(rbac.role_count(), 3);
@@ -323,7 +326,8 @@ mod tests {
   #[test]
   fn test_role_names() {
     let mut rbac = Rbac::new();
-    rbac.add_role(Role::new("admin"))
+    rbac
+      .add_role(Role::new("admin"))
       .add_role(Role::new("user"));
 
     let names: Vec<&String> = rbac.role_names().collect();

@@ -77,7 +77,7 @@ fn main() {
     .build()
     .unwrap();
 
-  let not_in_range = in_range.not("Value must not be between 0 and 10");
+  let not_in_range = in_range.not("Value must not be between 0 and 10.");
 
   for value in [-5, 0, 5, 10, 15] {
     let result = not_in_range.validate(value);

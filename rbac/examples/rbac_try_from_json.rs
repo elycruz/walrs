@@ -17,13 +17,34 @@ fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
 
   // Test permissions
   println!("Permissions:");
-  println!("  guest -> read.public: {}", rbac.is_granted("guest", "read.public"));
-  println!("  user -> write.post: {}", rbac.is_granted("user", "write.post"));
-  println!("  user -> read.public: {}", rbac.is_granted("user", "read.public"));
-  println!("  editor -> edit.post: {}", rbac.is_granted("editor", "edit.post"));
-  println!("  admin -> admin.panel: {}", rbac.is_granted("admin", "admin.panel"));
-  println!("  admin -> read.public: {}", rbac.is_granted("admin", "read.public"));
-  println!("  guest -> admin.panel: {}", rbac.is_granted("guest", "admin.panel"));
+  println!(
+    "  guest -> read.public: {}",
+    rbac.is_granted("guest", "read.public")
+  );
+  println!(
+    "  user -> write.post: {}",
+    rbac.is_granted("user", "write.post")
+  );
+  println!(
+    "  user -> read.public: {}",
+    rbac.is_granted("user", "read.public")
+  );
+  println!(
+    "  editor -> edit.post: {}",
+    rbac.is_granted("editor", "edit.post")
+  );
+  println!(
+    "  admin -> admin.panel: {}",
+    rbac.is_granted("admin", "admin.panel")
+  );
+  println!(
+    "  admin -> read.public: {}",
+    rbac.is_granted("admin", "read.public")
+  );
+  println!(
+    "  guest -> admin.panel: {}",
+    rbac.is_granted("guest", "admin.panel")
+  );
   println!();
 
   println!("Total roles: {}", rbac.role_count());

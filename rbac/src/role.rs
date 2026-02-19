@@ -1,9 +1,9 @@
-#[cfg(feature = "std")]
-use std::collections::HashSet;
 #[cfg(not(feature = "std"))]
 use alloc::collections::BTreeSet as HashSet;
+#[cfg(feature = "std")]
+use std::collections::HashSet;
 
-use crate::prelude::{String, Vec, ToString};
+use crate::prelude::{String, ToString, Vec};
 use serde_derive::{Deserialize, Serialize};
 
 /// A role in the RBAC system.
@@ -136,7 +136,10 @@ impl Role {
     if self.permissions.contains(permission) {
       return true;
     }
-    self.children.iter().any(|child| child.has_permission_recursive(permission))
+    self
+      .children
+      .iter()
+      .any(|child| child.has_permission_recursive(permission))
   }
 
   /// Adds a child role. Returns `&mut Self` for chaining.
@@ -216,7 +219,8 @@ mod tests {
   #[test]
   fn test_add_permission_chaining() {
     let mut role = Role::new("editor");
-    role.add_permission("edit")
+    role
+      .add_permission("edit")
       .add_permission("publish")
       .add_permission("delete");
     assert_eq!(role.permission_count(), 3);
@@ -241,7 +245,8 @@ mod tests {
   #[test]
   fn test_add_child_chaining() {
     let mut parent = Role::new("admin");
-    parent.add_child(Role::new("editor"))
+    parent
+      .add_child(Role::new("editor"))
       .add_child(Role::new("moderator"));
     assert_eq!(parent.child_count(), 2);
   }

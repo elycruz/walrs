@@ -20,7 +20,10 @@ fn main() {
     "   Required rule on 'hello': {:?}",
     required.validate_ref("hello", None)
   );
-  println!("   Required rule on '': {:?}", required.validate_ref("", None));
+  println!(
+    "   Required rule on '': {:?}",
+    required.validate_ref("", None)
+  );
   println!(
     "   MinLength(3) on 'hi': {:?}",
     min_length.validate_ref("hi", None)
@@ -75,8 +78,14 @@ fn main() {
     "   'user@example.com': {:?}",
     contact_rule.validate_ref("user@example.com", None)
   );
-  println!("   '555-1234': {:?}", contact_rule.validate_ref("555-1234", None));
-  println!("   'invalid': {:?}", contact_rule.validate_ref("invalid", None));
+  println!(
+    "   '555-1234': {:?}",
+    contact_rule.validate_ref("555-1234", None)
+  );
+  println!(
+    "   'invalid': {:?}",
+    contact_rule.validate_ref("invalid", None)
+  );
 
   // Example 5: Using Rule::Any directly
   println!("\n5. Using Rule::Any directly:");
@@ -90,9 +99,18 @@ fn main() {
     "   'user@example.com': {:?}",
     flexible_id.validate_ref("user@example.com", None)
   );
-  println!("   '123456': {:?}", flexible_id.validate_ref("123456", None));
-  println!("   'AB123456': {:?}", flexible_id.validate_ref("AB123456", None));
-  println!("   'invalid': {:?}", flexible_id.validate_ref("invalid", None));
+  println!(
+    "   '123456': {:?}",
+    flexible_id.validate_ref("123456", None)
+  );
+  println!(
+    "   'AB123456': {:?}",
+    flexible_id.validate_ref("AB123456", None)
+  );
+  println!(
+    "   'invalid': {:?}",
+    flexible_id.validate_ref("invalid", None)
+  );
 
   // Example 6: Negation with .not()
   println!("\n6. Negation with .not():");
@@ -187,9 +205,18 @@ fn main() {
   let pin_code = Rule::<String>::ExactLength(4);
   let zip_code = Rule::<String>::ExactLength(5);
 
-  println!("   PIN(4) on '123': {:?}", pin_code.validate_ref("123", None));
-  println!("   PIN(4) on '1234': {:?}", pin_code.validate_ref("1234", None));
-  println!("   ZIP(5) on '12345': {:?}", zip_code.validate_ref("12345", None));
+  println!(
+    "   PIN(4) on '123': {:?}",
+    pin_code.validate_ref("123", None)
+  );
+  println!(
+    "   PIN(4) on '1234': {:?}",
+    pin_code.validate_ref("1234", None)
+  );
+  println!(
+    "   ZIP(5) on '12345': {:?}",
+    zip_code.validate_ref("12345", None)
+  );
 
   // Example 12: OneOf for enum-like values
   println!("\n12. OneOf for enum-like values:");

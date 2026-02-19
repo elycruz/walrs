@@ -45,7 +45,11 @@ fn test_multiple_children() -> Result<(), RbacError> {
     .add_role("reader", &["read"], None)?
     .add_role("writer", &["write"], None)?
     .add_role("deleter", &["delete"], None)?
-    .add_role("superuser", &["manage"], Some(&["reader", "writer", "deleter"]))?
+    .add_role(
+      "superuser",
+      &["manage"],
+      Some(&["reader", "writer", "deleter"]),
+    )?
     .build()?;
 
   assert!(rbac.is_granted("superuser", "read"));
@@ -96,8 +100,10 @@ fn test_no_false_positives() -> Result<(), RbacError> {
 #[test]
 fn test_cycle_detection_error() {
   let result = RbacBuilder::new()
-    .add_role("a", &[], Some(&["b"])).unwrap()
-    .add_role("b", &[], Some(&["a"])).unwrap()
+    .add_role("a", &[], Some(&["b"]))
+    .unwrap()
+    .add_role("b", &[], Some(&["a"]))
+    .unwrap()
     .build();
 
   assert!(result.is_err());
@@ -110,7 +116,8 @@ fn test_cycle_detection_error() {
 #[test]
 fn test_missing_child_error() {
   let result = RbacBuilder::new()
-    .add_role("admin", &["manage"], Some(&["nonexistent"])).unwrap()
+    .add_role("admin", &["manage"], Some(&["nonexistent"]))
+    .unwrap()
     .build();
 
   assert!(result.is_err());
