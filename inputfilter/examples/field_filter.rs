@@ -9,20 +9,26 @@ use std::collections::HashMap;
 use walrs_form_core::Value;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
-use walrs_validator::Rule;
+use walrs_validator::{Rule, Rule::*};
 
 fn main() {
   println!("=== FieldFilter Multi-Field Validation Examples ===\n");
 
   // Create a field filter for a user registration form using fluent API
   let mut filter = FieldFilter::new();
+  let password_rule: Rule<Value> = Required.and(MinLength(8)).and(MaxLength(128));
 
   filter
     .add_field(
       "email",
       FieldBuilder::<Value>::default()
         .name("email")
-        .rule(Rule::Required)
+          // Note: Rules that match html attributes will be exported when serializing to JSON;
+          // E.g., json output will resemble:
+          // { "type": "email", "name": "email", "required": true, "minlength": 5, "maxlength": 128 }
+          // Allows rules to be sent to front-end clients so that they're shared
+          // instead of isolated.
+        .rule(All(vec![Required, MinLength(5), MaxLength(128), Email]))
         .build()
         .unwrap(),
     )
@@ -30,7 +36,7 @@ fn main() {
       "password",
       FieldBuilder::<Value>::default()
         .name("password")
-        .rule(Rule::Required)
+        .rule(password_rule.clone())
         .build()
         .unwrap(),
     )
@@ -38,7 +44,7 @@ fn main() {
       "password_confirm",
       FieldBuilder::<Value>::default()
         .name("password_confirm")
-        .rule(Rule::Required)
+        .rule(password_rule.clone())
         .build()
         .unwrap(),
     )
