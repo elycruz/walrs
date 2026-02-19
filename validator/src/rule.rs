@@ -222,7 +222,7 @@ pub fn value_missing_violation() -> Violation {
 pub fn too_short_violation(min: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooShort,
-    format!("Value must be at least {} characters (got {})", min, actual),
+    format!("Value length must be at least {};  Received {}.", min, actual),
   )
 }
 
@@ -230,7 +230,7 @@ pub fn too_short_violation(min: usize, actual: usize) -> Violation {
 pub fn too_long_violation(max: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooLong,
-    format!("Value must be at most {} characters (got {})", max, actual),
+    format!("Value length must at most {};  Received {}.", max, actual),
   )
 }
 
@@ -239,7 +239,7 @@ pub fn exact_length_violation(expected: usize, actual: usize) -> Violation {
   Violation::new(
     ViolationType::TooShort, // or TooLong depending on direction
     format!(
-      "Value must be exactly {} characters (got {})",
+      "Value length must be exactly {} (got {}).",
       expected, actual
     ),
   )
@@ -255,19 +255,19 @@ pub fn pattern_mismatch_violation(pattern: &str) -> Violation {
 
 /// Creates an "invalid email" violation for `Email` rule.
 pub fn invalid_email_violation() -> Violation {
-  Violation::new(ViolationType::TypeMismatch, "Invalid email address")
+  Violation::new(ViolationType::TypeMismatch, "Invalid email address.")
 }
 
 /// Creates an "invalid URL" violation for `Url` rule.
 pub fn invalid_url_violation() -> Violation {
-  Violation::new(ViolationType::TypeMismatch, "Invalid URL")
+  Violation::new(ViolationType::TypeMismatch, "Invalid URL.")
 }
 
 /// Creates a "range underflow" violation for `Min` rule.
 pub fn range_underflow_violation<T: std::fmt::Display>(min: &T) -> Violation {
   Violation::new(
     ViolationType::RangeUnderflow,
-    format!("Value must be at least {}", min),
+    format!("Value must be at least {}.", min),
   )
 }
 
@@ -283,7 +283,7 @@ pub fn range_overflow_violation<T: std::fmt::Display>(max: &T) -> Violation {
 pub fn step_mismatch_violation<T: std::fmt::Display>(step: &T) -> Violation {
   Violation::new(
     ViolationType::StepMismatch,
-    format!("Value must be a multiple of {}", step),
+    format!("Value must be a multiple of {}.", step),
   )
 }
 
@@ -291,7 +291,7 @@ pub fn step_mismatch_violation<T: std::fmt::Display>(step: &T) -> Violation {
 pub fn not_equal_violation<T: std::fmt::Display>(expected: &T) -> Violation {
   Violation::new(
     ViolationType::NotEqual,
-    format!("Value must equal {}", expected),
+    format!("Value must equal {}.", expected),
   )
 }
 
@@ -2933,7 +2933,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have at least 3 items (got 1)."
+      "Value length must be at least 3;  Received 1."
     );
 
     let rule = Rule::<Vec<i32>>::MaxLength(2);
@@ -2942,7 +2942,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have at most 2 items (got 4)."
+      "Value length must at most 2;  Received 4."
     );
 
     let rule = Rule::<Vec<i32>>::ExactLength(3);
@@ -2951,7 +2951,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Collection must have exactly 3 items (got 2)."
+      "Value length must be exactly 3 (got 2)."
     );
   }
 
