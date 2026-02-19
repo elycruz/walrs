@@ -91,9 +91,9 @@ impl SelectElement {
   /// let select = SelectElement::new("category");
   /// assert_eq!(select.name.as_deref(), Some("category"));
   /// ```
-  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+  pub fn new(name: impl Into<String>) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       ..Default::default()
     }
   }
@@ -107,9 +107,9 @@ impl SelectElement {
   /// let select = SelectElement::multiple("tags");
   /// assert_eq!(select._type, SelectType::Multiple);
   /// ```
-  pub fn multiple(name: impl Into<Cow<'static, str>>) -> Self {
+  pub fn multiple(name: impl Into<String>) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       _type: SelectType::Multiple,
       ..Default::default()
     }

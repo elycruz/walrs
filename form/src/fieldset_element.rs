@@ -69,9 +69,9 @@ impl FieldsetElement {
   /// let fieldset = FieldsetElement::new("user_info");
   /// assert_eq!(fieldset.name.as_deref(), Some("user_info"));
   /// ```
-  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+  pub fn new(name: impl Into<String>) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       ..Default::default()
     }
   }

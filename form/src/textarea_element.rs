@@ -84,9 +84,9 @@ impl TextareaElement {
   /// let textarea = TextareaElement::new("comments");
   /// assert_eq!(textarea.name.as_deref(), Some("comments"));
   /// ```
-  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
+  pub fn new(name: impl Into<String>) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       ..Default::default()
     }
   }
@@ -101,9 +101,9 @@ impl TextareaElement {
   /// assert_eq!(textarea.rows, Some(10));
   /// assert_eq!(textarea.cols, Some(60));
   /// ```
-  pub fn with_size(name: impl Into<Cow<'static, str>>, rows: u32, cols: u32) -> Self {
+  pub fn with_size(name: impl Into<String>, rows: u32, cols: u32) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       rows: Some(rows),
       cols: Some(cols),
       ..Default::default()

@@ -92,9 +92,9 @@ impl InputElement {
   /// let input = InputElement::new("password", InputType::Password);
   /// assert_eq!(input._type, InputType::Password);
   /// ```
-  pub fn new(name: impl Into<Cow<'static, str>>, input_type: InputType) -> Self {
+  pub fn new(name: impl Into<String>, input_type: InputType) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       _type: input_type,
       ..Default::default()
     }

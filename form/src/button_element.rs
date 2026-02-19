@@ -74,9 +74,9 @@ impl ButtonElement {
   /// assert_eq!(button.name.as_deref(), Some("save"));
   /// assert_eq!(button._type, ButtonType::Submit);
   /// ```
-  pub fn new(name: impl Into<Cow<'static, str>>, button_type: ButtonType) -> Self {
+  pub fn new(name: impl Into<String>, button_type: ButtonType) -> Self {
     Self {
-      name: Some(name.into()),
+      name: Some(Cow::Owned(name.into())),
       _type: button_type,
       ..Default::default()
     }
