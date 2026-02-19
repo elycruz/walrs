@@ -90,8 +90,16 @@ impl FieldFilter {
   ///
   /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
   /// all field and form-level violations.
-  /// If a field has `break_on_failure` set to `true`, validation stops at that
-  /// field and returns immediately without checking the remaining fields.
+  ///
+  /// If a field has `break_on_failure` set to `true` and fails validation,
+  /// the method returns immediately without checking the remaining fields or
+  /// any cross-field rules.
+  ///
+  /// **Note**: Because `fields` is a `HashMap`, iteration order is
+  /// non-deterministic. When more than one field has `break_on_failure = true`,
+  /// the "first" field that triggers an early return may vary between runs.
+  /// For predictable early-exit behaviour, set `break_on_failure = true` on
+  /// at most one field, or use a single field whose failure you wish to stop on.
   pub fn validate(&self, data: &HashMap<String, Value>) -> Result<(), FormViolations> {
     let mut violations = FormViolations::new();
 
@@ -629,5 +637,54 @@ mod tests {
 
     let data = make_data(&[("age", json!(16))]);
     assert!(filter.validate(&data).is_err());
+  }
+
+  #[test]
+  fn test_break_on_failure_stops_at_field_and_skips_cross_field_rules() {
+    // A single field with break_on_failure = true paired with a cross-field rule
+    // that would also fail. When the field fails, FieldFilter::validate must
+    // return early without evaluating the cross-field rule.
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "email",
+      FieldBuilder::<Value>::default()
+        .rule(Rule::Required)
+        .break_on_failure(true)
+        .build()
+        .unwrap(),
+    );
+    // Cross-field rule: password and confirm must be equal (they won't be).
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("password_match".into()),
+      fields: vec!["password".to_string(), "password_confirm".to_string()],
+      rule: CrossFieldRuleType::FieldsEqual {
+        field_a: "password".to_string(),
+        field_b: "password_confirm".to_string(),
+      },
+    });
+
+    // email is missing → field fails with break_on_failure = true.
+    // Cross-field rule must NOT be evaluated (no form-level violations).
+    let data = make_data(&[
+      ("password", json!("secret")),
+      ("password_confirm", json!("different")),
+    ]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(violations.for_field("email").is_some()); // field violation recorded
+    assert!(violations.form.is_empty()); // cross-field rule was not reached
+
+    // email is present → field passes, cross-field rule is evaluated and fails.
+    let data = make_data(&[
+      ("email", json!("test@example.com")),
+      ("password", json!("secret")),
+      ("password_confirm", json!("different")),
+    ]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(violations.for_field("email").is_none()); // email passed
+    assert!(!violations.form.is_empty()); // cross-field rule was evaluated
   }
 }
