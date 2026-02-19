@@ -1958,6 +1958,7 @@ dependencies = [
  "walrs_graph",
  "walrs_inputfilter",
  "walrs_navigation",
+ "walrs_rbac",
 ]
 
 [[package]]
@@ -2049,6 +2050,20 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "walrs_rbac"
+version = "0.1.0"
+dependencies = [
+ "criterion",
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_derive",
+ "serde_json",
+ "serde_yaml",
+ "wasm-bindgen",
 ]
 
 [[package]]

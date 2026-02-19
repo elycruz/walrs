@@ -1,0 +1,8 @@
+{
+  "roles": [
+    ["guest", ["read.public"], null],
+    ["user", ["write.post", "comment.post"], ["guest"]],
+    ["editor", ["edit.post", "publish.post"], ["user"]],
+    ["admin", ["admin.panel", "manage.users"], ["editor"]]
+  ]
+}

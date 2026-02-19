@@ -15,6 +15,7 @@ walrs_acl = { path = 'acl' }
 walrs_graph = { path = 'graph' }
 walrs_inputfilter = { path = "inputfilter" }
 walrs_navigation = { path = "navigation" }
+walrs_rbac = { path = "rbac" }
 
 [workspace]
 members = [
@@ -26,5 +27,6 @@ members = [
     "graph",
     "inputfilter",
     "navigation",
-    "validator"
+    "validator",
+    "rbac"
 ]
