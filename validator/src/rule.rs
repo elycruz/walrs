@@ -215,7 +215,7 @@ impl Condition<String> {
 
 /// Creates a "value missing" violation for `Required` rule.
 pub fn value_missing_violation() -> Violation {
-  Violation::new(ViolationType::ValueMissing, "Value is required")
+  Violation::new(ViolationType::ValueMissing, "Value is required.")
 }
 
 /// Creates a "too short" violation for `MinLength` rule.
@@ -316,39 +316,6 @@ pub fn negation_failed_violation() -> Violation {
   Violation::new(
     ViolationType::CustomError,
     "Value must not satisfy the negated rule.",
-  )
-}
-
-/// Creates a "too few items" violation for collection `MinLength` rule.
-pub fn too_few_items_violation(min: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooShort,
-    format!(
-      "Collection must have at least {} items (got {}).",
-      min, actual
-    ),
-  )
-}
-
-/// Creates a "too many items" violation for collection `MaxLength` rule.
-pub fn too_many_items_violation(max: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooLong,
-    format!(
-      "Collection must have at most {} items (got {}).",
-      max, actual
-    ),
-  )
-}
-
-/// Creates an "exact item count" violation for collection `ExactLength` rule.
-pub fn exact_items_violation(expected: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooShort, // or TooLong depending on direction
-    format!(
-      "Collection must have exactly {} items (got {}).",
-      expected, actual
-    ),
   )
 }
 
@@ -1872,7 +1839,7 @@ impl<T: WithLength> Rule<T> {
       Rule::MinLength(min) => {
         let len = value.length();
         if len < *min {
-          Err(too_few_items_violation(*min, len))
+          Err(too_short_violation(*min, len))
         } else {
           Ok(())
         }
@@ -1880,7 +1847,7 @@ impl<T: WithLength> Rule<T> {
       Rule::MaxLength(max) => {
         let len = value.length();
         if len > *max {
-          Err(too_many_items_violation(*max, len))
+          Err(too_long_violation(*max, len))
         } else {
           Ok(())
         }
@@ -1888,7 +1855,7 @@ impl<T: WithLength> Rule<T> {
       Rule::ExactLength(expected) => {
         let len = value.length();
         if len != *expected {
-          Err(exact_items_violation(*expected, len))
+          Err(exact_length_violation(*expected, len))
         } else {
           Ok(())
         }
