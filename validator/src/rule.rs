@@ -857,10 +857,6 @@ impl<T> Rule<T> {
 // Rule Validation - String Types
 // ============================================================================
 
-// TODO: Check whether it is ok to implement this and what the
-//    implications are if doing so.
-impl Rule<&str> {}
-
 impl Rule<String> {
   /// Validates a string value against this rule.
   ///

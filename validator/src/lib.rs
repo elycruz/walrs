@@ -67,6 +67,7 @@ extern crate derive_builder;
 
 pub mod combinators;
 pub mod equal;
+pub mod fn_validator;
 pub mod length;
 pub mod message;
 pub mod pattern;
@@ -78,6 +79,7 @@ pub mod violation;
 
 pub use combinators::*;
 pub use equal::*;
+pub use fn_validator::*;
 pub use length::*;
 pub use message::*;
 pub use pattern::*;

@@ -5,10 +5,7 @@
 //!
 //! Run with: `cargo run --example validator_combinators`
 
-use walrs_validator::{
-  LengthValidatorBuilder, RangeValidatorBuilder, Validate, ValidateExt, ValidateRef,
-  ValidateRefExt, ValidatorAnd, ValidatorNot, ValidatorOptional, ValidatorOr, ValidatorWhen,
-};
+use walrs_validator::{FnRefValidator, LengthValidatorBuilder, RangeValidatorBuilder, Validate, ValidateExt, ValidateRef, ValidateRefExt, ValidatorOr, ValidatorResult, Violation, ViolationType};
 
 fn main() {
   println!("=== Validator Combinators Example ===\n");
@@ -152,10 +149,27 @@ fn main() {
     .build()
     .unwrap();
 
-  // A regular expression would be fine here but for illustration purposes
+  // A regular expression would be fine here; This is only for illustration purposes
   // ----
-  // let starts_
-  // let starts_with_a_or_b = length_3_10.and(ValidatorOr::new("a", "b"))
+  let starts_with_a = FnRefValidator::new(|s: &str| -> ValidatorResult {
+    if s.starts_with('a') {
+      Ok(())
+    } else {
+      // Use whatever violation type best matches your case.
+      Err(Violation::new(ViolationType::TypeMismatch, "Must start with 'a'".to_string()))
+    }
+  });
+
+  let starts_with_b = FnRefValidator::new(|s: &str| -> ValidatorResult {
+    if s.starts_with('b') {
+      Ok(())
+    } else {
+      // Use whatever violation type best matches your case.
+      Err(Violation::new(ViolationType::TypeMismatch, "Must start with 'b'".to_string()))
+    }
+  });
+
+  let starts_with_a_or_b = length_3_10.and(ValidatorOr::new(starts_with_a, starts_with_b));
 
   // For demonstration, we'll just use the length validator
   // In a real scenario, you'd combine with pattern validators
@@ -163,13 +177,16 @@ fn main() {
   let values = ["ab", "abc", "abcdefghijk", "hello"];
 
   for value in values {
-    let result = length_3_10.validate_ref(value);
+    let result = starts_with_a_or_b.validate_ref(value);
     let status = if result.is_ok() {
       "✓ PASS"
     } else {
       "✗ FAIL"
     };
     println!("  \"{}\" (len={}) -> {}", value, value.len(), status);
+    if let Err(violation) = result {
+      println!("    Violation: {}", violation);
+    }
   }
 
   println!();
