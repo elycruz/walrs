@@ -2,8 +2,8 @@
 //!
 //! Run with: `cargo run --example benchmark_rbac`
 
-use walrs_rbac::RbacBuilder;
 use std::time::Instant;
+use walrs_rbac::RbacBuilder;
 
 fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
   println!("=== RBAC Performance Benchmark ===\n");
@@ -38,7 +38,10 @@ fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
     let _ = rbac.is_granted("admin", "admin.panel");
   }
   let elapsed = start.elapsed();
-  println!("is_granted (direct) {} iterations: {:?}", iterations, elapsed);
+  println!(
+    "is_granted (direct) {} iterations: {:?}",
+    iterations, elapsed
+  );
   println!("  Per check: {:?}\n", elapsed / iterations as u32);
 
   // Benchmark is_granted (inherited permission - deepest)
@@ -47,7 +50,10 @@ fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
     let _ = rbac.is_granted("admin", "read.public");
   }
   let elapsed = start.elapsed();
-  println!("is_granted (inherited) {} iterations: {:?}", iterations, elapsed);
+  println!(
+    "is_granted (inherited) {} iterations: {:?}",
+    iterations, elapsed
+  );
   println!("  Per check: {:?}\n", elapsed / iterations as u32);
 
   // Benchmark is_granted (denied)
@@ -56,7 +62,10 @@ fn main() -> std::result::Result<(), walrs_rbac::RbacError> {
     let _ = rbac.is_granted("guest", "admin.panel");
   }
   let elapsed = start.elapsed();
-  println!("is_granted (denied) {} iterations: {:?}", iterations, elapsed);
+  println!(
+    "is_granted (denied) {} iterations: {:?}",
+    iterations, elapsed
+  );
   println!("  Per check: {:?}", elapsed / iterations as u32);
 
   Ok(())

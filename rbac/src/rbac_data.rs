@@ -1,5 +1,5 @@
-use crate::prelude::{String, Vec};
 use crate::error::{RbacError, Result};
+use crate::prelude::{String, Vec};
 use serde_derive::{Deserialize, Serialize};
 
 #[cfg(feature = "std")]
@@ -53,8 +53,7 @@ impl TryFrom<&mut File> for RbacData {
 
   fn try_from(file: &mut File) -> Result<Self> {
     let buf = BufReader::new(file);
-    serde_json::from_reader(buf)
-      .map_err(|e| RbacError::DeserializationError(e.to_string()))
+    serde_json::from_reader(buf).map_err(|e| RbacError::DeserializationError(e.to_string()))
   }
 }
 
@@ -75,8 +74,7 @@ impl RbacData {
   /// ```
   #[cfg(feature = "std")]
   pub fn from_json(json: &str) -> Result<Self> {
-    serde_json::from_str(json)
-      .map_err(|e| RbacError::DeserializationError(e.to_string()))
+    serde_json::from_str(json).map_err(|e| RbacError::DeserializationError(e.to_string()))
   }
 
   /// Serializes `RbacData` to a JSON string.
@@ -97,8 +95,7 @@ impl RbacData {
   /// ```
   #[cfg(feature = "std")]
   pub fn to_json(&self) -> Result<String> {
-    serde_json::to_string(self)
-      .map_err(|e| RbacError::SerializationError(e.to_string()))
+    serde_json::to_string(self).map_err(|e| RbacError::SerializationError(e.to_string()))
   }
 
   /// Serializes `RbacData` to a pretty-printed JSON string.
@@ -119,8 +116,7 @@ impl RbacData {
   /// ```
   #[cfg(feature = "std")]
   pub fn to_json_pretty(&self) -> Result<String> {
-    serde_json::to_string_pretty(self)
-      .map_err(|e| RbacError::SerializationError(e.to_string()))
+    serde_json::to_string_pretty(self).map_err(|e| RbacError::SerializationError(e.to_string()))
   }
 
   /// Deserializes `RbacData` from a YAML string.
@@ -136,8 +132,7 @@ impl RbacData {
   /// ```
   #[cfg(feature = "yaml")]
   pub fn from_yaml(yaml: &str) -> Result<Self> {
-    serde_yaml::from_str(yaml)
-      .map_err(|e| RbacError::DeserializationError(e.to_string()))
+    serde_yaml::from_str(yaml).map_err(|e| RbacError::DeserializationError(e.to_string()))
   }
 
   /// Serializes `RbacData` to a YAML string.
@@ -158,8 +153,7 @@ impl RbacData {
   /// ```
   #[cfg(feature = "yaml")]
   pub fn to_yaml(&self) -> Result<String> {
-    serde_yaml::to_string(self)
-      .map_err(|e| RbacError::SerializationError(e.to_string()))
+    serde_yaml::to_string(self).map_err(|e| RbacError::SerializationError(e.to_string()))
   }
 }
 
@@ -170,9 +164,7 @@ mod tests {
   #[test]
   fn test_rbac_data_creation() {
     let data = RbacData {
-      roles: vec![
-        ("admin".to_string(), vec!["manage".to_string()], None),
-      ],
+      roles: vec![("admin".to_string(), vec!["manage".to_string()], None)],
     };
     assert_eq!(data.roles.len(), 1);
     assert_eq!(data.roles[0].0, "admin");
@@ -181,9 +173,7 @@ mod tests {
   #[test]
   fn test_rbac_data_clone() {
     let data = RbacData {
-      roles: vec![
-        ("user".to_string(), vec!["read".to_string()], None),
-      ],
+      roles: vec![("user".to_string(), vec!["read".to_string()], None)],
     };
     let cloned = data.clone();
     assert_eq!(data.roles.len(), cloned.roles.len());
@@ -195,7 +185,11 @@ mod tests {
     let data = RbacData {
       roles: vec![
         ("guest".to_string(), vec!["read".to_string()], None),
-        ("admin".to_string(), vec!["manage".to_string()], Some(vec!["guest".to_string()])),
+        (
+          "admin".to_string(),
+          vec!["manage".to_string()],
+          Some(vec!["guest".to_string()]),
+        ),
       ],
     };
     assert_eq!(data.roles.len(), 2);
@@ -220,9 +214,7 @@ mod tests {
   #[test]
   fn test_to_json() {
     let data = RbacData {
-      roles: vec![
-        ("admin".to_string(), vec!["manage".to_string()], None),
-      ],
+      roles: vec![("admin".to_string(), vec!["manage".to_string()], None)],
     };
     let json = data.to_json().unwrap();
     assert!(json.contains("admin"));
@@ -232,9 +224,7 @@ mod tests {
   #[test]
   fn test_to_json_pretty() {
     let data = RbacData {
-      roles: vec![
-        ("admin".to_string(), vec!["manage".to_string()], None),
-      ],
+      roles: vec![("admin".to_string(), vec!["manage".to_string()], None)],
     };
     let json = data.to_json_pretty().unwrap();
     assert!(json.contains("admin"));
@@ -246,7 +236,11 @@ mod tests {
     let data = RbacData {
       roles: vec![
         ("guest".to_string(), vec!["read".to_string()], None),
-        ("admin".to_string(), vec!["manage".to_string()], Some(vec!["guest".to_string()])),
+        (
+          "admin".to_string(),
+          vec!["manage".to_string()],
+          Some(vec!["guest".to_string()]),
+        ),
       ],
     };
     let json = data.to_json().unwrap();
@@ -275,9 +269,7 @@ mod tests {
   #[test]
   fn test_to_yaml() {
     let data = RbacData {
-      roles: vec![
-        ("admin".to_string(), vec!["manage".to_string()], None),
-      ],
+      roles: vec![("admin".to_string(), vec!["manage".to_string()], None)],
     };
     let yaml = data.to_yaml().unwrap();
     assert!(yaml.contains("admin"));
@@ -289,7 +281,11 @@ mod tests {
     let data = RbacData {
       roles: vec![
         ("guest".to_string(), vec!["read".to_string()], None),
-        ("admin".to_string(), vec!["manage".to_string()], Some(vec!["guest".to_string()])),
+        (
+          "admin".to_string(),
+          vec!["manage".to_string()],
+          Some(vec!["guest".to_string()]),
+        ),
       ],
     };
     let yaml = data.to_yaml().unwrap();

@@ -7,7 +7,11 @@ fn test_builder_from_rbac_data() -> Result<(), RbacError> {
   let data = RbacData {
     roles: vec![
       ("guest".to_string(), vec!["read".to_string()], None),
-      ("admin".to_string(), vec!["manage".to_string()], Some(vec!["guest".to_string()])),
+      (
+        "admin".to_string(),
+        vec!["manage".to_string()],
+        Some(vec!["guest".to_string()]),
+      ),
     ],
   };
 
@@ -42,7 +46,11 @@ fn test_rbac_data_json_roundtrip() -> Result<(), RbacError> {
   let data = RbacData {
     roles: vec![
       ("guest".to_string(), vec!["read".to_string()], None),
-      ("admin".to_string(), vec!["manage".to_string()], Some(vec!["guest".to_string()])),
+      (
+        "admin".to_string(),
+        vec!["manage".to_string()],
+        Some(vec!["guest".to_string()]),
+      ),
     ],
   };
 

@@ -177,7 +177,7 @@ impl Field<Value> {
           let mut violations = Violations::empty();
           violations.push(Violation::new(
             walrs_validator::ViolationType::ValueMissing,
-            "Value is required",
+            "Value is required.",
           ));
           return Err(violations);
         }

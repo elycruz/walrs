@@ -198,18 +198,18 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
 /// ```rust
 ///  use walrs_validator::equal_vldr_not_equal_msg;
 ///
-///  assert_eq!(equal_vldr_not_equal_msg("foo"), "Value must equal foo");
+///  assert_eq!(equal_vldr_not_equal_msg("foo"), "Value must equal foo.");
 /// ```
 ///
 pub fn equal_vldr_not_equal_msg<T: InputValue>(expected: T) -> String {
-  format!("Value must equal {}", expected)
+  format!("Value must equal {}.", expected)
 }
 
 /// Returns default not equal Message provider for EqualityValidator.
 pub fn default_not_equal_msg<T: InputValue>() -> Message<T> {
   Message::provider(|ctx: &MessageContext<T>| {
     let expected = ctx.params.expected.as_deref().unwrap_or("?");
-    format!("Value must equal {}", expected)
+    format!("Value must equal {}.", expected)
   })
 }
 
@@ -251,7 +251,7 @@ mod test {
 
   #[test]
   fn test_custom_message() -> Result<(), Box<dyn Error>> {
-    let custom_msg: Message<&str> = Message::static_msg("Values don't match!");
+    let custom_msg: Message<&str> = Message::static_msg("Values don't match.");
     let validator = EqualityValidatorBuilder::<&str>::default()
       .rhs_value("foo")
       .not_equal_msg(custom_msg)
@@ -260,7 +260,7 @@ mod test {
     let result = validator.validate("bar");
     assert!(result.is_err());
     let err = result.unwrap_err();
-    assert_eq!(err.1, "Values don't match!");
+    assert_eq!(err.1, "Values don't match.");
 
     Ok(())
   }
