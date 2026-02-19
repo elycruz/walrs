@@ -152,6 +152,11 @@ fn main() {
     .build()
     .unwrap();
 
+  // A regular expression would be fine here but for illustration purposes
+  // ----
+  // let starts_
+  // let starts_with_a_or_b = length_3_10.and(ValidatorOr::new("a", "b"))
+
   // For demonstration, we'll just use the length validator
   // In a real scenario, you'd combine with pattern validators
 

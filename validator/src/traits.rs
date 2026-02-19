@@ -31,64 +31,73 @@ pub trait ValidateRef<T: ?Sized> {
 ///
 /// ```rust
 /// use walrs_validator::{
-///     RangeValidatorBuilder, ValidateAdapter, Validate, ValidateRef
+///     RangeValidator, ValidateRefAdapter, Validate, ValidateRef
 /// };
 ///
-/// let range_validator = RangeValidatorBuilder::<i32>::default()
+/// let range_validator = RangeValidator::<i32>::builder()
 ///     .min(0)
 ///     .max(100)
 ///     .build()
 ///     .unwrap();
 ///
 /// // Wrap to use as ValidateRef
-/// let ref_validator = ValidateAdapter::new(range_validator);
+/// let ref_validator = ValidateRefAdapter::adapt(&range_validator);
 ///
+/// assert!(ref_validator.validate(50).is_ok());
+/// assert!(ref_validator.validate(150).is_err());
 /// assert!(ref_validator.validate_ref(&50).is_ok());
 /// assert!(ref_validator.validate_ref(&150).is_err());
 /// ```
 #[derive(Clone, Debug)]
-pub struct ValidateAdapter<V> {
-  inner: V,
+pub struct ValidateRefAdapter<'a, V> {
+  inner: &'a V,
 }
 
-impl<V> ValidateAdapter<V> {
+impl<'a, V> ValidateRefAdapter<'a, V> {
   /// Creates a new adapter wrapping the given validator.
-  pub fn new(inner: V) -> Self {
+  pub fn adapt(inner: &'a V) -> Self {
     Self { inner }
+  }
+
+  /// Proxy for `ValidateRefAdapter::adapt`.  Here for completeness and consistency.
+  pub fn new(inner: &'a V) -> Self {
+    Self::adapt(inner)
   }
 
   /// Returns a reference to the inner validator.
   pub fn inner(&self) -> &V {
-    &self.inner
-  }
-
-  /// Consumes the adapter and returns the inner validator.
-  pub fn into_inner(self) -> V {
     self.inner
   }
 }
 
-impl<T: Copy, V: Validate<T>> Validate<T> for ValidateAdapter<V> {
+impl<T: Copy, V: Validate<T>> Validate<T> for ValidateRefAdapter<'_, V> {
   fn validate(&self, value: T) -> ValidatorResult {
     self.inner.validate(value)
   }
 }
 
-impl<T: Copy, V: Validate<T>> ValidateRef<T> for ValidateAdapter<V> {
+impl<T: Copy, V: Validate<T>> ValidateRef<T> for ValidateRefAdapter<'_, V> {
   fn validate_ref(&self, value: &T) -> ValidatorResult {
     self.inner.validate(*value)
   }
 }
 
-/// Extension trait for easily converting `Validate` validators to `ValidateRef`.
-pub trait ValidateToRef<T>: Validate<T> + Sized {
-  /// Wraps this validator in an adapter that implements `ValidateRef`.
-  fn as_ref_validator(self) -> ValidateAdapter<Self> {
-    ValidateAdapter::new(self)
+impl<'a, T> From<&'a T> for ValidateRefAdapter<'a, T>
+  where T: Validate<T> + Sized {
+  fn from(value: &'a T) -> Self {
+    ValidateRefAdapter { inner : value }
   }
 }
 
-impl<T, V: Validate<T>> ValidateToRef<T> for V {}
+/// Extension trait for easily converting `Validate` validators to `ValidateRef`.
+pub trait AsRefValidator<'a, T>: Validate<T> + Sized {
+  /// Wraps this validator in an adapter that implements `ValidateRef`.
+  fn as_ref_validator(&'a self) -> ValidateRefAdapter<'a, Self> {
+    ValidateRefAdapter::adapt(self)
+  }
+}
+
+impl<T, V: Validate<T>> AsRefValidator<'_, T> for V {}
 
 use serde::Serialize;
 use std::fmt::Display;
