@@ -3,6 +3,7 @@ use crate::element::Element;
 use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::Attributes;
 use walrs_inputfilter::{FieldFilter, FormViolations};
 /// HTTP form method.
@@ -31,7 +32,7 @@ pub enum FormEnctype {
 pub struct Form {
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
   pub action: Option<String>,
@@ -52,7 +53,7 @@ pub struct Form {
   pub field_filter: Option<FieldFilter>,
 }
 impl Form {
-  pub fn new(name: impl Into<String>) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     Self {
       name: Some(name.into()),
       ..Default::default()
@@ -137,7 +138,7 @@ mod tests {
   #[test]
   fn test_new() {
     let form = Form::new("login");
-    assert_eq!(form.name, Some("login".to_string()));
+    assert_eq!(form.name.as_deref(), Some("login"));
   }
   #[test]
   fn test_add_element() {

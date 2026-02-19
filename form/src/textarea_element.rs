@@ -9,10 +9,11 @@
 //! use walrs_form::TextareaElement;
 //!
 //! let textarea = TextareaElement::new("bio");
-//! assert_eq!(textarea.name, Some("bio".to_string()));
+//! assert_eq!(textarea.name.as_deref(), Some("bio"));
 //! ```
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validator::Violations;
@@ -38,7 +39,7 @@ pub struct TextareaElement {
   /// Element name attribute.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   /// Current value.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
@@ -81,9 +82,9 @@ impl TextareaElement {
   /// use walrs_form::TextareaElement;
   ///
   /// let textarea = TextareaElement::new("comments");
-  /// assert_eq!(textarea.name, Some("comments".to_string()));
+  /// assert_eq!(textarea.name.as_deref(), Some("comments"));
   /// ```
-  pub fn new(name: impl Into<String>) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     Self {
       name: Some(name.into()),
       ..Default::default()
@@ -100,7 +101,7 @@ impl TextareaElement {
   /// assert_eq!(textarea.rows, Some(10));
   /// assert_eq!(textarea.cols, Some(60));
   /// ```
-  pub fn with_size(name: impl Into<String>, rows: u32, cols: u32) -> Self {
+  pub fn with_size(name: impl Into<Cow<'static, str>>, rows: u32, cols: u32) -> Self {
     Self {
       name: Some(name.into()),
       rows: Some(rows),
@@ -134,7 +135,7 @@ mod tests {
   #[test]
   fn test_new() {
     let textarea = TextareaElement::new("bio");
-    assert_eq!(textarea.name, Some("bio".to_string()));
+    assert_eq!(textarea.name.as_deref(), Some("bio"));
   }
   #[test]
   fn test_with_size() {

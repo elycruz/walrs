@@ -11,7 +11,7 @@
 //!
 //! // Create a submit button
 //! let button = ButtonElement::new("submit_btn", ButtonType::Submit);
-//! assert_eq!(button.name, Some("submit_btn".to_string()));
+//! assert_eq!(button.name.as_deref(), Some("submit_btn"));
 //!
 //! // Create with label
 //! let button = ButtonElement::with_label("Save Changes", ButtonType::Submit);
@@ -20,6 +20,7 @@
 use crate::button_type::ButtonType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::Attributes;
 /// HTML button element.
 ///
@@ -42,7 +43,7 @@ pub struct ButtonElement {
   /// Element name attribute.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   /// Button type (submit, reset, button).
   #[serde(rename = "type")]
   #[builder(default = "ButtonType::Button")]
@@ -70,10 +71,10 @@ impl ButtonElement {
   /// use walrs_form::ButtonType;
   ///
   /// let button = ButtonElement::new("save", ButtonType::Submit);
-  /// assert_eq!(button.name, Some("save".to_string()));
+  /// assert_eq!(button.name.as_deref(), Some("save"));
   /// assert_eq!(button._type, ButtonType::Submit);
   /// ```
-  pub fn new(name: impl Into<String>, button_type: ButtonType) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>, button_type: ButtonType) -> Self {
     Self {
       name: Some(name.into()),
       _type: button_type,
@@ -106,7 +107,7 @@ mod tests {
   #[test]
   fn test_new() {
     let button = ButtonElement::new("btn", ButtonType::Submit);
-    assert_eq!(button.name, Some("btn".to_string()));
+    assert_eq!(button.name.as_deref(), Some("btn"));
     assert_eq!(button._type, ButtonType::Submit);
   }
   #[test]
@@ -124,7 +125,7 @@ mod tests {
       .disabled(true)
       .build()
       .unwrap();
-    assert_eq!(button.name, Some("submit".to_string()));
+    assert_eq!(button.name.as_deref(), Some("submit"));
     assert_eq!(button.label, Some("Submit Form".to_string()));
     assert_eq!(button.disabled, Some(true));
   }

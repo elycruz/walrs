@@ -6,6 +6,7 @@
 
 use crate::filter_enum::Filter;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::Value;
 use walrs_validator::{Rule, Violation, Violations};
 
@@ -28,14 +29,14 @@ use walrs_validator::{Rule, Violation, Violations};
 ///
 /// // Simple field with just a rule (no filters)
 /// let field = FieldBuilder::<String>::default()
-///     .name("username".to_string())
+///     .name("username")
 ///     .rule(Rule::Required)
 ///     .build()
 ///     .unwrap();
 ///
 /// // Field with rule and filters
 /// let field = FieldBuilder::<String>::default()
-///     .name("email".to_string())
+///     .name("email")
 ///     .rule(Rule::Required.and(Rule::Email))
 ///     .filters(vec![Filter::Trim, Filter::Lowercase])
 ///     .build()
@@ -56,12 +57,12 @@ where
   /// Optional field name for error reporting.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
 
   /// Optional locale for localized error messages.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub locale: Option<String>,
+  pub locale: Option<Cow<'static, str>>,
 
   /// Validation rule to apply. Use `Rule::All` for multiple rules.
   #[serde(skip_serializing_if = "Option::is_none")]
@@ -117,25 +118,21 @@ impl Field<String> {
     }
   }
 
-  /// Validate the value against the rule.
+  /// Validate the value against the rule, short-circuiting on the first violation.
   ///
-  /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
+  /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with the first failure.
   /// Uses the field's locale for internationalized error messages.
+  /// Whether the calling context stops processing further fields on failure is
+  /// controlled by the `break_on_failure` flag (used by `FieldFilter`).
   pub fn validate(&self, value: &String) -> Result<(), Violations> {
     match &self.rule {
       Some(rule) => {
         let locale = self.locale.as_deref();
-        if self.break_on_failure {
-          // Return on first error
-          rule.validate_ref(value, locale).map_err(|v| {
-            let mut violations = Violations::empty();
-            violations.push(v);
-            violations
-          })
-        } else {
-          // Collect all violations
-          rule.validate_ref_all(value, locale)
-        }
+        rule.validate_ref(value, locale).map_err(|v| {
+          let mut violations = Violations::empty();
+          violations.push(v);
+          violations
+        })
       }
       None => Ok(()),
     }
@@ -218,13 +215,13 @@ mod tests {
   #[test]
   fn test_field_builder_with_values() {
     let field = FieldBuilder::<String>::default()
-      .name("email".to_string())
+      .name("email")
       .rule(Rule::Required.and(Rule::MinLength(5)))
       .filters(vec![Filter::Trim])
       .build()
       .unwrap();
 
-    assert_eq!(field.name, Some("email".to_string()));
+    assert_eq!(field.name.as_deref(), Some("email"));
     assert!(field.rule.is_some());
     assert_eq!(field.filters.as_ref().map(|f| f.len()), Some(1));
   }
@@ -309,6 +306,9 @@ mod tests {
 
   #[test]
   fn test_break_on_failure() {
+    // `break_on_failure` signals the FieldFilter to stop processing further
+    // fields when this field fails; the `validate` method itself always
+    // short-circuits on the first encountered violation.
     let field = FieldBuilder::<String>::default()
       .rule(
         Rule::Required
@@ -319,32 +319,17 @@ mod tests {
       .build()
       .unwrap();
 
-    // Empty string should fail on required and stop
+    // Empty string fails on the first encountered violation
     let result = field.validate(&"".to_string());
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert_eq!(violations.len(), 1); // Only first violation
-  }
-
-  #[test]
-  fn test_collect_all_violations() {
-    let field = FieldBuilder::<String>::default()
-      .rule(Rule::Required.and(Rule::MinLength(5)))
-      .break_on_failure(false)
-      .build()
-      .unwrap();
-
-    // Empty string should fail both required and min_length
-    let result = field.validate(&"".to_string());
-    assert!(result.is_err());
-    let violations = result.unwrap_err();
-    assert_eq!(violations.len(), 2);
+    assert_eq!(violations.len(), 1); // Always returns the first violation only
   }
 
   #[test]
   fn test_field_serialization() {
     let field = FieldBuilder::<String>::default()
-      .name("username".to_string())
+      .name("username")
       .rule(Rule::Required)
       .build()
       .unwrap();

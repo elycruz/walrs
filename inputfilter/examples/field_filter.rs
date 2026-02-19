@@ -44,7 +44,7 @@ fn main() {
     )
     // Add cross-field rule: passwords must match
     .add_cross_field_rule(CrossFieldRule {
-      name: Some("password_match".to_string()),
+      name: Some("password_match".into()),
       fields: vec!["password".to_string(), "password_confirm".to_string()],
       rule: CrossFieldRuleType::FieldsEqual {
         field_a: "password".to_string(),
@@ -94,7 +94,7 @@ fn main() {
   println!("4. OneOfRequired - at least one contact method:");
   let mut contact_filter = FieldFilter::new();
   contact_filter.add_cross_field_rule(CrossFieldRule {
-    name: Some("contact_required".to_string()),
+    name: Some("contact_required".into()),
     fields: vec!["email".to_string(), "phone".to_string()],
     rule: CrossFieldRuleType::OneOfRequired(vec!["email".to_string(), "phone".to_string()]),
   });
@@ -120,7 +120,7 @@ fn main() {
   println!("\n5. MutuallyExclusive - only one payment method:");
   let mut payment_filter = FieldFilter::new();
   payment_filter.add_cross_field_rule(CrossFieldRule {
-    name: Some("payment_exclusive".to_string()),
+    name: Some("payment_exclusive".into()),
     fields: vec![
       "credit_card".to_string(),
       "paypal".to_string(),
@@ -152,7 +152,7 @@ fn main() {
   println!("\n6. DependentRequired - billing address when needed:");
   let mut address_filter = FieldFilter::new();
   address_filter.add_cross_field_rule(CrossFieldRule {
-    name: Some("billing_required".to_string()),
+    name: Some("billing_required".into()),
     fields: vec![
       "different_billing".to_string(),
       "billing_address".to_string(),

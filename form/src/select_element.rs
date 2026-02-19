@@ -18,6 +18,7 @@ use crate::select_option::SelectOption;
 use crate::select_type::SelectType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validator::Violations;
@@ -45,7 +46,7 @@ pub struct SelectElement {
   /// Element name attribute.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   /// Select type (single or multiple).
   #[serde(rename = "type")]
   #[builder(default = "SelectType::Single")]
@@ -88,9 +89,9 @@ impl SelectElement {
   /// use walrs_form::SelectElement;
   ///
   /// let select = SelectElement::new("category");
-  /// assert_eq!(select.name, Some("category".to_string()));
+  /// assert_eq!(select.name.as_deref(), Some("category"));
   /// ```
-  pub fn new(name: impl Into<String>) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     Self {
       name: Some(name.into()),
       ..Default::default()
@@ -106,7 +107,7 @@ impl SelectElement {
   /// let select = SelectElement::multiple("tags");
   /// assert_eq!(select._type, SelectType::Multiple);
   /// ```
-  pub fn multiple(name: impl Into<String>) -> Self {
+  pub fn multiple(name: impl Into<Cow<'static, str>>) -> Self {
     Self {
       name: Some(name.into()),
       _type: SelectType::Multiple,
@@ -155,7 +156,7 @@ mod tests {
   #[test]
   fn test_new() {
     let select = SelectElement::new("country");
-    assert_eq!(select.name, Some("country".to_string()));
+    assert_eq!(select.name.as_deref(), Some("country"));
     assert_eq!(select._type, SelectType::Single);
   }
   #[test]
@@ -176,7 +177,7 @@ mod tests {
       .required(true)
       .build()
       .unwrap();
-    assert_eq!(select.name, Some("priority".to_string()));
+    assert_eq!(select.name.as_deref(), Some("priority"));
     assert_eq!(select.required, Some(true));
   }
   #[test]

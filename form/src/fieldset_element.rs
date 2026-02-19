@@ -17,6 +17,7 @@
 use crate::element::Element;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::Attributes;
 /// HTML fieldset element.
 ///
@@ -39,7 +40,7 @@ pub struct FieldsetElement {
   /// Fieldset name.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   /// Legend text.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
@@ -66,9 +67,9 @@ impl FieldsetElement {
   /// use walrs_form::FieldsetElement;
   ///
   /// let fieldset = FieldsetElement::new("user_info");
-  /// assert_eq!(fieldset.name, Some("user_info".to_string()));
+  /// assert_eq!(fieldset.name.as_deref(), Some("user_info"));
   /// ```
-  pub fn new(name: impl Into<String>) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>) -> Self {
     Self {
       name: Some(name.into()),
       ..Default::default()
@@ -130,7 +131,7 @@ mod tests {
   #[test]
   fn test_new() {
     let fieldset = FieldsetElement::new("user_info");
-    assert_eq!(fieldset.name, Some("user_info".to_string()));
+    assert_eq!(fieldset.name.as_deref(), Some("user_info"));
   }
   #[test]
   fn test_with_legend() {
@@ -158,7 +159,7 @@ mod tests {
       .disabled(true)
       .build()
       .unwrap();
-    assert_eq!(fieldset.name, Some("contact".to_string()));
+    assert_eq!(fieldset.name.as_deref(), Some("contact"));
     assert_eq!(fieldset.legend, Some("Contact Info".to_string()));
     assert_eq!(fieldset.disabled, Some(true));
   }

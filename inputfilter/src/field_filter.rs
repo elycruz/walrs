@@ -7,6 +7,7 @@
 use crate::field::Field;
 use crate::form_violations::FormViolations;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
@@ -38,7 +39,7 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 ///         .build()
 ///         .unwrap())
 ///     .add_cross_field_rule(CrossFieldRule {
-///         name: Some("password_match".to_string()),
+///         name: Some("password_match".into()),
 ///         fields: vec!["password".to_string(), "password_confirm".to_string()],
 ///         rule: CrossFieldRuleType::FieldsEqual {
 ///             field_a: "password".to_string(),
@@ -89,6 +90,8 @@ impl FieldFilter {
   ///
   /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
   /// all field and form-level violations.
+  /// If a field has `break_on_failure` set to `true`, validation stops at that
+  /// field and returns immediately without checking the remaining fields.
   pub fn validate(&self, data: &HashMap<String, Value>) -> Result<(), FormViolations> {
     let mut violations = FormViolations::new();
 
@@ -97,6 +100,9 @@ impl FieldFilter {
       let value = data.get(field_name).cloned().unwrap_or(Value::Null);
       if let Err(field_violations) = field.validate(&value) {
         violations.add_field_violations(field_name, field_violations);
+        if field.break_on_failure {
+          return Err(violations);
+        }
       }
     }
 
@@ -148,7 +154,7 @@ impl FieldFilter {
 pub struct CrossFieldRule {
   /// Optional name for error messages.
   #[serde(skip_serializing_if = "Option::is_none")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
 
   /// Fields involved in this rule.
   pub fields: Vec<String>,
@@ -460,7 +466,7 @@ mod tests {
   fn test_fields_equal() {
     let mut filter = FieldFilter::new();
     filter.add_cross_field_rule(CrossFieldRule {
-      name: Some("password_match".to_string()),
+      name: Some("password_match".into()),
       fields: vec!["password".to_string(), "password_confirm".to_string()],
       rule: CrossFieldRuleType::FieldsEqual {
         field_a: "password".to_string(),
@@ -487,7 +493,7 @@ mod tests {
   fn test_one_of_required() {
     let mut filter = FieldFilter::new();
     filter.add_cross_field_rule(CrossFieldRule {
-      name: Some("contact_required".to_string()),
+      name: Some("contact_required".into()),
       fields: vec!["email".to_string(), "phone".to_string()],
       rule: CrossFieldRuleType::OneOfRequired(vec!["email".to_string(), "phone".to_string()]),
     });
@@ -509,7 +515,7 @@ mod tests {
   fn test_mutually_exclusive() {
     let mut filter = FieldFilter::new();
     filter.add_cross_field_rule(CrossFieldRule {
-      name: Some("payment_method".to_string()),
+      name: Some("payment_method".into()),
       fields: vec!["credit_card".to_string(), "paypal".to_string()],
       rule: CrossFieldRuleType::MutuallyExclusive(vec![
         "credit_card".to_string(),
@@ -537,7 +543,7 @@ mod tests {
   fn test_dependent_required() {
     let mut filter = FieldFilter::new();
     filter.add_cross_field_rule(CrossFieldRule {
-      name: Some("billing_address".to_string()),
+      name: Some("billing_address".into()),
       fields: vec!["billing_address".to_string(), "credit_card".to_string()],
       rule: CrossFieldRuleType::DependentRequired {
         field: "billing_address".to_string(),
@@ -606,7 +612,7 @@ mod tests {
   fn test_custom_cross_field_rule() {
     let mut filter = FieldFilter::new();
     filter.add_cross_field_rule(CrossFieldRule {
-      name: Some("custom_rule".to_string()),
+      name: Some("custom_rule".into()),
       fields: vec!["age".to_string()],
       rule: CrossFieldRuleType::Custom(Arc::new(|data| {
         let age = data.get("age").and_then(|v| v.as_i64()).unwrap_or(0);

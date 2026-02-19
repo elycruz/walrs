@@ -9,12 +9,13 @@
 //! use walrs_form::{InputElement, InputType};
 //!
 //! let email = InputElement::new("email", InputType::Email);
-//! assert_eq!(email.name, Some("email".to_string()));
+//! assert_eq!(email.name.as_deref(), Some("email"));
 //! assert_eq!(email._type, InputType::Email);
 //! ```
 use crate::input_type::InputType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 use walrs_form_core::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validator::Violations;
@@ -34,7 +35,7 @@ use walrs_validator::Violations;
 /// input.value = Some(json!("john_doe"));
 /// input.required = Some(true);
 ///
-/// assert_eq!(input.name, Some("username".to_string()));
+/// assert_eq!(input.name.as_deref(), Some("username"));
 /// ```
 #[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
@@ -42,7 +43,7 @@ pub struct InputElement {
   /// Element name attribute.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub name: Option<String>,
+  pub name: Option<Cow<'static, str>>,
   /// Input type.
   #[serde(rename = "type")]
   #[builder(default = "InputType::Text")]
@@ -91,7 +92,7 @@ impl InputElement {
   /// let input = InputElement::new("password", InputType::Password);
   /// assert_eq!(input._type, InputType::Password);
   /// ```
-  pub fn new(name: impl Into<String>, input_type: InputType) -> Self {
+  pub fn new(name: impl Into<Cow<'static, str>>, input_type: InputType) -> Self {
     Self {
       name: Some(name.into()),
       _type: input_type,
@@ -126,7 +127,7 @@ mod tests {
   #[test]
   fn test_new() {
     let input = InputElement::new("email", InputType::Email);
-    assert_eq!(input.name, Some("email".to_string()));
+    assert_eq!(input.name.as_deref(), Some("email"));
     assert_eq!(input._type, InputType::Email);
   }
   #[test]
@@ -138,7 +139,7 @@ mod tests {
       .label("Username")
       .build()
       .unwrap();
-    assert_eq!(input.name, Some("username".to_string()));
+    assert_eq!(input.name.as_deref(), Some("username"));
     assert_eq!(input.required, Some(true));
     assert_eq!(input.label, Some("Username".to_string()));
   }

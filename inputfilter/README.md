@@ -68,7 +68,7 @@ filter
     .add_field("password", FieldBuilder::<Value>::default().rule(Rule::Required).build().unwrap())
     .add_field("confirm_password", FieldBuilder::<Value>::default().rule(Rule::Required).build().unwrap())
     .add_cross_field_rule(CrossFieldRule {
-        name: Some("password_match".to_string()),
+        name: Some("password_match".into()),
         fields: vec!["password".to_string(), "confirm_password".to_string()],
         rule: CrossFieldRuleType::FieldsEqual {
             field_a: "password".to_string(),
