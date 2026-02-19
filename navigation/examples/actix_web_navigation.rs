@@ -1,55 +1,57 @@
-use actix_web::{get, web, App, HttpResponse, HttpServer, Responder};
+use actix_web::{App, HttpResponse, HttpServer, Responder, get, web};
 use walrs_navigation::{Container, Page, view};
 
 /// Shared navigation state
 struct AppState {
-    navigation: Container,
+  navigation: Container,
 }
 
 /// Home page handler
 #[get("/")]
 async fn index(data: web::Data<AppState>) -> impl Responder {
-    let mut nav = data.navigation.clone();
-    nav.set_active_by_uri("/");
-    let html = render_page(&nav, "/");
-    HttpResponse::Ok().content_type("text/html").body(html)
+  let mut nav = data.navigation.clone();
+  nav.set_active_by_uri("/");
+  let html = render_page(&nav, "/");
+  HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 /// About page handler
 #[get("/about")]
 async fn about(data: web::Data<AppState>) -> impl Responder {
-    let mut nav = data.navigation.clone();
-    nav.set_active_by_uri("/about");
-    let html = render_page(&nav, "/about");
-    HttpResponse::Ok().content_type("text/html").body(html)
+  let mut nav = data.navigation.clone();
+  nav.set_active_by_uri("/about");
+  let html = render_page(&nav, "/about");
+  HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 /// Products page handler
 #[get("/products")]
 async fn products(data: web::Data<AppState>) -> impl Responder {
-    let mut nav = data.navigation.clone();
-    nav.set_active_by_uri("/products");
-    let html = render_page(&nav, "/products");
-    HttpResponse::Ok().content_type("text/html").body(html)
+  let mut nav = data.navigation.clone();
+  nav.set_active_by_uri("/products");
+  let html = render_page(&nav, "/products");
+  HttpResponse::Ok().content_type("text/html").body(html)
 }
 
 /// API endpoint that returns navigation as JSON
 #[get("/api/navigation")]
 async fn api_navigation(data: web::Data<AppState>) -> impl Responder {
-    match data.navigation.to_json() {
-        Ok(json) => HttpResponse::Ok().content_type("application/json").body(json),
-        Err(_) => HttpResponse::InternalServerError().body("Failed to serialize navigation"),
-    }
+  match data.navigation.to_json() {
+    Ok(json) => HttpResponse::Ok()
+      .content_type("application/json")
+      .body(json),
+    Err(_) => HttpResponse::InternalServerError().body("Failed to serialize navigation"),
+  }
 }
 
 /// Renders an HTML page with navigation menu, breadcrumbs, and content
 fn render_page(nav: &Container, current_uri: &str) -> String {
-    let menu_html = view::render_menu_with_class(nav, "nav-menu", "active");
-    let breadcrumb_html = view::render_breadcrumbs(nav, " &gt; ");
-    let escaped_uri = view::html_escape(current_uri);
+  let menu_html = view::render_menu_with_class(nav, "nav-menu", "active");
+  let breadcrumb_html = view::render_breadcrumbs(nav, " &gt; ");
+  let escaped_uri = view::html_escape(current_uri);
 
-    format!(
-        r#"<!DOCTYPE html>
+  format!(
+    r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Navigation Example - {uri}</title>
@@ -159,99 +161,89 @@ fn render_page(nav: &Container, current_uri: &str) -> String {
     </div>
 </body>
 </html>"#,
-        uri = escaped_uri,
-        menu = menu_html,
-        breadcrumbs = breadcrumb_html
-    )
+    uri = escaped_uri,
+    menu = menu_html,
+    breadcrumbs = breadcrumb_html
+  )
 }
 
 /// Initialize navigation structure
 fn create_navigation() -> Container {
-    let mut nav = Container::new();
+  let mut nav = Container::new();
 
-    // Products section with sub-pages using Page fluent interface
-    let mut products_page = Page::builder()
-        .label("Products")
-        .uri("/products")
+  // Products section with sub-pages using Page fluent interface
+  let mut products_page = Page::builder()
+    .label("Products")
+    .uri("/products")
+    .order(2)
+    .build();
+
+  products_page
+    .add_page(
+      Page::builder()
+        .label("Books")
+        .uri("/products/books")
+        .order(1)
+        .build(),
+    )
+    .add_page(
+      Page::builder()
+        .label("Electronics")
+        .uri("/products/electronics")
         .order(2)
-        .build();
+        .build(),
+    );
 
-    products_page
-        .add_page(
-            Page::builder()
-                .label("Books")
-                .uri("/products/books")
-                .order(1)
-                .build(),
-        )
-        .add_page(
-            Page::builder()
-                .label("Electronics")
-                .uri("/products/electronics")
-                .order(2)
-                .build(),
-        );
+  // About section with sub-pages using Page fluent interface
+  let mut about_page = Page::builder()
+    .label("About")
+    .uri("/about")
+    .order(3)
+    .build();
 
-    // About section with sub-pages using Page fluent interface
-    let mut about_page = Page::builder()
-        .label("About")
-        .uri("/about")
-        .order(3)
-        .build();
+  about_page
+    .add_page(Page::builder().label("Team").uri("/about/team").build())
+    .add_page(
+      Page::builder()
+        .label("Contact")
+        .uri("/about/contact")
+        .build(),
+    );
 
-    about_page
-        .add_page(
-            Page::builder()
-                .label("Team")
-                .uri("/about/team")
-                .build(),
-        )
-        .add_page(
-            Page::builder()
-                .label("Contact")
-                .uri("/about/contact")
-                .build(),
-        );
+  // Use Container fluent interface to add all pages
+  nav
+    .add_page(Page::builder().label("Home").uri("/").order(1).build())
+    .add_page(products_page)
+    .add_page(about_page);
 
-    // Use Container fluent interface to add all pages
-    nav.add_page(
-            Page::builder()
-                .label("Home")
-                .uri("/")
-                .order(1)
-                .build(),
-        )
-        .add_page(products_page)
-        .add_page(about_page);
-
-    nav
+  nav
 }
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    println!("Starting Actix Web server with Navigation component...");
-    println!("Server running at http://127.0.0.1:8080");
-    println!();
-    println!("Available endpoints:");
-    println!("  - http://127.0.0.1:8080/");
-    println!("  - http://127.0.0.1:8080/about");
-    println!("  - http://127.0.0.1:8080/products");
-    println!("  - http://127.0.0.1:8080/api/navigation (JSON API)");
-    println!();
+  println!("Starting Actix Web server with Navigation component...");
+  println!("Server running at http://127.0.0.1:8080");
+  println!();
+  println!("Available endpoints:");
+  println!("  - http://127.0.0.1:8080/");
+  println!("  - http://127.0.0.1:8080/about");
+  println!("  - http://127.0.0.1:8080/products");
+  println!("  - http://127.0.0.1:8080/api/navigation (JSON API)");
+  println!();
 
-    // Create navigation and wrap in application state
-    let navigation = create_navigation();
-    let app_state = web::Data::new(AppState { navigation });
+  // Create navigation and wrap in application state
+  let navigation = create_navigation();
+  let app_state = web::Data::new(AppState { navigation });
 
-    HttpServer::new(move || {
-        App::new()
-            .app_data(app_state.clone())
-            .service(index)
-            .service(about)
-            .service(products)
-            .service(api_navigation)
-    })
-    .bind(("127.0.0.1", 8080))?
-    .run()
-    .await
+  HttpServer::new(move || {
+    App::new()
+      .app_data(app_state.clone())
+      .service(index)
+      .service(about)
+      .service(products)
+      .service(api_navigation)
+  })
+  .bind(("127.0.0.1", 8080))?
+  .run()
+  .await
 }

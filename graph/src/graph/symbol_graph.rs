@@ -4,8 +4,8 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::str::FromStr;
 
-use crate::graph::traits::Symbol;
 use crate::graph::Graph;
+use crate::graph::traits::Symbol;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GenericSymbol {
@@ -244,7 +244,7 @@ where
               format!(
                 "Malformed symbol graph buffer at buffer line {} - Expected \"non-empty\" line.",
                 line_num
-              )
+              ),
             )));
           }
 
@@ -257,7 +257,10 @@ where
               T::from(vs[0].to_string()),
               Some(vs[1..].iter().map(|x| T::from(x.to_string())).collect()),
             ) {
-              return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, err)));
+              return Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                err,
+              )));
             }
           }
         }
@@ -267,7 +270,7 @@ where
             format!(
               "Malformed symbol graph buffer at buffer line {}: {:?}",
               line_num, err
-            )
+            ),
           )));
         }
       }

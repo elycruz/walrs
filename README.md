@@ -11,21 +11,22 @@ An experimental Web Application Library, for Rust - The project is in research a
 
 ## Development
 
-### Notes:
+### Code coverage with `cargo-llvm-cov`
+
+1.  Install `cargo-llvm-cov`: `cargo install cargo-llvm-cov`
+2.  Run tests with coverage and generate HTML report: `sh ./test.sh` or the command directly: `cargo llvm-cov --html --workspace --branch`
+3.  Open the generated report at `target/llvm-cov/html/index.html` in your web browser.
+
+Cargo llvm-cov reference: https://github.com/taiki-e/cargo-llvm-cov
 
 ### Code coverage with `grcov`
 
+Note: branch and functions tracking is not supported with this method (currently).
+
 1. Install `llvm-tools`: `$ rustup component add llvm-tools-preview`
 2. Install grcov: `cargo install grcov`.
-3. Build library with instrumentation:
-    ```
-    CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='.profraw/cargo-test-%p-%m.profraw' cargo test -- --test-threads 16
-    ```
-4. Run grcov: 
-    ```bash
-    grcov . --binary-path ./target/debug/deps/ -s . -t html --branch --ignore-not-existing --ignore '../*' --ignore "/*" -o target/coverage/html
-    ```
-5. Run the coverage index.html (target/coverage/html/index.html) file in the browser.
+3. Run `sh ./grcov-coverage.sh` (builds project with instrumentation and runs tests).
+4. Run the coverage "index.html" file (target/coverage/html/index.html) in the browser.
 
 Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
 

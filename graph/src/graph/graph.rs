@@ -294,7 +294,10 @@ impl Graph {
             .collect();
 
           if let Err(err) = self.add_edge(verts[0], verts[1]) {
-            return Err(Box::new(std::io::Error::new(std::io::ErrorKind::InvalidData, err)));
+            return Err(Box::new(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              err,
+            )));
           }
         }
         Err(err) => {
@@ -365,7 +368,7 @@ impl TryFrom<File> for Graph {
 
 #[cfg(test)]
 mod test {
-  use crate::graph::{invalid_vertex_msg, Graph};
+  use crate::graph::{Graph, invalid_vertex_msg};
   use std::fs::File;
   use std::io::BufReader;
 
@@ -847,8 +850,8 @@ mod test {
 
   #[test]
   pub fn test_try_from_mut_buf_reader_ref() -> Result<(), Box<dyn std::error::Error>> {
-    use std::io::Seek;
     use crate::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
+    use std::io::Seek;
 
     let file_path = "../test-fixtures/graph_test_tinyG.txt";
 
@@ -863,13 +866,9 @@ mod test {
     reader.rewind()?;
 
     let (expected_vert_count, expected_edge_count) =
-        extract_vert_and_edge_counts_from_bufreader(&mut reader)?;
+      extract_vert_and_edge_counts_from_bufreader(&mut reader)?;
 
-    assert_eq!(
-      g.vert_count(),
-      expected_vert_count,
-      "Vert count is invalid"
-    );
+    assert_eq!(g.vert_count(), expected_vert_count, "Vert count is invalid");
     // Note: Graph counts edges bidirectionally (2x the logical edge count)
     assert_eq!(
       g.edge_count(),

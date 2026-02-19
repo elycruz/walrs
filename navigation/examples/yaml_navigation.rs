@@ -31,7 +31,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
   // Use Container fluent interface to add all pages
-  nav.add_page(
+  nav
+    .add_page(
       Page::builder()
         .label("Home")
         .uri("/")

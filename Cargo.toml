@@ -18,8 +18,12 @@ walrs_rbac = { path = "rbac" }
 members = [
     "acl", 
     "digraph",
+    "filter",
+    "form",
+    "form_core",
     "graph",
     "inputfilter",
     "navigation",
+    "validator",
     "rbac"
 ]

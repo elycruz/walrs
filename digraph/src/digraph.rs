@@ -180,20 +180,22 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
   ///
   fn try_from(reader: &mut BufReader<R>) -> Result<Self, Self::Error> {
     // Extract vert count, and move cursor passed edge count line, for reader
-    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader).unwrap().0;
+    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)
+      .unwrap()
+      .0;
 
     // Construct digraph
     let mut dg = Digraph::new(vert_count);
 
     // Populate graph from buffer lines
-    for line in  reader.lines() {
+    for line in reader.lines() {
       // For each edge definition, enter them into graph
       let _line = line?;
       // Split and parse edge values to integers
       let verts: Vec<usize> = _line
-          .split_ascii_whitespace()
-          .map(|x| x.parse::<usize>().unwrap())
-          .collect();
+        .split_ascii_whitespace()
+        .map(|x| x.parse::<usize>().unwrap())
+        .collect();
 
       // Add edge, and panic if unable to add it
       dg.add_edge(verts[0], verts[1])?;
@@ -230,9 +232,9 @@ impl TryFrom<File> for Digraph {
 
 #[cfg(test)]
 mod test {
+  use crate::{extract_vert_and_edge_counts_from_bufreader, invalid_vertex_msg, Digraph};
   use std::fs::File;
   use std::io::{BufReader, Seek};
-  use crate::{extract_vert_and_edge_counts_from_bufreader, invalid_vertex_msg, Digraph};
 
   /// Some usize vec;  Note not meant to be generic;  Defined only this `test` module.
   pub fn usize_vec_sum(us: &Vec<usize>) -> usize {
@@ -331,14 +333,8 @@ mod test {
         } else {
           0
         };
-        assert_eq!(
-          g.indegree(i)?,
-          expected_indegree
-        );
-        assert_eq!(
-          g.outdegree(i)?,
-          expected_outdegree
-        );
+        assert_eq!(g.indegree(i)?, expected_indegree);
+        assert_eq!(g.outdegree(i)?, expected_outdegree);
       }
     }
 
@@ -406,10 +402,7 @@ mod test {
       for i in 0..graph_size {
         let expected_indegree = if i >= 1 { i } else { 0 };
         // println!("`#.indegree({})` should return {}", i, expected_indegree);
-        assert_eq!(
-          g.indegree(i)?,
-          expected_indegree
-        );
+        assert_eq!(g.indegree(i)?, expected_indegree);
       }
 
       assert_eq!(
@@ -423,14 +416,8 @@ mod test {
     // Test error cases
     // ----
     let mut dg = Digraph::new(2);
-    assert_eq!(
-      dg.add_edge(0, 99).unwrap_err(),
-      invalid_vertex_msg(99, 1)
-    );
-    assert_eq!(
-      dg.add_edge(99, 0).unwrap_err(),
-      invalid_vertex_msg(99, 1)
-    );
+    assert_eq!(dg.add_edge(0, 99).unwrap_err(), invalid_vertex_msg(99, 1));
+    assert_eq!(dg.add_edge(99, 0).unwrap_err(), invalid_vertex_msg(99, 1));
 
     Ok(())
   }
@@ -539,7 +526,7 @@ mod test {
     reader.rewind()?;
 
     let (expected_vert_count, expected_edge_count) =
-        extract_vert_and_edge_counts_from_bufreader(&mut reader)?;
+      extract_vert_and_edge_counts_from_bufreader(&mut reader)?;
 
     assert_eq!(
       dg.vert_count(),

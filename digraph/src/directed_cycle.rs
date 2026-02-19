@@ -203,7 +203,7 @@ mod test {
     g.add_edge(0, 5).unwrap();
     g.add_edge(2, 0).unwrap();
     g.add_edge(2, 3).unwrap();
-    g.add_edge(3, 2).unwrap();  // Cycle: 2 <-> 3
+    g.add_edge(3, 2).unwrap(); // Cycle: 2 <-> 3
     g.add_edge(3, 5).unwrap();
     g.add_edge(4, 2).unwrap();
     g.add_edge(4, 3).unwrap();
@@ -213,7 +213,7 @@ mod test {
     g.add_edge(6, 9).unwrap();
     g.add_edge(7, 6).unwrap();
     g.add_edge(7, 8).unwrap();
-    g.add_edge(8, 7).unwrap();  // Cycle: 7 <-> 8
+    g.add_edge(8, 7).unwrap(); // Cycle: 7 <-> 8
     g.add_edge(8, 9).unwrap();
     g.add_edge(9, 10).unwrap();
     g.add_edge(9, 11).unwrap();
@@ -223,21 +223,33 @@ mod test {
     g.add_edge(12, 9).unwrap();
 
     let finder = DirectedCycle::new(&g);
-    assert_eq!(finder.has_cycle(), true, "Should detect cycle in complex graph");
+    assert_eq!(
+      finder.has_cycle(),
+      true,
+      "Should detect cycle in complex graph"
+    );
   }
 
   #[test]
   fn test_directed_cycle_empty_graph() {
     let g = Digraph::new(0);
     let finder = DirectedCycle::new(&g);
-    assert_eq!(finder.has_cycle(), false, "Empty graph should have no cycle");
+    assert_eq!(
+      finder.has_cycle(),
+      false,
+      "Empty graph should have no cycle"
+    );
   }
 
   #[test]
   fn test_directed_cycle_single_vertex() {
     let g = Digraph::new(1);
     let finder = DirectedCycle::new(&g);
-    assert_eq!(finder.has_cycle(), false, "Single vertex with no edges should have no cycle");
+    assert_eq!(
+      finder.has_cycle(),
+      false,
+      "Single vertex with no edges should have no cycle"
+    );
   }
 
   #[test]
@@ -277,7 +289,11 @@ mod test {
     // Manually create an invalid cycle with mismatched endpoints for testing
     finder._cycle = Some(vec![0, 1, 2]); // Should start and end with same vertex
 
-    assert_eq!(finder.check(), false, "Cycle with mismatched endpoints should fail check");
+    assert_eq!(
+      finder.check(),
+      false,
+      "Cycle with mismatched endpoints should fail check"
+    );
   }
 
   #[test]
