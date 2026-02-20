@@ -1,12 +1,8 @@
-use crate::{Violation, Violations};
+use crate::{Violation};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Result type for validation operations.
 pub type ValidatorResult = Result<(), Violation>;
-
-/// Result for methods that can return more than onoe
-/// violation on validation.
-pub type ValidationResult = Result<(), Violations>;
 
 /// Trait for validating owned/copied values.
 ///
