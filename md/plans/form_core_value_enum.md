@@ -288,15 +288,15 @@ impl ValidateRef<Value> for Rule<Value> {
                 _ => Err(Violation::new(ViolationType::TypeMismatch, "Expected a string")),
             },
             Rule::Pattern(p) => match value {
-                Value::Str(s) => Rule::<String>::Pattern(p.clone()).validate_ref(s.as_str(), None),
+                Value::Str(s) => Rule::<String>::Pattern(p.clone()).validate_str(s.as_str(), None),
                 _ => Err(Violation::new(ViolationType::TypeMismatch, "Expected a string")),
             },
             Rule::Email => match value {
-                Value::Str(s) => Rule::<String>::Email.validate_ref(s.as_str(), None),
+                Value::Str(s) => Rule::<String>::Email.validate_str(s.as_str(), None),
                 _ => Err(Violation::new(ViolationType::TypeMismatch, "Expected a string")),
             },
             Rule::Url => match value {
-                Value::Str(s) => Rule::<String>::Url.validate_ref(s.as_str(), None),
+                Value::Str(s) => Rule::<String>::Url.validate_str(s.as_str(), None),
                 _ => Err(Violation::new(ViolationType::TypeMismatch, "Expected a string")),
             },
             Rule::Min(bound) => match partial_cmp_value(value, bound) {

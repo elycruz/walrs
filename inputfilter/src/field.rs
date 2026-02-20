@@ -128,7 +128,7 @@ impl Field<String> {
     match &self.rule {
       Some(rule) => {
         let locale = self.locale.as_deref();
-        rule.validate_ref(value, locale).map_err(|v| {
+        rule.validate_str(value, locale).map_err(|v| {
           let mut violations = Violations::empty();
           violations.push(v);
           violations

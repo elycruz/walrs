@@ -55,7 +55,7 @@ impl LocalizedFormValidator {
       );
 
     rule
-      .validate_ref(value, self.locale.as_deref())
+      .validate_str(value, self.locale.as_deref())
       .map_err(|v| v.message().to_string())
   }
 
@@ -78,7 +78,7 @@ impl LocalizedFormValidator {
       );
 
     rule
-      .validate_ref(value, self.locale.as_deref())
+      .validate_str(value, self.locale.as_deref())
       .map_err(|v| v.message().to_string())
   }
 
@@ -126,7 +126,7 @@ impl LocalizedFormValidator {
       );
 
     rule
-      .validate_ref_all(value, self.locale.as_deref())
+      .validate_str_all(value, self.locale.as_deref())
       .map_err(|violations| violations.iter().map(|v| v.message().to_string()).collect())
   }
 }

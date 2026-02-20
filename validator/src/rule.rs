@@ -847,8 +847,8 @@ use crate::impls::string::CachedStringValidators;
 /// let compiled = rule.compile();
 ///
 /// // Validate many times (reuses cached regex)
-/// assert!(compiled.validate_ref("Password1").is_ok());
-/// assert!(compiled.validate_ref("short").is_err());
+/// assert!(compiled.validate_str("Password1").is_ok());
+/// assert!(compiled.validate_str("short").is_err());
 /// ```
 pub struct CompiledRule<T> {
   /// The underlying rule
@@ -908,8 +908,8 @@ impl Rule<String> {
   /// let compiled = rule.compile();
   ///
   /// // Repeated calls reuse the cached regex
-  /// assert!(compiled.validate_ref("123").is_ok());
-  /// assert!(compiled.validate_ref("456").is_ok());
+  /// assert!(compiled.validate_str("123").is_ok());
+  /// assert!(compiled.validate_str("456").is_ok());
   /// ```
   pub fn compile(self) -> CompiledRule<String> {
     CompiledRule::new(self)
