@@ -305,6 +305,7 @@ mod tests {
     let rule = Rule::WithMessage {
       rule: Box::new(inner_rule),
       message: Message::Static("Custom message.".to_string()),
+      locale: None,
     };
     let attrs = rule.to_attributes_list().unwrap();
     assert_eq!(attrs.len(), 1);

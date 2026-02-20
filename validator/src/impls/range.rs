@@ -55,9 +55,8 @@ impl<'a,  T: ScalarValue + Sized> Rule<T> {
           Ok(())
         }
       }
-      // @todo Support `WithMessage` (soon to be `WithOptions`) for copy types as well -
-      //    `locale` will be supported via this variant instead of as a param in the
-      //    'validate*' method signatures.
+      // @todo Support `WithMessage` for copy types as well -
+      //    The `locale` field on `WithMessage` is already available for use here.
       _ => Ok(()),
     }
   }

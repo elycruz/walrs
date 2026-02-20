@@ -433,18 +433,19 @@ pub enum Rule<T> {
   #[serde(skip)]
   Ref(String),
 
-  /// Wraps another rule with a custom error message.
+  /// Wraps another rule with a custom error message and optional locale.
   ///
   /// When the inner rule fails, the custom message is used instead of
-  /// the default message.
+  /// the default message. The optional locale is passed to the message
+  /// provider for internationalization support.
   #[serde(skip)]
-  // @todo change this struct variant to `WithOptions` instead (allows support for additional options (`locale`, etc.).
   WithMessage {
     /// The wrapped rule
     rule: Box<Rule<T>>,
     /// The custom message to use on failure
     message: Message<T>,
-    // @todo Add support for `locale` field.
+    /// Optional locale for internationalized messages (e.g., "en-US", "es", "fr")
+    locale: Option<String>,
   },
 }
 
@@ -483,10 +484,11 @@ impl<T: Debug> Debug for Rule<T> {
         .finish(),
       Self::Custom(_) => write!(f, "Custom(<fn>)"),
       Self::Ref(name) => f.debug_tuple("Ref").field(name).finish(),
-      Self::WithMessage { rule, message } => f
+      Self::WithMessage { rule, message, locale } => f
         .debug_struct("WithMessage")
         .field("rule", rule)
         .field("message", message)
+        .field("locale", locale)
         .finish(),
     }
   }
@@ -528,12 +530,14 @@ impl<T: PartialEq> PartialEq for Rule<T> {
         Self::WithMessage {
           rule: r1,
           message: m1,
+          locale: l1,
         },
         Self::WithMessage {
           rule: r2,
           message: m2,
+          locale: l2,
         },
-      ) => r1 == r2 && m1 == m2,
+      ) => r1 == r2 && m1 == m2 && l1 == l2,
       // Custom rules are never equal
       (Self::Custom(_), Self::Custom(_)) => false,
       _ => false,
@@ -711,6 +715,7 @@ impl<T> Rule<T> {
     Rule::WithMessage {
       rule: Box::new(self),
       message: Message::Static(msg.into()),
+      locale: None,
     }
   }
 
@@ -734,6 +739,43 @@ impl<T> Rule<T> {
     Rule::WithMessage {
       rule: Box::new(self),
       message: Message::Provider(Arc::new(f)),
+      locale: None,
+    }
+  }
+
+  /// Attaches a locale to this rule for internationalized error messages.
+  ///
+  /// If this rule is already a `WithMessage` variant, updates its locale.
+  /// Otherwise wraps the rule in a `WithMessage` with an empty static message
+  /// (which will pass through the inner rule's violation message) and the given locale.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use walrs_validator::rule::Rule;
+  ///
+  /// let rule = Rule::<String>::MinLength(3)
+  ///     .with_message_provider(|ctx| {
+  ///         match ctx.locale {
+  ///             Some("es") => format!("Mínimo 3 caracteres"),
+  ///             _ => format!("Minimum 3 characters"),
+  ///         }
+  ///     })
+  ///     .with_locale("es");
+  /// ```
+  pub fn with_locale(self, locale: impl Into<String>) -> Rule<T> {
+    let locale_str = locale.into();
+    match self {
+      Rule::WithMessage { rule, message, .. } => Rule::WithMessage {
+        rule,
+        message,
+        locale: Some(locale_str),
+      },
+      other => Rule::WithMessage {
+        rule: Box::new(other),
+        message: Message::Static(String::new()),
+        locale: Some(locale_str),
+      },
     }
   }
 }
@@ -1088,9 +1130,11 @@ mod tests {
       Rule::WithMessage {
         rule: inner,
         message,
+        locale,
       } => {
         assert_eq!(*inner, Rule::MinLength(8));
         assert_eq!(message, Message::from("Password too short."));
+        assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
     }
@@ -1105,10 +1149,12 @@ mod tests {
       Rule::WithMessage {
         rule: inner,
         message,
+        locale,
       } => {
         assert_eq!(*inner, Rule::Min(0));
         assert!(message.is_provider());
         assert_eq!(message.resolve(&-5, None), "Got -5, expected >= 0.");
+        assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
     }
@@ -1145,6 +1191,7 @@ mod tests {
       Rule::WithMessage {
         rule: inner,
         message,
+        locale,
       } => {
         match *inner {
           Rule::All(rules) => assert_eq!(rules.len(), 2),
@@ -1154,6 +1201,7 @@ mod tests {
           message.resolve(&"".to_string(), None),
           "Length must be between 3 and 10."
         );
+        assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
     }

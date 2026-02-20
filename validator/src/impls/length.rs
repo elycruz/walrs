@@ -82,7 +82,7 @@ impl<T: WithLength> Rule<T> {
         Ok(())
       }
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
-      Rule::WithMessage { rule, message: _ } => {
+      Rule::WithMessage { rule, .. } => {
         // For WithLength types, we can't easily resolve messages without more bounds
         // Just delegate to inner rule
         rule.validate_len(value)
@@ -167,7 +167,7 @@ impl<T: WithLength> Rule<T> {
           then_rule.collect_len_violations(value, violations);
         }
       }
-      Rule::WithMessage { rule, message: _ } => {
+      Rule::WithMessage { rule, message: _, locale: _ } => {
         // Delegate to inner rule
         rule.collect_len_violations(value, violations);
       }

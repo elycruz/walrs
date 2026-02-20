@@ -8,7 +8,7 @@
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };
-use walrs_validator::Rule;
+use walrs_validator::{Rule, ValidateRef};
 
 /// A simple struct to represent locale-aware validation results
 struct LocalizedFormValidator {
@@ -54,8 +54,13 @@ impl LocalizedFormValidator {
           }),
       );
 
+    let rule = match &self.locale {
+      Some(loc) => rule.with_locale(loc.as_str()),
+      None => rule,
+    };
+
     rule
-      .validate_str(value, self.locale.as_deref())
+      .validate_ref(value)
       .map_err(|v| v.message().to_string())
   }
 
@@ -77,8 +82,13 @@ impl LocalizedFormValidator {
         }),
       );
 
+    let rule = match &self.locale {
+      Some(loc) => rule.with_locale(loc.as_str()),
+      None => rule,
+    };
+
     rule
-      .validate_str(value, self.locale.as_deref())
+      .validate_ref(value)
       .map_err(|v| v.message().to_string())
   }
 
@@ -125,8 +135,13 @@ impl LocalizedFormValidator {
         }),
       );
 
+    let rule = match &self.locale {
+      Some(loc) => rule.with_locale(loc.as_str()),
+      None => rule,
+    };
+
     rule
-      .validate_str_all(value, self.locale.as_deref())
+      .validate_str_all(value)
       .map_err(|violations| violations.iter().map(|v| v.message().to_string()).collect())
   }
 }

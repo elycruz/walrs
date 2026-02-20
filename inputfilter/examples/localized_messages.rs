@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example localized_messages -p walrs_inputfilter`
 
 use walrs_inputfilter::field::FieldBuilder;
-use walrs_validator::Rule;
+use walrs_validator::{Rule, ValidateRef};
 
 fn main() {
   println!("=== Localized Validation Messages Example ===\n");
@@ -223,7 +223,8 @@ fn main() {
   println!("--- Example 4: Runtime Locale Switching ---\n");
 
   // Sometimes you need to validate with different locales at runtime
-  // without creating new fields. You can use Rule::validate_str directly with locale.
+  // without creating new fields. You can use Rule::with_locale to set the
+  // locale on the rule, then validate via the ValidateRef trait.
 
   let age_rule =
     Rule::<String>::Pattern(r"^\d+$".to_string()).with_message_provider(|ctx| match ctx.locale {
@@ -236,7 +237,11 @@ fn main() {
 
   println!("Value: \"{}\"", invalid_age);
   for locale in [None, Some("es"), Some("fr")] {
-    let result = age_rule.validate_str(invalid_age, locale);
+    let localized_rule = match locale {
+      Some(loc) => age_rule.clone().with_locale(loc),
+      None => age_rule.clone(),
+    };
+    let result = localized_rule.validate_ref(invalid_age);
     if let Err(violation) = result {
       println!(
         "  Locale {:?}: {}",
