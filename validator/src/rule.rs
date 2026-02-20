@@ -723,6 +723,7 @@ impl<T> Rule<T> {
   ///
   /// The closure receives a `MessageContext` containing the value being validated
   /// and rule parameters, enabling rich interpolated error messages.
+  /// An optional `locale` can be provided for internationalization support.
   ///
   /// # Example
   ///
@@ -730,16 +731,24 @@ impl<T> Rule<T> {
   /// use walrs_validator::rule::Rule;
   ///
   /// let rule = Rule::<i32>::Min(0)
-  ///     .with_message_provider(|ctx| format!("Value {} must be non-negative.", ctx.value));
+  ///     .with_message_provider(|ctx| format!("Value {} must be non-negative.", ctx.value), None);
+  ///
+  /// let rule_es = Rule::<String>::MinLength(3)
+  ///     .with_message_provider(|ctx| {
+  ///         match ctx.locale {
+  ///             Some("es") => format!("Mínimo 3 caracteres"),
+  ///             _ => format!("Minimum 3 characters"),
+  ///         }
+  ///     }, Some("es"));
   /// ```
-  pub fn with_message_provider<F>(self, f: F) -> Rule<T>
+  pub fn with_message_provider<F>(self, f: F, locale: Option<&str>) -> Rule<T>
   where
     F: Fn(&MessageContext<T>) -> String + Send + Sync + 'static,
   {
     Rule::WithMessage {
       rule: Box::new(self),
       message: Message::Provider(Arc::new(f)),
-      locale: None,
+      locale: locale.map(String::from),
     }
   }
 
@@ -760,7 +769,7 @@ impl<T> Rule<T> {
   ///             Some("es") => format!("Mínimo 3 caracteres"),
   ///             _ => format!("Minimum 3 characters"),
   ///         }
-  ///     })
+  ///     }, None)
   ///     .with_locale("es");
   /// ```
   pub fn with_locale(self, locale: impl Into<String>) -> Rule<T> {
@@ -1143,7 +1152,7 @@ mod tests {
   #[test]
   fn test_rule_with_message_provider() {
     let rule =
-      Rule::<i32>::Min(0).with_message_provider(|ctx| format!("Got {}, expected >= 0.", ctx.value));
+      Rule::<i32>::Min(0).with_message_provider(|ctx| format!("Got {}, expected >= 0.", ctx.value), None);
 
     match rule {
       Rule::WithMessage {
