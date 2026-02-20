@@ -1,6 +1,6 @@
-use crate::rule::{Rule, RuleResult, IsEmpty};
+use crate::rule::{Rule, RuleResult};
+use crate::traits::{IsEmpty, Validate};
 use crate::{SteppableValue, Violation};
-use crate::traits::Validate;
 use crate::CompiledRule;
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {

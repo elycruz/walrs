@@ -1,5 +1,5 @@
 use crate::rule::{Rule, RuleResult};
-use crate::length::WithLength;
+use crate::traits::WithLength;
 use crate::Violation;
 
 impl<T: WithLength> Rule<T> {

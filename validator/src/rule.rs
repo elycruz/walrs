@@ -36,6 +36,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::traits::IsEmpty;
 
 // ============================================================================
 // Result Types
@@ -111,59 +112,6 @@ impl<T: PartialEq> PartialEq for Condition<T> {
 // ============================================================================
 // Condition Evaluation
 // ============================================================================
-
-/// Trait for checking if a value is "empty" for condition evaluation.
-pub trait IsEmpty {
-  /// Returns `true` if the value is considered empty.
-  fn is_empty(&self) -> bool;
-}
-
-impl IsEmpty for String {
-  fn is_empty(&self) -> bool {
-    self.trim().is_empty()
-  }
-}
-
-impl IsEmpty for str {
-  fn is_empty(&self) -> bool {
-    self.trim().is_empty()
-  }
-}
-
-impl IsEmpty for &str {
-  fn is_empty(&self) -> bool {
-    self.trim().is_empty()
-  }
-}
-
-impl<T> IsEmpty for Vec<T> {
-  fn is_empty(&self) -> bool {
-    self.is_empty()
-  }
-}
-
-impl<T> IsEmpty for Option<T> {
-  fn is_empty(&self) -> bool {
-    self.is_none()
-  }
-}
-
-// Numeric types are never "empty" in the traditional sense
-macro_rules! impl_is_empty_numeric {
-    ($($t:ty),*) => {
-        $(
-            impl IsEmpty for $t {
-                fn is_empty(&self) -> bool {
-                    false
-                }
-            }
-        )*
-    };
-}
-
-impl_is_empty_numeric!(
-  i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64
-);
 
 impl<T: PartialEq + PartialOrd> Condition<T> {
   /// Evaluates the condition against a value.
