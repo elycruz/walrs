@@ -85,10 +85,7 @@ pub use length::*;
 pub use message::*;
 pub use pattern::*;
 pub use range::*;
-pub use rule::{
-  CompiledRule, Condition, IsEmpty, Rule, RuleResult, exact_length_violation,
-  too_short_violation, too_long_violation,
-};
+pub use rule::{CompiledRule, Condition, IsEmpty, Rule, RuleResult};
 pub use step::*;
 pub use traits::*;
 pub use violation::*;

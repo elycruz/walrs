@@ -35,7 +35,6 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
-use crate::ViolationType;
 use crate::{Message, MessageContext, SteppableValue, Violation};
 
 // ============================================================================
@@ -206,115 +205,6 @@ impl Condition<String> {
   }
 }
 
-// ============================================================================
-// Violation Message Helpers
-// ============================================================================
-
-/// Creates a "value missing" violation for `Required` rule.
-pub fn value_missing_violation() -> Violation {
-  Violation::new(ViolationType::ValueMissing, "Value is required.".to_string())
-}
-
-/// Creates a "too short" violation for `MinLength` rule.
-pub fn too_short_violation(min: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooShort,
-    format!("Value length must be at least {};  Received {}.", min, actual),
-  )
-}
-
-/// Creates a "too long" violation for `MaxLength` rule.
-pub fn too_long_violation(max: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooLong,
-    format!("Value length must at most {};  Received {}.", max, actual),
-  )
-}
-
-/// Creates an "exact length" violation for `ExactLength` rule.
-pub fn exact_length_violation(expected: usize, actual: usize) -> Violation {
-  Violation::new(
-    ViolationType::TooShort, // or TooLong depending on direction
-    format!(
-      "Value length must be exactly {} (got {}).",
-      expected, actual
-    ),
-  )
-}
-
-/// Creates a "pattern mismatch" violation for `Pattern` rule.
-pub fn pattern_mismatch_violation(pattern: &str) -> Violation {
-  Violation::new(
-    ViolationType::PatternMismatch,
-    format!("Value does not match pattern: {}", pattern),
-  )
-}
-
-/// Creates an "invalid email" violation for `Email` rule.
-pub fn invalid_email_violation() -> Violation {
-  Violation::new(ViolationType::TypeMismatch, "Invalid email address.")
-}
-
-/// Creates an "invalid URL" violation for `Url` rule.
-pub fn invalid_url_violation() -> Violation {
-  Violation::new(ViolationType::TypeMismatch, "Invalid URL.")
-}
-
-/// Creates a "range underflow" violation for `Min` rule.
-pub fn range_underflow_violation<T: std::fmt::Display>(min: &T) -> Violation {
-  Violation::new(
-    ViolationType::RangeUnderflow,
-    format!("Value must be at least {}.", min),
-  )
-}
-
-/// Creates a "range overflow" violation for `Max` rule.
-pub fn range_overflow_violation<T: std::fmt::Display>(max: &T) -> Violation {
-  Violation::new(
-    ViolationType::RangeOverflow,
-    format!("Value must be at most {}.", max),
-  )
-}
-
-/// Creates a "step mismatch" violation for `Step` rule.
-pub fn step_mismatch_violation<T: std::fmt::Display>(step: &T) -> Violation {
-  Violation::new(
-    ViolationType::StepMismatch,
-    format!("Value must be a multiple of {}.", step),
-  )
-}
-
-/// Creates a "not equal" violation for `Equals` rule.
-pub fn not_equal_violation<T: std::fmt::Display>(expected: &T) -> Violation {
-  Violation::new(
-    ViolationType::NotEqual,
-    format!("Value must equal {}.", expected),
-  )
-}
-
-/// Creates a "not one of" violation for `OneOf` rule.
-pub fn not_one_of_violation() -> Violation {
-  Violation::new(
-    ViolationType::NotEqual,
-    "Value must be one of the allowed values",
-  )
-}
-
-/// Creates an "unresolved reference" violation for `Ref` rule.
-pub fn unresolved_ref_violation(name: &str) -> Violation {
-  Violation::new(
-    ViolationType::CustomError,
-    format!("Unresolved rule reference: {}.", name),
-  )
-}
-
-/// Creates a "negation failed" violation for `Not` rule.
-pub fn negation_failed_violation() -> Violation {
-  Violation::new(
-    ViolationType::CustomError,
-    "Value must not satisfy the negated rule.",
-  )
-}
 
 // ============================================================================
 // Rule Enum

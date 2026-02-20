@@ -1,9 +1,4 @@
-use crate::rule::{
-    Rule, RuleResult,
-    value_missing_violation, too_short_violation, too_long_violation, exact_length_violation,
-    pattern_mismatch_violation, invalid_email_violation, invalid_url_violation,
-    not_equal_violation, not_one_of_violation, negation_failed_violation, unresolved_ref_violation
-};
+use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
@@ -42,7 +37,7 @@ impl Rule<String> {
     match self {
       Rule::Required => {
         if value.trim().is_empty() {
-          Err(value_missing_violation())
+          Err(Violation::value_missing())
         } else {
           Ok(())
         }
@@ -50,7 +45,7 @@ impl Rule<String> {
       Rule::MinLength(min) => {
         let len = value.chars().count();
         if len < *min {
-          Err(too_short_violation(*min, len))
+          Err(Violation::too_short(*min, len))
         } else {
           Ok(())
         }
@@ -58,7 +53,7 @@ impl Rule<String> {
       Rule::MaxLength(max) => {
         let len = value.chars().count();
         if len > *max {
-          Err(too_long_violation(*max, len))
+          Err(Violation::too_long(*max, len))
         } else {
           Ok(())
         }
@@ -66,7 +61,7 @@ impl Rule<String> {
       Rule::ExactLength(expected) => {
         let len = value.chars().count();
         if len != *expected {
-          Err(exact_length_violation(*expected, len))
+          Err(Violation::exact_length(*expected, len))
         } else {
           Ok(())
         }
@@ -76,10 +71,10 @@ impl Rule<String> {
           if re.is_match(value) {
             Ok(())
           } else {
-            Err(pattern_mismatch_violation(pattern))
+            Err(Violation::pattern_mismatch(pattern))
           }
         }
-        Err(_) => Err(pattern_mismatch_violation(pattern)),
+        Err(_) => Err(Violation::pattern_mismatch(pattern)),
       },
       Rule::Email => {
         // Simple email validation using regex
@@ -88,7 +83,7 @@ impl Rule<String> {
         if email_re.is_match(value) {
           Ok(())
         } else {
-          Err(invalid_email_violation())
+          Err(Violation::invalid_email())
         }
       }
       Rule::Url => {
@@ -97,21 +92,21 @@ impl Rule<String> {
         if url_re.is_match(value) {
           Ok(())
         } else {
-          Err(invalid_url_violation())
+          Err(Violation::invalid_url())
         }
       }
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
         } else {
-          Err(not_equal_violation(expected))
+          Err(Violation::not_equal(expected))
         }
       }
       Rule::OneOf(allowed) => {
         if allowed.iter().any(|v| v.as_str() == value) {
           Ok(())
         } else {
-          Err(not_one_of_violation())
+          Err(Violation::not_one_of())
         }
       }
       Rule::All(rules) => {
@@ -134,7 +129,7 @@ impl Rule<String> {
         Err(last_err.unwrap())
       }
       Rule::Not(inner) => match inner.validate_str_inner(value, inherited_locale) {
-        Ok(()) => Err(negation_failed_violation()),
+        Ok(()) => Err(Violation::negation_failed()),
         Err(_) => Ok(()),
       },
       Rule::When {
@@ -153,7 +148,7 @@ impl Rule<String> {
         }
       }
       Rule::Custom(f) => f(&value.to_string()),
-      Rule::Ref(name) => Err(unresolved_ref_violation(name)),
+      Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         // Use this variant's locale if set, otherwise inherit from parent
         let effective_locale = locale.as_deref().or(inherited_locale);
@@ -190,7 +185,7 @@ impl Rule<String> {
   pub fn validate_str_option(&self, value: Option<&str>) -> RuleResult {
     match value {
       Some(v) => self.validate_str(v),
-      None if self.requires_value() => Err(value_missing_violation()),
+      None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
     }
   }
@@ -202,7 +197,7 @@ impl Rule<String> {
   ) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_str_all(v),
-      None if self.requires_value() => Err(crate::Violations::from(value_missing_violation())),
+      None if self.requires_value() => Err(crate::Violations::from(Violation::value_missing())),
       None => Ok(()),
     }
   }
@@ -313,7 +308,7 @@ impl CompiledRule<String> {
     match &self.rule {
       Rule::Required => {
         if value.trim().is_empty() {
-          Err(value_missing_violation())
+          Err(Violation::value_missing())
         } else {
           Ok(())
         }
@@ -321,7 +316,7 @@ impl CompiledRule<String> {
       Rule::MinLength(min) => {
         let len = value.chars().count();
         if len < *min {
-          Err(too_short_violation(*min, len))
+          Err(Violation::too_short(*min, len))
         } else {
           Ok(())
         }
@@ -329,7 +324,7 @@ impl CompiledRule<String> {
       Rule::MaxLength(max) => {
         let len = value.chars().count();
         if len > *max {
-          Err(too_long_violation(*max, len))
+          Err(Violation::too_long(*max, len))
         } else {
           Ok(())
         }
@@ -337,7 +332,7 @@ impl CompiledRule<String> {
       Rule::ExactLength(expected) => {
         let len = value.chars().count();
         if len != *expected {
-          Err(exact_length_violation(*expected, len))
+          Err(Violation::exact_length(*expected, len))
         } else {
           Ok(())
         }
@@ -356,7 +351,7 @@ impl CompiledRule<String> {
         if matches {
           Ok(())
         } else {
-          Err(pattern_mismatch_violation(pattern))
+          Err(Violation::pattern_mismatch(pattern))
         }
       }
       Rule::Email => {
@@ -368,7 +363,7 @@ impl CompiledRule<String> {
         if matches {
           Ok(())
         } else {
-          Err(invalid_email_violation())
+          Err(Violation::invalid_email())
         }
       }
       Rule::Url => {
@@ -380,21 +375,21 @@ impl CompiledRule<String> {
         if matches {
           Ok(())
         } else {
-          Err(invalid_url_violation())
+          Err(Violation::invalid_url())
         }
       }
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
         } else {
-          Err(not_equal_violation(expected))
+          Err(Violation::not_equal(expected))
         }
       }
       Rule::OneOf(allowed) => {
         if allowed.iter().any(|v| v == value) {
           Ok(())
         } else {
-          Err(not_one_of_violation())
+          Err(Violation::not_one_of())
         }
       }
       Rule::All(rules) => {
@@ -417,7 +412,7 @@ impl CompiledRule<String> {
         Err(last_err.unwrap())
       }
       Rule::Not(inner) => match CompiledRule::new((**inner).clone()).validate_str(value) {
-        Ok(()) => Err(negation_failed_violation()),
+        Ok(()) => Err(Violation::negation_failed()),
         Err(_) => Ok(()),
       },
       Rule::When {
@@ -436,7 +431,7 @@ impl CompiledRule<String> {
         }
       }
       Rule::Custom(f) => f(&value.to_string()),
-      Rule::Ref(name) => Err(unresolved_ref_violation(name)),
+      Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref();
         match CompiledRule::new((**rule).clone()).validate_str(value) {

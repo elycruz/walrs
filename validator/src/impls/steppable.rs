@@ -1,8 +1,4 @@
-use crate::rule::{
-    Rule, RuleResult, IsEmpty,
-    value_missing_violation, range_underflow_violation, range_overflow_violation,
-    step_mismatch_violation, not_equal_violation, not_one_of_violation, negation_failed_violation, unresolved_ref_violation
-};
+use crate::rule::{Rule, RuleResult, IsEmpty};
 use crate::{SteppableValue, Violation};
 use crate::traits::Validate;
 use crate::CompiledRule;
@@ -22,23 +18,23 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       }
       Rule::Min(min) => {
         if value < *min {
-          Err(range_underflow_violation(min))
+          Err(Violation::range_underflow(min))
         } else {
           Ok(())
         }
       }
       Rule::Max(max) => {
         if value > *max {
-          Err(range_overflow_violation(max))
+          Err(Violation::range_overflow(max))
         } else {
           Ok(())
         }
       }
       Rule::Range { min, max } => {
         if value < *min {
-          Err(range_underflow_violation(min))
+          Err(Violation::range_underflow(min))
         } else if value > *max {
-          Err(range_overflow_violation(max))
+          Err(Violation::range_overflow(max))
         } else {
           Ok(())
         }
@@ -47,21 +43,21 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         if value.rem_check(*step) {
           Ok(())
         } else {
-          Err(step_mismatch_violation(step))
+          Err(Violation::step_mismatch(step))
         }
       }
       Rule::Equals(expected) => {
         if value == *expected {
           Ok(())
         } else {
-          Err(not_equal_violation(expected))
+          Err(Violation::not_equal(expected))
         }
       }
       Rule::OneOf(allowed) => {
         if allowed.contains(&value) {
           Ok(())
         } else {
-          Err(not_one_of_violation())
+          Err(Violation::not_one_of())
         }
       }
       Rule::All(rules) => {
@@ -84,7 +80,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         Err(last_err.unwrap())
       }
       Rule::Not(inner) => match inner.validate_step_inner(value, inherited_locale) {
-        Ok(()) => Err(negation_failed_violation()),
+        Ok(()) => Err(Violation::negation_failed()),
         Err(_) => Ok(()),
       },
       Rule::When {
@@ -103,7 +99,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         }
       }
       Rule::Custom(f) => f(&value),
-      Rule::Ref(name) => Err(unresolved_ref_violation(name)),
+      Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);
         match rule.validate_step_inner(value, effective_locale) {
@@ -139,7 +135,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   pub fn validate_option_step(&self, value: Option<T>) -> RuleResult {
     match value {
       Some(v) => self.validate_step(v),
-      None => Err(value_missing_violation()),
+      None => Err(Violation::value_missing()),
     }
   }
 
@@ -150,7 +146,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   ) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_step_all(v),
-      None => Err(crate::Violations::from(value_missing_violation())),
+      None => Err(crate::Violations::from(Violation::value_missing())),
     }
   }
 

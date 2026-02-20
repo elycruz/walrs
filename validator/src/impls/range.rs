@@ -1,5 +1,3 @@
-use crate::ViolationType::ValueMissing;
-use crate::rule::{range_overflow_violation, range_underflow_violation, value_missing_violation};
 use crate::{
   Rule, ScalarValue, ValidationResult, Violation,
   ViolationType,
@@ -17,14 +15,14 @@ impl<'a,  T: ScalarValue + Sized> Rule<T> {
     match self {
       Rule::Min(min) => {
         if value < *min {
-          Err(range_underflow_violation(min).into())
+          Err(Violation::range_underflow(min).into())
         } else {
           Ok(())
         }
       }
       Rule::Max(max) => {
         if value > *max {
-          Err(range_overflow_violation(max).into())
+          Err(Violation::range_overflow(max).into())
         } else {
           Ok(())
         }
@@ -33,7 +31,7 @@ impl<'a,  T: ScalarValue + Sized> Rule<T> {
         if value < *min || value > *max {
           Err(
             Violation(
-              ValueMissing,
+              ViolationType::ValueMissing,
               format!("Value {} is not in range {}..={}", value, min, max),
             )
             .into(),
@@ -66,7 +64,7 @@ impl<'a,  T: ScalarValue + Sized> Rule<T> {
       Some(v) => self.validate_copy(v),
       None => {
         if self.requires_value() {
-          Err(value_missing_violation().into())
+          Err(Violation::value_missing().into())
         } else {
           Ok(())
         }

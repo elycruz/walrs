@@ -1,9 +1,6 @@
-use crate::rule::{
-    Rule, RuleResult,
-    value_missing_violation, too_short_violation, too_long_violation, exact_length_violation,
-    negation_failed_violation, unresolved_ref_violation
-};
+use crate::rule::{Rule, RuleResult};
 use crate::length::WithLength;
+use crate::Violation;
 
 impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
@@ -11,7 +8,7 @@ impl<T: WithLength> Rule<T> {
     match self {
       Rule::Required => {
         if value.length() == 0 {
-          Err(value_missing_violation())
+          Err(Violation::value_missing())
         } else {
           Ok(())
         }
@@ -19,7 +16,7 @@ impl<T: WithLength> Rule<T> {
       Rule::MinLength(min) => {
         let len = value.length();
         if len < *min {
-          Err(too_short_violation(*min, len))
+          Err(Violation::too_short(*min, len))
         } else {
           Ok(())
         }
@@ -27,7 +24,7 @@ impl<T: WithLength> Rule<T> {
       Rule::MaxLength(max) => {
         let len = value.length();
         if len > *max {
-          Err(too_long_violation(*max, len))
+          Err(Violation::too_long(*max, len))
         } else {
           Ok(())
         }
@@ -35,7 +32,7 @@ impl<T: WithLength> Rule<T> {
       Rule::ExactLength(expected) => {
         let len = value.length();
         if len != *expected {
-          Err(exact_length_violation(*expected, len))
+          Err(Violation::exact_length(*expected, len))
         } else {
           Ok(())
         }
@@ -60,7 +57,7 @@ impl<T: WithLength> Rule<T> {
         Err(last_err.unwrap())
       }
       Rule::Not(inner) => match inner.validate_len(value) {
-        Ok(()) => Err(negation_failed_violation()),
+        Ok(()) => Err(Violation::negation_failed()),
         Err(_) => Ok(()),
       },
       Rule::When {
@@ -81,7 +78,7 @@ impl<T: WithLength> Rule<T> {
         // as they require the specific type T
         Ok(())
       }
-      Rule::Ref(name) => Err(unresolved_ref_violation(name)),
+      Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, .. } => {
         // For WithLength types, we can't easily resolve messages without more bounds
         // Just delegate to inner rule
@@ -115,7 +112,7 @@ impl<T: WithLength> Rule<T> {
   pub fn validate_option_len(&self, value: Option<&T>) -> RuleResult {
     match value {
       Some(v) => self.validate_len(v),
-      None if self.requires_value() => Err(value_missing_violation()),
+      None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
     }
   }
@@ -124,7 +121,7 @@ impl<T: WithLength> Rule<T> {
   pub fn validate_option_len_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_len_all(v),
-      None if self.requires_value() => Err(crate::Violations::from(value_missing_violation())),
+      None if self.requires_value() => Err(crate::Violations::from(Violation::value_missing())),
       None => Ok(()),
     }
   }
