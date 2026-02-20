@@ -148,10 +148,7 @@ impl<T: WithLength> Rule<T> {
           any_violations.extend(rule_violations.into_iter());
         }
         if !any_passed && !rules.is_empty() {
-          // Just add the last violation for Any
-          if let Some(v) = any_violations.0.pop() {
-            violations.push(v);
-          }
+          violations.extend(any_violations.into_iter());
         }
       }
       Rule::When {

@@ -171,9 +171,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
           any_violations.extend(rule_violations.into_iter());
         }
         if !any_passed && !rules.is_empty() {
-          if let Some(v) = any_violations.0.pop() {
-            violations.push(v);
-          }
+          violations.extend(any_violations.into_iter());
         }
       }
       Rule::When {
