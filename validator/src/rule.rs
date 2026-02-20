@@ -212,7 +212,7 @@ impl Condition<String> {
 
 /// Creates a "value missing" violation for `Required` rule.
 pub fn value_missing_violation() -> Violation {
-  Violation::new(ViolationType::ValueMissing, "Value is required.")
+  Violation::new(ViolationType::ValueMissing, "Value is required.".to_string())
 }
 
 /// Creates a "too short" violation for `MinLength` rule.
@@ -438,11 +438,13 @@ pub enum Rule<T> {
   /// When the inner rule fails, the custom message is used instead of
   /// the default message.
   #[serde(skip)]
+  // @todo change this struct variant to `WithOptions` instead (allows support for additional options (`locale`, etc.).
   WithMessage {
     /// The wrapped rule
     rule: Box<Rule<T>>,
     /// The custom message to use on failure
     message: Message<T>,
+    // @todo Add support for `locale` field.
   },
 }
 
