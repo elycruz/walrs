@@ -7,7 +7,7 @@ use crate::length::WithLength;
 
 impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
-  pub fn validate_len_ref(&self, value: &T) -> RuleResult {
+  pub fn validate_len(&self, value: &T) -> RuleResult {
     match self {
       Rule::Required => {
         if value.length() == 0 {
@@ -42,7 +42,7 @@ impl<T: WithLength> Rule<T> {
       }
       Rule::All(rules) => {
         for rule in rules {
-          rule.validate_len_ref(value)?;
+          rule.validate_len(value)?;
         }
         Ok(())
       }
@@ -52,14 +52,14 @@ impl<T: WithLength> Rule<T> {
         }
         let mut last_err = None;
         for rule in rules {
-          match rule.validate_len_ref(value) {
+          match rule.validate_len(value) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
           }
         }
         Err(last_err.unwrap())
       }
-      Rule::Not(inner) => match inner.validate_len_ref(value) {
+      Rule::Not(inner) => match inner.validate_len(value) {
         Ok(()) => Err(negation_failed_violation()),
         Err(_) => Ok(()),
       },
@@ -72,7 +72,7 @@ impl<T: WithLength> Rule<T> {
         // Full condition evaluation would require additional trait bounds
         // For now, always apply then_rule if value is not empty
         if value.length() > 0 {
-          then_rule.validate_len_ref(value)?;
+          then_rule.validate_len(value)?;
         }
         Ok(())
       }
@@ -85,7 +85,7 @@ impl<T: WithLength> Rule<T> {
       Rule::WithMessage { rule, message: _ } => {
         // For WithLength types, we can't easily resolve messages without more bounds
         // Just delegate to inner rule
-        rule.validate_len_ref(value)
+        rule.validate_len(value)
       }
       // Non-length rules don't apply to collections - pass through
       Rule::Pattern(_)
@@ -101,9 +101,9 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates a collection's length and collects all violations.
-  pub fn validate_len_ref_all(&self, value: &T) -> Result<(), crate::Violations> {
+  pub fn validate_len_all(&self, value: &T) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
-    self.collect_len_violations_ref(value, &mut violations);
+    self.collect_len_violations(value, &mut violations);
     if violations.is_empty() {
       Ok(())
     } else {
@@ -112,29 +112,29 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates an optional collection's length.
-  pub fn validate_len_ref_option(&self, value: Option<&T>) -> RuleResult {
+  pub fn validate_option_len(&self, value: Option<&T>) -> RuleResult {
     match value {
-      Some(v) => self.validate_len_ref(v),
+      Some(v) => self.validate_len(v),
       None if self.requires_value() => Err(value_missing_violation()),
       None => Ok(()),
     }
   }
 
   /// Validates an optional collection's length and collects all violations.
-  pub fn validate_len_ref_option_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
+  pub fn validate_option_len_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
     match value {
-      Some(v) => self.validate_len_ref_all(v),
+      Some(v) => self.validate_len_all(v),
       None if self.requires_value() => Err(crate::Violations::from(value_missing_violation())),
       None => Ok(()),
     }
   }
 
   /// Helper to collect all length violations recursively.
-  fn collect_len_violations_ref(&self, value: &T, violations: &mut crate::Violations) {
+  fn collect_len_violations(&self, value: &T, violations: &mut crate::Violations) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
-          rule.collect_len_violations_ref(value, violations);
+          rule.collect_len_violations(value, violations);
         }
       }
       Rule::Any(rules) => {
@@ -143,7 +143,7 @@ impl<T: WithLength> Rule<T> {
         let mut any_passed = false;
         for rule in rules {
           let mut rule_violations = crate::Violations::default();
-          rule.collect_len_violations_ref(value, &mut rule_violations);
+          rule.collect_len_violations(value, &mut rule_violations);
           if rule_violations.is_empty() {
             any_passed = true;
             break;
@@ -164,15 +164,15 @@ impl<T: WithLength> Rule<T> {
       } => {
         // For collections, apply then_rule if not empty
         if value.length() > 0 {
-          then_rule.collect_len_violations_ref(value, violations);
+          then_rule.collect_len_violations(value, violations);
         }
       }
       Rule::WithMessage { rule, message: _ } => {
         // Delegate to inner rule
-        rule.collect_len_violations_ref(value, violations);
+        rule.collect_len_violations(value, violations);
       }
       _ => {
-        if let Err(v) = self.validate_len_ref(value) {
+        if let Err(v) = self.validate_len(value) {
           violations.push(v);
         }
       }
@@ -193,61 +193,61 @@ mod tests {
   // ========================================================================
 
   #[test]
-  fn test_validate_len_ref_min_length() {
+  fn test_validate_len_min_length() {
     let rule = Rule::<Vec<i32>>::MinLength(2);
-    assert!(rule.validate_len_ref(&vec![1, 2]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1]).is_err());
-    assert!(rule.validate_len_ref(&vec![]).is_err());
+    assert!(rule.validate_len(&vec![1, 2]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3]).is_ok());
+    assert!(rule.validate_len(&vec![1]).is_err());
+    assert!(rule.validate_len(&vec![]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_max_length() {
+  fn test_validate_len_max_length() {
     let rule = Rule::<Vec<i32>>::MaxLength(3);
-    assert!(rule.validate_len_ref(&vec![1]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3, 4]).is_err());
+    assert!(rule.validate_len(&vec![1]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3, 4]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_exact_length() {
+  fn test_validate_len_exact_length() {
     let rule = Rule::<Vec<i32>>::ExactLength(3);
-    assert!(rule.validate_len_ref(&vec![1, 2, 3]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2]).is_err());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3, 4]).is_err());
+    assert!(rule.validate_len(&vec![1, 2, 3]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2]).is_err());
+    assert!(rule.validate_len(&vec![1, 2, 3, 4]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_required() {
+  fn test_validate_len_required() {
     let rule = Rule::<Vec<i32>>::Required;
-    assert!(rule.validate_len_ref(&vec![1]).is_ok());
-    assert!(rule.validate_len_ref(&vec![]).is_err());
+    assert!(rule.validate_len(&vec![1]).is_ok());
+    assert!(rule.validate_len(&vec![]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_all_combinator() {
+  fn test_validate_len_all_combinator() {
     let rule = Rule::<Vec<i32>>::MinLength(2).and(Rule::MaxLength(5));
-    assert!(rule.validate_len_ref(&vec![1, 2]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3, 4, 5]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1]).is_err());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3, 4, 5, 6]).is_err());
+    assert!(rule.validate_len(&vec![1, 2]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3, 4, 5]).is_ok());
+    assert!(rule.validate_len(&vec![1]).is_err());
+    assert!(rule.validate_len(&vec![1, 2, 3, 4, 5, 6]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_any_combinator() {
+  fn test_validate_len_any_combinator() {
     // Either exactly 2 items OR exactly 5 items
     let rule = Rule::<Vec<i32>>::ExactLength(2).or(Rule::ExactLength(5));
-    assert!(rule.validate_len_ref(&vec![1, 2]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3, 4, 5]).is_ok());
-    assert!(rule.validate_len_ref(&vec![1, 2, 3]).is_err());
+    assert!(rule.validate_len(&vec![1, 2]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3, 4, 5]).is_ok());
+    assert!(rule.validate_len(&vec![1, 2, 3]).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_not_combinator() {
+  fn test_validate_len_not_combinator() {
     // NOT empty (must have at least 1 item)
     let rule = Rule::<Vec<i32>>::MaxLength(0).not();
-    assert!(rule.validate_len_ref(&vec![1]).is_ok());
-    assert!(rule.validate_len_ref(&vec![]).is_err());
+    assert!(rule.validate_len(&vec![1]).is_ok());
+    assert!(rule.validate_len(&vec![]).is_err());
   }
 
   // Note: Slice validation ([T]) is not supported because Rule<T> requires T: Sized.
@@ -255,74 +255,74 @@ mod tests {
   // For slice validation, use LengthValidator<[T]> directly.
 
   #[test]
-  fn test_validate_len_ref_hashmap() {
+  fn test_validate_len_hashmap() {
     use std::collections::HashMap;
 
     let rule = Rule::<HashMap<String, i32>>::MinLength(1).and(Rule::MaxLength(3));
 
     let mut map = HashMap::new();
     map.insert("a".to_string(), 1);
-    assert!(rule.validate_len_ref(&map).is_ok());
+    assert!(rule.validate_len(&map).is_ok());
 
     map.insert("b".to_string(), 2);
     map.insert("c".to_string(), 3);
-    assert!(rule.validate_len_ref(&map).is_ok());
+    assert!(rule.validate_len(&map).is_ok());
 
     map.insert("d".to_string(), 4);
-    assert!(rule.validate_len_ref(&map).is_err());
+    assert!(rule.validate_len(&map).is_err());
 
     let empty_map: HashMap<String, i32> = HashMap::new();
-    assert!(rule.validate_len_ref(&empty_map).is_err());
+    assert!(rule.validate_len(&empty_map).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_all_violations() {
+  fn test_validate_len_all_violations() {
     // Contradictory rule - will always fail
     let rule = Rule::<Vec<i32>>::MinLength(3).and(Rule::MaxLength(2));
 
-    let result = rule.validate_len_ref_all(&vec![1, 2]);
+    let result = rule.validate_len_all(&vec![1, 2]);
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert_eq!(violations.len(), 1); // MinLength fails
   }
 
   #[test]
-  fn test_validate_len_ref_option_none_not_required() {
+  fn test_validate_option_len_none_not_required() {
     let rule = Rule::<Vec<i32>>::MinLength(2);
-    assert!(rule.validate_len_ref_option(None).is_ok());
+    assert!(rule.validate_option_len(None).is_ok());
   }
 
   #[test]
-  fn test_validate_len_ref_option_none_required() {
+  fn test_validate_option_len_none_required() {
     let rule = Rule::<Vec<i32>>::Required;
-    assert!(rule.validate_len_ref_option(None).is_err());
+    assert!(rule.validate_option_len(None).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_option_some_valid() {
+  fn test_validate_option_len_some_valid() {
     let rule = Rule::<Vec<i32>>::MinLength(2);
-    assert!(rule.validate_len_ref_option(Some(&vec![1, 2, 3])).is_ok());
+    assert!(rule.validate_option_len(Some(&vec![1, 2, 3])).is_ok());
   }
 
   #[test]
-  fn test_validate_len_ref_option_some_invalid() {
+  fn test_validate_option_len_some_invalid() {
     let rule = Rule::<Vec<i32>>::MinLength(2);
-    assert!(rule.validate_len_ref_option(Some(&vec![1])).is_err());
+    assert!(rule.validate_option_len(Some(&vec![1])).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_option_all_with_required() {
+  fn test_validate_option_len_all_with_required() {
     let rule = Rule::<Vec<i32>>::Required.and(Rule::MinLength(2));
 
-    assert!(rule.validate_len_ref_option(None).is_err());
-    assert!(rule.validate_len_ref_option(Some(&vec![1, 2])).is_ok());
-    assert!(rule.validate_len_ref_option(Some(&vec![1])).is_err());
+    assert!(rule.validate_option_len(None).is_err());
+    assert!(rule.validate_option_len(Some(&vec![1, 2])).is_ok());
+    assert!(rule.validate_option_len(Some(&vec![1])).is_err());
   }
 
   #[test]
-  fn test_validate_len_ref_violation_messages() {
+  fn test_validate_len_violation_messages() {
     let rule = Rule::<Vec<i32>>::MinLength(3);
-    let result = rule.validate_len_ref(&vec![1]);
+    let result = rule.validate_len(&vec![1]);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(
@@ -331,7 +331,7 @@ mod tests {
     );
 
     let rule = Rule::<Vec<i32>>::MaxLength(2);
-    let result = rule.validate_len_ref(&vec![1, 2, 3, 4]);
+    let result = rule.validate_len(&vec![1, 2, 3, 4]);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(
@@ -340,7 +340,7 @@ mod tests {
     );
 
     let rule = Rule::<Vec<i32>>::ExactLength(3);
-    let result = rule.validate_len_ref(&vec![1, 2]);
+    let result = rule.validate_len(&vec![1, 2]);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(
