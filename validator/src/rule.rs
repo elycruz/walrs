@@ -819,7 +819,7 @@ impl<T> Rule<T> {
 
 // Rule<String> implementation moved to impls/string.rs
 
-// Rule<Numeric> implementation moved to impls/numeric.rs
+// Rule<Numeric> implementation moved to impls/step
 
 // ============================================================================
 // CompiledRule - Cached Validator Wrapper
@@ -1159,7 +1159,7 @@ mod tests {
 
   // ========================================================================
   // String Validation Tests  →  see impls/string.rs
-  // Numeric Validation Tests →  see impls/numeric.rs
+  // Numeric Validation Tests →  see impls/step
   // Collection Length Tests  →  see impls/length.rs
   // ToAttributesList Tests   →  see impls/attributes.rs
   // ========================================================================

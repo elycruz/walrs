@@ -9,7 +9,7 @@ use crate::CompiledRule;
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
-  pub fn validate(&self, value: T, locale: Option<&str>) -> RuleResult {
+  pub fn validate_step(&self, value: T, locale: Option<&str>) -> RuleResult {
     match self {
       Rule::Required => {
         // Numeric values are always "present"
@@ -61,7 +61,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       }
       Rule::All(rules) => {
         for rule in rules {
-          rule.validate(value, locale)?;
+          rule.validate_step(value, locale)?;
         }
         Ok(())
       }
@@ -71,14 +71,14 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         }
         let mut last_err = None;
         for rule in rules {
-          match rule.validate(value, locale) {
+          match rule.validate_step(value, locale) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
           }
         }
         Err(last_err.unwrap())
       }
-      Rule::Not(inner) => match inner.validate(value, locale) {
+      Rule::Not(inner) => match inner.validate_step(value, locale) {
         Ok(()) => Err(negation_failed_violation()),
         Err(_) => Ok(()),
       },
@@ -89,17 +89,17 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       } => {
         let should_apply = condition.evaluate(&value);
         if should_apply {
-          then_rule.validate(value, locale)
+          then_rule.validate_step(value, locale)
         } else {
           match else_rule {
-            Some(rule) => rule.validate(value, locale),
+            Some(rule) => rule.validate_step(value, locale),
             None => Ok(()),
           }
         }
       }
       Rule::Custom(f) => f(&value),
       Rule::Ref(name) => Err(unresolved_ref_violation(name)),
-      Rule::WithMessage { rule, message } => match rule.validate(value, locale) {
+      Rule::WithMessage { rule, message } => match rule.validate_step(value, locale) {
         Ok(()) => Ok(()),
         Err(violation) => {
           let custom_msg = message.resolve(&value, locale);
@@ -117,7 +117,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates a numeric value and collects all violations.
-  pub fn validate_all(&self, value: T, locale: Option<&str>) -> Result<(), crate::Violations> {
+  pub fn validate_step_all(&self, value: T, locale: Option<&str>) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_violations(value, locale, &mut violations);
     if violations.is_empty() {
@@ -128,21 +128,21 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value.
-  pub fn validate_option(&self, value: Option<T>, locale: Option<&str>) -> RuleResult {
+  pub fn validate_option_step(&self, value: Option<T>, locale: Option<&str>) -> RuleResult {
     match value {
-      Some(v) => self.validate(v, locale),
+      Some(v) => self.validate_step(v, locale),
       None => Err(value_missing_violation()),
     }
   }
 
   /// Validates an optional numeric value and collects all violations.
-  pub fn validate_option_all(
+  pub fn validate_option_step_all(
     &self,
     value: Option<T>,
     locale: Option<&str>,
   ) -> Result<(), crate::Violations> {
     match value {
-      Some(v) => self.validate_all(v, locale),
+      Some(v) => self.validate_step_all(v, locale),
       None => Err(crate::Violations::from(value_missing_violation())),
     }
   }
@@ -194,7 +194,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         }
       }
       _ => {
-        if let Err(v) = self.validate(value, locale) {
+        if let Err(v) = self.validate_step(value, locale) {
           violations.push(v);
         }
       }
@@ -204,25 +204,25 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
 
 impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T> {
   fn validate(&self, value: T) -> crate::ValidatorResult {
-    Rule::validate(self, value, None)
+    Rule::validate_step(self, value, None)
   }
 }
 
 impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
   fn validate(&self, value: T) -> crate::ValidatorResult {
-    self.rule.validate(value, None)
+    self.rule.validate_step(value, None)
   }
 }
 
 impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value using the compiled rule.
-  pub fn validate(&self, value: T) -> RuleResult {
-    self.rule.validate(value, None)
+  pub fn validate_step(&self, value: T) -> RuleResult {
+    self.rule.validate_step(value, None)
   }
 
   /// Validates a numeric value and collects all violations.
-  pub fn validate_all(&self, value: T) -> Result<(), crate::Violations> {
-    self.rule.validate_all(value, None)
+  pub fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
+    self.rule.validate_step_all(value, None)
   }
 }
 
@@ -241,89 +241,89 @@ mod tests {
   #[test]
   fn test_validate_min() {
     let rule = Rule::<i32>::Min(0);
-    assert!(rule.validate(0, None).is_ok());
-    assert!(rule.validate(100, None).is_ok());
-    assert!(rule.validate(-1, None).is_err());
+    assert!(rule.validate_step(0, None).is_ok());
+    assert!(rule.validate_step(100, None).is_ok());
+    assert!(rule.validate_step(-1, None).is_err());
   }
 
   #[test]
   fn test_validate_max() {
     let rule = Rule::<i32>::Max(100);
-    assert!(rule.validate(100, None).is_ok());
-    assert!(rule.validate(0, None).is_ok());
-    assert!(rule.validate(101, None).is_err());
+    assert!(rule.validate_step(100, None).is_ok());
+    assert!(rule.validate_step(0, None).is_ok());
+    assert!(rule.validate_step(101, None).is_err());
   }
 
   #[test]
   fn test_validate_range() {
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
-    assert!(rule.validate(0, None).is_ok());
-    assert!(rule.validate(50, None).is_ok());
-    assert!(rule.validate(100, None).is_ok());
-    assert!(rule.validate(-1, None).is_err());
-    assert!(rule.validate(101, None).is_err());
+    assert!(rule.validate_step(0, None).is_ok());
+    assert!(rule.validate_step(50, None).is_ok());
+    assert!(rule.validate_step(100, None).is_ok());
+    assert!(rule.validate_step(-1, None).is_err());
+    assert!(rule.validate_step(101, None).is_err());
   }
 
   #[test]
   fn test_validate_step() {
     let rule = Rule::<i32>::Step(5);
-    assert!(rule.validate(0, None).is_ok());
-    assert!(rule.validate(5, None).is_ok());
-    assert!(rule.validate(10, None).is_ok());
-    assert!(rule.validate(3, None).is_err());
+    assert!(rule.validate_step(0, None).is_ok());
+    assert!(rule.validate_step(5, None).is_ok());
+    assert!(rule.validate_step(10, None).is_ok());
+    assert!(rule.validate_step(3, None).is_err());
   }
 
   #[test]
   fn test_validate_step_float() {
     let rule = Rule::<f64>::Step(0.5);
-    assert!(rule.validate(0.0, None).is_ok());
-    assert!(rule.validate(0.5, None).is_ok());
-    assert!(rule.validate(1.0, None).is_ok());
-    assert!(rule.validate(0.3, None).is_err());
+    assert!(rule.validate_step(0.0, None).is_ok());
+    assert!(rule.validate_step(0.5, None).is_ok());
+    assert!(rule.validate_step(1.0, None).is_ok());
+    assert!(rule.validate_step(0.3, None).is_err());
   }
 
   #[test]
   fn test_validate_equals_numeric() {
     let rule = Rule::<i32>::Equals(42);
-    assert!(rule.validate(42, None).is_ok());
-    assert!(rule.validate(0, None).is_err());
+    assert!(rule.validate_step(42, None).is_ok());
+    assert!(rule.validate_step(0, None).is_err());
   }
 
   #[test]
   fn test_validate_one_of_numeric() {
     let rule = Rule::<i32>::OneOf(vec![1, 2, 3]);
-    assert!(rule.validate(1, None).is_ok());
-    assert!(rule.validate(2, None).is_ok());
-    assert!(rule.validate(4, None).is_err());
+    assert!(rule.validate_step(1, None).is_ok());
+    assert!(rule.validate_step(2, None).is_ok());
+    assert!(rule.validate_step(4, None).is_err());
   }
 
   #[test]
   fn test_validate_all_numeric() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100)).and(Rule::Step(10));
-    assert!(rule.validate(50, None).is_ok());
-    assert!(rule.validate(55, None).is_err()); // Not step of 10
-    assert!(rule.validate(-10, None).is_err()); // Below min
+    assert!(rule.validate_step(50, None).is_ok());
+    assert!(rule.validate_step(55, None).is_err()); // Not step of 10
+    assert!(rule.validate_step(-10, None).is_err()); // Below min
   }
 
   #[test]
   fn test_validate_any_numeric() {
     let rule = Rule::<i32>::Equals(0).or(Rule::Equals(100));
-    assert!(rule.validate(0, None).is_ok());
-    assert!(rule.validate(100, None).is_ok());
-    assert!(rule.validate(50, None).is_err());
+    assert!(rule.validate_step(0, None).is_ok());
+    assert!(rule.validate_step(100, None).is_ok());
+    assert!(rule.validate_step(50, None).is_err());
   }
 
   #[test]
   fn test_validate_not_numeric() {
     let rule = Rule::<i32>::Min(0).not();
-    assert!(rule.validate(-1, None).is_ok()); // Below 0, so NOT passes
-    assert!(rule.validate(0, None).is_err()); // At 0, Min passes, so NOT fails
+    assert!(rule.validate_step(-1, None).is_ok()); // Below 0, so NOT passes
+    assert!(rule.validate_step(0, None).is_err()); // At 0, Min passes, so NOT fails
   }
 
   #[test]
   fn test_validate_with_message_numeric() {
     let rule = Rule::<i32>::Min(0).with_message("Must be non-negative.");
-    let result = rule.validate(-5, None);
+    let result = rule.validate_step(-5, None);
     assert!(result.is_err());
     let violation = result.unwrap_err();
     assert_eq!(violation.message(), "Must be non-negative.");
@@ -333,10 +333,10 @@ mod tests {
   fn test_validate_all_numeric_multiple() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(10)).and(Rule::Step(3));
 
-    assert!(rule.validate_all(6, None).is_ok());
+    assert!(rule.validate_step_all(6, None).is_ok());
 
     // 15 is > 10 and not a multiple of 3
-    let result = rule.validate_all(15, None);
+    let result = rule.validate_step_all(15, None);
     assert!(result.is_err());
   }
 
@@ -347,36 +347,36 @@ mod tests {
   #[test]
   fn test_validate_option_numeric_none() {
     let rule = Rule::<i32>::Min(0);
-    assert!(rule.validate_option(None, None).is_err());
+    assert!(rule.validate_option_step(None, None).is_err());
 
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
-    assert!(rule.validate_option(None, None).is_err());
+    assert!(rule.validate_option_step(None, None).is_err());
 
     let rule = Rule::<f64>::Step(0.5);
-    assert!(rule.validate_option(None, None).is_err());
+    assert!(rule.validate_option_step(None, None).is_err());
   }
 
   #[test]
   fn test_validate_option_numeric_some_valid() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-    assert!(rule.validate_option(Some(50), None).is_ok());
+    assert!(rule.validate_option_step(Some(50), None).is_ok());
   }
 
   #[test]
   fn test_validate_option_numeric_some_invalid() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-    assert!(rule.validate_option(Some(-5), None).is_err());
-    assert!(rule.validate_option(Some(150), None).is_err());
+    assert!(rule.validate_option_step(Some(-5), None).is_err());
+    assert!(rule.validate_option_step(Some(150), None).is_err());
   }
 
   #[test]
   fn test_validate_option_all_numeric() {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100)).and(Rule::Step(10));
 
-    assert!(rule.validate_option_all(None, None).is_err());
-    assert!(rule.validate_option_all(Some(50), None).is_ok());
+    assert!(rule.validate_option_step_all(None, None).is_err());
+    assert!(rule.validate_option_step_all(Some(50), None).is_ok());
 
-    let result = rule.validate_option_all(Some(55), None);
+    let result = rule.validate_option_step_all(Some(55), None);
     assert!(result.is_err());
   }
 
@@ -389,11 +389,11 @@ mod tests {
     let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
     let compiled = rule.compile();
 
-    assert!(compiled.validate(50).is_ok());
-    assert!(compiled.validate(0).is_ok());
-    assert!(compiled.validate(100).is_ok());
-    assert!(compiled.validate(-1).is_err());
-    assert!(compiled.validate(101).is_err());
+    assert!(compiled.validate_step(50).is_ok());
+    assert!(compiled.validate_step(0).is_ok());
+    assert!(compiled.validate_step(100).is_ok());
+    assert!(compiled.validate_step(-1).is_err());
+    assert!(compiled.validate_step(101).is_err());
   }
 
   // ========================================================================

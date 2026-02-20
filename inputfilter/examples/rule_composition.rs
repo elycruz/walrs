@@ -188,16 +188,16 @@ fn main() {
     max: 100.0,
   };
 
-  println!("   Age rule on -5: {:?}", age_rule.validate(-5, None));
-  println!("   Age rule on 25: {:?}", age_rule.validate(25, None));
-  println!("   Age rule on 200: {:?}", age_rule.validate(200, None));
+  println!("   Age rule on -5: {:?}", age_rule.validate_step(-5, None));
+  println!("   Age rule on 25: {:?}", age_rule.validate_step(25, None));
+  println!("   Age rule on 200: {:?}", age_rule.validate_step(200, None));
   println!(
     "   Percentage on 50.5: {:?}",
-    percentage_rule.validate(50.5, None)
+    percentage_rule.validate_step(50.5, None)
   );
   println!(
     "   Percentage on 150.0: {:?}",
-    percentage_rule.validate(150.0, None)
+    percentage_rule.validate_step(150.0, None)
   );
 
   // Example 11: Exact length
