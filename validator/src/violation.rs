@@ -44,6 +44,107 @@ impl Violation {
   pub fn into_message(self) -> String {
     self.1
   }
+
+  // ============================================================================
+  // Violation Constructors
+  // ============================================================================
+
+  /// Value is required but was missing or empty.
+  pub fn value_missing() -> Self {
+    Self::new(ViolationType::ValueMissing, "Value is required.")
+  }
+
+  /// Value length is below the allowed minimum.
+  pub fn too_short(min: usize, actual: usize) -> Self {
+    Self::new(
+      ViolationType::TooShort,
+      format!("Value length must be at least {};  Received {}.", min, actual),
+    )
+  }
+
+  /// Value length exceeds the allowed maximum.
+  pub fn too_long(max: usize, actual: usize) -> Self {
+    Self::new(
+      ViolationType::TooLong,
+      format!("Value length must at most {};  Received {}.", max, actual),
+    )
+  }
+
+  /// Value length does not match the required exact length.
+  pub fn exact_length(expected: usize, actual: usize) -> Self {
+    Self::new(
+      ViolationType::TooShort,
+      format!("Value length must be exactly {} (got {}).", expected, actual),
+    )
+  }
+
+  /// Value does not match the required regex pattern.
+  pub fn pattern_mismatch(pattern: &str) -> Self {
+    Self::new(
+      ViolationType::PatternMismatch,
+      format!("Value does not match pattern: {}", pattern),
+    )
+  }
+
+  /// Value is not a valid email address.
+  pub fn invalid_email() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid email address.")
+  }
+
+  /// Value is not a valid URL.
+  pub fn invalid_url() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid URL.")
+  }
+
+  /// Value is below the allowed minimum.
+  pub fn range_underflow<T: Display>(min: &T) -> Self {
+    Self::new(
+      ViolationType::RangeUnderflow,
+      format!("Value must be at least {}.", min),
+    )
+  }
+
+  /// Value exceeds the allowed maximum.
+  pub fn range_overflow<T: Display>(max: &T) -> Self {
+    Self::new(
+      ViolationType::RangeOverflow,
+      format!("Value must be at most {}.", max),
+    )
+  }
+
+  /// Value is not a valid multiple of the required step.
+  pub fn step_mismatch<T: Display>(step: &T) -> Self {
+    Self::new(
+      ViolationType::StepMismatch,
+      format!("Value must be a multiple of {}.", step),
+    )
+  }
+
+  /// Value does not equal the expected value.
+  pub fn not_equal<T: Display>(expected: &T) -> Self {
+    Self::new(
+      ViolationType::NotEqual,
+      format!("Value must equal {}.", expected),
+    )
+  }
+
+  /// Value is not one of the allowed values.
+  pub fn not_one_of() -> Self {
+    Self::new(ViolationType::NotEqual, "Value must be one of the allowed values.")
+  }
+
+  /// A named rule reference could not be resolved.
+  pub fn unresolved_ref(name: &str) -> Self {
+    Self::new(
+      ViolationType::CustomError,
+      format!("Unresolved rule reference: {}.", name),
+    )
+  }
+
+  /// The negated rule unexpectedly passed.
+  pub fn negation_failed() -> Self {
+    Self::new(ViolationType::CustomError, "Value must not satisfy the negated rule.")
+  }
 }
 
 /// `Display` impl (and `ToString` (which we get for free)) for `Violation` type.

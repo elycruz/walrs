@@ -1,13 +1,7 @@
 use crate::{
   Message, MessageContext, MessageParams, ValidateRef, ValidatorResult, Violation, ViolationType,
 };
-use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
-
-/// Trait used by `LengthValidator` to get the length of a value.
-/// Inspired by implementation in `validator_types` crate.
-pub trait WithLength {
-  fn length(&self) -> usize;
-}
+use crate::traits::WithLength;
 
 /// Validates the length of a value with a length (strings, collections, etc.).
 ///
@@ -107,48 +101,6 @@ impl<T: WithLength + ?Sized> LengthValidator<'_, T> {
     LengthValidatorBuilder::default()
   }
 }
-
-// ====
-// validator_types crate rip (modified for our use case):
-// ====
-macro_rules! validate_type_with_chars {
-  ($type_:ty) => {
-    impl WithLength for $type_ {
-      fn length(&self) -> usize {
-        self.chars().count() as usize
-      }
-    }
-  };
-}
-
-validate_type_with_chars!(str);
-validate_type_with_chars!(&str);
-validate_type_with_chars!(String);
-
-macro_rules! validate_type_with_len {
-    ($type_:ty) => {
-        validate_type_with_len!($type_,);
-    };
-    ($type_:ty, $($generic:ident),*$(,)*) => {
-        impl<$($generic),*> WithLength for $type_ {
-            fn length(&self) -> usize {
-                self.len() as usize
-            }
-        }
-    };
-}
-
-validate_type_with_len!([T], T);
-validate_type_with_len!(BTreeSet<T>, T);
-validate_type_with_len!(BTreeMap<K, V>, K, V);
-validate_type_with_len!(HashSet<T, S>, T, S);
-validate_type_with_len!(HashMap<K, V, S>, K, V, S);
-validate_type_with_len!(Vec<T>, T);
-validate_type_with_len!(VecDeque<T>, T);
-
-// ====
-// /End of validator_types crate rip.
-// ====
 
 impl<T> ValidateRef<T> for LengthValidator<'_, T>
 where
@@ -327,7 +279,6 @@ pub fn default_len_too_long_msg<T: WithLength + ?Sized>() -> Message<T> {
 mod test {
   use super::*;
   use crate::{
-    Violation,
     ViolationType::{TooLong, TooShort},
   };
 

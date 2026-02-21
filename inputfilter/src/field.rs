@@ -8,7 +8,7 @@ use crate::filter_enum::Filter;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_form_core::Value;
-use walrs_validator::{Rule, Violation, Violations};
+use walrs_validator::{Rule, ValidateRef, Violation, Violations};
 
 /// Validation configuration for a single field.
 ///
@@ -121,14 +121,20 @@ impl Field<String> {
   /// Validate the value against the rule, short-circuiting on the first violation.
   ///
   /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with the first failure.
-  /// Uses the field's locale for internationalized error messages.
+  /// If the field has a locale set, it is applied to the rule for internationalized
+  /// error messages.
   /// Whether the calling context stops processing further fields on failure is
   /// controlled by the `break_on_failure` flag (used by `FieldFilter`).
   pub fn validate(&self, value: &String) -> Result<(), Violations> {
     match &self.rule {
       Some(rule) => {
-        let locale = self.locale.as_deref();
-        rule.validate_ref(value, locale).map_err(|v| {
+        // Apply locale to rule if set, then validate via trait method
+        let result = if let Some(locale) = &self.locale {
+          rule.clone().with_locale(locale.as_ref()).validate_ref(value.as_str())
+        } else {
+          rule.validate_ref(value.as_str())
+        };
+        result.map_err(|v| {
           let mut violations = Violations::empty();
           violations.push(v);
           violations
