@@ -1,8 +1,8 @@
 # `Rule<T>` — Dependencies
 
-> **Crate:** `walrs_validation` · **File:** `crates/validator/src/rule.rs`
+> **Crate:** `walrs_validation` · **File:** `crates/validation/src/rule.rs`
 >
-> Additional impl blocks in `crates/validator/src/impls/{string,steppable,scalar,length,attributes}.rs`
+> Additional impl blocks in `crates/validation/src/impls/{string,steppable,scalar,length,attributes}.rs`
 
 ---
 
