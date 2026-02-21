@@ -1,6 +1,6 @@
 //! # Rule Enum - Composable Validation Rules
 //!
-//! This module re-exports the composable validation rule system from `walrs_validator`.
+//! This module re-exports the composable validation rule system from `walrs_validation`.
 //! Rules can be combined using tree composition (`All`, `Any`, `Not`, `When`)
 //! and support both built-in validation types and custom closures.
 //!
@@ -24,6 +24,6 @@
 //! };
 //! ```
 
-// Re-export everything from walrs_validator::rule
-pub use walrs_validator::rule::{Condition, Rule, RuleResult};
-pub use walrs_validator::{Message, MessageContext, MessageParams};
+// Re-export everything from walrs_validation::rule
+pub use walrs_validation::rule::{Condition, Rule, RuleResult};
+pub use walrs_validation::{Message, MessageContext, MessageParams};

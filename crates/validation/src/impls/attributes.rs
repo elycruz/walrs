@@ -37,7 +37,7 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::{Rule, ToAttributesList};
+  /// use walrs_validation::{Rule, ToAttributesList};
   ///
   /// let rule = Rule::<String>::MinLength(3);
   /// let attrs = rule.to_attributes_list().unwrap();

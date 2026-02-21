@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_form_core::{Attributes, Value};
 use walrs_inputfilter::Field;
-use walrs_validator::Violations;
+use walrs_validation::Violations;
 /// HTML input element.
 ///
 /// Represents the structure of an HTML `<input>` element with optional

@@ -6,7 +6,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use walrs_validator::{
+//! use walrs_validation::{
 //!     RangeValidatorBuilder,
 //!     Validate, ValidateExt,
 //! };
@@ -45,7 +45,7 @@ use super::{Validate, ValidateRef, ValidatorResult};
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorAnd};
+/// use walrs_validation::{RangeValidatorBuilder, Validate, ValidatorAnd};
 ///
 /// let min_validator = RangeValidatorBuilder::<i32>::default()
 ///     .min(0)
@@ -110,7 +110,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorOr};
+/// use walrs_validation::{RangeValidatorBuilder, Validate, ValidatorOr};
 ///
 /// // Value must be either negative or greater than 100
 /// let negative = RangeValidatorBuilder::<i32>::default()
@@ -191,7 +191,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorNot};
+/// use walrs_validation::{RangeValidatorBuilder, Validate, ValidatorNot};
 ///
 /// // Value must NOT be in range 0-10
 /// let in_range = RangeValidatorBuilder::<i32>::default()
@@ -258,7 +258,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{LengthValidatorBuilder, ValidateRef, ValidatorOptional};
+/// use walrs_validation::{LengthValidatorBuilder, ValidateRef, ValidatorOptional};
 ///
 /// let length_validator = LengthValidatorBuilder::<str>::default()
 ///     .min_length(5)
@@ -333,7 +333,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{RangeValidatorBuilder, Validate, ValidatorWhen};
+/// use walrs_validation::{RangeValidatorBuilder, Validate, ValidatorWhen};
 ///
 /// let positive_validator = RangeValidatorBuilder::<i32>::default()
 ///     .min(1)
@@ -412,7 +412,7 @@ where
 /// # Examples
 ///
 /// ```rust
-/// use walrs_validator::{LengthValidatorBuilder, ValidatorAll, ValidateRef};
+/// use walrs_validation::{LengthValidatorBuilder, ValidatorAll, ValidateRef};
 ///
 /// let min_length = LengthValidatorBuilder::<str>::default()
 ///     .min_length(5)

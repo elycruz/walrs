@@ -8,7 +8,7 @@
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };
-use walrs_validator::{Rule, ValidateRef};
+use walrs_validation::{Rule, ValidateRef};
 
 /// A simple struct to represent locale-aware validation results
 struct LocalizedFormValidator {

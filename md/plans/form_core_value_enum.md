@@ -24,7 +24,7 @@ system matures. See [Analysis](#analysis) below.
 
 ### Why not keep `serde_json::Value`?
 
-- `serde_json::Value` does **not** implement any of `walrs_validator`'s traits
+- `serde_json::Value` does **not** implement any of `walrs_validation`'s traits
   (`SteppableValue`, `NumberValue`, `ScalarValue`, `InputValue`, `IsEmpty`).
 - The orphan rule forbids implementing those traits on `serde_json::Value` in any
   third-party crate. This permanently walls off the entire numeric validation
@@ -68,7 +68,7 @@ impl ValidateRef<Value> for Rule<Value>   →  inputfilter/src/value_impls.rs
 impl Validate<Value>    for Rule<Value>   →  inputfilter/src/value_impls.rs
 ```
 
-`walrs_inputfilter` already depends on both `walrs_form_core` and `walrs_validator`,
+`walrs_inputfilter` already depends on both `walrs_form_core` and `walrs_validation`,
 satisfying the orphan rule.
 
 ### Dispatch inside `impl ValidateRef<Value> for Rule<Value>`
@@ -224,13 +224,13 @@ impl From<Value> for serde_json::Value {
 ### Step 3 — Add `value_impls.rs` to `walrs_inputfilter`
 
 Create `inputfilter/src/value_impls.rs`. All impls live here because `walrs_inputfilter`
-depends on both `walrs_form_core` and `walrs_validator`, satisfying the orphan rule.
+depends on both `walrs_form_core` and `walrs_validation`, satisfying the orphan rule.
 
 #### 3a — `IsEmpty for Value`
 
 ```rust
 use walrs_form_core::{Value, ValueExt};
-use walrs_validator::IsEmpty;
+use walrs_validation::IsEmpty;
 
 impl IsEmpty for Value {
     fn is_empty(&self) -> bool {
@@ -247,11 +247,11 @@ A dedicated `match self` covering all `Rule` variants. Numeric comparisons use
 ```rust
 use std::cmp::Ordering;
 use walrs_form_core::Value;
-use walrs_validator::{
+use walrs_validation::{
     rule::{Condition, Rule, RuleResult},
     ValidateRef, Violation, ViolationType,
 };
-use walrs_validator::rule::{
+use walrs_validation::rule::{
     value_missing_violation, too_short_violation, too_long_violation,
     exact_length_violation, pattern_mismatch_violation, invalid_email_violation,
     invalid_url_violation, range_underflow_violation, range_overflow_violation,
@@ -857,7 +857,7 @@ impl<T> ValidateRef<T> for SchemaValidator<T> {
 }
 ```
 
-A `#[derive(Validate)]` proc-macro (`walrs_validator_derive`) is a further-future
+A `#[derive(Validate)]` proc-macro (`walrs_validation_derive`) is a further-future
 crate that generates `SchemaValidator` construction automatically from struct field
 annotations.
 
@@ -872,7 +872,7 @@ annotations.
 | **P2** | `indexmap` feature gate + `WithLength` impls | `validator/Cargo.toml`, `validator/src/length.rs` | Zero — feature-gated |
 | **P3** | Document `&[T]` convention; optionally add `CollectionValidator<C, ElemV>` | `validator/src/length.rs`, `README.md` | Zero |
 | **P4** *(optional)* | `SchemaValidator<T>` for struct field rules | `validator/src/schema.rs` | Zero — new module |
-| **P5** *(future)* | `walrs_validator_derive` proc-macro crate for `#[derive(Validate)]` | new crate | Separate crate |
+| **P5** *(future)* | `walrs_validation_derive` proc-macro crate for `#[derive(Validate)]` | new crate | Separate crate |
 
 ---
 

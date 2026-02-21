@@ -7,7 +7,7 @@
 
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::filter_enum::Filter;
-use walrs_validator::Rule;
+use walrs_validation::Rule;
 
 fn main() {
   println!("=== Field<T> Basic Examples ===\n");

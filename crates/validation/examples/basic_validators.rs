@@ -4,13 +4,13 @@
 
 use regex::Regex;
 use std::borrow::Cow;
-use walrs_validator::{
+use walrs_validation::{
   EqualityValidatorBuilder, LengthValidatorBuilder, PatternValidatorBuilder, RangeValidatorBuilder,
   StepValidatorBuilder, Validate, ValidateExt, ValidateRef,
 };
 
 fn main() {
-  println!("=== walrs_validator Examples ===\n");
+  println!("=== walrs_validation Examples ===\n");
 
   // LengthValidator example
   println!("--- LengthValidator ---");

@@ -4,7 +4,7 @@
 //! errors from multiple fields and cross-field validation rules.
 
 use std::collections::HashMap;
-use walrs_validator::Violations;
+use walrs_validation::Violations;
 
 /// Collection of validation violations for a form.
 ///
@@ -16,7 +16,7 @@ use walrs_validator::Violations;
 ///
 /// ```rust
 /// use walrs_inputfilter::form_violations::FormViolations;
-/// use walrs_validator::{Violation, ViolationType, Violations};
+/// use walrs_validation::{Violation, ViolationType, Violations};
 ///
 /// let mut form_violations = FormViolations::new();
 ///
@@ -88,7 +88,7 @@ impl FormViolations {
   pub fn add_field_violation<S: Into<String>>(
     &mut self,
     field_name: S,
-    violation: walrs_validator::Violation,
+    violation: walrs_validation::Violation,
   ) -> &mut Self {
     let name = field_name.into();
     self
@@ -100,7 +100,7 @@ impl FormViolations {
   }
 
   /// Adds a form-level violation.
-  pub fn add_form_violation(&mut self, violation: walrs_validator::Violation) -> &mut Self {
+  pub fn add_form_violation(&mut self, violation: walrs_validation::Violation) -> &mut Self {
     self.form.push(violation);
     self
   }
@@ -146,7 +146,7 @@ impl From<FormViolations> for Result<(), FormViolations> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use walrs_validator::{Violation, ViolationType};
+  use walrs_validation::{Violation, ViolationType};
 
   #[test]
   fn test_new_is_empty() {

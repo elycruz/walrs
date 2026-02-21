@@ -9,7 +9,7 @@
 2. [Laminas Form Architecture Analysis](#laminas-form-architecture-analysis)
 3. [Proposed Crate Ecosystem](#proposed-crate-ecosystem)
 4. [Crate 1: walrs_form_core (Shared Foundation)](#crate-1-walrs_form_core-shared-foundation)
-5. [Crate 2: walrs_validator (Validator Structs)](#crate-2-walrs_validator-validator-structs)
+5. [Crate 2: walrs_validation (Validator Structs)](#crate-2-walrs_validation-validator-structs)
 6. [Crate 3: walrs_filter (Filter Structs)](#crate-3-walrs_filter-filter-structs)
 7. [Crate 4: walrs_inputfilter (Composition Layer)](#crate-4-walrs_inputfilter-composition-layer)
 8. [Crate 5: walrs_form (Form Elements & Structure)](#crate-5-walrs_form-form-elements--structure)
@@ -70,7 +70,7 @@ laminas-validator/
 | Laminas Concept | Rust Adaptation |
 |-----------------|-----------------|
 | Class inheritance | Enum variants + traits |
-| laminas-validator | `walrs_validator` crate (validator structs) |
+| laminas-validator | `walrs_validation` crate (validator structs) |
 | laminas-filter | `walrs_filter` crate (filter structs) |
 | laminas-inputfilter | `walrs_inputfilter` crate (`Rule<T>` enum + `Input`/`InputFilter`) |
 | Element classes | `Element` enum in `walrs_form` |
@@ -121,7 +121,7 @@ laminas-validator/
 ```
 walrs_form_core         (no dependencies - shared types, traits)
     │
-    ├── walrs_validator      (validator structs - LengthValidator, PatternValidator, etc.)
+    ├── walrs_validation      (validator structs - LengthValidator, PatternValidator, etc.)
     │
     ├── walrs_filter         (filter structs - TrimFilter, SlugFilter, etc.)
     │
@@ -141,7 +141,7 @@ walrs_form_core         (no dependencies - shared types, traits)
 | Crate | Responsibility | Key Types |
 |-------|----------------|-----------|
 | `walrs_form_core` | Shared types, traits, error types | `Value`, `Violation`, `Violations`, `Validate` trait, `Filter` trait |
-| `walrs_validator` | Individual validator implementations | `LengthValidator`, `PatternValidator`, `RangeValidator`, `EqualityValidator` |
+| `walrs_validation` | Individual validator implementations | `LengthValidator`, `PatternValidator`, `RangeValidator`, `EqualityValidator` |
 | `walrs_filter` | Individual filter implementations | `TrimFilter`, `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` |
 | `walrs_inputfilter` | Composition layer - rules as data | `Rule<T>` enum, `Input<T>`, `InputFilter`, combinators |
 | `walrs_form` | Form structure and element types | `Form`, `Fieldset`, `Element` enum, `Attributes` |
@@ -152,11 +152,11 @@ walrs_form_core         (no dependencies - shared types, traits)
 ### How Rule<T> and Validators Work Together
 
 The `Rule<T>` enum from the "Fresh Approach" serves as a **serializable data representation** 
-of validation rules, while the validator structs in `walrs_validator` provide the 
+of validation rules, while the validator structs in `walrs_validation` provide the 
 **implementation with full customization**.
 
 ```rust
-// walrs_validator - Full-featured validator struct
+// walrs_validation - Full-featured validator struct
 pub struct LengthValidator<'a, T: ?Sized> {
     pub min_length: Option<usize>,
     pub max_length: Option<usize>,
@@ -343,7 +343,7 @@ pub enum CrossFieldRuleType {
 }
 ```
 ---
-## Crate 2: walrs_validator (Validator Structs)
+## Crate 2: walrs_validation (Validator Structs)
 ### Validator Enum
 ```rust
 /// All validation rules as enums

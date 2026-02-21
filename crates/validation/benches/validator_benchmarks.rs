@@ -1,10 +1,10 @@
-//! Benchmarks for walrs_validator
+//! Benchmarks for walrs_validation
 //!
-//! Run with: `cargo bench -p walrs_validator`
+//! Run with: `cargo bench -p walrs_validation`
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use regex::Regex;
 use std::borrow::Cow;
-use walrs_validator::{
+use walrs_validation::{
   EqualityValidatorBuilder, FnRefValidator, FnValidator, LengthValidatorBuilder,
   PatternValidatorBuilder, RangeValidatorBuilder, StepValidatorBuilder, Validate, ValidateExt,
   ValidateRef, ValidateRefExt, ValidatorAll, Violation, ViolationType,

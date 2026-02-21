@@ -6,7 +6,7 @@ use crate::traits::WithLength;
 /// Validates the length of a value with a length (strings, collections, etc.).
 ///
 /// ```rust
-/// use walrs_validator::{
+/// use walrs_validation::{
 ///  Validate,
 ///  ValidateRef,
 ///  LengthValidator,
@@ -72,7 +72,7 @@ impl<T: WithLength + ?Sized> LengthValidator<'_, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust
-  /// use walrs_validator::LengthValidator;
+  /// use walrs_validation::LengthValidator;
   ///
   /// let default_vldtr = LengthValidator::<str>::new();
   ///
@@ -86,7 +86,7 @@ impl<T: WithLength + ?Sized> LengthValidator<'_, T> {
   /// Returns a builder for constructing a `LengthValidator`.
   ///
   /// ```rust
-  /// use walrs_validator::LengthValidator;
+  /// use walrs_validation::LengthValidator;
   ///
   /// let vldtr = LengthValidator::<str>::builder()
   ///   .min_length(1)
@@ -109,8 +109,8 @@ where
   /// Validates incoming value against contained constraints.
   ///
   /// ```rust
-  /// use walrs_validator::{Violation, ViolationType::{TooLong, TooShort}};
-  /// use walrs_validator::{LengthValidator, LengthValidatorBuilder, ValidateRef};
+  /// use walrs_validation::{Violation, ViolationType::{TooLong, TooShort}};
+  /// use walrs_validation::{LengthValidator, LengthValidatorBuilder, ValidateRef};
   ///
   /// let no_rules = LengthValidator::<str>::new();
   /// let len_one_to_ten = LengthValidatorBuilder::<str>::default()
@@ -191,7 +191,7 @@ impl<T: WithLength + ?Sized> Default for LengthValidator<'_, T> {
   /// Creates a `LengthValidator` with no constraints.
   ///
   /// ```rust
-  /// use walrs_validator::LengthValidator;
+  /// use walrs_validation::LengthValidator;
   ///
   /// let default_vldtr = LengthValidator::<str>::default();
   ///
@@ -206,7 +206,7 @@ impl<T: WithLength + ?Sized> Default for LengthValidator<'_, T> {
 /// Returns default "too short" violation message.
 ///
 /// ```rust
-///  use walrs_validator::{len_too_short_msg, LengthValidator, LengthValidatorBuilder};
+///  use walrs_validation::{len_too_short_msg, LengthValidator, LengthValidatorBuilder};
 ///
 ///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
 ///    .min_length(1)
@@ -226,7 +226,7 @@ pub fn len_too_short_msg(actual_len: usize, min_len: usize) -> String {
 /// Returns default "too long" violation message.
 ///
 /// ```rust
-///  use walrs_validator::{len_too_long_msg, LengthValidator, LengthValidatorBuilder};
+///  use walrs_validation::{len_too_long_msg, LengthValidator, LengthValidatorBuilder};
 ///
 ///  let len_one_to_ten = LengthValidatorBuilder::<str>::default()
 ///    .min_length(1)
@@ -248,7 +248,7 @@ pub fn len_too_long_msg(actual_len: usize, max_len: usize) -> String {
 /// This wraps `len_too_short_msg` in a `Message::Provider` for use with `LengthValidator`.
 ///
 /// ```rust
-/// use walrs_validator::{default_len_too_short_msg, Message};
+/// use walrs_validation::{default_len_too_short_msg, Message};
 ///
 /// let msg: Message<str> = default_len_too_short_msg();
 /// assert!(msg.is_provider());
@@ -264,7 +264,7 @@ pub fn default_len_too_short_msg<T: WithLength + ?Sized>() -> Message<T> {
 /// This wraps `len_too_long_msg` in a `Message::Provider` for use with `LengthValidator`.
 ///
 /// ```rust
-/// use walrs_validator::{default_len_too_long_msg, Message};
+/// use walrs_validation::{default_len_too_long_msg, Message};
 ///
 /// let msg: Message<str> = default_len_too_long_msg();
 /// assert!(msg.is_provider());

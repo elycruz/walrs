@@ -788,11 +788,11 @@ dependencies = [
  "thiserror",
  "walrs_filter",
  "walrs_form_core",
- "walrs_validator",
+ "walrs_validation",
 ]
 
 [[package]]
-name = "walrs_validator"
+name = "walrs_validation"
 version = "0.1.0"
 dependencies = [
  "derive_builder",

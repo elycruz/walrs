@@ -8,7 +8,7 @@ use crate::filter_enum::Filter;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_form_core::Value;
-use walrs_validator::{Rule, ValidateRef, Violation, Violations};
+use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
 /// Validation configuration for a single field.
 ///
@@ -25,7 +25,7 @@ use walrs_validator::{Rule, ValidateRef, Violation, Violations};
 /// ```rust
 /// use walrs_inputfilter::field::{Field, FieldBuilder};
 /// use walrs_inputfilter::filter_enum::Filter;
-/// use walrs_validator::Rule;
+/// use walrs_validation::Rule;
 ///
 /// // Simple field with just a rule (no filters)
 /// let field = FieldBuilder::<String>::default()
@@ -182,12 +182,12 @@ impl Field<Value> {
         if rule.requires_value() && value.is_empty_value() {
           let mut violations = Violations::empty();
           violations.push(Violation::new(
-            walrs_validator::ViolationType::ValueMissing,
+            walrs_validation::ViolationType::ValueMissing,
             "Value is required.",
           ));
           return Err(violations);
         }
-        // TODO: Implement full Rule<Value> validation in walrs_validator
+        // TODO: Implement full Rule<Value> validation in walrs_validation
         Ok(())
       }
       None => Ok(()),
@@ -208,7 +208,7 @@ impl Field<Value> {
 mod tests {
   use super::*;
   use serde_json::json;
-  use walrs_validator::Rule;
+  use walrs_validation::Rule;
 
   #[test]
   fn test_field_builder_defaults() {

@@ -47,7 +47,7 @@
 //! - `walrs_form_core`: Shared types (`Value`, `Attributes`)
 //! - `walrs_inputfilter`: Field-level validation (`Field<T>`, `FieldFilter`)
 //! - `walrs_form`: Form structure and elements (this crate)
-//! - `walrs_validator`: Validation rules
+//! - `walrs_validation`: Validation rules
 //! - `walrs_filter`: Value transformation filters
 // Type enums
 pub mod button_type;

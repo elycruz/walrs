@@ -98,7 +98,7 @@ This crate is part of the walrs form ecosystem:
 - `walrs_form_core`: Shared types (`Value`, `Attributes`)
 - `walrs_inputfilter`: Field-level validation (`Field<T>`, `FieldFilter`)
 - `walrs_form`: Form structure and elements (this crate)
-- `walrs_validator`: Validation rules
+- `walrs_validation`: Validation rules
 - `walrs_filter`: Value transformation filters
 ## License
 MIT OR Apache-2.0

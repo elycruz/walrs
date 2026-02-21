@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example rule_composition`
 
-use walrs_validator::{Condition, Rule, Validate, ValidateRef};
+use walrs_validation::{Condition, Rule, Validate, ValidateRef};
 
 fn main() {
   println!("=== Rule<T> Composition Examples ===\n");

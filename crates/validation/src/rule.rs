@@ -14,7 +14,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use walrs_validator::rule::{Rule, Condition};
+//! use walrs_validation::rule::{Rule, Condition};
 //!
 //! // Simple rules
 //! let min_length = Rule::<String>::MinLength(3);
@@ -408,7 +408,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(10));
   /// ```
@@ -429,7 +429,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::Email.or(Rule::Url);
   /// ```
@@ -450,7 +450,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let not_empty = Rule::<String>::MinLength(1);
   /// let is_empty = not_empty.not();
@@ -466,7 +466,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::{Rule, Condition};
+  /// use walrs_validation::rule::{Rule, Condition};
   ///
   /// let rule = Rule::<String>::MinLength(8)
   ///     .when(Condition::IsNotEmpty);
@@ -484,7 +484,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::{Rule, Condition};
+  /// use walrs_validation::rule::{Rule, Condition};
   ///
   /// let rule = Rule::<i32>::Min(0)
   ///     .when_else(
@@ -506,8 +506,8 @@ impl<T> Rule<T> {
   ///
   /// ```rust
   /// use std::sync::Arc;
-  /// use walrs_validator::rule::Rule;
-  /// use walrs_validator::{Violation, ViolationType};
+  /// use walrs_validation::rule::Rule;
+  /// use walrs_validation::{Violation, ViolationType};
   ///
   /// let is_even = Rule::<i32>::custom(Arc::new(|value: &i32| {
   ///     if value % 2 == 0 {
@@ -528,7 +528,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::rule_ref("password_strength");
   /// ```
@@ -544,7 +544,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(8)
   ///     .with_message("Password must be at least 8 characters.");
@@ -566,7 +566,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<i32>::Min(0)
   ///     .with_message_provider(|ctx| format!("Value {} must be non-negative.", ctx.value), None);
@@ -599,7 +599,7 @@ impl<T> Rule<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::MinLength(3)
   ///     .with_message_provider(|ctx| {
@@ -728,7 +728,7 @@ use crate::impls::string::CachedStringValidators;
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::rule::Rule;
+/// use walrs_validation::rule::Rule;
 ///
 /// // Define and compile rule once
 /// let rule = Rule::<String>::MinLength(8)
@@ -791,7 +791,7 @@ impl Rule<String> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::rule::Rule;
+  /// use walrs_validation::rule::Rule;
   ///
   /// let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
   /// let compiled = rule.compile();
