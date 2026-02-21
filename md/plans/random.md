@@ -6,7 +6,7 @@ Remove:
 
 - Change `walrs_form_core` to `walrs_validation_core`
 - Move Filter enum to filter crate
-- Move `Rule<T>` to it's own crate.
+- Rename `walrs_validator` to `walrs_validation`.
 - Remove old validator structs (`Rule` will supersede.)
 - change `with_message_provider` to `with_message`.
 - Disambiguate `Filter` enum from `Filter` trait.
