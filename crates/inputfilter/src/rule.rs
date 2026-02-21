@@ -26,4 +26,4 @@
 
 // Re-export everything from walrs_validation::rule
 pub use walrs_validation::rule::{Condition, Rule, RuleResult};
-pub use walrs_validation::{Message, MessageContext, MessageParams};
+pub use walrs_validation::{IntoMessage, Message, MessageContext, MessageParams};

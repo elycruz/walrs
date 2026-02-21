@@ -8,7 +8,7 @@
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };
-use walrs_validation::{Rule, ValidateRef};
+use walrs_validation::{Message, Rule, ValidateRef};
 
 /// A simple struct to represent locale-aware validation results
 struct LocalizedFormValidator {
@@ -25,16 +25,16 @@ impl LocalizedFormValidator {
   /// Validate username with localized error messages
   fn validate_username(&self, value: &str) -> Result<(), String> {
     let rule = Rule::<String>::Required
-      .with_message_provider(|ctx| match ctx.locale {
+      .with_message(Message::provider(|ctx| match ctx.locale {
         Some("es") => "El nombre de usuario es obligatorio".to_string(),
         Some("fr") => "Le nom d'utilisateur est requis".to_string(),
         Some("de") => "Benutzername ist erforderlich".to_string(),
         _ => "Username is required".to_string(),
-      }, None)
+      }))
       .and(
         Rule::<String>::MinLength(3)
           .and(Rule::MaxLength(20))
-          .with_message_provider(|ctx| {
+          .with_message(Message::provider(|ctx| {
             let (min, max) = (3, 20);
             match ctx.locale {
               Some("es") => format!(
@@ -51,7 +51,7 @@ impl LocalizedFormValidator {
               ),
               _ => format!("Username must be between {} and {} characters", min, max),
             }
-          }, None),
+          })),
       );
 
     let rule = match &self.locale {
@@ -67,19 +67,19 @@ impl LocalizedFormValidator {
   /// Validate email with localized error messages
   fn validate_email(&self, value: &str) -> Result<(), String> {
     let rule = Rule::<String>::Required
-      .with_message_provider(|ctx| match ctx.locale {
+      .with_message(Message::provider(|ctx| match ctx.locale {
         Some("es") => "El correo electrónico es obligatorio".to_string(),
         Some("fr") => "L'adresse e-mail est requise".to_string(),
         Some("de") => "E-Mail ist erforderlich".to_string(),
         _ => "Email is required".to_string(),
-      }, None)
+      }))
       .and(
-        Rule::<String>::Email.with_message_provider(|ctx| match ctx.locale {
+        Rule::<String>::Email.with_message(Message::provider(|ctx| match ctx.locale {
           Some("es") => "El formato del correo electrónico no es válido".to_string(),
           Some("fr") => "Le format de l'adresse e-mail est invalide".to_string(),
           Some("de") => "Ungültiges E-Mail-Format".to_string(),
           _ => "Invalid email format".to_string(),
-        }, None),
+        })),
       );
 
     let rule = match &self.locale {
@@ -95,13 +95,13 @@ impl LocalizedFormValidator {
   /// Validate password with localized error messages
   fn validate_password(&self, value: &str) -> Result<(), Vec<String>> {
     let rule = Rule::<String>::Required
-      .with_message_provider(|ctx| match ctx.locale {
+      .with_message(Message::provider(|ctx| match ctx.locale {
         Some("es") => "La contraseña es obligatoria".to_string(),
         Some("fr") => "Le mot de passe est requis".to_string(),
         Some("de") => "Passwort ist erforderlich".to_string(),
         _ => "Password is required".to_string(),
-      }, None)
-      .and(Rule::<String>::MinLength(8).with_message_provider(|ctx| {
+      }))
+      .and(Rule::<String>::MinLength(8).with_message(Message::provider(|ctx| {
         let min = 8;
         match ctx.locale {
           Some("es") => {
@@ -113,26 +113,26 @@ impl LocalizedFormValidator {
           Some("de") => format!("Passwort muss mindestens {} Zeichen haben", min),
           _ => format!("Password must be at least {} characters", min),
         }
-      }, None))
+      })))
       .and(
-        Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message_provider(|ctx| {
+        Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message(Message::provider(|ctx| {
           match ctx.locale {
             Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
             Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
             Some("de") => "Passwort muss mindestens einen Großbuchstaben enthalten".to_string(),
             _ => "Password must contain at least one uppercase letter".to_string(),
           }
-        }, None),
+        })),
       )
       .and(
-        Rule::<String>::Pattern(r"[0-9]".to_string()).with_message_provider(|ctx| {
+        Rule::<String>::Pattern(r"[0-9]".to_string()).with_message(Message::provider(|ctx| {
           match ctx.locale {
             Some("es") => "La contraseña debe contener al menos un número".to_string(),
             Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),
             Some("de") => "Passwort muss mindestens eine Zahl enthalten".to_string(),
             _ => "Password must contain at least one number".to_string(),
           }
-        }, None),
+        })),
       );
 
     let rule = match &self.locale {

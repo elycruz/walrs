@@ -427,6 +427,59 @@ impl<T: ?Sized> From<String> for Message<T> {
 }
 
 // ============================================================================
+// IntoMessage trait
+// ============================================================================
+
+/// Trait for types that can be converted into a [`Message<T>`].
+///
+/// This enables a single `with_message` method on [`Rule<T>`](crate::rule::Rule)
+/// to accept both static strings and dynamic closures.
+///
+/// # Implementors
+///
+/// - `&str` and `String` produce [`Message::Static`].
+/// - [`Message<T>`] passes through unchanged. Use [`Message::provider`] to
+///   create a dynamic message from a closure.
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_validation::{Message, rule::Rule};
+///
+/// // Static message
+/// let rule = Rule::<String>::MinLength(8)
+///     .with_message("Password too short.");
+///
+/// // Dynamic message
+/// let rule = Rule::<i32>::Min(0)
+///     .with_message(Message::provider(|ctx| {
+///         format!("Value {} must be non-negative.", ctx.value)
+///     }));
+/// ```
+pub trait IntoMessage<T: ?Sized> {
+  /// Converts this value into a [`Message<T>`].
+  fn into_message(self) -> Message<T>;
+}
+
+impl<T: ?Sized> IntoMessage<T> for &str {
+  fn into_message(self) -> Message<T> {
+    Message::Static(self.to_string())
+  }
+}
+
+impl<T: ?Sized> IntoMessage<T> for String {
+  fn into_message(self) -> Message<T> {
+    Message::Static(self)
+  }
+}
+
+impl<T: ?Sized> IntoMessage<T> for Message<T> {
+  fn into_message(self) -> Message<T> {
+    self
+  }
+}
+
+// ============================================================================
 // Tests
 // ============================================================================
 

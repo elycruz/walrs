@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example localized_messages -p walrs_inputfilter`
 
 use walrs_inputfilter::field::FieldBuilder;
-use walrs_validation::{Rule, ValidateRef};
+use walrs_validation::{Message, Rule, ValidateRef};
 
 fn main() {
   println!("=== Localized Validation Messages Example ===\n");
@@ -21,7 +21,7 @@ fn main() {
   // may not contain them depending on how the rule is composed.
   let username_rule = Rule::<String>::MinLength(3)
     .and(Rule::MaxLength(20))
-    .with_message_provider(|ctx| {
+    .with_message(Message::provider(|ctx| {
       let (min, max) = (3, 20); // Hardcode the constraint values
       match ctx.locale {
         Some("es") => format!(
@@ -38,7 +38,7 @@ fn main() {
         ),
         _ => format!("Username must be between {} and {} characters", min, max),
       }
-    }, None);
+    }));
 
   // Test with different locales
   let test_value = "ab".to_string(); // Too short
@@ -109,12 +109,12 @@ fn main() {
   println!("\n--- Example 2: Password Field with Multiple Rules ---\n");
 
   let password_rule = Rule::<String>::Required
-    .with_message_provider(|ctx| match ctx.locale {
+    .with_message(Message::provider(|ctx| match ctx.locale {
       Some("es") => "La contraseña es obligatoria".to_string(),
       Some("fr") => "Le mot de passe est requis".to_string(),
       _ => "Password is required".to_string(),
-    }, None)
-    .and(Rule::<String>::MinLength(8).with_message_provider(|ctx| {
+    }))
+    .and(Rule::<String>::MinLength(8).with_message(Message::provider(|ctx| {
       // Hardcode constraint value for the message
       let min = 8;
       match ctx.locale {
@@ -122,20 +122,20 @@ fn main() {
         Some("fr") => format!("Le mot de passe doit contenir au moins {} caractères", min),
         _ => format!("Password must be at least {} characters", min),
       }
-    }, None))
+    })))
     .and(
-      Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message_provider(|ctx| match ctx.locale {
+      Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message(Message::provider(|ctx| match ctx.locale {
         Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
         Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
         _ => "Password must contain at least one uppercase letter".to_string(),
-      }, None),
+      })),
     )
     .and(
-      Rule::<String>::Pattern(r"[0-9]".to_string()).with_message_provider(|ctx| match ctx.locale {
+      Rule::<String>::Pattern(r"[0-9]".to_string()).with_message(Message::provider(|ctx| match ctx.locale {
         Some("es") => "La contraseña debe contener al menos un número".to_string(),
         Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),
         _ => "Password must contain at least one number".to_string(),
-      }, None),
+      })),
     );
 
   // Test with a weak password
@@ -193,8 +193,8 @@ fn main() {
   }
 
   let email_rule = Rule::<String>::Required
-    .with_message_provider(|ctx| translate("email.required", ctx.locale), None)
-    .and(Rule::<String>::Email.with_message_provider(|ctx| translate("email.invalid", ctx.locale), None));
+    .with_message(Message::provider(|ctx| translate("email.required", ctx.locale)))
+    .and(Rule::<String>::Email.with_message(Message::provider(|ctx| translate("email.invalid", ctx.locale))));
 
   let invalid_email = "not-an-email".to_string();
 
@@ -227,11 +227,11 @@ fn main() {
   // locale on the rule, then validate via the ValidateRef trait.
 
   let age_rule =
-    Rule::<String>::Pattern(r"^\d+$".to_string()).with_message_provider(|ctx| match ctx.locale {
+    Rule::<String>::Pattern(r"^\d+$".to_string()).with_message(Message::provider(|ctx| match ctx.locale {
       Some("es") => format!("'{}' no es un número válido", ctx.value),
       Some("fr") => format!("'{}' n'est pas un nombre valide", ctx.value),
       _ => format!("'{}' is not a valid number", ctx.value),
-    }, None);
+    }));
 
   let invalid_age = "twenty";
 

@@ -8,7 +8,7 @@ Remove:
 - Move Filter enum to filter crate
 - Rename `walrs_validator` to `walrs_validation`.
 - Remove old validator structs (`Rule` will supersede.)
-- change `with_message_provider` to `with_message`.
+- ~~change `with_message_provider` to `with_message`.~~
 - Disambiguate `Filter` enum from `Filter` trait.
 - Move all crates to 'crates/'.
 - Make `pub(crate)` updates (`pub(crate) fn validate_(str|len|etc)`).
