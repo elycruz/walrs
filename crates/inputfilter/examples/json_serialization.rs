@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example json_serialization`
 
-use walrs_form_core::Value;
+use walrs_validation::Value;
 use walrs_inputfilter::field::{Field, FieldBuilder};
 use walrs_inputfilter::filter_enum::Filter;
 use walrs_validation::Rule;

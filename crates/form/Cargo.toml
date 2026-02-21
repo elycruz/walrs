@@ -7,7 +7,6 @@ description = "Form elements and structure for walrs form ecosystem"
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-walrs_form_core = { path = "../form_core" }
 walrs_inputfilter = { path = "../inputfilter" }
 walrs_validation = { path = "../validation" }
 serde = { version = "1.0", features = ["derive"] }

@@ -2001,19 +2001,10 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "thiserror",
- "walrs_form_core",
  "walrs_inputfilter",
  "walrs_validation",
  "wasm-bindgen",
  "web-sys",
-]
-
-[[package]]
-name = "walrs_form_core"
-version = "0.1.0"
-dependencies = [
- "serde",
- "serde_json",
 ]
 
 [[package]]
@@ -2036,7 +2027,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "walrs_filter",
- "walrs_form_core",
  "walrs_validation",
 ]
 

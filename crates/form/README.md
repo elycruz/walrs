@@ -95,7 +95,7 @@ input.field = Some(
 ```
 ## Architecture
 This crate is part of the walrs form ecosystem:
-- `walrs_form_core`: Shared types (`Value`, `Attributes`)
+- `walrs_validation`: Shared types (`Value`, `Attributes`) and validation rules
 - `walrs_inputfilter`: Field-level validation (`Field<T>`, `FieldFilter`)
 - `walrs_form`: Form structure and elements (this crate)
 - `walrs_validation`: Validation rules

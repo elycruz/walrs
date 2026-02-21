@@ -9,7 +9,7 @@ Unified field configuration for validation and filtering:
 use walrs_inputfilter::{Field, FieldBuilder};
 use walrs_inputfilter::filter_enum::Filter;
 use walrs_validation::Rule;
-use walrs_form_core::Value;
+use walrs_validation::Value;
 use serde_json::json;
 // Simple field with just a rule (filters are optional)
 let field: Field<Value> = FieldBuilder::default()
@@ -55,7 +55,7 @@ Multi-field validation with cross-field rules:
 use walrs_inputfilter::FieldFilter;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
-use walrs_form_core::Value;
+use walrs_validation::Value;
 use walrs_validation::Rule;
 use std::collections::HashMap;
 use serde_json::json;

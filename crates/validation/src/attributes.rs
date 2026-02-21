@@ -14,7 +14,7 @@ use std::collections::HashMap;
 /// # Examples
 ///
 /// ```
-/// use walrs_form_core::Attributes;
+/// use walrs_validation::Attributes;
 ///
 /// let mut attrs = Attributes::new();
 /// attrs.insert("class", "form-control");
@@ -92,7 +92,7 @@ impl Attributes {
   /// # Examples
   ///
   /// ```
-  /// use walrs_form_core::Attributes;
+  /// use walrs_validation::Attributes;
   ///
   /// let mut attrs = Attributes::new();
   /// attrs.insert("class", "form-control");

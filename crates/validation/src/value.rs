@@ -15,7 +15,7 @@ pub trait ValueExt {
   /// # Examples
   ///
   /// ```
-  /// use walrs_form_core::{Value, ValueExt};
+  /// use walrs_validation::{Value, ValueExt};
   ///
   /// assert!(Value::Null.is_empty_value());
   /// assert!(Value::String("".to_string()).is_empty_value());
@@ -88,6 +88,6 @@ mod tests {
   fn test_number_is_not_empty() {
     assert!(!json!(0).is_empty_value());
     assert!(!json!(42).is_empty_value());
-    assert!(!json!(3.14).is_empty_value());
+    assert!(!json!(3.15).is_empty_value());
   }
 }

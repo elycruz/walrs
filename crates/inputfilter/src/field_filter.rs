@@ -11,7 +11,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
-use walrs_form_core::{Value, ValueExt};
+use walrs_validation::{Value, ValueExt};
 use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 
 /// Multi-field validation configuration.
@@ -25,7 +25,7 @@ use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 /// ```rust
 /// use walrs_inputfilter::field_filter::{FieldFilter, CrossFieldRule, CrossFieldRuleType};
 /// use walrs_inputfilter::field::FieldBuilder;
-/// use walrs_form_core::Value;
+/// use walrs_validation::Value;
 /// use walrs_validation::Rule;
 /// use serde_json::json;
 /// use std::collections::HashMap;
