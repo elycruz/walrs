@@ -240,7 +240,7 @@ impl TryFrom<DisymGraph> for DisymGraphData {
 /// use std::io::{BufRead, BufReader, Lines};
 /// use std::fs::File;
 ///
-/// let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+/// let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 ///
 ///  // Get graph 'symbol' data
 ///  let f = match File::open(&file_path) {
@@ -868,7 +868,7 @@ mod test {
 
   #[test]
   fn test_from_mut_bufreader() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+    let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get graph 'symbol' data
     let f = File::open(&file_path)?;
@@ -886,7 +886,7 @@ mod test {
 
   #[test]
   fn test_try_from_file_ref() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+    let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
     let f = File::open(file_path)?;
@@ -899,7 +899,7 @@ mod test {
 
   #[test]
   fn test_try_from_file() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+    let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
     let f = File::open(file_path)?;
@@ -912,7 +912,7 @@ mod test {
 
   #[test]
   fn test_try_from_mut_buf_reader() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+    let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
     let f = File::open(file_path)?;
@@ -929,7 +929,7 @@ mod test {
 
   #[test]
   fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/symbol_graph_test_routes.txt";
+    let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get digraph data
     let f = File::open(file_path)?;

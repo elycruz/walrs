@@ -824,7 +824,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_file_ref() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "./test-fixtures/graph_test_tinyG.txt";
 
     // Get graph data
     let f = File::open(&file_path)?;
@@ -837,7 +837,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_file() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "./test-fixtures/graph_test_tinyG.txt";
 
     // Get graph data
     let f = File::open(&file_path)?;
@@ -853,7 +853,7 @@ mod test {
     use crate::graph::shared_utils::extract_vert_and_edge_counts_from_bufreader;
     use std::io::Seek;
 
-    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "./test-fixtures/graph_test_tinyG.txt";
 
     // Get graph data
     let f = File::open(&file_path)?;
@@ -881,7 +881,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
-    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "./test-fixtures/graph_test_tinyG.txt";
 
     // Get graph data
     let f = File::open(&file_path)?;
