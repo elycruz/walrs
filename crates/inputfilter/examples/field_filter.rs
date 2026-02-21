@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use walrs_form_core::Value;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
-use walrs_validator::{Rule, Rule::*};
+use walrs_validation::{Rule, Rule::*};
 
 fn main() {
   println!("=== FieldFilter Multi-Field Validation Examples ===\n");

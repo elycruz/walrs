@@ -31,7 +31,7 @@ pub trait ValidateRef<T: ?Sized> {
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::{
+/// use walrs_validation::{
 ///     RangeValidator, ValidateRefAdapter, Validate, ValidateRef
 /// };
 ///

@@ -8,7 +8,7 @@ use crate::{
 /// A validator for checking that a scalar value falls within a specified range.
 ///
 /// ```rust
-///  use walrs_validator::{RangeValidator, RangeValidatorBuilder, Validate};
+///  use walrs_validation::{RangeValidator, RangeValidatorBuilder, Validate};
 ///
 ///  let mut vldtr = RangeValidatorBuilder::default()
 ///  .min(1)
@@ -48,7 +48,7 @@ pub struct RangeValidator<'a, T: ScalarValue> {
 impl<T: ScalarValue> RangeValidator<'_, T> {
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   RangeValidator, ViolationType,
   /// };
   ///
@@ -72,7 +72,7 @@ impl<T: ScalarValue> RangeValidator<'_, T> {
   /// Returns a builder for constructing a `RangeValidator`.
   ///
   /// ```rust
-  /// use walrs_validator::RangeValidator;
+  /// use walrs_validation::RangeValidator;
   ///
   /// let vldtr = RangeValidator::<usize>::builder()
   ///   .min(1)
@@ -93,7 +93,7 @@ impl<T: ScalarValue> Validate<T> for RangeValidator<'_, T> {
   /// if value doesn't pass validation.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   RangeValidator, ViolationType,
   ///   RangeValidatorBuilder,
   ///   Validate,
@@ -176,7 +176,7 @@ impl<T: ScalarValue> FnOnce<(T,)> for RangeValidator<'_, T> {
 /// Returns generic range underflow message.
 ///
 /// ```rust
-/// use walrs_validator::range_underflow_msg_getter;
+/// use walrs_validation::range_underflow_msg_getter;
 ///
 /// assert_eq!(range_underflow_msg_getter(0, 1), "`0` is less than minimum `1`.");
 /// ```
@@ -187,7 +187,7 @@ pub fn range_underflow_msg_getter<T: ScalarValue>(value: T, min: T) -> String {
 /// Returns generic range overflow message.
 ///
 /// ```rust
-/// use walrs_validator::range_overflow_msg_getter;
+/// use walrs_validation::range_overflow_msg_getter;
 ///
 /// assert_eq!(range_overflow_msg_getter(100, 10), "`100` is greater than maximum `10`.");
 /// ```
@@ -219,7 +219,7 @@ impl<T: ScalarValue> Default for RangeValidator<'_, T> {
   /// Returns a new instance with all fields set to defaults.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   RangeValidator
   /// };
   ///

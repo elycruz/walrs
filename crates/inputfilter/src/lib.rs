@@ -18,7 +18,7 @@
 //! ```rust
 //! use walrs_inputfilter::{Field, FieldBuilder, Filter, FieldFilter};
 //! use walrs_inputfilter::filter_enum::Filter as FilterEnum;
-//! use walrs_validator::Rule;
+//! use walrs_validation::Rule;
 //! use walrs_form_core::Value;
 //! use serde_json::json;
 //!
@@ -54,8 +54,8 @@ pub mod rule;
 pub mod traits;
 pub mod validators;
 
-// Re-export types from walrs_validator for backwards compatibility
-pub use walrs_validator::{
+// Re-export types from walrs_validation for backwards compatibility
+pub use walrs_validation::{
   CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Violation, ViolationMessage,
   ViolationType, Violations,
 };

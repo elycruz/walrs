@@ -8,7 +8,7 @@ use std::fmt::{Debug, Display, Formatter};
 /// Validator for checking that a number is a valid multiple of a specified step value.
 ///
 /// ```rust
-/// use walrs_validator::{
+/// use walrs_validation::{
 ///   StepValidator,
 ///   StepValidatorBuilder,
 ///   Validate,
@@ -69,7 +69,7 @@ where
   /// Creates a new `StepValidator` with default values.
   ///
   /// ```rust
-  /// use walrs_validator::StepValidator;
+  /// use walrs_validation::StepValidator;
   ///
   /// let vldtr = StepValidator::<usize>::new();
   ///
@@ -87,7 +87,7 @@ where
   /// Returns a builder for constructing a `StepValidator`.
   ///
   /// ```rust
-  /// use walrs_validator::StepValidator;
+  /// use walrs_validation::StepValidator;
   ///
   /// let vldtr = StepValidator::<usize>::builder()
   ///   .step(5)
@@ -108,7 +108,7 @@ where
   /// Validates given number against contained step constraint.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   StepValidator,
   ///   StepValidatorBuilder,
   ///   Validate,
@@ -148,7 +148,7 @@ where
   /// use as HTML attribute-name/attribute-value pairs.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   StepValidator,
   ///   StepValidatorBuilder,
   ///   ToAttributesList
@@ -252,7 +252,7 @@ impl<T: SteppableValue> Debug for StepValidator<'_, T> {
 /// Returns generic step mismatch message.
 ///
 /// ```rust
-/// use walrs_validator::step_mismatch_msg;
+/// use walrs_validation::step_mismatch_msg;
 ///
 /// assert_eq!(step_mismatch_msg(7, 5), "`7` is not a multiple of step `5`.");
 /// ```

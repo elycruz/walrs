@@ -8,7 +8,7 @@
 use walrs_form_core::Value;
 use walrs_inputfilter::field::{Field, FieldBuilder};
 use walrs_inputfilter::filter_enum::Filter;
-use walrs_validator::Rule;
+use walrs_validation::Rule;
 
 fn main() {
   println!("=== JSON Serialization Examples ===\n");

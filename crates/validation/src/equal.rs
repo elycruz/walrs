@@ -8,7 +8,7 @@ use std::fmt::Display;
 /// Validator for performing equality checks against contained value.
 ///
 /// ```rust
-///  use walrs_validator::{
+///  use walrs_validation::{
 ///    EqualityValidator,
 ///    EqualityValidatorBuilder,
 ///    Validate,
@@ -52,7 +52,7 @@ where
   /// Creates new instance of `EqualityValidator` with given rhs value.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   EqualityValidator,
   ///   EqualityValidatorBuilder,
   /// };
@@ -73,7 +73,7 @@ where
   /// Returns a builder for constructing an `EqualityValidator`.
   ///
   /// ```rust
-  /// use walrs_validator::EqualityValidator;
+  /// use walrs_validation::EqualityValidator;
   ///
   /// let vldtr = EqualityValidator::<&str>::builder()
   ///   .rhs_value("foo")
@@ -94,7 +94,7 @@ where
   /// Validates implicitly sized type against contained constraints.
   ///
   /// ```rust
-  /// use walrs_validator::{
+  /// use walrs_validation::{
   ///   EqualityValidator,
   ///   ViolationType,
   ///   EqualityValidatorBuilder,
@@ -146,8 +146,8 @@ impl<T: InputValue> ToAttributesList for EqualityValidator<'_, T> {
   /// Returns list of attributes to be used in HTML form input element.
   ///
   /// ```rust
-  ///  use walrs_validator::{EqualityValidator, EqualityValidatorBuilder};
-  ///  use walrs_validator::ToAttributesList;
+  ///  use walrs_validation::{EqualityValidator, EqualityValidatorBuilder};
+  ///  use walrs_validation::ToAttributesList;
   ///  use std::borrow::Cow;
   ///
   ///  let vldtr = EqualityValidatorBuilder::<&str>::default()
@@ -196,7 +196,7 @@ impl<T: InputValue> Fn<(T,)> for EqualityValidator<'_, T> {
 /// Returns generic not equal message.
 ///
 /// ```rust
-///  use walrs_validator::equal_vldr_not_equal_msg;
+///  use walrs_validation::equal_vldr_not_equal_msg;
 ///
 ///  assert_eq!(equal_vldr_not_equal_msg("foo"), "Value must equal foo.");
 /// ```

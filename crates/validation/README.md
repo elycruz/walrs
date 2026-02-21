@@ -1,4 +1,4 @@
-# walrs_validator
+# walrs_validation
 
 Validator structs for input validation.
 
@@ -29,13 +29,13 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-walrs_validator = { path = "../validator" }  # or from crates.io when published
+walrs_validation = { path = "../validator" }  # or from crates.io when published
 ```
 
 ## Example
 
 ```rust
-use walrs_validator::{
+use walrs_validation::{
     LengthValidatorBuilder, RangeValidatorBuilder,
     Validate, ValidateRef, ValidateExt,
 };
@@ -96,13 +96,13 @@ The crate includes several examples demonstrating validator usage:
 
 ```bash
 # Basic validator usage (Length, Pattern, Range, Number, Equality)
-cargo run -p walrs_validator --example basic_validators
+cargo run -p walrs_validation --example basic_validators
 
 # Using validator combinators (AND, OR, NOT, Optional, When)
-cargo run -p walrs_validator --example validator_combinators
+cargo run -p walrs_validation --example validator_combinators
 
 # Form validation example with multiple validators
-cargo run -p walrs_validator --example form_validation
+cargo run -p walrs_validation --example form_validation
 ```
 
 ## Running Benchmarks
@@ -111,12 +111,12 @@ Benchmarks are available to measure validator performance:
 
 ```bash
 # Run all benchmarks
-cargo bench -p walrs_validator
+cargo bench -p walrs_validation
 
 # Run specific benchmark group
-cargo bench -p walrs_validator -- LengthValidator
-cargo bench -p walrs_validator -- RangeValidator
-cargo bench -p walrs_validator -- PatternValidator
+cargo bench -p walrs_validation -- LengthValidator
+cargo bench -p walrs_validation -- RangeValidator
+cargo bench -p walrs_validation -- PatternValidator
 ```
 
 Benchmark groups include:

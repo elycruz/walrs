@@ -4,7 +4,7 @@
 /// with custom configurations using the new static `builder()` methods.
 use regex::Regex;
 use std::borrow::Cow;
-use walrs_validator::{
+use walrs_validation::{
   EqualityValidator, LengthValidator, PatternValidator, RangeValidator, StepValidator, Validate,
   ValidateRef,
 };

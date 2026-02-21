@@ -12,7 +12,7 @@
 //! # Examples
 //!
 //! ```rust
-//! use walrs_validator::{
+//! use walrs_validation::{
 //!     FnValidator, FnRefValidator,
 //!     Validate, ValidateRef,
 //!     ValidateExt, ValidateRefExt,
@@ -94,7 +94,7 @@ use crate::traits::{Validate, ValidateRef, ValidatorResult};
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::{FnValidator, Validate, ValidateExt, Violation, ViolationType};
+/// use walrs_validation::{FnValidator, Validate, ValidateExt, Violation, ViolationType};
 ///
 /// let positive = FnValidator::new(|v: i32| {
 ///     if v > 0 { Ok(()) }
@@ -185,7 +185,7 @@ where
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::{FnRefValidator, ValidateRef, ValidateRefExt, Violation, ViolationType};
+/// use walrs_validation::{FnRefValidator, ValidateRef, ValidateRefExt, Violation, ViolationType};
 ///
 /// let non_empty = FnRefValidator::new(|v: &str| {
 ///     if !v.is_empty() { Ok(()) }

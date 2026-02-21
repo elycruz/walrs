@@ -1,4 +1,4 @@
-//! # walrs_validator
+//! # walrs_validation
 //!
 //! Validator structs for input validation.
 //!
@@ -27,7 +27,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use walrs_validator::{
+//! use walrs_validation::{
 //!     LengthValidatorBuilder, RangeValidatorBuilder,
 //!     Validate, ValidateRef, ValidateExt,
 //! };

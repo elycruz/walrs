@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use walrs_form_core::{Value, ValueExt};
-use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
+use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 
 /// Multi-field validation configuration.
 ///
@@ -26,7 +26,7 @@ use walrs_validator::{Condition, RuleResult, Violation, ViolationType};
 /// use walrs_inputfilter::field_filter::{FieldFilter, CrossFieldRule, CrossFieldRuleType};
 /// use walrs_inputfilter::field::FieldBuilder;
 /// use walrs_form_core::Value;
-/// use walrs_validator::Rule;
+/// use walrs_validation::Rule;
 /// use serde_json::json;
 /// use std::collections::HashMap;
 ///
@@ -446,7 +446,7 @@ mod tests {
   use super::*;
   use crate::field::FieldBuilder;
   use serde_json::json;
-  use walrs_validator::Rule;
+  use walrs_validation::Rule;
 
   fn make_data(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
     pairs

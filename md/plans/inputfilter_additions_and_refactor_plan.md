@@ -82,7 +82,7 @@ This plan outlines the implementation of the ECMS form ecosystem, replacing the 
 | Crate | Responsibility | Key Types |
 |-------|----------------|-----------|
 | `walrs_form_core` | Shared types, re-exports | `Value` (re-export of `serde_json::Value`), `ValueExt`, `Attributes` |
-| `walrs_validator` | Individual validator implementations | `Rule<T>` enum with validation logic |
+| `walrs_validation` | Individual validator implementations | `Rule<T>` enum with validation logic |
 | `walrs_filter` | Individual filter implementations | `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` |
 | `walrs_inputfilter` | Field-level validation & filtering | `Field<T>`, `FieldFilter`, `Filter<T>` enum, cross-field rules |
 | `walrs_form` | Form structure and elements | `Form`, `Fieldset`, `Element` enum, `FormData`, element structs |
@@ -1412,7 +1412,7 @@ pub fn parse_path(path: &str) -> Result<Vec<PathSegment>, PathError> {
 **Question:** Where should `FormViolations` live?
 
 **Options:**
-- `walrs_validator`: Shared infrastructure (alongside `Violations`)
+- `walrs_validation`: Shared infrastructure (alongside `Violations`)
 - `walrs_inputfilter`: With `FieldFilter` 
 - `walrs_form`: Form-specific
 

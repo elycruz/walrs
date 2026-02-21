@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example validator_combinators`
 
-use walrs_validator::{FnRefValidator, LengthValidatorBuilder, RangeValidatorBuilder, Validate, ValidateExt, ValidateRef, ValidateRefExt, ValidatorOr, ValidatorResult, Violation, ViolationType};
+use walrs_validation::{FnRefValidator, LengthValidatorBuilder, RangeValidatorBuilder, Validate, ValidateExt, ValidateRef, ValidateRefExt, ValidatorOr, ValidatorResult, Violation, ViolationType};
 
 fn main() {
   println!("=== Validator Combinators Example ===\n");

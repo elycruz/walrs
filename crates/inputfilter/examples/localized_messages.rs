@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example localized_messages -p walrs_inputfilter`
 
 use walrs_inputfilter::field::FieldBuilder;
-use walrs_validator::{Rule, ValidateRef};
+use walrs_validation::{Rule, ValidateRef};
 
 fn main() {
   println!("=== Localized Validation Messages Example ===\n");

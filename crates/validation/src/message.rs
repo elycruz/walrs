@@ -7,7 +7,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use walrs_validator::{Message, MessageContext, MessageParams};
+//! use walrs_validation::{Message, MessageContext, MessageParams};
 //!
 //! // Static message
 //! let msg: Message<String> = Message::from("Must be at least 8 characters.");
@@ -153,7 +153,7 @@ impl MessageParams {
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::{Message, MessageContext, MessageParams};
+/// use walrs_validation::{Message, MessageContext, MessageParams};
 ///
 /// let msg: Message<String> = Message::provider(|ctx| {
 ///     format!(
@@ -188,7 +188,7 @@ impl<'a, T: ?Sized> MessageContext<'a, T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::{Message, MessageContext, MessageParams};
+  /// use walrs_validation::{Message, MessageContext, MessageParams};
   ///
   /// let msg: Message<str> = Message::provider(|ctx| {
   ///     match ctx.locale {
@@ -229,7 +229,7 @@ impl<'a, T: ?Sized> MessageContext<'a, T> {
 /// # Example
 ///
 /// ```rust
-/// use walrs_validator::Message;
+/// use walrs_validation::Message;
 ///
 /// // Static message
 /// let msg: Message<String> = Message::from("Must be at least 8 characters.");
@@ -267,7 +267,7 @@ impl<T: ?Sized> Message<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::Message;
+  /// use walrs_validation::Message;
   ///
   /// let msg: Message<str> = Message::static_msg("Invalid value.");
   /// assert_eq!(msg.resolve("test", None), "Invalid value.");
@@ -281,7 +281,7 @@ impl<T: ?Sized> Message<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::Message;
+  /// use walrs_validation::Message;
   ///
   /// let msg: Message<i32> = Message::provider(|ctx| format!("Got {}, expected positive.", ctx.value));
   /// assert_eq!(msg.resolve(&-5, None), "Got -5, expected positive.");
@@ -298,7 +298,7 @@ impl<T: ?Sized> Message<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::Message;
+  /// use walrs_validation::Message;
   ///
   /// let static_msg: Message<str> = Message::from("Error.");
   /// assert_eq!(static_msg.resolve("any", None), "Error.");
@@ -331,7 +331,7 @@ impl<T: ?Sized> Message<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::{Message, MessageContext, MessageParams};
+  /// use walrs_validation::{Message, MessageContext, MessageParams};
   ///
   /// let msg: Message<i32> = Message::provider(|ctx| {
   ///     format!(
@@ -362,7 +362,7 @@ impl<T: ?Sized> Message<T> {
   /// # Example
   ///
   /// ```rust
-  /// use walrs_validator::Message;
+  /// use walrs_validation::Message;
   ///
   /// let empty: Message<str> = Message::Static(String::new());
   /// assert_eq!(empty.resolve_or("x", "default", None), "default");

@@ -24,6 +24,6 @@ members = [
     "crates/graph",
     "crates/inputfilter",
     "crates/navigation",
-    "crates/validator",
+    "crates/validation",
     "crates/rbac"
 ]

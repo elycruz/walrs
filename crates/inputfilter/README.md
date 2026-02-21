@@ -8,7 +8,7 @@ Unified field configuration for validation and filtering:
 ```rust
 use walrs_inputfilter::{Field, FieldBuilder};
 use walrs_inputfilter::filter_enum::Filter;
-use walrs_validator::Rule;
+use walrs_validation::Rule;
 use walrs_form_core::Value;
 use serde_json::json;
 // Simple field with just a rule (filters are optional)
@@ -56,7 +56,7 @@ use walrs_inputfilter::FieldFilter;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
 use walrs_form_core::Value;
-use walrs_validator::Rule;
+use walrs_validation::Rule;
 use std::collections::HashMap;
 use serde_json::json;
 
@@ -96,7 +96,7 @@ Built-in rules for multi-field validation:
 Aggregate validation errors:
 ```rust
 use walrs_inputfilter::FormViolations;
-use walrs_validator::{Violations, Violation, ViolationType};
+use walrs_validation::{Violations, Violation, ViolationType};
 let mut violations = FormViolations::new();
 // Add field-specific violations
 violations.add_field_violation("email", 
@@ -120,9 +120,9 @@ The following types are still available but deprecated:
 walrs_inputfilter = { path = "../inputfilter" }
 ```
 ## Architecture
-This crate sits between `walrs_validator` and `walrs_form`:
+This crate sits between `walrs_validation` and `walrs_form`:
 ```
-walrs_validator    → walrs_inputfilter → walrs_form
+walrs_validation    → walrs_inputfilter → walrs_form
 (Rule<T> enum)       (Field<T>,          (Form,
                       FieldFilter,        Element)
                       Filter<T>)

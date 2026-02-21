@@ -2003,7 +2003,7 @@ dependencies = [
  "thiserror",
  "walrs_form_core",
  "walrs_inputfilter",
- "walrs_validator",
+ "walrs_validation",
  "wasm-bindgen",
  "web-sys",
 ]
@@ -2037,7 +2037,7 @@ dependencies = [
  "thiserror",
  "walrs_filter",
  "walrs_form_core",
- "walrs_validator",
+ "walrs_validation",
 ]
 
 [[package]]
@@ -2067,7 +2067,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "walrs_validator"
+name = "walrs_validation"
 version = "0.1.0"
 dependencies = [
  "criterion",

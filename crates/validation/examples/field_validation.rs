@@ -7,7 +7,7 @@
 use regex::Regex;
 use std::borrow::Cow;
 use std::collections::HashMap;
-use walrs_validator::{
+use walrs_validation::{
   LengthValidatorBuilder, PatternValidatorBuilder, RangeValidatorBuilder, Validate, ValidateRef,
   Violations,
 };
