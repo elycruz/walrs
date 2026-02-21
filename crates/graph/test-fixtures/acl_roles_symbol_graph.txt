@@ -1,0 +1,12 @@
+guest
+user guest
+tester user
+developer tester
+editor developer
+publisher editor
+cms-guest guest
+cms-tester tester cms-guest
+cms-developer cms-tester
+cms-editor editor cms-developer
+cms-publisher cms-editor
+cms-super-admin cms-publisher
