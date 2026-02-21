@@ -282,7 +282,7 @@ pub enum Rule<T> {
     rule: Box<Rule<T>>,
     /// The custom message to use on failure
     message: Message<T>,
-    /// Optional locale for internationalized messages (e.g., "en-US", "es", "fr")
+    /// Optional locale for i18n support (e.g., "es", "en-US", "fr", etc.)
     locale: Option<String>,
   },
 }
