@@ -4,7 +4,7 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_form_core::Attributes;
+use walrs_validation::Attributes;
 use walrs_inputfilter::{FieldFilter, FormViolations};
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -71,7 +71,7 @@ impl Form {
     }
     self
   }
-  fn set_element_value(element: &mut Element, value: walrs_form_core::Value) {
+  fn set_element_value(element: &mut Element, value: walrs_validation::Value) {
     match element {
       Element::Input(el) => el.value = Some(value),
       Element::Select(el) => el.value = Some(value),
@@ -94,7 +94,7 @@ impl Form {
             let value = data
               .get(name)
               .cloned()
-              .unwrap_or(walrs_form_core::Value::Null);
+              .unwrap_or(walrs_validation::Value::Null);
             let result = match element {
               Element::Input(el) => el.validate_value(&value),
               Element::Select(el) => el.validate_value(&value),

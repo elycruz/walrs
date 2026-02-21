@@ -8,7 +8,7 @@ use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use walrs_filter::{Filter as FilterTrait, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
-use walrs_form_core::Value;
+use walrs_validation::Value;
 
 /// A composable, serializable value transformer.
 ///

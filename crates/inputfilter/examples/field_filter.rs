@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example field_filter`
 
 use std::collections::HashMap;
-use walrs_form_core::Value;
+use walrs_validation::Value;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 use walrs_validation::{Rule, Rule::*};

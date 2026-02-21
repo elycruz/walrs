@@ -19,7 +19,7 @@ use crate::select_type::SelectType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_form_core::{Attributes, Value};
+use walrs_validation::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validation::Violations;
 /// HTML select element.

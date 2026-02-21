@@ -19,7 +19,7 @@
 //! use walrs_inputfilter::{Field, FieldBuilder, Filter, FieldFilter};
 //! use walrs_inputfilter::filter_enum::Filter as FilterEnum;
 //! use walrs_validation::Rule;
-//! use walrs_form_core::Value;
+//! use walrs_validation::Value;
 //! use serde_json::json;
 //!
 //! // Create a field with filters and rule (use Rule::All for multiple rules)
@@ -54,14 +54,11 @@ pub mod rule;
 pub mod traits;
 pub mod validators;
 
-// Re-export types from walrs_validation for backwards compatibility
+// Re-export types from walrs_validation
 pub use walrs_validation::{
-  CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Violation, ViolationMessage,
-  ViolationType, Violations,
+  Attributes, CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,
+  Violation, ViolationMessage, ViolationType, Violations,
 };
-
-// Re-export types from walrs_form_core
-pub use walrs_form_core::{Attributes, Value, ValueExt};
 
 // New unified API exports
 pub use field::{Field, FieldBuilder};

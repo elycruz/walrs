@@ -18,7 +18,7 @@ use crate::element::Element;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_form_core::Attributes;
+use walrs_validation::Attributes;
 /// HTML fieldset element.
 ///
 /// Groups related form elements together with an optional legend.

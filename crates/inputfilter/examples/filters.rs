@@ -104,7 +104,7 @@ fn main() {
 
   // Example 10: Applying filters to serde_json::Value
   println!("\n10. Filters with serde_json::Value:");
-  use walrs_form_core::Value;
+  use walrs_validation::Value;
 
   let value_trim = Filter::<Value>::Trim;
   let json_value = Value::String("  hello  ".to_string());

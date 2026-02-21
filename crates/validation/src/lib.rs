@@ -65,6 +65,7 @@
 #[macro_use]
 extern crate derive_builder;
 
+pub mod attributes;
 pub mod combinators;
 pub mod equal;
 pub mod fn_validator;
@@ -76,8 +77,10 @@ pub mod range;
 pub mod rule;
 pub mod step;
 pub mod traits;
+pub mod value;
 pub mod violation;
 
+pub use attributes::*;
 pub use combinators::*;
 pub use equal::*;
 pub use fn_validator::*;
@@ -88,4 +91,5 @@ pub use range::*;
 pub use rule::{CompiledRule, Condition, Rule, RuleResult};
 pub use step::*;
 pub use traits::*;
+pub use value::*;
 pub use violation::*;

@@ -21,7 +21,7 @@ use crate::button_type::ButtonType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_form_core::Attributes;
+use walrs_validation::Attributes;
 /// HTML button element.
 ///
 /// Represents the structure of an HTML `<button>` element. This is a data-only

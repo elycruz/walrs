@@ -7,7 +7,7 @@
 use crate::filter_enum::Filter;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_form_core::Value;
+use walrs_validation::Value;
 use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
 /// Validation configuration for a single field.
@@ -174,7 +174,7 @@ impl Field<Value> {
   /// Note: For `Value` fields, rules are applied based on the underlying type.
   /// Currently supports `Rule::Required` check via `ValueExt::is_empty_value()`.
   pub fn validate(&self, value: &Value) -> Result<(), Violations> {
-    use walrs_form_core::ValueExt;
+    use walrs_validation::ValueExt;
 
     match &self.rule {
       Some(rule) => {

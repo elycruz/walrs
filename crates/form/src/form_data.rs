@@ -3,7 +3,7 @@ use crate::path::{PathSegment, parse_path};
 use serde::{Deserialize, Serialize};
 use serde_json::Map;
 use std::collections::HashMap;
-use walrs_form_core::Value;
+use walrs_validation::Value;
 /// Form data transfer object.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FormData(HashMap<String, Value>);

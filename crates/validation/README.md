@@ -128,6 +128,14 @@ Benchmark groups include:
 - **CombinedValidators** - Tests combinator performance
 - **ValidatorComparison** - Compares performance across validator types
 
+## Shared Types
+
+This crate also provides shared foundation types used across form-related crates:
+
+- **`Value`** - Re-export of `serde_json::Value` for dynamic form data
+- **`ValueExt`** - Extension trait with form-specific helper methods (e.g., `is_empty_value()`)
+- **`Attributes`** - HTML attributes storage and rendering
+
 ## License
 
 MIT & Apache-2.0
