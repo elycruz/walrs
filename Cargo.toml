@@ -8,22 +8,22 @@ rust-version = "1.85"
 
 [dependencies]
 ammonia = "3.3.1"
-walrs_acl = { path = 'acl' }
-walrs_graph = { path = 'graph' }
-walrs_inputfilter = { path = "inputfilter" }
-walrs_navigation = { path = "navigation" }
-walrs_rbac = { path = "rbac" }
+walrs_acl = { path = 'crates/acl' }
+walrs_graph = { path = 'crates/graph' }
+walrs_inputfilter = { path = "crates/inputfilter" }
+walrs_navigation = { path = "crates/navigation" }
+walrs_rbac = { path = "crates/rbac" }
 
 [workspace]
 members = [
-    "acl", 
-    "digraph",
-    "filter",
-    "form",
-    "form_core",
-    "graph",
-    "inputfilter",
-    "navigation",
-    "validator",
-    "rbac"
+    "crates/acl",
+    "crates/digraph",
+    "crates/filter",
+    "crates/form",
+    "crates/form_core",
+    "crates/graph",
+    "crates/inputfilter",
+    "crates/navigation",
+    "crates/validator",
+    "crates/rbac"
 ]

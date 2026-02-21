@@ -13,3 +13,4 @@ Remove:
 - Move all crates to 'crates/'.
 - Make `pub(crate)` updates (`pub(crate) fn validate_(str|len|etc)`).
 - Address ` message: Message::Static(String::new()),` in `WithMessage` handling.
+- Address "Value used after move" in navigation_benchmarks.rs.

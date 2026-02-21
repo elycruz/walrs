@@ -7,7 +7,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_file_ref() -> Result<(), std::io::Error> {
-    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
 
     // Get digraph data
     let f = File::open(&file_path)?;
@@ -20,7 +20,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_file() -> Result<(), std::io::Error> {
-    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
 
     // Get digraph data
     let f = File::open(&file_path)?;
@@ -33,7 +33,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_mut_buf_reader_ref() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
 
     // Get digraph data
     let f = File::open(&file_path)?;
@@ -64,7 +64,7 @@ mod test {
 
   #[test]
   pub fn test_try_from_buf_reader() -> Result<(), std::io::Error> {
-    let file_path = "../test-fixtures/graph_test_tinyG.txt";
+    let file_path = "../../test-fixtures/graph_test_tinyG.txt";
 
     // Get digraph data
     let f = File::open(&file_path)?;

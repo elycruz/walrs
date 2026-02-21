@@ -184,7 +184,7 @@ mod test {
   #[test]
   pub fn test_dfs() -> std::io::Result<()> {
     // Get representation of graph
-    let f = File::open("../test-fixtures/acl_roles_symbol_graph.txt")?;
+    let f = File::open("../../test-fixtures/acl_roles_symbol_graph.txt")?;
 
     // Graph vertex, and edge, sizes
     let mut reader = BufReader::new(f);

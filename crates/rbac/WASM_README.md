@@ -1,6 +1,6 @@
 # walrs_rbac (js)
 
-WebAssembly version of [walrs_rbac](../README.md).
+WebAssembly version of [walrs_rbac](../../README.md).
 
 ## Prerequisites
 

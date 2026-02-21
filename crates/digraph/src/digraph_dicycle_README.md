@@ -44,7 +44,7 @@ fn main() {
 
 ```bash
 # Run the example with a test file
-cargo run --example directed_cycle ../test-fixtures/digraph_test_tinyDG.txt
+cargo run --example directed_cycle ../../test-fixtures/digraph_test_tinyDG.txt
 ```
 
 ## API

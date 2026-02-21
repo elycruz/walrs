@@ -58,7 +58,7 @@ The RBAC can be constructed:
 
 ### JSON Representation
 
-This represents an [`RbacData`](./src/rbac_data.rs) struct.
+This represents an [`RbacData`](src/rbac_data.rs) struct.
 
 ```json5
 {
@@ -116,7 +116,7 @@ The `is_granted(role, permission)` method checks if a role has a permission eith
 | `rbac.get_role(role)` | Get a reference to a `Role` |
 | `rbac.role_count()` | Get the number of roles |
 
-See tests, [benchmarks](./benchmarks), and/or [examples](./examples) for more details.
+See tests, [benchmarks](benchmarks), and/or [examples](examples) for more details.
 
 ## Features
 
@@ -142,7 +142,7 @@ walrs_rbac = { version = "0.1.0", default-features = false, features = ["wasm"] 
 
 ## WASM Support
 
-The crate supports WebAssembly (see [WASM README](./WASM_README.md) for details).
+The crate supports WebAssembly (see [WASM README](WASM_README.md) for details).
 
 ### Build
 

@@ -9,7 +9,7 @@ use walrs_graph::graph::{GenericSymbol, Graph};
 
 #[test]
 pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
-  let file_path = "../test-fixtures/graph_test_tinyG.txt";
+  let file_path = "../../test-fixtures/graph_test_tinyG.txt";
 
   // Get representation of graph
   let f = File::open(&file_path)?;
@@ -71,7 +71,7 @@ pub fn test_graph_tiny_text_undirected() -> std::io::Result<()> {
 #[test]
 pub fn test_symbol_graph() -> std::io::Result<()> {
   // Get representation of graph
-  let f = File::open("../test-fixtures/symbol_graph_test_routes.txt")?;
+  let f = File::open("../../test-fixtures/symbol_graph_test_routes.txt")?;
 
   // Graph vertex, and edge, sizes
   let mut reader = BufReader::new(f);

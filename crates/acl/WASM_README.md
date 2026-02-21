@@ -1,6 +1,6 @@
 # walrs_acl (js)
 
-Webassembly version of [walrs_acl](../README.md).
+Webassembly version of [walrs_acl](../../README.md).
 
 ## Prerequisites
 
@@ -19,26 +19,26 @@ Any environment that supports WebAssembly:
 The builder for constructing ACLs:
 
 ```javascript
-import init, { JsAclBuilder } from './pkg/walrs_acl.js';
+import init, {JsAclBuilder} from './walrs_acl.js';
 
 await init();
 
 let acl;
 
-try {  
-  acl = new JsAclBuilder()
-    .addRole("guest", null)
-    .addRole("user", ["guest"])  // inherits from guest
-    .addRole("admin", ["user"])   // inherits from user
-    .addResource("blog", null)
-    .addResource("admin_panel", null)
-    .allow(["guest"], ["blog"], ["read"])
-    .allow(["user"], ["blog"], ["read", "write"])
-    .allow(["admin"], null, null)  // admin can do anything
-    .deny(["user"], ["admin_panel"], null)  // user cannot access admin_panel
-    .build(); // Can throw if there are 'directed cycles' in the ACL definition.
+try {
+    acl = new JsAclBuilder()
+        .addRole("guest", null)
+        .addRole("user", ["guest"])  // inherits from guest
+        .addRole("admin", ["user"])   // inherits from user
+        .addResource("blog", null)
+        .addResource("admin_panel", null)
+        .allow(["guest"], ["blog"], ["read"])
+        .allow(["user"], ["blog"], ["read", "write"])
+        .allow(["admin"], null, null)  // admin can do anything
+        .deny(["user"], ["admin_panel"], null)  // user cannot access admin_panel
+        .build(); // Can throw if there are 'directed cycles' in the ACL definition.
 } catch (error) {
-  console.error("Failed to build ACL:", error);
+    console.error("Failed to build ACL:", error);
 }
 ```
 
