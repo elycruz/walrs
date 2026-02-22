@@ -18,8 +18,8 @@
 ### Support "verbose" validation format, for form and element validation:  E.g.,
 
 ```jsonc
-// Enables parameterizing front-end forms with validation configiguration to allow browser "constraint validation" 
-// to display validation messages (with our without a framework - server side rendered messages and/or with a 
+// Enables parameterizing front-end forms with validation configuration to allow browser "constraint validation" 
+// to display validation messages (with or without a framework - server side rendered messages and/or with a 
 // framework, like React, Next, Vue, etc.).
 // 
 // Serialize of `HashMap<String, HashMap<String, ConstraintViolation>>` (etc.):
