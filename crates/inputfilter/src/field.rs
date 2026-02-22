@@ -129,6 +129,7 @@ impl Field<String> {
     match &self.rule {
       Some(rule) => {
         // Apply locale to rule if set, then validate via trait method
+        // @todo `locale` should be set directly on `rule`.
         let result = if let Some(locale) = &self.locale {
           rule.clone().with_locale(locale.as_ref()).validate_ref(value.as_str())
         } else {
