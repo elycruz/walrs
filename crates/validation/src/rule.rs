@@ -267,7 +267,7 @@ pub enum Rule<T> {
   #[serde(skip)]
   Custom(Arc<dyn Fn(&T) -> RuleResult + Send + Sync>),
 
-  /// Reference to a named rule (resolved at runtime)
+  /// Reference to a named rule (left to userland code)
   #[serde(skip)]
   Ref(String),
 
