@@ -9,7 +9,6 @@
 //! - **Serialization-friendly**: Most variants are JSON/YAML serializable via serde
 //! - **Composable**: Rules can be combined with `and()`, `or()`, `not()`, `when()` combinators
 //! - **Type-safe**: Strongly typed with generic parameter `T`
-//! - **Interoperable**: Can work alongside existing validator structs
 //!
 //! ## Example
 //!
@@ -174,22 +173,6 @@ impl Condition<String> {
 /// Most variants are serializable. The `Custom` and `Ref` variants are skipped
 /// during serialization as they contain non-serializable data (closures or
 /// runtime-resolved references).
-///
-/// # Relationship with Validator Structs
-///
-/// `Rule<T>` serves as a **serializable data representation** of validation rules,
-/// while the validator structs (`LengthValidator`, `RangeValidator`, etc.) provide
-/// **full-featured implementations** with custom error messages and callbacks.
-///
-/// Use `Rule<T>` for:
-/// - Config-driven validation (JSON/YAML forms)
-/// - Tree-based rule composition
-/// - Simple validation scenarios
-///
-/// Use validator structs for:
-/// - Custom error messages
-/// - Programmatic validation with full control
-/// - Integration with existing validation pipelines
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "config", rename_all = "lowercase")]
 pub enum Rule<T> {
@@ -267,7 +250,7 @@ pub enum Rule<T> {
   #[serde(skip)]
   Custom(Arc<dyn Fn(&T) -> RuleResult + Send + Sync>),
 
-  /// Reference to a named rule (resolved at runtime)
+  /// Reference to a named rule (left to userland code)
   #[serde(skip)]
   Ref(String),
 
@@ -708,16 +691,16 @@ impl<T> Rule<T> {
   }
 }
 
-// Rule<String> implementation moved to impls/string.rs
+// Rule<String> implementation moved to rule_impls/string.rs
 
-// Rule<Numeric> implementation moved to impls/step
+// Rule<Numeric> implementation moved to rule_impls/steppable.rs
 
 // ============================================================================
 // CompiledRule - Cached Validator Wrapper
 // ============================================================================
 
 use std::sync::OnceLock;
-use crate::impls::string::CachedStringValidators;
+use crate::rule_impls::string::CachedStringValidators;
 
 /// A compiled rule with cached validators for better performance.
 ///
@@ -812,11 +795,11 @@ impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
   }
 }
 
-// Trait implementations moved to impls modules
+// Trait implementations moved to rule_impls modules
 
-// ToAttributesList implementation moved to impls/attributes.rs
+// ToAttributesList implementation moved to rule_impls/attributes.rs
 
-// Rule<WithLength> implementation moved to impls/length.rs
+// Rule<WithLength> implementation moved to rule_impls/length.rs
 
 // ============================================================================
 // Tests
@@ -1055,10 +1038,10 @@ mod tests {
   }
 
   // ========================================================================
-  // String Validation Tests  →  see impls/string.rs
-  // Numeric Validation Tests →  see impls/step
-  // Collection Length Tests  →  see impls/length.rs
-  // ToAttributesList Tests   →  see impls/attributes.rs
+  // String Validation Tests  →  see rule_impls/string.rs
+  // Numeric Validation Tests →  see rule_impls/steppable.rs
+  // Collection Length Tests  →  see rule_impls/length.rs
+  // ToAttributesList Tests   →  see rule_impls/attributes.rs
   // ========================================================================
 
   // ==========================================================================

@@ -8,7 +8,7 @@ use crate::CompiledRule;
 /// This struct holds compiled regex patterns for string validation rules.
 /// Included in `CompiledRule` for all types, but only populated for String rules.
 #[derive(Debug, Default)]
-pub struct CachedStringValidators {
+pub(crate) struct CachedStringValidators {
   /// Cached regex for Pattern rules
   pub(crate) pattern_regex: Option<regex::Regex>,
   /// Cached email regex
@@ -18,7 +18,7 @@ pub struct CachedStringValidators {
 }
 
 impl CachedStringValidators {
-  pub fn new() -> Self {
+  pub(crate) fn new() -> Self {
     Self::default()
   }
 }

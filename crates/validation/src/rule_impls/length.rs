@@ -246,7 +246,6 @@ mod tests {
 
   // Note: Slice validation ([T]) is not supported because Rule<T> requires T: Sized.
   // Use Vec<T> or other sized collection types instead.
-  // For slice validation, use LengthValidator<[T]> directly.
 
   #[test]
   fn test_validate_len_hashmap() {
