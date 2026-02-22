@@ -9,7 +9,6 @@
 //! - **Serialization-friendly**: Most variants are JSON/YAML serializable via serde
 //! - **Composable**: Rules can be combined with `and()`, `or()`, `not()`, `when()` combinators
 //! - **Type-safe**: Strongly typed with generic parameter `T`
-//! - **Interoperable**: Can work alongside existing validator structs
 //!
 //! ## Example
 //!
@@ -174,22 +173,6 @@ impl Condition<String> {
 /// Most variants are serializable. The `Custom` and `Ref` variants are skipped
 /// during serialization as they contain non-serializable data (closures or
 /// runtime-resolved references).
-///
-/// # Relationship with Validator Structs
-///
-/// `Rule<T>` serves as a **serializable data representation** of validation rules,
-/// while the validator structs (`LengthValidator`, `RangeValidator`, etc.) provide
-/// **full-featured implementations** with custom error messages and callbacks.
-///
-/// Use `Rule<T>` for:
-/// - Config-driven validation (JSON/YAML forms)
-/// - Tree-based rule composition
-/// - Simple validation scenarios
-///
-/// Use validator structs for:
-/// - Custom error messages
-/// - Programmatic validation with full control
-/// - Integration with existing validation pipelines
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type", content = "config", rename_all = "lowercase")]
 pub enum Rule<T> {

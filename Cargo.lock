@@ -2060,8 +2060,6 @@ dependencies = [
 name = "walrs_validation"
 version = "0.1.0"
 dependencies = [
- "criterion",
- "derive_builder",
  "regex",
  "serde",
  "serde_json",
