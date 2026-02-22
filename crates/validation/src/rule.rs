@@ -691,16 +691,16 @@ impl<T> Rule<T> {
   }
 }
 
-// Rule<String> implementation moved to impls/string.rs
+// Rule<String> implementation moved to rule_impls/string.rs
 
-// Rule<Numeric> implementation moved to impls/step
+// Rule<Numeric> implementation moved to rule_impls/steppable.rs
 
 // ============================================================================
 // CompiledRule - Cached Validator Wrapper
 // ============================================================================
 
 use std::sync::OnceLock;
-use crate::impls::string::CachedStringValidators;
+use crate::rule_impls::string::CachedStringValidators;
 
 /// A compiled rule with cached validators for better performance.
 ///
@@ -795,11 +795,11 @@ impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
   }
 }
 
-// Trait implementations moved to impls modules
+// Trait implementations moved to rule_impls modules
 
-// ToAttributesList implementation moved to impls/attributes.rs
+// ToAttributesList implementation moved to rule_impls/attributes.rs
 
-// Rule<WithLength> implementation moved to impls/length.rs
+// Rule<WithLength> implementation moved to rule_impls/length.rs
 
 // ============================================================================
 // Tests
@@ -1038,10 +1038,10 @@ mod tests {
   }
 
   // ========================================================================
-  // String Validation Tests  →  see impls/string.rs
-  // Numeric Validation Tests →  see impls/step
-  // Collection Length Tests  →  see impls/length.rs
-  // ToAttributesList Tests   →  see impls/attributes.rs
+  // String Validation Tests  →  see rule_impls/string.rs
+  // Numeric Validation Tests →  see rule_impls/steppable.rs
+  // Collection Length Tests  →  see rule_impls/length.rs
+  // ToAttributesList Tests   →  see rule_impls/attributes.rs
   // ========================================================================
 
   // ==========================================================================

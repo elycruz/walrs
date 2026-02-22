@@ -43,7 +43,7 @@
 //! ```
 
 pub mod attributes;
-pub mod impls;
+pub(crate) mod rule_impls;
 pub mod message;
 pub mod rule;
 pub mod traits;
