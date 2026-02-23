@@ -13,7 +13,7 @@ The `Rule` enum provides built-in validation for common constraints:
 - `Rule::MinLength` / `Rule::MaxLength` - Length constraints
 - `Rule::Min` / `Rule::Max` - Range constraints
 - `Rule::Pattern` - Regex pattern matching
-- `Rule::Email` - Email format validation
+- `Rule::Email` - Configurable email validation (DNS/IP/local domains, local part length)
 - `Rule::Step` - Step/multiple validation
 - `Rule::Hostname` - Configurable hostname validation (DNS/IP/local/public IPv4)
 - `Rule::Date` - Date format validation (ISO 8601, US, EU, RFC 2822, custom)

@@ -12,7 +12,7 @@
 //! - `Rule::MinLength` / `Rule::MaxLength` - Length constraints
 //! - `Rule::Min` / `Rule::Max` - Range constraints
 //! - `Rule::Pattern` - Regex pattern matching
-//! - `Rule::Email` - Email format validation
+//! - `Rule::Email` - Configurable email validation (DNS/IP/local domains, local part length)
 //! - `Rule::Url` - Configurable URL validation (scheme filtering)
 //! - `Rule::Uri` - Configurable URI validation (scheme, relative/absolute)
 //! - `Rule::Ip` - Configurable IP address validation (IPv4/IPv6/IPvFuture)

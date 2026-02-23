@@ -75,7 +75,7 @@ impl LocalizedFormValidator {
         _ => "Email is required".to_string(),
       }, None)
       .and(
-        Rule::<String>::Email.with_message_provider(|ctx| match ctx.locale {
+        Rule::<String>::Email(Default::default()).with_message_provider(|ctx| match ctx.locale {
           Some("es") => "El formato del correo electrónico no es válido".to_string(),
           Some("fr") => "Le format de l'adresse e-mail est invalide".to_string(),
           Some("de") => "Ungültiges E-Mail-Format".to_string(),
