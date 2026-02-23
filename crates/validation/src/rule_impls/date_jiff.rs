@@ -106,15 +106,25 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
   if opts.allow_time {
     if let Ok(dt) = parse_datetime_str(value, &opts.format) {
       if let Some(min_str) = &opts.min {
+        // Try datetime bound first; fall back to date-only bound (compare date component)
         if let Ok(min_dt) = parse_bound_datetime(min_str) {
           if dt < min_dt {
+            return Err(Violation::date_range_underflow(min_str));
+          }
+        } else if let Ok(min_d) = parse_bound_date(min_str) {
+          if dt.date() < min_d {
             return Err(Violation::date_range_underflow(min_str));
           }
         }
       }
       if let Some(max_str) = &opts.max {
+        // Try datetime bound first; fall back to date-only bound (compare date component)
         if let Ok(max_dt) = parse_bound_datetime(max_str) {
           if dt > max_dt {
+            return Err(Violation::date_range_overflow(max_str));
+          }
+        } else if let Ok(max_d) = parse_bound_date(max_str) {
+          if dt.date() > max_d {
             return Err(Violation::date_range_overflow(max_str));
           }
         }
@@ -138,14 +148,20 @@ fn check_date_bounds(
   max: &Option<String>,
 ) -> RuleResult {
   if let Some(min_str) = min {
-    if let Ok(min_d) = parse_bound_date(min_str) {
+    // Try date-only bound first; fall back to datetime bound (extract date component)
+    let min_d = parse_bound_date(min_str)
+      .or_else(|_| parse_bound_datetime(min_str).map(|dt| dt.date()));
+    if let Ok(min_d) = min_d {
       if d < min_d {
         return Err(Violation::date_range_underflow(min_str));
       }
     }
   }
   if let Some(max_str) = max {
-    if let Ok(max_d) = parse_bound_date(max_str) {
+    // Try date-only bound first; fall back to datetime bound (extract date component)
+    let max_d = parse_bound_date(max_str)
+      .or_else(|_| parse_bound_datetime(max_str).map(|dt| dt.date()));
+    if let Ok(max_d) = max_d {
       if d > max_d {
         return Err(Violation::date_range_overflow(max_str));
       }
@@ -457,6 +473,49 @@ mod tests {
   fn test_validate_date_range_str_no_bounds() {
     let opts = DateRangeOptions::default();
     assert!(validate_date_range_str("2099-12-31", &opts).is_ok());
+  }
+
+  #[test]
+  fn test_validate_date_range_datetime_with_date_only_bounds() {
+    // allow_time = true but bounds are date-only: should compare by date component
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: true,
+      min: Some("2020-01-01".into()),
+      max: Some("2030-12-31".into()),
+    };
+    // datetime within range
+    assert!(validate_date_range_str("2025-06-15T12:00:00", &opts).is_ok());
+    // datetime before min date
+    assert_eq!(
+      validate_date_range_str("2019-12-31T23:59:59", &opts).unwrap_err().violation_type(),
+      ViolationType::RangeUnderflow,
+    );
+    // datetime after max date
+    assert_eq!(
+      validate_date_range_str("2031-01-01T00:00:00", &opts).unwrap_err().violation_type(),
+      ViolationType::RangeOverflow,
+    );
+  }
+
+  #[test]
+  fn test_validate_date_range_date_only_with_datetime_bounds() {
+    // allow_time = false but bounds include time: date component of bound is used
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2020-01-01T00:00:00".into()),
+      max: Some("2030-12-31T23:59:59".into()),
+    };
+    assert!(validate_date_range_str("2025-06-15", &opts).is_ok());
+    assert_eq!(
+      validate_date_range_str("2019-12-31", &opts).unwrap_err().violation_type(),
+      ViolationType::RangeUnderflow,
+    );
+    assert_eq!(
+      validate_date_range_str("2031-01-01", &opts).unwrap_err().violation_type(),
+      ViolationType::RangeOverflow,
+    );
   }
 
   // --- Native Date tests ---
