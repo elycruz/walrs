@@ -1,6 +1,5 @@
 //! Form data transfer object.
 use crate::path::{PathSegment, parse_path};
-use walrs_validation::indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use walrs_validation::Value;
@@ -60,7 +59,7 @@ impl FormData {
       .entry(first)
       .or_insert_with(|| match segments.get(1) {
         Some(PathSegment::Index(_)) => Value::Array(Vec::new()),
-        _ => Value::Object(IndexMap::new()),
+        _ => Value::Object(HashMap::new()),
       });
     set_nested(root, &segments[1..], value);
     self
@@ -95,7 +94,7 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
   match &segments[0] {
     PathSegment::Field(name) => {
       if !matches!(current, Value::Object(_)) {
-        *current = Value::Object(IndexMap::new());
+        *current = Value::Object(HashMap::new());
       }
       if let Value::Object(obj) = current {
         if segments.len() == 1 {
@@ -105,7 +104,7 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
             .entry(name.clone())
             .or_insert_with(|| match segments.get(1) {
               Some(PathSegment::Index(_)) => Value::Array(Vec::new()),
-              _ => Value::Object(IndexMap::new()),
+              _ => Value::Object(HashMap::new()),
             });
           set_nested(next, &segments[1..], value);
         }
@@ -159,7 +158,7 @@ mod tests {
   #[test]
   fn test_dot_notation_get() {
     let mut data = FormData::new();
-    let mut user = IndexMap::new();
+    let mut user = HashMap::new();
     user.insert("email".to_string(), Value::Str("test@example.com".to_string()));
     data.insert("user", Value::Object(user));
     assert_eq!(

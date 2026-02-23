@@ -4,8 +4,8 @@
 //! (`I64`, `U64`, `F64`), enabling proper type discrimination in validation
 //! rules and avoiding the precision/orphan-rule issues of `serde_json::Value`.
 
-use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt;
 
 /// Native form value type.
@@ -42,8 +42,8 @@ pub enum Value {
   Str(String),
   /// An ordered list of values.
   Array(Vec<Value>),
-  /// An ordered map of string keys to values.
-  Object(IndexMap<String, Value>),
+  /// A map of string keys to values.
+  Object(HashMap<String, Value>),
 }
 
 // ============================================================================
@@ -159,7 +159,15 @@ impl Value {
   }
 
   /// If the value is an `Object`, returns a reference to the map.
-  pub fn as_object(&self) -> Option<&IndexMap<String, Value>> {
+  pub fn as_object(&self) -> Option<&HashMap<String, Value>> {
+    match self {
+      Value::Object(map) => Some(map),
+      _ => None,
+    }
+  }
+
+  /// If the value is an `Object`, returns a mutable reference to the map.
+  pub fn as_object_mut(&mut self) -> Option<&mut HashMap<String, Value>> {
     match self {
       Value::Object(map) => Some(map),
       _ => None,
@@ -231,8 +239,8 @@ impl<T: Into<Value>> From<Vec<T>> for Value {
   }
 }
 
-impl<V: Into<Value>> From<IndexMap<String, V>> for Value {
-  fn from(m: IndexMap<String, V>) -> Self {
+impl<V: Into<Value>> From<HashMap<String, V>> for Value {
+  fn from(m: HashMap<String, V>) -> Self {
     Value::Object(m.into_iter().map(|(k, v)| (k, v.into())).collect())
   }
 }
@@ -240,6 +248,17 @@ impl<V: Into<Value>> From<IndexMap<String, V>> for Value {
 impl From<()> for Value {
   fn from(_: ()) -> Self {
     Value::Null
+  }
+}
+
+// ============================================================================
+// indexmap support (feature-gated)
+// ============================================================================
+
+#[cfg(feature = "indexmap")]
+impl<V: Into<Value>> From<indexmap::IndexMap<String, V>> for Value {
+  fn from(m: indexmap::IndexMap<String, V>) -> Self {
+    Value::Object(m.into_iter().map(|(k, v)| (k, v.into())).collect())
   }
 }
 
@@ -380,7 +399,7 @@ macro_rules! value {
   };
   ({ $($key:tt : $val:tt),* $(,)? }) => {
     $crate::Value::Object({
-      let mut map = indexmap::IndexMap::new();
+      let mut map = std::collections::HashMap::new();
       $( map.insert($key.to_string(), $crate::value!($val)); )*
       map
     })
@@ -425,12 +444,12 @@ mod tests {
 
   #[test]
   fn test_empty_object_is_empty() {
-    assert!(Value::Object(IndexMap::new()).is_empty_value());
+    assert!(Value::Object(HashMap::new()).is_empty_value());
   }
 
   #[test]
   fn test_non_empty_object_is_not_empty() {
-    let mut map = IndexMap::new();
+    let mut map = HashMap::new();
     map.insert("key".to_string(), Value::Str("value".to_string()));
     assert!(!Value::Object(map).is_empty_value());
   }
@@ -472,7 +491,7 @@ mod tests {
     assert_eq!(Value::F64(3.14).as_f64(), Some(3.14));
     assert_eq!(Value::Str("hi".to_string()).as_str(), Some("hi"));
     assert!(Value::Array(vec![]).as_array().is_some());
-    assert!(Value::Object(IndexMap::new()).as_object().is_some());
+    assert!(Value::Object(HashMap::new()).as_object().is_some());
   }
 
   #[test]
@@ -512,6 +531,39 @@ mod tests {
     assert_eq!(arr.as_array().unwrap().len(), 3);
   }
 
+  #[test]
+  fn test_from_hashmap() {
+    let mut map = HashMap::new();
+    map.insert("key".to_string(), "value".to_string());
+    let v = Value::from(map);
+    assert_eq!(
+      v.as_object().unwrap().get("key"),
+      Some(&Value::Str("value".to_string()))
+    );
+  }
+
+  #[test]
+  fn test_as_object_mut() {
+    let mut v = Value::Object(HashMap::new());
+    v.as_object_mut()
+      .unwrap()
+      .insert("k".to_string(), Value::I64(1));
+    assert_eq!(v.as_object().unwrap().get("k"), Some(&Value::I64(1)));
+  }
+
+  #[test]
+  fn test_value_macro_object() {
+    let obj = value!({"name": "test", "age": 42});
+    assert_eq!(
+      obj.as_object().unwrap().get("name"),
+      Some(&Value::Str("test".to_string()))
+    );
+    assert_eq!(
+      obj.as_object().unwrap().get("age"),
+      Some(&Value::I64(42))
+    );
+  }
+
   #[cfg(feature = "serde_json_bridge")]
   mod bridge_tests {
     use super::*;
@@ -535,6 +587,22 @@ mod tests {
       let v = Value::I64(42);
       let sj: serde_json::Value = v.into();
       assert_eq!(sj, serde_json::json!(42));
+    }
+  }
+
+  #[cfg(feature = "indexmap")]
+  mod indexmap_tests {
+    use super::*;
+
+    #[test]
+    fn test_from_indexmap() {
+      let mut map = indexmap::IndexMap::new();
+      map.insert("key".to_string(), "value".to_string());
+      let v = Value::from(map);
+      assert_eq!(
+        v.as_object().unwrap().get("key"),
+        Some(&Value::Str("value".to_string()))
+      );
     }
   }
 }
