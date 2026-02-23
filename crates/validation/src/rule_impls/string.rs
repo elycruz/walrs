@@ -32,7 +32,13 @@ fn validate_uri(value: &str, opts: &UriOptions) -> RuleResult {
     Err(_) => {
       // Not an absolute URI — check if relative is allowed
       if opts.allow_relative && !value.is_empty() {
-        Ok(())
+        // Validate as a relative reference using a fixed base URL.
+        // This ensures syntactically invalid relative URIs are rejected.
+        let base = url::Url::parse("http://example.com/").expect("hard-coded base URL must be valid");
+        match url::Url::options().base_url(Some(&base)).parse(value) {
+          Ok(_) => Ok(()),
+          Err(_) => Err(Violation::invalid_uri()),
+        }
       } else {
         Err(Violation::invalid_uri())
       }
