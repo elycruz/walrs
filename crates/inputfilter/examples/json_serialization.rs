@@ -172,7 +172,7 @@ fn main() {
   let loaded_filter: FieldFilter = serde_json::from_str(filter_config).unwrap();
 
   let valid_data: HashMap<String, Value> =
-    [("username".to_string(), Value::String("john".to_string()))]
+    [("username".to_string(), Value::Str("john".to_string()))]
       .into_iter()
       .collect();
 

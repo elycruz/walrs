@@ -134,7 +134,7 @@ mod tests {
   use super::*;
   use crate::input_element::InputElement;
   use crate::input_type::InputType;
-  use serde_json::json;
+  use walrs_validation::Value;
   #[test]
   fn test_new() {
     let form = Form::new("login");
@@ -151,7 +151,7 @@ mod tests {
     let mut form = Form::new("test");
     form.add_element(InputElement::new("email", InputType::Email).into());
     let mut data = FormData::new();
-    data.insert("email", json!("test@example.com"));
+    data.insert("email", Value::Str("test@example.com".to_string()));
     form.bind_data(data);
     if let Some(Element::Input(input)) = form.get_element("email") {
       assert_eq!(

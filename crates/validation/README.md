@@ -75,9 +75,18 @@ pub trait ValidateRef<T: ?Sized> {
 
 This crate also provides shared foundation types used across form-related crates:
 
-- **`Value`** - Re-export of `serde_json::Value` for dynamic form data
+- **`Value`** - Native form value enum with distinct numeric variants (`I64`, `U64`, `F64`), `Str`, `Bool`, `Array`, `Object(HashMap<String, Value>)`, and `Null`
 - **`ValueExt`** - Extension trait with form-specific helper methods (e.g., `is_empty_value()`)
+- **`value!`** - Convenience macro for constructing `Value` literals
 - **`Attributes`** - HTML attributes storage and rendering
+
+### `serde_json` Bridge
+
+The `serde_json_bridge` feature (enabled by default) provides `From<serde_json::Value> for Value` and vice-versa for interoperability.
+
+### `indexmap` Support
+
+The `indexmap` feature provides `From<IndexMap<String, V>> for Value` for constructing `Value::Object` from an `IndexMap`.
 
 ## License
 

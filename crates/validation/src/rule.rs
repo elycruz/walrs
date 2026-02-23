@@ -914,6 +914,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(feature = "serde_json_bridge")]
   fn test_rule_serialization() {
     let rule = Rule::<i32>::Range { min: 0, max: 100 };
     let json = serde_json::to_string(&rule).unwrap();
@@ -926,6 +927,7 @@ mod tests {
   }
 
   #[test]
+  #[cfg(feature = "serde_json_bridge")]
   fn test_complex_rule_serialization() {
     let rule = Rule::<String>::All(vec![
       Rule::Required,

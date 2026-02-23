@@ -155,68 +155,67 @@ impl Filter<String> {
 impl Filter<Value> {
   /// Apply the filter to a Value.
   ///
-  /// String-based filters only apply to `Value::String` variants.
-  /// Numeric filters apply to `Value::Number` variants.
+  /// String-based filters only apply to `Value::Str` variants.
+  /// Numeric filters apply to `Value::I64` / `Value::U64` / `Value::F64` variants.
   pub fn apply(&self, value: Value) -> Value {
     match self {
       Filter::Trim => {
-        if let Value::String(s) = value {
-          Value::String(s.trim().to_string())
+        if let Value::Str(s) = value {
+          Value::Str(s.trim().to_string())
         } else {
           value
         }
       }
       Filter::Lowercase => {
-        if let Value::String(s) = value {
-          Value::String(s.to_lowercase())
+        if let Value::Str(s) = value {
+          Value::Str(s.to_lowercase())
         } else {
           value
         }
       }
       Filter::Uppercase => {
-        if let Value::String(s) = value {
-          Value::String(s.to_uppercase())
+        if let Value::Str(s) = value {
+          Value::Str(s.to_uppercase())
         } else {
           value
         }
       }
       Filter::StripTags => {
-        if let Value::String(s) = value {
+        if let Value::Str(s) = value {
           let filter = StripTagsFilter::new();
-          Value::String(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
         } else {
           value
         }
       }
       Filter::HtmlEntities => {
-        if let Value::String(s) = value {
+        if let Value::Str(s) = value {
           let filter = XmlEntitiesFilter::new();
-          Value::String(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
         } else {
           value
         }
       }
       Filter::Slug { max_length } => {
-        if let Value::String(s) = value {
+        if let Value::Str(s) = value {
           let filter = SlugFilter::new(max_length.unwrap_or(200), false);
-          Value::String(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
         } else {
           value
         }
       }
       Filter::Clamp { min, max } => {
-        // Clamp numeric values - check integers first to preserve type
-        if let (Some(v), Some(min_v), Some(max_v)) = (value.as_i64(), min.as_i64(), max.as_i64()) {
-          Value::Number(v.clamp(min_v, max_v).into())
-        } else if let (Some(v), Some(min_v), Some(max_v)) =
-          (value.as_f64(), min.as_f64(), max.as_f64())
-        {
-          let clamped = v.clamp(min_v, max_v);
-          serde_json::Number::from_f64(clamped)
-            .map(Value::Number)
-            .unwrap_or(value)
-        } else {
-          value
+        match (&value, min, max) {
+          (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
+            Value::I64((*v).clamp(*min_v, *max_v))
+          }
+          (Value::U64(v), Value::U64(min_v), Value::U64(max_v)) => {
+            Value::U64((*v).clamp(*min_v, *max_v))
+          }
+          (Value::F64(v), Value::F64(min_v), Value::F64(max_v)) => {
+            Value::F64((*v).clamp(*min_v, *max_v))
+          }
+          _ => value,
         }
       }
       Filter::Chain(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
@@ -255,7 +254,7 @@ impl_numeric_filter!(i32, i64, f32, f64);
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
+  use walrs_validation::value;
 
   #[test]
   fn test_trim_string() {
@@ -304,38 +303,38 @@ mod tests {
   #[test]
   fn test_trim_value() {
     let filter = Filter::<Value>::Trim;
-    let result = filter.apply(json!("  hello  "));
-    assert_eq!(result, json!("hello"));
+    let result = filter.apply(Value::Str("  hello  ".to_string()));
+    assert_eq!(result, Value::Str("hello".to_string()));
   }
 
   #[test]
   fn test_clamp_value_f64() {
     let filter = Filter::<Value>::Clamp {
-      min: json!(0.0),
-      max: json!(100.0),
+      min: Value::F64(0.0),
+      max: Value::F64(100.0),
     };
-    assert_eq!(filter.apply(json!(150.0)), json!(100.0));
-    assert_eq!(filter.apply(json!(-10.0)), json!(0.0));
-    assert_eq!(filter.apply(json!(50.0)), json!(50.0));
+    assert_eq!(filter.apply(Value::F64(150.0)), Value::F64(100.0));
+    assert_eq!(filter.apply(Value::F64(-10.0)), Value::F64(0.0));
+    assert_eq!(filter.apply(Value::F64(50.0)), Value::F64(50.0));
   }
 
   #[test]
   fn test_clamp_value_i64() {
     let filter = Filter::<Value>::Clamp {
-      min: json!(0),
-      max: json!(100),
+      min: value!(0),
+      max: value!(100),
     };
-    assert_eq!(filter.apply(json!(150)), json!(100));
-    assert_eq!(filter.apply(json!(-10)), json!(0));
-    assert_eq!(filter.apply(json!(50)), json!(50));
+    assert_eq!(filter.apply(value!(150)), value!(100));
+    assert_eq!(filter.apply(value!(-10)), value!(0));
+    assert_eq!(filter.apply(value!(50)), value!(50));
   }
 
   #[test]
   fn test_filter_preserves_non_matching_types() {
     let filter = Filter::<Value>::Trim;
     // Trim shouldn't affect non-string values
-    assert_eq!(filter.apply(json!(42)), json!(42));
-    assert_eq!(filter.apply(json!(true)), json!(true));
+    assert_eq!(filter.apply(Value::I64(42)), Value::I64(42));
+    assert_eq!(filter.apply(Value::Bool(true)), Value::Bool(true));
   }
 
   #[test]
