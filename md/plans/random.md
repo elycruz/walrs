@@ -1,7 +1,7 @@
 ## Random Todos:
 
-- Move Filter enum to filter crate
-- Rename `Rule<T>` to `Constraint<T>`?  More precise (slightly more verbose though).
+- ~~Move Filter enum to filter crate.~~
+- ~~Rename `Rule<T>` to `Constraint<T>`?  More precise (slightly more verbose though).~~
 - Rename `validate*` to `check_validity*`/`check*`?
 - Disambiguate `Filter` enum from `Filter` trait.
 - Make `pub(crate)` updates (`pub(crate) fn validate_(str|len|etc)`).
