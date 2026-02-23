@@ -149,6 +149,20 @@ impl Rule<Value> {
           "Expected a string for Hostname.",
         )),
       },
+      Rule::Date(opts) => match value {
+        Value::Str(s) => Rule::<String>::Date(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for Date.",
+        )),
+      },
+      Rule::DateRange(opts) => match value {
+        Value::Str(s) => Rule::<String>::DateRange(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for DateRange.",
+        )),
+      },
 
       // ---- Numeric rules ----
       Rule::Min(bound) => match value.partial_cmp(bound) {

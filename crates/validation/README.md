@@ -16,6 +16,8 @@ The `Rule` enum provides built-in validation for common constraints:
 - `Rule::Email` - Email format validation
 - `Rule::Step` - Step/multiple validation
 - `Rule::Hostname` - Configurable hostname validation (DNS/IP/local/public IPv4)
+- `Rule::Date` - Date format validation (ISO 8601, US, EU, RFC 2822, custom)
+- `Rule::DateRange` - Date range validation with min/max bounds
 - `Rule::Custom` - Custom closure-based validation
 
 ## Rule Composition
@@ -88,6 +90,54 @@ The `serde_json_bridge` feature (enabled by default) provides `From<serde_json::
 ### `indexmap` Support
 
 The `indexmap` feature provides `From<IndexMap<String, V>> for Value` for constructing `Value::Object` from an `IndexMap`.
+
+### Date Validation (`chrono` / `jiff`)
+
+Date validation requires enabling one of the date crate features:
+
+```toml
+# Using chrono (most popular, widest ecosystem)
+walrs_validation = { path = "../validation", features = ["chrono"] }
+
+# Using jiff (modern API, best timezone handling)
+walrs_validation = { path = "../validation", features = ["jiff"] }
+```
+
+**String-based validation** — validate date strings with `Rule::Date` and `Rule::DateRange`:
+
+```rust,ignore
+use walrs_validation::{Rule, DateOptions, DateRangeOptions, DateFormat};
+
+// Validate ISO 8601 date strings
+let rule = Rule::<String>::Date(DateOptions::default());
+assert!(rule.validate_str("2026-02-23").is_ok());
+
+// Validate date range
+let rule = Rule::<String>::DateRange(DateRangeOptions {
+    format: DateFormat::Iso8601,
+    allow_time: false,
+    min: Some("2020-01-01".into()),
+    max: Some("2030-12-31".into()),
+});
+assert!(rule.validate_str("2025-06-15").is_ok());
+```
+
+**Native type validation** — validate `chrono::NaiveDate` / `jiff::civil::Date` directly:
+
+```rust,ignore
+// With chrono feature
+use chrono::NaiveDate;
+use walrs_validation::Rule;
+
+let min = NaiveDate::from_ymd_opt(2020, 1, 1).unwrap();
+let max = NaiveDate::from_ymd_opt(2030, 12, 31).unwrap();
+let rule = Rule::<NaiveDate>::Range { min, max };
+
+let date = NaiveDate::from_ymd_opt(2025, 6, 15).unwrap();
+assert!(rule.validate_date(&date).is_ok());
+```
+
+When both features are enabled, `chrono` takes precedence for string parsing.
 
 ## License
 

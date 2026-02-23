@@ -119,7 +119,9 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       | Rule::Url(_)
       | Rule::Uri(_)
       | Rule::Ip(_)
-      | Rule::Hostname(_) => Ok(()),
+      | Rule::Hostname(_)
+      | Rule::Date(_)
+      | Rule::DateRange(_) => Ok(()),
     }
   }
 

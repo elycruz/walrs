@@ -133,6 +133,8 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
       Rule::Uri(_) => None,
       Rule::Ip(_) => None,
       Rule::Hostname(_) => None,
+      Rule::Date(_) => None,
+      Rule::DateRange(_) => None,
 
       // WithMessage - delegate to inner rule
       Rule::WithMessage { rule, .. } => rule.to_attributes_list(),

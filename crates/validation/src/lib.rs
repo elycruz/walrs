@@ -17,6 +17,8 @@
 //! - `Rule::Uri` - Configurable URI validation (scheme, relative/absolute)
 //! - `Rule::Ip` - Configurable IP address validation (IPv4/IPv6/IPvFuture)
 //! - `Rule::Hostname` - Configurable hostname validation (DNS/IP/local/public IPv4)
+//! - `Rule::Date` - Configurable date format validation (ISO 8601, US, EU, custom)
+//! - `Rule::DateRange` - Date range validation with min/max bounds
 //! - `Rule::Step` - Step/multiple validation
 //! - `Rule::Custom` - Custom closure-based validation
 //!

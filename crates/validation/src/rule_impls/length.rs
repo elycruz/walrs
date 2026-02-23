@@ -91,6 +91,8 @@ impl<T: WithLength> Rule<T> {
       | Rule::Uri(_)
       | Rule::Ip(_)
       | Rule::Hostname(_)
+      | Rule::Date(_)
+      | Rule::DateRange(_)
       | Rule::Min(_)
       | Rule::Max(_)
       | Rule::Range { .. }

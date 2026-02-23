@@ -35,7 +35,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
-use crate::options::{HostnameOptions, IpOptions, UrlOptions, UriOptions};
+use crate::options::{DateOptions, DateRangeOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
 
 // ============================================================================
@@ -210,6 +210,13 @@ pub enum Rule<T> {
   /// Hostname validation with configurable options.
   Hostname(HostnameOptions),
 
+  // ---- Date Rules ----
+  /// Date format validation (validates that a string is a parseable date).
+  Date(DateOptions),
+
+  /// Date range validation (validates that a date falls within a range).
+  DateRange(DateRangeOptions),
+
   // ---- Numeric Rules ----
   /// Minimum value constraint
   Min(T),
@@ -293,6 +300,8 @@ impl<T: Debug> Debug for Rule<T> {
       Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
       Self::Ip(opts) => f.debug_tuple("Ip").field(opts).finish(),
       Self::Hostname(opts) => f.debug_tuple("Hostname").field(opts).finish(),
+      Self::Date(opts) => f.debug_tuple("Date").field(opts).finish(),
+      Self::DateRange(opts) => f.debug_tuple("DateRange").field(opts).finish(),
       Self::Min(v) => f.debug_tuple("Min").field(v).finish(),
       Self::Max(v) => f.debug_tuple("Max").field(v).finish(),
       Self::Range { min, max } => f
@@ -341,6 +350,8 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (Self::Uri(a), Self::Uri(b)) => a == b,
       (Self::Ip(a), Self::Ip(b)) => a == b,
       (Self::Hostname(a), Self::Hostname(b)) => a == b,
+      (Self::Date(a), Self::Date(b)) => a == b,
+      (Self::DateRange(a), Self::DateRange(b)) => a == b,
       (Self::Min(a), Self::Min(b)) => a == b,
       (Self::Max(a), Self::Max(b)) => a == b,
       (Self::Range { min: a1, max: a2 }, Self::Range { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
@@ -680,6 +691,16 @@ impl<T> Rule<T> {
   /// Creates a `Hostname` rule with the given options.
   pub fn hostname(options: HostnameOptions) -> Rule<T> {
     Rule::Hostname(options)
+  }
+
+  /// Creates a `Date` rule with the given options.
+  pub fn date(options: DateOptions) -> Rule<T> {
+    Rule::Date(options)
+  }
+
+  /// Creates a `DateRange` rule with the given options.
+  pub fn date_range(options: DateRangeOptions) -> Rule<T> {
+    Rule::DateRange(options)
   }
 
   /// Creates a `Min` rule.

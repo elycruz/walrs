@@ -2,7 +2,7 @@ use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
-use crate::options::{HostnameOptions, UriOptions, UrlOptions, IpOptions};
+use crate::options::{DateOptions, DateRangeOptions, HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
 // URI / IP Validation Helpers
@@ -254,6 +254,49 @@ fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
   Ok(())
 }
 
+// ============================================================================
+// Date Validation Dispatch
+// ============================================================================
+
+/// Dispatches date string validation to the active date crate.
+/// When both `chrono` and `jiff` are enabled, `chrono` takes precedence.
+#[cfg(feature = "chrono")]
+fn validate_date_str_dispatch(value: &str, opts: &DateOptions) -> RuleResult {
+  crate::rule_impls::date_chrono::validate_date_str(value, opts)
+}
+
+#[cfg(all(feature = "jiff", not(feature = "chrono")))]
+fn validate_date_str_dispatch(value: &str, opts: &DateOptions) -> RuleResult {
+  crate::rule_impls::date_jiff::validate_date_str(value, opts)
+}
+
+#[cfg(not(any(feature = "chrono", feature = "jiff")))]
+fn validate_date_str_dispatch(_value: &str, _opts: &DateOptions) -> RuleResult {
+  Err(Violation::new(
+    crate::ViolationType::CustomError,
+    "Date validation requires the `chrono` or `jiff` feature.",
+  ))
+}
+
+/// Dispatches date range string validation to the active date crate.
+#[cfg(feature = "chrono")]
+fn validate_date_range_str_dispatch(value: &str, opts: &DateRangeOptions) -> RuleResult {
+  crate::rule_impls::date_chrono::validate_date_range_str(value, opts)
+}
+
+#[cfg(all(feature = "jiff", not(feature = "chrono")))]
+fn validate_date_range_str_dispatch(value: &str, opts: &DateRangeOptions) -> RuleResult {
+  crate::rule_impls::date_jiff::validate_date_range_str(value, opts)
+}
+
+#[cfg(not(any(feature = "chrono", feature = "jiff")))]
+fn validate_date_range_str_dispatch(_value: &str, _opts: &DateRangeOptions) -> RuleResult {
+  Err(Violation::new(
+    crate::ViolationType::CustomError,
+    "Date range validation requires the `chrono` or `jiff` feature.",
+  ))
+}
+
 /// Cached validators for a compiled rule.
 ///
 /// This struct holds compiled regex patterns for string validation rules.
@@ -339,6 +382,8 @@ impl Rule<String> {
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Hostname(opts) => validate_hostname(value, opts),
+      Rule::Date(opts) => validate_date_str_dispatch(value, opts),
+      Rule::DateRange(opts) => validate_date_range_str_dispatch(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -608,6 +653,8 @@ impl CompiledRule<String> {
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Hostname(opts) => validate_hostname(value, opts),
+      Rule::Date(opts) => validate_date_str_dispatch(value, opts),
+      Rule::DateRange(opts) => validate_date_range_str_dispatch(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
