@@ -194,7 +194,7 @@ fn main() {
 
   let email_rule = Rule::<String>::Required
     .with_message_provider(|ctx| translate("email.required", ctx.locale), None)
-    .and(Rule::<String>::Email.with_message_provider(|ctx| translate("email.invalid", ctx.locale), None));
+    .and(Rule::<String>::Email(Default::default()).with_message_provider(|ctx| translate("email.invalid", ctx.locale), None));
 
   let invalid_email = "not-an-email".to_string();
 

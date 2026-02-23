@@ -199,6 +199,79 @@ impl Default for HostnameOptions {
   }
 }
 
+/// Options for email address validation (`Rule::Email`).
+///
+/// Controls which forms of email addresses are accepted. The domain part
+/// is validated using hostname rules; the local part is checked for length
+/// and allowed characters.
+///
+/// Inspired by laminas-validator's `EmailAddress` options, excluding
+/// network-dependent options (`useMxCheck`, `useDeepMxCheck`).
+///
+/// # Defaults
+///
+/// - `allow_dns`: `true`
+/// - `allow_ip`: `false`
+/// - `allow_local`: `false`
+/// - `check_domain`: `true`
+/// - `min_local_part_length`: `1`
+/// - `max_local_part_length`: `64`
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_validation::EmailOptions;
+///
+/// // Accept emails with IP-literal domains, e.g. `user@[192.168.0.1]`
+/// let opts = EmailOptions {
+///   allow_ip: true,
+///   ..Default::default()
+/// };
+///
+/// // Accept emails with local hostnames, e.g. `user@localhost`
+/// let opts = EmailOptions {
+///   allow_local: true,
+///   ..Default::default()
+/// };
+/// ```
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct EmailOptions {
+  /// Allow DNS domain names in the email domain part, e.g. `user@example.com`
+  /// (default: true).
+  pub allow_dns: bool,
+
+  /// Allow IP address literals in the email domain part, e.g. `user@[192.168.0.1]`
+  /// (default: false).
+  pub allow_ip: bool,
+
+  /// Allow local/reserved hostnames in the email domain part, e.g. `user@localhost`
+  /// (default: false).
+  pub allow_local: bool,
+
+  /// Whether to validate the domain part of the email address (default: true).
+  /// When false, only the local (user) part is checked.
+  pub check_domain: bool,
+
+  /// Minimum length for the local part (default: 1).
+  pub min_local_part_length: usize,
+
+  /// Maximum length for the local part (default: 64, per RFC 5321).
+  pub max_local_part_length: usize,
+}
+
+impl Default for EmailOptions {
+  fn default() -> Self {
+    Self {
+      allow_dns: true,
+      allow_ip: false,
+      allow_local: false,
+      check_domain: true,
+      min_local_part_length: 1,
+      max_local_part_length: 64,
+    }
+  }
+}
+
 /// Date format specification for date validation rules.
 ///
 /// Controls how date strings are parsed. Can be one of several common presets
@@ -417,6 +490,32 @@ mod tests {
     };
     let json = serde_json::to_string(&opts).unwrap();
     let deserialized: HostnameOptions = serde_json::from_str(&json).unwrap();
+    assert_eq!(opts, deserialized);
+  }
+
+  #[test]
+  fn test_email_options_default() {
+    let opts = EmailOptions::default();
+    assert!(opts.allow_dns);
+    assert!(!opts.allow_ip);
+    assert!(!opts.allow_local);
+    assert!(opts.check_domain);
+    assert_eq!(opts.min_local_part_length, 1);
+    assert_eq!(opts.max_local_part_length, 64);
+  }
+
+  #[test]
+  fn test_email_options_serialization() {
+    let opts = EmailOptions {
+      allow_dns: true,
+      allow_ip: true,
+      allow_local: false,
+      check_domain: true,
+      min_local_part_length: 2,
+      max_local_part_length: 32,
+    };
+    let json = serde_json::to_string(&opts).unwrap();
+    let deserialized: EmailOptions = serde_json::from_str(&json).unwrap();
     assert_eq!(opts, deserialized);
   }
 

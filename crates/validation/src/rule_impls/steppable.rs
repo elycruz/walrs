@@ -115,7 +115,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       | Rule::MaxLength(_)
       | Rule::ExactLength(_)
       | Rule::Pattern(_)
-      | Rule::Email
+      | Rule::Email(_)
       | Rule::Url(_)
       | Rule::Uri(_)
       | Rule::Ip(_)
