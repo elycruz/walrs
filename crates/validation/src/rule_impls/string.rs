@@ -867,7 +867,8 @@ mod tests {
     assert!(rule.validate_str("user@[192.168.0.1]").is_ok());
     assert!(rule.validate_str("user@[IPv6:::1]").is_ok());
     assert!(rule.validate_str("user@example.com").is_ok());
-    // IP without brackets rejected (not a valid hostname by default)
+    // IP without brackets must still be rejected (RFC 5321 requires brackets)
+    assert!(rule.validate_str("user@192.168.0.1").is_err());
     assert!(rule.validate_str("user@[not-an-ip]").is_err());
   }
 
