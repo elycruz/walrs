@@ -2,7 +2,7 @@ use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
-use crate::options::{UriOptions, UrlOptions, IpOptions};
+use crate::options::{HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
 // URI / IP Validation Helpers
@@ -128,6 +128,132 @@ fn is_ipvfuture(s: &str) -> bool {
   })
 }
 
+// ============================================================================
+// Hostname Validation Helpers
+// ============================================================================
+
+/// Returns `true` if `addr` is a reserved (non-public) IPv4 address.
+fn is_reserved_ipv4(addr: std::net::Ipv4Addr) -> bool {
+  let octets = addr.octets();
+  let [a, b, _, _] = octets;
+
+  // 0.0.0.0/8 – Current network
+  a == 0
+  // 10.0.0.0/8 – Private (RFC 1918)
+  || a == 10
+  // 100.64.0.0/10 – Shared address space (RFC 6598)
+  || (a == 100 && (b & 0xC0) == 64)
+  // 127.0.0.0/8 – Loopback
+  || a == 127
+  // 169.254.0.0/16 – Link-local
+  || (a == 169 && b == 254)
+  // 172.16.0.0/12 – Private (RFC 1918)
+  || (a == 172 && (b & 0xF0) == 16)
+  // 192.0.0.0/24 – IETF protocol assignments
+  || (a == 192 && b == 0 && octets[2] == 0)
+  // 192.0.2.0/24 – Documentation (RFC 5737)
+  || (a == 192 && b == 0 && octets[2] == 2)
+  // 192.168.0.0/16 – Private (RFC 1918)
+  || (a == 192 && b == 168)
+  // 198.18.0.0/15 – Benchmarking
+  || (a == 198 && (b & 0xFE) == 18)
+  // 198.51.100.0/24 – Documentation (RFC 5737)
+  || (a == 198 && b == 51 && octets[2] == 100)
+  // 203.0.113.0/24 – Documentation (RFC 5737)
+  || (a == 203 && b == 0 && octets[2] == 113)
+  // 224.0.0.0/4 – Multicast
+  || (a & 0xF0) == 224
+  // 240.0.0.0/4 – Reserved for future use + 255.255.255.255 broadcast
+  || (a & 0xF0) == 240
+}
+
+/// Validates a single DNS label per RFC 952/1123.
+fn is_valid_dns_label(label: &str) -> bool {
+  let len = label.len();
+  if len == 0 || len > 63 {
+    return false;
+  }
+  let bytes = label.as_bytes();
+  // Must start and end with alphanumeric
+  if !bytes[0].is_ascii_alphanumeric() || !bytes[len - 1].is_ascii_alphanumeric() {
+    return false;
+  }
+  // Interior characters: alphanumeric or hyphen
+  bytes.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'-')
+}
+
+/// Validates a hostname string according to the given options.
+fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
+  if value.is_empty() {
+    return Err(Violation::invalid_hostname());
+  }
+
+  // Try parsing as an IP address (IPv4 or IPv6)
+  if let Ok(ipv4) = value.parse::<std::net::Ipv4Addr>() {
+    if !opts.allow_ip {
+      return Err(Violation::invalid_hostname());
+    }
+    if opts.require_public_ipv4 && is_reserved_ipv4(ipv4) {
+      return Err(Violation::invalid_hostname());
+    }
+    return Ok(());
+  }
+
+  if value.parse::<std::net::Ipv6Addr>().is_ok() {
+    if !opts.allow_ip {
+      return Err(Violation::invalid_hostname());
+    }
+    // IPv6 addresses are not IPv4, so require_public_ipv4 does not reject them
+    return Ok(());
+  }
+
+  // Not an IP — treat as a hostname
+  // Strip optional trailing dot (root label) if present
+  let hostname = value.strip_suffix('.').unwrap_or(value);
+  if hostname.is_empty() {
+    return Err(Violation::invalid_hostname());
+  }
+
+  // Total length check (max 253 chars per RFC 1035, excluding optional trailing dot)
+  if hostname.len() > 253 {
+    return Err(Violation::invalid_hostname());
+  }
+
+  let labels: Vec<&str> = hostname.split('.').collect();
+
+  // Single-label hostname (local name)
+  if labels.len() == 1 {
+    if !opts.allow_local {
+      return Err(Violation::invalid_hostname());
+    }
+    return if is_valid_dns_label(labels[0]) {
+      Ok(())
+    } else {
+      Err(Violation::invalid_hostname())
+    };
+  }
+
+  // Multi-label hostname (DNS)
+  if !opts.allow_dns {
+    return Err(Violation::invalid_hostname());
+  }
+
+  // Validate each label
+  for label in &labels {
+    if !is_valid_dns_label(label) {
+      return Err(Violation::invalid_hostname());
+    }
+  }
+
+  // TLD must be alphabetic (no all-numeric TLDs)
+  let tld = labels.last().unwrap();
+  if !tld.bytes().all(|b| b.is_ascii_alphabetic()) {
+    return Err(Violation::invalid_hostname());
+  }
+
+  Ok(())
+}
+
 /// Cached validators for a compiled rule.
 ///
 /// This struct holds compiled regex patterns for string validation rules.
@@ -212,6 +338,7 @@ impl Rule<String> {
       Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
+      Rule::Hostname(opts) => validate_hostname(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -480,6 +607,7 @@ impl CompiledRule<String> {
       Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
+      Rule::Hostname(opts) => validate_hostname(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -1225,6 +1353,196 @@ mod tests {
     let opts = crate::IpOptions::default();
     let rule = Rule::<String>::ip(opts.clone());
     assert_eq!(rule, Rule::Ip(opts));
+  }
+
+  // ========================================================================
+  // Hostname Validation Tests
+  // ========================================================================
+
+  #[test]
+  fn test_validate_hostname_dns() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    assert!(rule.validate_str("example.com").is_ok());
+    assert!(rule.validate_str("sub.example.com").is_ok());
+    assert!(rule.validate_str("deep.sub.example.com").is_ok());
+    assert!(rule.validate_str("example.co.uk").is_ok());
+    assert!(rule.validate_str("a.com").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_dns_trailing_dot() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    assert!(rule.validate_str("example.com.").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_dns_disallowed() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      allow_dns: false,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("example.com").is_err());
+    assert!(rule.validate_str("sub.example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_ip_allowed() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    assert!(rule.validate_str("192.168.1.1").is_ok());
+    assert!(rule.validate_str("10.0.0.1").is_ok());
+    assert!(rule.validate_str("::1").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_ip_disallowed() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      allow_ip: false,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("192.168.1.1").is_err());
+    assert!(rule.validate_str("::1").is_err());
+    // DNS hostnames should still be accepted
+    assert!(rule.validate_str("example.com").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_local_default_rejected() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    assert!(rule.validate_str("localhost").is_err());
+    assert!(rule.validate_str("myhost").is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_local_allowed() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      allow_local: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("localhost").is_ok());
+    assert!(rule.validate_str("myhost").is_ok());
+    assert!(rule.validate_str("server1").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_require_public_ipv4() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      require_public_ipv4: true,
+      ..Default::default()
+    });
+    // Public IPs should pass
+    assert!(rule.validate_str("8.8.8.8").is_ok());
+    assert!(rule.validate_str("1.1.1.1").is_ok());
+    assert!(rule.validate_str("203.0.114.1").is_ok());
+
+    // Reserved IPs should fail
+    assert!(rule.validate_str("10.0.0.1").is_err());
+    assert!(rule.validate_str("172.16.0.1").is_err());
+    assert!(rule.validate_str("192.168.1.1").is_err());
+    assert!(rule.validate_str("127.0.0.1").is_err());
+    assert!(rule.validate_str("169.254.1.1").is_err());
+    assert!(rule.validate_str("0.0.0.0").is_err());
+    assert!(rule.validate_str("255.255.255.255").is_err());
+    assert!(rule.validate_str("192.0.2.1").is_err());
+    assert!(rule.validate_str("198.51.100.1").is_err());
+    assert!(rule.validate_str("203.0.113.1").is_err());
+    assert!(rule.validate_str("100.64.0.1").is_err());
+    assert!(rule.validate_str("224.0.0.1").is_err());
+    assert!(rule.validate_str("240.0.0.1").is_err());
+    assert!(rule.validate_str("198.18.0.1").is_err());
+
+    // IPv6 should still be accepted (not affected by require_public_ipv4)
+    assert!(rule.validate_str("::1").is_ok());
+
+    // DNS hostnames should still be accepted
+    assert!(rule.validate_str("example.com").is_ok());
+  }
+
+  #[test]
+  fn test_validate_hostname_invalid_inputs() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    assert!(rule.validate_str("").is_err());
+    assert!(rule.validate_str("-example.com").is_err());
+    assert!(rule.validate_str("example-.com").is_err());
+    assert!(rule.validate_str("exam ple.com").is_err());
+    assert!(rule.validate_str(".com").is_err());
+    assert!(rule.validate_str("example.123").is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_label_length() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    // Label with 63 chars - ok
+    let long_label = "a".repeat(63);
+    assert!(rule.validate_str(&format!("{}.com", long_label)).is_ok());
+    // Label with 64 chars - too long
+    let too_long_label = "a".repeat(64);
+    assert!(rule.validate_str(&format!("{}.com", too_long_label)).is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_total_length() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
+    // Total length > 253 should fail
+    let long_hostname = format!("{}.{}.{}.{}.com",
+      "a".repeat(63), "b".repeat(63), "c".repeat(63), "d".repeat(63));
+    assert!(long_hostname.len() > 253);
+    assert!(rule.validate_str(&long_hostname).is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_with_message() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions::default())
+      .with_message("Please enter a valid hostname");
+    let err = rule.validate_str("!!!").unwrap_err();
+    assert_eq!(err.message(), "Please enter a valid hostname");
+  }
+
+  #[test]
+  fn test_validate_hostname_composed() {
+    let rule = Rule::<String>::Required.and(Rule::Hostname(crate::HostnameOptions::default()));
+    assert!(rule.validate_str("example.com").is_ok());
+    assert!(rule.validate_str("").is_err());
+    assert!(rule.validate_str("!!!").is_err());
+  }
+
+  #[test]
+  fn test_compiled_rule_hostname() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      allow_ip: false,
+      ..Default::default()
+    });
+    let compiled = rule.compile();
+    assert!(compiled.validate_str("example.com").is_ok());
+    assert!(compiled.validate_str("192.168.1.1").is_err());
+  }
+
+  #[test]
+  fn test_validate_hostname_all_violations() {
+    let rule = Rule::<String>::Required
+      .and(Rule::Hostname(crate::HostnameOptions { allow_ip: false, ..Default::default() }));
+    assert!(rule.validate_str_all("example.com").is_ok());
+    let result = rule.validate_str_all("192.168.1.1");
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_hostname_rule_serialization() {
+    let rule = Rule::<String>::Hostname(crate::HostnameOptions {
+      allow_dns: true,
+      allow_ip: false,
+      allow_local: true,
+      require_public_ipv4: false,
+    });
+    let json = serde_json::to_string(&rule).unwrap();
+    let deserialized: Rule<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(rule, deserialized);
+  }
+
+  #[test]
+  fn test_hostname_constructor() {
+    let opts = crate::HostnameOptions::default();
+    let rule = Rule::<String>::hostname(opts.clone());
+    assert_eq!(rule, Rule::Hostname(opts));
   }
 }
 

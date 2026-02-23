@@ -35,7 +35,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
-use crate::options::{IpOptions, UrlOptions, UriOptions};
+use crate::options::{HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
 
 // ============================================================================
@@ -207,6 +207,9 @@ pub enum Rule<T> {
   /// IP address validation with configurable options.
   Ip(IpOptions),
 
+  /// Hostname validation with configurable options.
+  Hostname(HostnameOptions),
+
   // ---- Numeric Rules ----
   /// Minimum value constraint
   Min(T),
@@ -289,6 +292,7 @@ impl<T: Debug> Debug for Rule<T> {
       Self::Url(opts) => f.debug_tuple("Url").field(opts).finish(),
       Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
       Self::Ip(opts) => f.debug_tuple("Ip").field(opts).finish(),
+      Self::Hostname(opts) => f.debug_tuple("Hostname").field(opts).finish(),
       Self::Min(v) => f.debug_tuple("Min").field(v).finish(),
       Self::Max(v) => f.debug_tuple("Max").field(v).finish(),
       Self::Range { min, max } => f
@@ -336,6 +340,7 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (Self::Url(a), Self::Url(b)) => a == b,
       (Self::Uri(a), Self::Uri(b)) => a == b,
       (Self::Ip(a), Self::Ip(b)) => a == b,
+      (Self::Hostname(a), Self::Hostname(b)) => a == b,
       (Self::Min(a), Self::Min(b)) => a == b,
       (Self::Max(a), Self::Max(b)) => a == b,
       (Self::Range { min: a1, max: a2 }, Self::Range { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
@@ -670,6 +675,11 @@ impl<T> Rule<T> {
   /// Creates an `Ip` rule with the given options.
   pub fn ip(options: IpOptions) -> Rule<T> {
     Rule::Ip(options)
+  }
+
+  /// Creates a `Hostname` rule with the given options.
+  pub fn hostname(options: HostnameOptions) -> Rule<T> {
+    Rule::Hostname(options)
   }
 
   /// Creates a `Min` rule.

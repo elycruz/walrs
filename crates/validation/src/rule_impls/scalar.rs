@@ -130,7 +130,8 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
       | Rule::Email
       | Rule::Url(_)
       | Rule::Uri(_)
-      | Rule::Ip(_) => Ok(()),
+      | Rule::Ip(_)
+      | Rule::Hostname(_) => Ok(()),
     }
   }
 
