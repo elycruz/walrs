@@ -21,6 +21,10 @@ use crate::Violation;
 const US_DATE_FMT: &str = "%m/%d/%Y";
 /// Format string for EU-style date: `DD/MM/YYYY`
 const EU_DATE_FMT: &str = "%d/%m/%Y";
+/// Format string for US-style datetime: `MM/DD/YYYY HH:MM:SS`
+const US_DATETIME_FMT: &str = "%m/%d/%Y %H:%M:%S";
+/// Format string for EU-style datetime: `DD/MM/YYYY HH:MM:SS`
+const EU_DATETIME_FMT: &str = "%d/%m/%Y %H:%M:%S";
 
 /// Parses a date string using the given `DateFormat`, returning a `jiff::civil::Date`.
 pub(crate) fn parse_date_str(value: &str, format: &DateFormat) -> Result<Date, ()> {
@@ -51,12 +55,10 @@ pub(crate) fn parse_datetime_str(
         .map_err(|_| ())
     }
     DateFormat::UsDate => {
-      let fmt = format!("{} %H:%M:%S", US_DATE_FMT);
-      DateTime::strptime(&fmt, value).map_err(|_| ())
+      DateTime::strptime(US_DATETIME_FMT, value).map_err(|_| ())
     }
     DateFormat::EuDate => {
-      let fmt = format!("{} %H:%M:%S", EU_DATE_FMT);
-      DateTime::strptime(&fmt, value).map_err(|_| ())
+      DateTime::strptime(EU_DATETIME_FMT, value).map_err(|_| ())
     }
     DateFormat::Rfc2822 => {
       value
