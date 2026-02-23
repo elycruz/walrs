@@ -3,7 +3,7 @@
 // String dispatch helpers are only called when jiff is the active date crate
 // (i.e., `jiff` enabled and `chrono` disabled). Suppress dead_code warnings
 // when both features are enabled simultaneously.
-#![allow(dead_code)]
+#![cfg_attr(all(feature = "chrono", feature = "jiff"), allow(dead_code))]
 
 use jiff::civil::Date;
 use jiff::civil::DateTime;
