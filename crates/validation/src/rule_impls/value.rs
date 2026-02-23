@@ -121,11 +121,25 @@ impl Rule<Value> {
           "Expected a string for Email.",
         )),
       },
-      Rule::Url => match value {
-        Value::Str(s) => Rule::<String>::Url.validate_str(s.as_str()),
+      Rule::Url(opts) => match value {
+        Value::Str(s) => Rule::<String>::Url(opts.clone()).validate_str(s.as_str()),
         _ => Err(Violation::new(
           ViolationType::TypeMismatch,
           "Expected a string for Url.",
+        )),
+      },
+      Rule::Uri(opts) => match value {
+        Value::Str(s) => Rule::<String>::Uri(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for Uri.",
+        )),
+      },
+      Rule::Ip(opts) => match value {
+        Value::Str(s) => Rule::<String>::Ip(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for Ip.",
         )),
       },
 
@@ -354,7 +368,7 @@ mod tests {
 
   #[test]
   fn test_url() {
-    let rule = Rule::<Value>::Url;
+    let rule = Rule::<Value>::Url(Default::default());
     assert!(rule.validate_value(&Value::Str("https://example.com".to_string())).is_ok());
     assert!(rule.validate_value(&Value::Str("not-a-url".to_string())).is_err());
   }
@@ -438,7 +452,7 @@ mod tests {
   fn test_any() {
     let rule = Rule::<Value>::Any(vec![
       Rule::Email,
-      Rule::Url,
+      Rule::Url(Default::default()),
     ]);
     assert!(rule.validate_value(&Value::Str("test@example.com".to_string())).is_ok());
     assert!(rule.validate_value(&Value::Str("https://example.com".to_string())).is_ok());

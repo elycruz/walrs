@@ -156,7 +156,7 @@ fn main() {
   // Example 9: Pattern matching
   println!("\n9. Pattern matching:");
   let email_pattern = Rule::<String>::Email;
-  let url_pattern = Rule::<String>::Url;
+  let url_pattern = Rule::<String>::Url(Default::default());
   let custom_pattern = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
 
   println!(

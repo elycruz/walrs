@@ -48,6 +48,46 @@ impl Default for UriOptions {
   }
 }
 
+/// Options for URL validation (`Rule::Url`).
+///
+/// Controls which URL schemes are accepted. Uses the `url` crate's WHATWG URL Standard
+/// parser (absolute URLs only). For relative URI support, use `Rule::Uri(UriOptions)`.
+///
+/// # Defaults
+///
+/// - `allowed_schemes`: `Some(["http", "https"])` (backward-compatible)
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_validation::UrlOptions;
+///
+/// // Accept any scheme
+/// let opts = UrlOptions {
+///   allowed_schemes: None,
+/// };
+///
+/// // Only HTTPS
+/// let opts = UrlOptions {
+///   allowed_schemes: Some(vec!["https".into()]),
+/// };
+/// ```
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UrlOptions {
+  /// Restrict to specific schemes (case-insensitive).
+  /// Defaults to `Some(["http", "https"])`.
+  /// `None` means any scheme is accepted.
+  pub allowed_schemes: Option<Vec<String>>,
+}
+
+impl Default for UrlOptions {
+  fn default() -> Self {
+    Self {
+      allowed_schemes: Some(vec!["http".into(), "https".into()]),
+    }
+  }
+}
+
 /// Options for IP address validation (`Rule::Ip`).
 ///
 /// Controls which IP address forms are accepted.
@@ -108,6 +148,25 @@ mod tests {
     assert!(opts.allow_absolute);
     assert!(opts.allow_relative);
     assert!(opts.allowed_schemes.is_none());
+  }
+
+  #[test]
+  fn test_url_options_default() {
+    let opts = UrlOptions::default();
+    assert_eq!(
+      opts.allowed_schemes,
+      Some(vec!["http".to_string(), "https".to_string()])
+    );
+  }
+
+  #[test]
+  fn test_url_options_serialization() {
+    let opts = UrlOptions {
+      allowed_schemes: Some(vec!["https".into()]),
+    };
+    let json = serde_json::to_string(&opts).unwrap();
+    let deserialized: UrlOptions = serde_json::from_str(&json).unwrap();
+    assert_eq!(opts, deserialized);
   }
 
   #[test]

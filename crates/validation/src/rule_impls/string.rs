@@ -2,7 +2,7 @@ use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
-use crate::options::{UriOptions, IpOptions};
+use crate::options::{UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
 // URI / IP Validation Helpers
@@ -37,6 +37,22 @@ fn validate_uri(value: &str, opts: &UriOptions) -> RuleResult {
         Err(Violation::invalid_uri())
       }
     }
+  }
+}
+
+/// Validates a string as a URL using the `url` crate's WHATWG parser.
+fn validate_url(value: &str, opts: &UrlOptions) -> RuleResult {
+  match url::Url::parse(value) {
+    Ok(parsed) => {
+      if let Some(schemes) = &opts.allowed_schemes {
+        let scheme = parsed.scheme();
+        if !schemes.iter().any(|s| s.eq_ignore_ascii_case(scheme)) {
+          return Err(Violation::invalid_url());
+        }
+      }
+      Ok(())
+    }
+    Err(_) => Err(Violation::invalid_url()),
   }
 }
 
@@ -116,8 +132,6 @@ pub(crate) struct CachedStringValidators {
   pub(crate) pattern_regex: Option<regex::Regex>,
   /// Cached email regex
   pub(crate) email_regex: Option<regex::Regex>,
-  /// Cached URL regex
-  pub(crate) url_regex: Option<regex::Regex>,
 }
 
 impl CachedStringValidators {
@@ -189,15 +203,7 @@ impl Rule<String> {
           Err(Violation::invalid_email())
         }
       }
-      Rule::Url => {
-        // Simple URL validation using regex
-        let url_re = regex::Regex::new(r"^https?://[^\s/$.?#].\S*$").unwrap();
-        if url_re.is_match(value) {
-          Ok(())
-        } else {
-          Err(Violation::invalid_url())
-        }
-      }
+      Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Equals(expected) => {
@@ -394,9 +400,6 @@ impl CompiledRule<String> {
       cache.email_regex =
         regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").ok();
 
-      // Pre-compile URL regex
-      cache.url_regex = regex::Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").ok();
-
       cache
     })
   }
@@ -468,18 +471,7 @@ impl CompiledRule<String> {
           Err(Violation::invalid_email())
         }
       }
-      Rule::Url => {
-        let matches = cache
-          .url_regex
-          .as_ref()
-          .map(|re| re.is_match(value))
-          .unwrap_or(false);
-        if matches {
-          Ok(())
-        } else {
-          Err(Violation::invalid_url())
-        }
-      }
+      Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Equals(expected) => {
@@ -621,11 +613,69 @@ mod tests {
 
   #[test]
   fn test_validate_str_url() {
-    let rule = Rule::<String>::Url;
+    let rule = Rule::<String>::Url(crate::UrlOptions::default());
     assert!(rule.validate_str("http://example.com").is_ok());
     assert!(rule.validate_str("https://example.com/path").is_ok());
     assert!(rule.validate_str("not-a-url").is_err());
-    assert!(rule.validate_str("ftp://example.com").is_err()); // Only http/https
+    assert!(rule.validate_str("ftp://example.com").is_err()); // Only http/https by default
+  }
+
+  #[test]
+  fn test_validate_str_url_any_scheme() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: None,
+    });
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("ftp://example.com").is_ok());
+    assert!(rule.validate_str("custom://example.com").is_ok());
+    assert!(rule.validate_str("not-a-url").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_custom_schemes() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: Some(vec!["ftp".into(), "ftps".into()]),
+    });
+    assert!(rule.validate_str("ftp://example.com").is_ok());
+    assert!(rule.validate_str("ftps://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("https://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_scheme_case_insensitive() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: Some(vec!["https".into()]),
+    });
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("HTTPS://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_composed_with_required() {
+    let rule = Rule::<String>::Required.and(Rule::Url(crate::UrlOptions::default()));
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("").is_err());
+    assert!(rule.validate_str("not-a-url").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_compiled() {
+    let compiled = Rule::<String>::Url(crate::UrlOptions::default()).compile();
+    assert!(compiled.validate_str("http://example.com").is_ok());
+    assert!(compiled.validate_str("https://example.com/path?q=1#frag").is_ok());
+    assert!(compiled.validate_str("not-a-url").is_err());
+    assert!(compiled.validate_str("ftp://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_with_message() {
+    let rule = Rule::<String>::Url(crate::UrlOptions::default())
+      .with_message("Please enter a valid URL");
+    let err = rule.validate_str("bad").unwrap_err();
+    assert_eq!(err.message(), "Please enter a valid URL");
   }
 
   #[test]
@@ -653,7 +703,7 @@ mod tests {
 
   #[test]
   fn test_validate_str_any() {
-    let rule = Rule::<String>::Email.or(Rule::Url);
+    let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
     assert!(rule.validate_str("user@example.com").is_ok());
     assert!(rule.validate_str("http://example.com").is_ok());
     assert!(rule.validate_str("neither").is_err());
@@ -803,7 +853,7 @@ mod tests {
 
   #[test]
   fn test_compiled_rule_url() {
-    let rule = Rule::<String>::Url;
+    let rule = Rule::<String>::Url(crate::UrlOptions::default());
     let compiled = rule.compile();
 
     assert!(compiled.validate_str("http://example.com").is_ok());
