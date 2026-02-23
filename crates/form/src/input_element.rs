@@ -29,10 +29,10 @@ use walrs_validation::Violations;
 ///
 /// ```rust
 /// use walrs_form::{InputElement, InputType};
-/// use serde_json::json;
+/// use walrs_validation::Value;
 ///
 /// let mut input = InputElement::new("username", InputType::Text);
-/// input.value = Some(json!("john_doe"));
+/// input.value = Some(Value::from("john_doe"));
 /// input.required = Some(true);
 ///
 /// assert_eq!(input.name.as_deref(), Some("username"));
@@ -107,10 +107,10 @@ impl InputElement {
   ///
   /// ```rust
   /// use walrs_form::{InputElement, InputType};
-  /// use serde_json::json;
+  /// use walrs_validation::Value;
   ///
   /// let input = InputElement::new("test", InputType::Text);
-  /// assert!(input.validate_value(&json!("hello")).is_ok());
+  /// assert!(input.validate_value(&Value::from("hello")).is_ok());
   /// ```
   pub fn validate_value(&self, value: &Value) -> Result<(), Violations> {
     if let Some(ref field) = self.field {
@@ -123,7 +123,6 @@ impl InputElement {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
   #[test]
   fn test_new() {
     let input = InputElement::new("email", InputType::Email);
@@ -153,12 +152,12 @@ mod tests {
   #[test]
   fn test_validate_without_field() {
     let input = InputElement::new("test", InputType::Text);
-    assert!(input.validate_value(&json!("hello")).is_ok());
+    assert!(input.validate_value(&Value::from("hello")).is_ok());
   }
   #[test]
   fn test_with_value() {
     let mut input = InputElement::new("age", InputType::Number);
-    input.value = Some(json!(25));
+    input.value = Some(Value::from(25i32));
     assert_eq!(input.value.unwrap().as_i64(), Some(25));
   }
 }

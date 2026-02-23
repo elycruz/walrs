@@ -8,6 +8,7 @@
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };
+use walrs_validation::Value;
 use walrs_validation::{Rule, ValidateRef};
 
 /// A simple struct to represent locale-aware validation results
@@ -194,9 +195,9 @@ fn main() {
   println!("\n--- Simulating Form Submission with Invalid Data ---\n");
 
   let mut data = FormData::new();
-  data.insert("username", serde_json::json!("ab")); // Too short
-  data.insert("email", serde_json::json!("not-an-email")); // Invalid format
-  data.insert("password", serde_json::json!("weak")); // Too short, no uppercase, no number
+  data.insert("username", Value::from("ab")); // Too short
+  data.insert("email", Value::from("not-an-email")); // Invalid format
+  data.insert("password", Value::from("weak")); // Too short, no uppercase, no number
 
   // Test validation in different locales
   let locales = [
@@ -248,9 +249,9 @@ fn main() {
   println!("=== Validation with Valid Data (Spanish) ===\n");
 
   let mut valid_data = FormData::new();
-  valid_data.insert("username", serde_json::json!("john_doe"));
-  valid_data.insert("email", serde_json::json!("john@example.com"));
-  valid_data.insert("password", serde_json::json!("SecurePass123"));
+  valid_data.insert("username", Value::from("john_doe"));
+  valid_data.insert("email", Value::from("john@example.com"));
+  valid_data.insert("password", Value::from("SecurePass123"));
 
   let validator = LocalizedFormValidator::new(Some("es"));
 

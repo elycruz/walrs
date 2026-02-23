@@ -115,10 +115,10 @@ impl TextareaElement {
   ///
   /// ```rust
   /// use walrs_form::TextareaElement;
-  /// use serde_json::json;
+  /// use walrs_validation::Value;
   ///
   /// let textarea = TextareaElement::new("test");
-  /// assert!(textarea.validate_value(&json!("some text")).is_ok());
+  /// assert!(textarea.validate_value(&Value::from("some text")).is_ok());
   /// ```
   pub fn validate_value(&self, value: &Value) -> Result<(), Violations> {
     if let Some(ref field) = self.field {
@@ -131,7 +131,6 @@ impl TextareaElement {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
   #[test]
   fn test_new() {
     let textarea = TextareaElement::new("bio");
@@ -159,7 +158,7 @@ mod tests {
   #[test]
   fn test_validate_without_field() {
     let textarea = TextareaElement::new("test");
-    assert!(textarea.validate_value(&json!("text")).is_ok());
+    assert!(textarea.validate_value(&Value::from("text")).is_ok());
   }
   #[test]
   fn test_serialization() {

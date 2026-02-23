@@ -103,3 +103,15 @@ Simple and succinct just for displaying [validation] messages however front-end 
   }
 }
 ```
+
+## Filter<{Numeric}> support
+
+```rust
+use walrs_inputfilter::filter_enum::Filter;
+    
+fn main() {
+  let filter = Filter::<i32>::Clamp { min: 0, max: 100 };
+  
+  assert_eq!(filter.apply(150), 100);
+}
+```

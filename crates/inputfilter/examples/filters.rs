@@ -102,18 +102,18 @@ fn main() {
     println!("   '{}'\n      -> '{}'", title, result);
   }
 
-  // Example 10: Applying filters to serde_json::Value
-  println!("\n10. Filters with serde_json::Value:");
+  // Example 10: Applying filters to Value
+  println!("\n10. Filters with Value:");
   use walrs_validation::Value;
 
   let value_trim = Filter::<Value>::Trim;
-  let json_value = Value::String("  hello  ".to_string());
+  let json_value = Value::Str("  hello  ".to_string());
   let result = value_trim.apply(json_value.clone());
   println!("   Input:  {:?}", json_value);
   println!("   Output: {:?}", result);
 
   // Non-string values pass through unchanged
-  let number_value = Value::Number(42.into());
+  let number_value = Value::I64(42);
   let result = value_trim.apply(number_value.clone());
   println!("\n   Input (number):  {:?}", number_value);
   println!("   Output (unchanged): {:?}", result);

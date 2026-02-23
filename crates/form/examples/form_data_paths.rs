@@ -2,34 +2,33 @@
 //!
 //! This example demonstrates how to use FormData's dot notation
 //! and array indexing for nested data structures.
-use serde_json::json;
 use walrs_form::FormData;
+use walrs_validation::Value;
+
 fn main() {
   println!("FormData Path-Based Access Example");
   println!("===================================\n");
   let mut data = FormData::new();
   // Simple values
-  data.insert("email", json!("user@example.com"));
-  data.insert("age", json!(25));
+  data.insert("email", Value::from("user@example.com"));
+  data.insert("age", Value::from(25i32));
   println!("Simple access:");
   println!("  email: {:?}", data.get("email").unwrap().as_str());
   println!("  age: {:?}", data.get("age").unwrap().as_i64());
   println!();
-  // Nested object
-  data.insert(
-    "user",
-    json!({
-        "profile": {
-            "firstName": "John",
-            "lastName": "Doe",
-            "avatar": "avatar.png"
-        },
-        "settings": {
-            "theme": "dark",
-            "notifications": true
-        }
-    }),
-  );
+  // Nested object - use serde_json bridge for complex literal construction
+  let user_json = serde_json::json!({
+      "profile": {
+          "firstName": "John",
+          "lastName": "Doe",
+          "avatar": "avatar.png"
+      },
+      "settings": {
+          "theme": "dark",
+          "notifications": true
+      }
+  });
+  data.insert("user", Value::from(user_json));
   println!("Dot notation access:");
   println!(
     "  user.profile.firstName: {:?}",
@@ -40,15 +39,13 @@ fn main() {
     data.get("user.settings.theme").unwrap().as_str()
   );
   println!();
-  // Array data
-  data.insert(
-    "items",
-    json!([
-        {"id": 1, "name": "Item 1", "price": 10.99},
-        {"id": 2, "name": "Item 2", "price": 24.99},
-        {"id": 3, "name": "Item 3", "price": 5.49}
-    ]),
-  );
+  // Array data - use serde_json bridge for complex literal
+  let items_json = serde_json::json!([
+      {"id": 1, "name": "Item 1", "price": 10.99},
+      {"id": 2, "name": "Item 2", "price": 24.99},
+      {"id": 3, "name": "Item 3", "price": 5.49}
+  ]);
+  data.insert("items", Value::from(items_json));
   println!("Array indexing:");
   println!(
     "  items[0].name: {:?}",
@@ -65,9 +62,9 @@ fn main() {
   println!();
   // Setting nested values
   println!("Setting nested values:");
-  data.set("address.street", json!("123 Main St"));
-  data.set("address.city", json!("Springfield"));
-  data.set("address.state", json!("IL"));
+  data.set("address.street", Value::from("123 Main St"));
+  data.set("address.city", Value::from("Springfield"));
+  data.set("address.state", Value::from("IL"));
   println!(
     "  address.street: {:?}",
     data.get("address.street").unwrap().as_str()
@@ -79,18 +76,18 @@ fn main() {
   println!();
   // Setting array values
   println!("Setting array values:");
-  data.set("tags[0]", json!("rust"));
-  data.set("tags[1]", json!("web"));
-  data.set("tags[2]", json!("forms"));
+  data.set("tags[0]", Value::from("rust"));
+  data.set("tags[1]", Value::from("web"));
+  data.set("tags[2]", Value::from("forms"));
   println!("  tags[0]: {:?}", data.get("tags[0]").unwrap().as_str());
   println!("  tags[1]: {:?}", data.get("tags[1]").unwrap().as_str());
   println!("  tags[2]: {:?}", data.get("tags[2]").unwrap().as_str());
   println!();
   // Complex nested array
-  data.set("orders[0].items[0].name", json!("Widget"));
-  data.set("orders[0].items[0].qty", json!(5));
-  data.set("orders[0].items[1].name", json!("Gadget"));
-  data.set("orders[0].items[1].qty", json!(2));
+  data.set("orders[0].items[0].name", Value::from("Widget"));
+  data.set("orders[0].items[0].qty", Value::from(5i32));
+  data.set("orders[0].items[1].name", Value::from("Gadget"));
+  data.set("orders[0].items[1].qty", Value::from(2i32));
   println!("Complex nested paths:");
   println!(
     "  orders[0].items[0].name: {:?}",

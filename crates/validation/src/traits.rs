@@ -92,6 +92,7 @@ impl SteppableValue for f64 {
 }
 
 /// Trait for types that can be converted to HTML form element attributes.
+#[cfg(feature = "serde_json_bridge")]
 pub trait ToAttributesList {
   /// Returns the validator's rules as key/value pairs suitable for HTML attributes.
   fn to_attributes_list(&self) -> Option<Vec<(String, serde_json::Value)>>;
@@ -128,6 +129,12 @@ impl<T> IsEmpty for Vec<T> {
 
 impl<T> IsEmpty for Option<T> {
   fn is_empty(&self) -> bool { self.is_none() }
+}
+
+impl IsEmpty for crate::Value {
+  fn is_empty(&self) -> bool {
+    crate::ValueExt::is_empty_value(self)
+  }
 }
 
 /// Implements [`IsEmpty`] for types that are *never* considered empty

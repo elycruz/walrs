@@ -18,7 +18,7 @@
 //!
 //! ```rust
 //! use walrs_form::{Form, FormMethod, InputElement, InputType, ButtonElement, ButtonType, FormData};
-//! use serde_json::json;
+//! use walrs_validation::Value;
 //!
 //! // Create a login form
 //! let mut form = Form::new("login");
@@ -32,7 +32,7 @@
 //!
 //! // Bind data to the form
 //! let mut data = FormData::new();
-//! data.insert("username", json!("john_doe"));
+//! data.insert("username", Value::from("john_doe"));
 //! form.bind_data(data);
 //!
 //! // Serialize to JSON

@@ -1,8 +1,8 @@
 # Plan: Introduce a Custom `form_core::Value` Enum
 
 **Date:** February 19, 2026  
-**Status:** Planned  
-**Crates affected:** `walrs_form_core`, `walrs_inputfilter`
+**Status:** ✅ Complete (implemented February 23, 2026)  
+**Crates affected:** `walrs_validation`, `walrs_inputfilter`, `walrs_form`
 
 ---
 
