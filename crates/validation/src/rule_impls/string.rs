@@ -309,7 +309,7 @@ fn validate_email(value: &str, opts: &EmailOptions) -> RuleResult {
     // Validate as a hostname
     let hostname_opts = HostnameOptions {
       allow_dns: opts.allow_dns,
-      allow_ip: opts.allow_ip,
+      allow_ip: false,
       allow_local: opts.allow_local,
       require_public_ipv4: false,
     };
