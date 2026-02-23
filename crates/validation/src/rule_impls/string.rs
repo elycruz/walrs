@@ -208,14 +208,14 @@ fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
   }
 
   // Not an IP — treat as a hostname
-  // Total length check (max 253 chars per RFC 1035)
-  if value.len() > 253 {
+  // Strip optional trailing dot (root label) if present
+  let hostname = value.strip_suffix('.').unwrap_or(value);
+  if hostname.is_empty() {
     return Err(Violation::invalid_hostname());
   }
 
-  // Strip optional trailing dot
-  let hostname = value.strip_suffix('.').unwrap_or(value);
-  if hostname.is_empty() {
+  // Total length check (max 253 chars per RFC 1035, excluding optional trailing dot)
+  if hostname.len() > 253 {
     return Err(Violation::invalid_hostname());
   }
 
