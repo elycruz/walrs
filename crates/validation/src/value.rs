@@ -346,7 +346,8 @@ impl ValueExt for Value {
   fn is_empty_value(&self) -> bool {
     match self {
       Value::Null => true,
-      Value::Str(s) => s.is_empty(),
+      // Treat empty and whitespace-only strings as "empty" to match String-based rules.
+      Value::Str(s) => s.trim().is_empty(),
       Value::Array(arr) => arr.is_empty(),
       Value::Object(obj) => obj.is_empty(),
       _ => false,
