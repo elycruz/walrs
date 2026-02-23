@@ -35,6 +35,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::options::{IpOptions, UriOptions};
 use crate::traits::IsEmpty;
 
 // ============================================================================
@@ -200,6 +201,12 @@ pub enum Rule<T> {
   /// URL format validation
   Url,
 
+  /// URI format validation with configurable options.
+  Uri(UriOptions),
+
+  /// IP address validation with configurable options.
+  Ip(IpOptions),
+
   // ---- Numeric Rules ----
   /// Minimum value constraint
   Min(T),
@@ -280,6 +287,8 @@ impl<T: Debug> Debug for Rule<T> {
       Self::Pattern(p) => f.debug_tuple("Pattern").field(p).finish(),
       Self::Email => write!(f, "Email"),
       Self::Url => write!(f, "Url"),
+      Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
+      Self::Ip(opts) => f.debug_tuple("Ip").field(opts).finish(),
       Self::Min(v) => f.debug_tuple("Min").field(v).finish(),
       Self::Max(v) => f.debug_tuple("Max").field(v).finish(),
       Self::Range { min, max } => f
@@ -325,6 +334,8 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (Self::Pattern(a), Self::Pattern(b)) => a == b,
       (Self::Email, Self::Email) => true,
       (Self::Url, Self::Url) => true,
+      (Self::Uri(a), Self::Uri(b)) => a == b,
+      (Self::Ip(a), Self::Ip(b)) => a == b,
       (Self::Min(a), Self::Min(b)) => a == b,
       (Self::Max(a), Self::Max(b)) => a == b,
       (Self::Range { min: a1, max: a2 }, Self::Range { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
@@ -648,6 +659,16 @@ impl<T> Rule<T> {
   /// Creates a `Url` rule.
   pub fn url() -> Rule<T> {
     Rule::Url
+  }
+
+  /// Creates a `Uri` rule with the given options.
+  pub fn uri(options: UriOptions) -> Rule<T> {
+    Rule::Uri(options)
+  }
+
+  /// Creates an `Ip` rule with the given options.
+  pub fn ip(options: IpOptions) -> Rule<T> {
+    Rule::Ip(options)
   }
 
   /// Creates a `Min` rule.

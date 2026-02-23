@@ -88,6 +88,8 @@ impl<T: WithLength> Rule<T> {
       Rule::Pattern(_)
       | Rule::Email
       | Rule::Url
+      | Rule::Uri(_)
+      | Rule::Ip(_)
       | Rule::Min(_)
       | Rule::Max(_)
       | Rule::Range { .. }

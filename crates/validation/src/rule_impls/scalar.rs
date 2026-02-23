@@ -128,7 +128,9 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
       | Rule::ExactLength(_)
       | Rule::Pattern(_)
       | Rule::Email
-      | Rule::Url => Ok(()),
+      | Rule::Url
+      | Rule::Uri(_)
+      | Rule::Ip(_) => Ok(()),
     }
   }
 

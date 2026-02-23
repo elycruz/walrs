@@ -127,6 +127,10 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
       Rule::Custom(_) => None,
       Rule::Ref(_) => None,
 
+      // Uri/Ip - no HTML attribute equivalent
+      Rule::Uri(_) => None,
+      Rule::Ip(_) => None,
+
       // WithMessage - delegate to inner rule
       Rule::WithMessage { rule, .. } => rule.to_attributes_list(),
     }
