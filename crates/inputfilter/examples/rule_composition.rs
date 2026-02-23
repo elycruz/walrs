@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example rule_composition`
 
-use walrs_validation::{Condition, Rule, Validate, ValidateRef};
+use walrs_validation::{Condition, Rule, Validate, ValidateRef, UriOptions, IpOptions};
 
 fn main() {
   println!("=== Rule<T> Composition Examples ===\n");
@@ -156,7 +156,7 @@ fn main() {
   // Example 9: Pattern matching
   println!("\n9. Pattern matching:");
   let email_pattern = Rule::<String>::Email;
-  let url_pattern = Rule::<String>::Url;
+  let url_pattern = Rule::<String>::Url(Default::default());
   let custom_pattern = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
 
   println!(
@@ -262,6 +262,52 @@ fn main() {
       }
     }
   }
+
+  // Example 15: URI validation with options
+  println!("\n15. URI validation:");
+  let uri_rule = Rule::<String>::Uri(UriOptions {
+    allow_absolute: true,
+    allow_relative: false,
+    allowed_schemes: Some(vec!["https".into()]),
+  });
+  println!(
+    "   Uri(https-only) on 'https://example.com': {:?}",
+    uri_rule.validate_ref("https://example.com")
+  );
+  println!(
+    "   Uri(https-only) on 'http://example.com': {:?}",
+    uri_rule.validate_ref("http://example.com")
+  );
+  println!(
+    "   Uri(https-only) on 'relative/path': {:?}",
+    uri_rule.validate_ref("relative/path")
+  );
+
+  // Example 16: IP address validation with options
+  println!("\n16. IP address validation:");
+  let ipv4_only = Rule::<String>::Ip(IpOptions {
+    allow_ipv4: true,
+    allow_ipv6: false,
+    ..Default::default()
+  });
+  println!(
+    "   Ip(v4-only) on '192.168.1.1': {:?}",
+    ipv4_only.validate_ref("192.168.1.1")
+  );
+  println!(
+    "   Ip(v4-only) on '::1': {:?}",
+    ipv4_only.validate_ref("::1")
+  );
+
+  let all_ip = Rule::<String>::Ip(IpOptions::default());
+  println!(
+    "   Ip(default) on '::1': {:?}",
+    all_ip.validate_ref("::1")
+  );
+  println!(
+    "   Ip(default) on '[::1]': {:?}",
+    all_ip.validate_ref("[::1]")
+  );
 
   println!("\n=== Examples Complete ===");
 }

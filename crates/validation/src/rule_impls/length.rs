@@ -87,7 +87,9 @@ impl<T: WithLength> Rule<T> {
       // Non-length rules don't apply to collections - pass through
       Rule::Pattern(_)
       | Rule::Email
-      | Rule::Url
+      | Rule::Url(_)
+      | Rule::Uri(_)
+      | Rule::Ip(_)
       | Rule::Min(_)
       | Rule::Max(_)
       | Rule::Range { .. }

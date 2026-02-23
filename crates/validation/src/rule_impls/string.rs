@@ -2,6 +2,131 @@ use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
+use crate::options::{UriOptions, UrlOptions, IpOptions};
+
+// ============================================================================
+// URI / IP Validation Helpers
+// ============================================================================
+
+/// Validates a string as a URI according to the given options.
+fn validate_uri(value: &str, opts: &UriOptions) -> RuleResult {
+  if !opts.allow_absolute && !opts.allow_relative {
+    return Err(Violation::invalid_uri());
+  }
+
+  // Try parsing as an absolute URI
+  match url::Url::parse(value) {
+    Ok(parsed) => {
+      if !opts.allow_absolute {
+        return Err(Violation::invalid_uri());
+      }
+      // Check allowed schemes
+      if let Some(schemes) = &opts.allowed_schemes {
+        let scheme = parsed.scheme();
+        if !schemes.iter().any(|s| s.eq_ignore_ascii_case(scheme)) {
+          return Err(Violation::invalid_uri());
+        }
+      }
+      Ok(())
+    }
+    Err(_) => {
+      // Not an absolute URI — check if relative is allowed
+      if opts.allow_relative && !value.is_empty() {
+        // Validate as a relative reference using a fixed base URL.
+        // This ensures syntactically invalid relative URIs are rejected.
+        let base = url::Url::parse("http://example.com/").expect("hard-coded base URL must be valid");
+        match url::Url::options().base_url(Some(&base)).parse(value) {
+          Ok(_) => Ok(()),
+          Err(_) => Err(Violation::invalid_uri()),
+        }
+      } else {
+        Err(Violation::invalid_uri())
+      }
+    }
+  }
+}
+
+/// Validates a string as a URL using the `url` crate's WHATWG parser.
+fn validate_url(value: &str, opts: &UrlOptions) -> RuleResult {
+  match url::Url::parse(value) {
+    Ok(parsed) => {
+      if let Some(schemes) = &opts.allowed_schemes {
+        let scheme = parsed.scheme();
+        if !schemes.iter().any(|s| s.eq_ignore_ascii_case(scheme)) {
+          return Err(Violation::invalid_url());
+        }
+      }
+      Ok(())
+    }
+    Err(_) => Err(Violation::invalid_url()),
+  }
+}
+
+/// Validates a string as an IP address according to the given options.
+fn validate_ip(value: &str, opts: &IpOptions) -> RuleResult {
+  // Handle bracket-literal notation
+  let inner = if value.starts_with('[') && value.ends_with(']') {
+    if !opts.allow_literal {
+      return Err(Violation::invalid_ip());
+    }
+    &value[1..value.len() - 1]
+  } else {
+    value
+  };
+
+  // Try IPvFuture: v<hex>.<unreserved/sub-delims/:>
+  if opts.allow_ipvfuture && is_ipvfuture(inner) {
+    return Ok(());
+  }
+
+  // Try IPv4
+  if opts.allow_ipv4 {
+    if let Ok(_) = inner.parse::<std::net::Ipv4Addr>() {
+      return Ok(());
+    }
+  }
+
+  // Try IPv6
+  if opts.allow_ipv6 {
+    if let Ok(_) = inner.parse::<std::net::Ipv6Addr>() {
+      return Ok(());
+    }
+  }
+
+  Err(Violation::invalid_ip())
+}
+
+/// Checks if a string matches IPvFuture syntax per RFC 3986 §3.2.2:
+/// `v<hex-digit>+.<unreserved / sub-delims / ":">`
+fn is_ipvfuture(s: &str) -> bool {
+  let bytes = s.as_bytes();
+  if bytes.len() < 4 {
+    return false;
+  }
+  if bytes[0] != b'v' && bytes[0] != b'V' {
+    return false;
+  }
+
+  // Find the dot separator
+  let dot_pos = match bytes.iter().position(|&b| b == b'.') {
+    Some(p) if p > 1 => p,
+    _ => return false,
+  };
+
+  // Hex digits between 'v' and '.'
+  if !bytes[1..dot_pos].iter().all(|b| b.is_ascii_hexdigit()) {
+    return false;
+  }
+
+  // After the dot: unreserved / sub-delims / ":"
+  if dot_pos + 1 >= bytes.len() {
+    return false;
+  }
+  bytes[dot_pos + 1..].iter().all(|&b| {
+    b.is_ascii_alphanumeric()
+      || b"-._~!$&'()*+,;=:".contains(&b)
+  })
+}
 
 /// Cached validators for a compiled rule.
 ///
@@ -13,8 +138,6 @@ pub(crate) struct CachedStringValidators {
   pub(crate) pattern_regex: Option<regex::Regex>,
   /// Cached email regex
   pub(crate) email_regex: Option<regex::Regex>,
-  /// Cached URL regex
-  pub(crate) url_regex: Option<regex::Regex>,
 }
 
 impl CachedStringValidators {
@@ -86,15 +209,9 @@ impl Rule<String> {
           Err(Violation::invalid_email())
         }
       }
-      Rule::Url => {
-        // Simple URL validation using regex
-        let url_re = regex::Regex::new(r"^https?://[^\s/$.?#].\S*$").unwrap();
-        if url_re.is_match(value) {
-          Ok(())
-        } else {
-          Err(Violation::invalid_url())
-        }
-      }
+      Rule::Url(opts) => validate_url(value, opts),
+      Rule::Uri(opts) => validate_uri(value, opts),
+      Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -289,9 +406,6 @@ impl CompiledRule<String> {
       cache.email_regex =
         regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").ok();
 
-      // Pre-compile URL regex
-      cache.url_regex = regex::Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").ok();
-
       cache
     })
   }
@@ -363,18 +477,9 @@ impl CompiledRule<String> {
           Err(Violation::invalid_email())
         }
       }
-      Rule::Url => {
-        let matches = cache
-          .url_regex
-          .as_ref()
-          .map(|re| re.is_match(value))
-          .unwrap_or(false);
-        if matches {
-          Ok(())
-        } else {
-          Err(Violation::invalid_url())
-        }
-      }
+      Rule::Url(opts) => validate_url(value, opts),
+      Rule::Uri(opts) => validate_uri(value, opts),
+      Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -514,11 +619,69 @@ mod tests {
 
   #[test]
   fn test_validate_str_url() {
-    let rule = Rule::<String>::Url;
+    let rule = Rule::<String>::Url(crate::UrlOptions::default());
     assert!(rule.validate_str("http://example.com").is_ok());
     assert!(rule.validate_str("https://example.com/path").is_ok());
     assert!(rule.validate_str("not-a-url").is_err());
-    assert!(rule.validate_str("ftp://example.com").is_err()); // Only http/https
+    assert!(rule.validate_str("ftp://example.com").is_err()); // Only http/https by default
+  }
+
+  #[test]
+  fn test_validate_str_url_any_scheme() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: None,
+    });
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("ftp://example.com").is_ok());
+    assert!(rule.validate_str("custom://example.com").is_ok());
+    assert!(rule.validate_str("not-a-url").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_custom_schemes() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: Some(vec!["ftp".into(), "ftps".into()]),
+    });
+    assert!(rule.validate_str("ftp://example.com").is_ok());
+    assert!(rule.validate_str("ftps://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("https://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_scheme_case_insensitive() {
+    let rule = Rule::<String>::Url(crate::UrlOptions {
+      allowed_schemes: Some(vec!["https".into()]),
+    });
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("HTTPS://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_composed_with_required() {
+    let rule = Rule::<String>::Required.and(Rule::Url(crate::UrlOptions::default()));
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("").is_err());
+    assert!(rule.validate_str("not-a-url").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_compiled() {
+    let compiled = Rule::<String>::Url(crate::UrlOptions::default()).compile();
+    assert!(compiled.validate_str("http://example.com").is_ok());
+    assert!(compiled.validate_str("https://example.com/path?q=1#frag").is_ok());
+    assert!(compiled.validate_str("not-a-url").is_err());
+    assert!(compiled.validate_str("ftp://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_url_with_message() {
+    let rule = Rule::<String>::Url(crate::UrlOptions::default())
+      .with_message("Please enter a valid URL");
+    let err = rule.validate_str("bad").unwrap_err();
+    assert_eq!(err.message(), "Please enter a valid URL");
   }
 
   #[test]
@@ -546,7 +709,7 @@ mod tests {
 
   #[test]
   fn test_validate_str_any() {
-    let rule = Rule::<String>::Email.or(Rule::Url);
+    let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
     assert!(rule.validate_str("user@example.com").is_ok());
     assert!(rule.validate_str("http://example.com").is_ok());
     assert!(rule.validate_str("neither").is_err());
@@ -696,7 +859,7 @@ mod tests {
 
   #[test]
   fn test_compiled_rule_url() {
-    let rule = Rule::<String>::Url;
+    let rule = Rule::<String>::Url(crate::UrlOptions::default());
     let compiled = rule.compile();
 
     assert!(compiled.validate_str("http://example.com").is_ok());
@@ -755,6 +918,313 @@ mod tests {
 
     let result = compiled.validate_str_all("AB");
     assert!(result.is_err());
+  }
+
+  // ========================================================================
+  // URI Validation Tests
+  // ========================================================================
+
+  #[test]
+  fn test_validate_uri_absolute_default() {
+    let rule = Rule::<String>::Uri(crate::UriOptions::default());
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("https://example.com/path?q=1").is_ok());
+    assert!(rule.validate_str("ftp://files.example.com").is_ok());
+  }
+
+  #[test]
+  fn test_validate_uri_relative_default() {
+    let rule = Rule::<String>::Uri(crate::UriOptions::default());
+    assert!(rule.validate_str("/path/to/resource").is_ok());
+    assert!(rule.validate_str("relative/path").is_ok());
+    assert!(rule.validate_str("../parent").is_ok());
+  }
+
+  #[test]
+  fn test_validate_uri_empty_string() {
+    let rule = Rule::<String>::Uri(crate::UriOptions::default());
+    // Empty string is not a valid relative URI
+    assert!(rule.validate_str("").is_err());
+  }
+
+  #[test]
+  fn test_validate_uri_absolute_only() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: None,
+    });
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("relative/path").is_err());
+  }
+
+  #[test]
+  fn test_validate_uri_relative_only() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: false,
+      allow_relative: true,
+      allowed_schemes: None,
+    });
+    assert!(rule.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("/path/to/resource").is_ok());
+  }
+
+  #[test]
+  fn test_validate_uri_both_disabled() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: false,
+      allow_relative: false,
+      allowed_schemes: None,
+    });
+    assert!(rule.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("relative/path").is_err());
+  }
+
+  #[test]
+  fn test_validate_uri_allowed_schemes() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: Some(vec!["https".into()]),
+    });
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("ftp://example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_uri_scheme_case_insensitive() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: Some(vec!["HTTPS".into()]),
+    });
+    assert!(rule.validate_str("https://example.com").is_ok());
+  }
+
+  #[test]
+  fn test_validate_uri_with_message() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: Some(vec!["https".into()]),
+    })
+    .with_message("Must be a secure URL.");
+
+    let result = rule.validate_str("http://example.com");
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().message(), "Must be a secure URL.");
+  }
+
+  #[test]
+  fn test_validate_uri_composed() {
+    let rule = Rule::<String>::Required.and(Rule::Uri(crate::UriOptions::default()));
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("").is_err());
+  }
+
+  #[test]
+  fn test_compiled_rule_uri() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: Some(vec!["https".into()]),
+    });
+    let compiled = rule.compile();
+    assert!(compiled.validate_str("https://example.com").is_ok());
+    assert!(compiled.validate_str("http://example.com").is_err());
+  }
+
+  // ========================================================================
+  // IP Validation Tests
+  // ========================================================================
+
+  #[test]
+  fn test_validate_ip_v4_default() {
+    let rule = Rule::<String>::Ip(crate::IpOptions::default());
+    assert!(rule.validate_str("192.168.1.1").is_ok());
+    assert!(rule.validate_str("0.0.0.0").is_ok());
+    assert!(rule.validate_str("255.255.255.255").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_v4_invalid() {
+    let rule = Rule::<String>::Ip(crate::IpOptions::default());
+    assert!(rule.validate_str("256.1.1.1").is_err());
+    assert!(rule.validate_str("not-an-ip").is_err());
+    assert!(rule.validate_str("").is_err());
+  }
+
+  #[test]
+  fn test_validate_ip_v6_default() {
+    let rule = Rule::<String>::Ip(crate::IpOptions::default());
+    assert!(rule.validate_str("::1").is_ok());
+    assert!(rule.validate_str("2001:db8::1").is_ok());
+    assert!(rule.validate_str("fe80::1%25eth0").is_err()); // zone id not valid for std parser
+  }
+
+  #[test]
+  fn test_validate_ip_v4_only() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipv4: true,
+      allow_ipv6: false,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("192.168.1.1").is_ok());
+    assert!(rule.validate_str("::1").is_err());
+  }
+
+  #[test]
+  fn test_validate_ip_v6_only() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipv4: false,
+      allow_ipv6: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("192.168.1.1").is_err());
+    assert!(rule.validate_str("::1").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_literal_brackets() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_literal: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("[::1]").is_ok());
+    assert!(rule.validate_str("[192.168.1.1]").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_literal_disabled() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_literal: false,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("[::1]").is_err());
+    assert!(rule.validate_str("::1").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_ipvfuture() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipvfuture: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("v1.test").is_ok());
+    assert!(rule.validate_str("vFF.hello:world").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_ipvfuture_disabled() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipvfuture: false,
+      allow_ipv4: false,
+      allow_ipv6: false,
+      allow_literal: false,
+    });
+    assert!(rule.validate_str("v1.test").is_err());
+  }
+
+  #[test]
+  fn test_validate_ip_ipvfuture_in_brackets() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipvfuture: true,
+      allow_literal: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("[v1.test]").is_ok());
+  }
+
+  #[test]
+  fn test_validate_ip_with_message() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipv4: true,
+      allow_ipv6: false,
+      ..Default::default()
+    })
+    .with_message("Must be an IPv4 address.");
+
+    let result = rule.validate_str("::1");
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().message(), "Must be an IPv4 address.");
+  }
+
+  #[test]
+  fn test_validate_ip_composed() {
+    let rule = Rule::<String>::Required.and(Rule::Ip(crate::IpOptions::default()));
+    assert!(rule.validate_str("192.168.1.1").is_ok());
+    assert!(rule.validate_str("").is_err());
+  }
+
+  #[test]
+  fn test_compiled_rule_ip() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipv4: true,
+      allow_ipv6: false,
+      ..Default::default()
+    });
+    let compiled = rule.compile();
+    assert!(compiled.validate_str("192.168.1.1").is_ok());
+    assert!(compiled.validate_str("::1").is_err());
+  }
+
+  #[test]
+  fn test_validate_ip_all_violations() {
+    let rule = Rule::<String>::Required
+      .and(Rule::Ip(crate::IpOptions { allow_ipv4: true, allow_ipv6: false, ..Default::default() }));
+
+    assert!(rule.validate_str_all("192.168.1.1").is_ok());
+
+    let result = rule.validate_str_all("::1");
+    assert!(result.is_err());
+  }
+
+  // ========================================================================
+  // Serialization Tests for Uri / Ip
+  // ========================================================================
+
+  #[test]
+  fn test_uri_rule_serialization() {
+    let rule = Rule::<String>::Uri(crate::UriOptions {
+      allow_absolute: true,
+      allow_relative: false,
+      allowed_schemes: Some(vec!["https".into()]),
+    });
+    let json = serde_json::to_string(&rule).unwrap();
+    let deserialized: Rule<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(rule, deserialized);
+  }
+
+  #[test]
+  fn test_ip_rule_serialization() {
+    let rule = Rule::<String>::Ip(crate::IpOptions {
+      allow_ipv4: true,
+      allow_ipv6: false,
+      allow_ipvfuture: true,
+      allow_literal: false,
+    });
+    let json = serde_json::to_string(&rule).unwrap();
+    let deserialized: Rule<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(rule, deserialized);
+  }
+
+  // ========================================================================
+  // Convenience Constructor Tests
+  // ========================================================================
+
+  #[test]
+  fn test_uri_constructor() {
+    let opts = crate::UriOptions::default();
+    let rule = Rule::<String>::uri(opts.clone());
+    assert_eq!(rule, Rule::Uri(opts));
+  }
+
+  #[test]
+  fn test_ip_constructor() {
+    let opts = crate::IpOptions::default();
+    let rule = Rule::<String>::ip(opts.clone());
+    assert_eq!(rule, Rule::Ip(opts));
   }
 }
 

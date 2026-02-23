@@ -96,6 +96,16 @@ impl Violation {
     Self::new(ViolationType::TypeMismatch, "Invalid URL.")
   }
 
+  /// Value is not a valid URI.
+  pub fn invalid_uri() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid URI.")
+  }
+
+  /// Value is not a valid IP address.
+  pub fn invalid_ip() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid IP address.")
+  }
+
   /// Value is below the allowed minimum.
   pub fn range_underflow<T: Display>(min: &T) -> Self {
     Self::new(

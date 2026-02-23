@@ -35,6 +35,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::options::{IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
 
 // ============================================================================
@@ -197,8 +198,14 @@ pub enum Rule<T> {
   /// Email format validation
   Email,
 
-  /// URL format validation
-  Url,
+  /// URL format validation with configurable options.
+  Url(UrlOptions),
+
+  /// URI format validation with configurable options.
+  Uri(UriOptions),
+
+  /// IP address validation with configurable options.
+  Ip(IpOptions),
 
   // ---- Numeric Rules ----
   /// Minimum value constraint
@@ -279,7 +286,9 @@ impl<T: Debug> Debug for Rule<T> {
       Self::ExactLength(n) => f.debug_tuple("ExactLength").field(n).finish(),
       Self::Pattern(p) => f.debug_tuple("Pattern").field(p).finish(),
       Self::Email => write!(f, "Email"),
-      Self::Url => write!(f, "Url"),
+      Self::Url(opts) => f.debug_tuple("Url").field(opts).finish(),
+      Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
+      Self::Ip(opts) => f.debug_tuple("Ip").field(opts).finish(),
       Self::Min(v) => f.debug_tuple("Min").field(v).finish(),
       Self::Max(v) => f.debug_tuple("Max").field(v).finish(),
       Self::Range { min, max } => f
@@ -324,7 +333,9 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (Self::ExactLength(a), Self::ExactLength(b)) => a == b,
       (Self::Pattern(a), Self::Pattern(b)) => a == b,
       (Self::Email, Self::Email) => true,
-      (Self::Url, Self::Url) => true,
+      (Self::Url(a), Self::Url(b)) => a == b,
+      (Self::Uri(a), Self::Uri(b)) => a == b,
+      (Self::Ip(a), Self::Ip(b)) => a == b,
       (Self::Min(a), Self::Min(b)) => a == b,
       (Self::Max(a), Self::Max(b)) => a == b,
       (Self::Range { min: a1, max: a2 }, Self::Range { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
@@ -414,7 +425,7 @@ impl<T> Rule<T> {
   /// ```rust
   /// use walrs_validation::rule::Rule;
   ///
-  /// let rule = Rule::<String>::Email.or(Rule::Url);
+  /// let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
   /// ```
   pub fn or(self, other: Rule<T>) -> Rule<T> {
     match self {
@@ -646,8 +657,19 @@ impl<T> Rule<T> {
   }
 
   /// Creates a `Url` rule.
-  pub fn url() -> Rule<T> {
-    Rule::Url
+  /// Creates a `Url` rule with the given options.
+  pub fn url(options: UrlOptions) -> Rule<T> {
+    Rule::Url(options)
+  }
+
+  /// Creates a `Uri` rule with the given options.
+  pub fn uri(options: UriOptions) -> Rule<T> {
+    Rule::Uri(options)
+  }
+
+  /// Creates an `Ip` rule with the given options.
+  pub fn ip(options: IpOptions) -> Rule<T> {
+    Rule::Ip(options)
   }
 
   /// Creates a `Min` rule.
@@ -844,7 +866,7 @@ mod tests {
   #[test]
   fn test_rule_or_combinator() {
     let rule1 = Rule::<String>::Email;
-    let rule2 = Rule::<String>::Url;
+    let rule2 = Rule::<String>::Url(Default::default());
     let combined = rule1.or(rule2);
 
     match combined {

@@ -13,6 +13,9 @@
 //! - `Rule::Min` / `Rule::Max` - Range constraints
 //! - `Rule::Pattern` - Regex pattern matching
 //! - `Rule::Email` - Email format validation
+//! - `Rule::Url` - Configurable URL validation (scheme filtering)
+//! - `Rule::Uri` - Configurable URI validation (scheme, relative/absolute)
+//! - `Rule::Ip` - Configurable IP address validation (IPv4/IPv6/IPvFuture)
 //! - `Rule::Step` - Step/multiple validation
 //! - `Rule::Custom` - Custom closure-based validation
 //!
@@ -48,6 +51,7 @@ pub use indexmap;
 pub mod attributes;
 pub(crate) mod rule_impls;
 pub mod message;
+pub mod options;
 pub mod rule;
 pub mod traits;
 pub mod value;
@@ -55,6 +59,7 @@ pub mod violation;
 
 pub use attributes::*;
 pub use message::*;
+pub use options::*;
 pub use rule::{CompiledRule, Condition, Rule, RuleResult};
 pub use traits::*;
 pub use value::*;
