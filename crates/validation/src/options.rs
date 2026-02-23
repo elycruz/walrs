@@ -404,18 +404,18 @@ impl Default for DateOptions {
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DateRangeOptions {
-  /// Expected date format (default: ISO 8601).
+  /// Expected date format for validated input values (default: ISO 8601).
   pub format: DateFormat,
 
   /// Whether to also accept a time component (default: false, date-only).
   pub allow_time: bool,
 
-  /// Minimum date/datetime (inclusive), in the configured [`DateFormat`].
-  /// `None` means no lower bound.
+  /// Minimum date/datetime (inclusive), always specified in ISO 8601 format,
+  /// regardless of the configured [`DateFormat`]. `None` means no lower bound.
   pub min: Option<String>,
 
-  /// Maximum date/datetime (inclusive), in the configured [`DateFormat`].
-  /// `None` means no upper bound.
+  /// Maximum date/datetime (inclusive), always specified in ISO 8601 format,
+  /// regardless of the configured [`DateFormat`]. `None` means no upper bound.
   pub max: Option<String>,
 }
 
