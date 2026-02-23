@@ -114,16 +114,30 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
             return Err(Violation::date_range_underflow(min_str));
           }
         } else if let Ok(min_d) = parse_bound_date(min_str) {
-          if dt.date() < min_d {
-            return Err(Violation::date_range_underflow(min_str));
+        match parse_bound_datetime(min_str) {
+          Ok(min_dt) => {
+            if dt < min_dt {
+              return Err(Violation::date_range_underflow(min_str));
+            }
+          }
+          Err(_) => {
+            // Misconfigured `min` bound: treat as a validation error rather than
+            // silently skipping the lower-bound check.
+            return Err(Violation::invalid_date());
           }
         }
       }
       if let Some(max_str) = &opts.max {
-        // Try datetime bound first; fall back to date-only bound (compare date component)
-        if let Ok(max_dt) = parse_bound_datetime(max_str) {
-          if dt > max_dt {
-            return Err(Violation::date_range_overflow(max_str));
+        match parse_bound_datetime(max_str) {
+          Ok(max_dt) => {
+            if dt > max_dt {
+              return Err(Violation::date_range_overflow(max_str));
+            }
+          }
+          Err(_) => {
+            // Misconfigured `max` bound: treat as a validation error rather than
+            // silently skipping the upper-bound check.
+            return Err(Violation::invalid_date());
           }
         } else if let Ok(max_d) = parse_bound_date(max_str) {
           if dt.date() > max_d {
