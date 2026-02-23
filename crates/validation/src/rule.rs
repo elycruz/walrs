@@ -35,7 +35,7 @@ use std::fmt::{self, Debug};
 use std::sync::Arc;
 
 use crate::{Message, MessageContext, SteppableValue, Violation};
-use crate::options::{HostnameOptions, IpOptions, UrlOptions, UriOptions};
+use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
 
 // ============================================================================
@@ -195,8 +195,8 @@ pub enum Rule<T> {
   /// Regex pattern match (stored as string for serialization)
   Pattern(String),
 
-  /// Email format validation
-  Email,
+  /// Email format validation with configurable options.
+  Email(EmailOptions),
 
   /// URL format validation with configurable options.
   Url(UrlOptions),
@@ -209,6 +209,13 @@ pub enum Rule<T> {
 
   /// Hostname validation with configurable options.
   Hostname(HostnameOptions),
+
+  // ---- Date Rules ----
+  /// Date format validation (validates that a string is a parseable date).
+  Date(DateOptions),
+
+  /// Date range validation (validates that a date falls within a range).
+  DateRange(DateRangeOptions),
 
   // ---- Numeric Rules ----
   /// Minimum value constraint
@@ -288,11 +295,13 @@ impl<T: Debug> Debug for Rule<T> {
       Self::MaxLength(n) => f.debug_tuple("MaxLength").field(n).finish(),
       Self::ExactLength(n) => f.debug_tuple("ExactLength").field(n).finish(),
       Self::Pattern(p) => f.debug_tuple("Pattern").field(p).finish(),
-      Self::Email => write!(f, "Email"),
+      Self::Email(opts) => f.debug_tuple("Email").field(opts).finish(),
       Self::Url(opts) => f.debug_tuple("Url").field(opts).finish(),
       Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
       Self::Ip(opts) => f.debug_tuple("Ip").field(opts).finish(),
       Self::Hostname(opts) => f.debug_tuple("Hostname").field(opts).finish(),
+      Self::Date(opts) => f.debug_tuple("Date").field(opts).finish(),
+      Self::DateRange(opts) => f.debug_tuple("DateRange").field(opts).finish(),
       Self::Min(v) => f.debug_tuple("Min").field(v).finish(),
       Self::Max(v) => f.debug_tuple("Max").field(v).finish(),
       Self::Range { min, max } => f
@@ -336,11 +345,13 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       (Self::MaxLength(a), Self::MaxLength(b)) => a == b,
       (Self::ExactLength(a), Self::ExactLength(b)) => a == b,
       (Self::Pattern(a), Self::Pattern(b)) => a == b,
-      (Self::Email, Self::Email) => true,
+      (Self::Email(a), Self::Email(b)) => a == b,
       (Self::Url(a), Self::Url(b)) => a == b,
       (Self::Uri(a), Self::Uri(b)) => a == b,
       (Self::Ip(a), Self::Ip(b)) => a == b,
       (Self::Hostname(a), Self::Hostname(b)) => a == b,
+      (Self::Date(a), Self::Date(b)) => a == b,
+      (Self::DateRange(a), Self::DateRange(b)) => a == b,
       (Self::Min(a), Self::Min(b)) => a == b,
       (Self::Max(a), Self::Max(b)) => a == b,
       (Self::Range { min: a1, max: a2 }, Self::Range { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
@@ -430,7 +441,7 @@ impl<T> Rule<T> {
   /// ```rust
   /// use walrs_validation::rule::Rule;
   ///
-  /// let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
+  /// let rule = Rule::<String>::Email(Default::default()).or(Rule::Url(Default::default()));
   /// ```
   pub fn or(self, other: Rule<T>) -> Rule<T> {
     match self {
@@ -656,12 +667,11 @@ impl<T> Rule<T> {
     Rule::Pattern(pattern.into())
   }
 
-  /// Creates an `Email` rule.
-  pub fn email() -> Rule<T> {
-    Rule::Email
+  /// Creates an `Email` rule with the given options.
+  pub fn email(options: EmailOptions) -> Rule<T> {
+    Rule::Email(options)
   }
 
-  /// Creates a `Url` rule.
   /// Creates a `Url` rule with the given options.
   pub fn url(options: UrlOptions) -> Rule<T> {
     Rule::Url(options)
@@ -680,6 +690,16 @@ impl<T> Rule<T> {
   /// Creates a `Hostname` rule with the given options.
   pub fn hostname(options: HostnameOptions) -> Rule<T> {
     Rule::Hostname(options)
+  }
+
+  /// Creates a `Date` rule with the given options.
+  pub fn date(options: DateOptions) -> Rule<T> {
+    Rule::Date(options)
+  }
+
+  /// Creates a `DateRange` rule with the given options.
+  pub fn date_range(options: DateRangeOptions) -> Rule<T> {
+    Rule::DateRange(options)
   }
 
   /// Creates a `Min` rule.
@@ -875,7 +895,7 @@ mod tests {
 
   #[test]
   fn test_rule_or_combinator() {
-    let rule1 = Rule::<String>::Email;
+    let rule1 = Rule::<String>::Email(Default::default());
     let rule2 = Rule::<String>::Url(Default::default());
     let combined = rule1.or(rule2);
 

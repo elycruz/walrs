@@ -28,7 +28,7 @@ fn main() {
           // { "type": "email", "name": "email", "required": true, "minlength": 5, "maxlength": 128 }
           // Allows rules to be sent to front-end clients so that they're shared
           // instead of isolated.
-        .rule(All(vec![Required, MinLength(5), MaxLength(128), Email]))
+        .rule(All(vec![Required, MinLength(5), MaxLength(128), Email(Default::default())]))
         .build()
         .unwrap(),
     )

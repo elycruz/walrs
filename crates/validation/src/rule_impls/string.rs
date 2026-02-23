@@ -2,7 +2,7 @@ use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
 use crate::CompiledRule;
-use crate::options::{HostnameOptions, UriOptions, UrlOptions, IpOptions};
+use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
 // URI / IP Validation Helpers
@@ -254,6 +254,136 @@ fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
   Ok(())
 }
 
+// ============================================================================
+// Email Validation Helper
+// ============================================================================
+
+/// Characters allowed in the local part of an email address (RFC 5321/5322 simplified).
+fn is_valid_local_char(b: u8) -> bool {
+  b.is_ascii_alphanumeric()
+    || b"!#$%&'*+/=?^_`{|}~-.".contains(&b)
+}
+
+/// Validates an email address string according to the given options.
+fn validate_email(value: &str, opts: &EmailOptions) -> RuleResult {
+  // Split into local and domain parts
+  let at_pos = match value.rfind('@') {
+    Some(pos) => pos,
+    None => {
+      // No '@' — only valid if domain checking is disabled
+      if !opts.check_domain {
+        return validate_email_local_part(value, opts);
+      }
+      return Err(Violation::invalid_email());
+    }
+  };
+
+  let local = &value[..at_pos];
+  let domain = &value[at_pos + 1..];
+
+  // Validate local part
+  validate_email_local_part(local, opts)?;
+
+  // Validate domain part (if enabled)
+  if opts.check_domain {
+    if domain.is_empty() {
+      return Err(Violation::invalid_email());
+    }
+
+    // Handle IP-literal domains: `[192.168.0.1]` or `[IPv6:::1]`
+    if domain.starts_with('[') && domain.ends_with(']') {
+      if !opts.allow_ip {
+        return Err(Violation::invalid_email());
+      }
+      let inner = &domain[1..domain.len() - 1];
+      // Strip optional "IPv6:" prefix for IPv6 literals
+      let ip_str = inner.strip_prefix("IPv6:").unwrap_or(inner);
+      if ip_str.parse::<std::net::Ipv4Addr>().is_err()
+        && ip_str.parse::<std::net::Ipv6Addr>().is_err()
+      {
+        return Err(Violation::invalid_email());
+      }
+      return Ok(());
+    }
+
+    // Validate as a hostname
+    let hostname_opts = HostnameOptions {
+      allow_dns: opts.allow_dns,
+      allow_ip: false,
+      allow_local: opts.allow_local,
+      require_public_ipv4: false,
+    };
+    validate_hostname(domain, &hostname_opts)
+      .map_err(|_| Violation::invalid_email())?;
+  }
+
+  Ok(())
+}
+
+/// Validates the local part of an email address.
+fn validate_email_local_part(local: &str, opts: &EmailOptions) -> RuleResult {
+  let len = local.len();
+  if len < opts.min_local_part_length || len > opts.max_local_part_length {
+    return Err(Violation::invalid_email());
+  }
+
+  // Must not start or end with a dot
+  if local.starts_with('.') || local.ends_with('.') {
+    return Err(Violation::invalid_email());
+  }
+
+  // No consecutive dots
+  if local.contains("..") {
+    return Err(Violation::invalid_email());
+  }
+
+  // Check allowed characters
+  if !local.bytes().all(is_valid_local_char) {
+    return Err(Violation::invalid_email());
+  }
+
+  Ok(())
+}
+
+/// Dispatches date string validation to the active date crate.
+/// When both `chrono` and `jiff` are enabled, `chrono` takes precedence.
+#[cfg(feature = "chrono")]
+fn validate_date_str_dispatch(value: &str, opts: &DateOptions) -> RuleResult {
+  crate::rule_impls::date_chrono::validate_date_str(value, opts)
+}
+
+#[cfg(all(feature = "jiff", not(feature = "chrono")))]
+fn validate_date_str_dispatch(value: &str, opts: &DateOptions) -> RuleResult {
+  crate::rule_impls::date_jiff::validate_date_str(value, opts)
+}
+
+#[cfg(not(any(feature = "chrono", feature = "jiff")))]
+fn validate_date_str_dispatch(_value: &str, _opts: &DateOptions) -> RuleResult {
+  Err(Violation::new(
+    crate::ViolationType::CustomError,
+    "Date validation requires the `chrono` or `jiff` feature.",
+  ))
+}
+
+/// Dispatches date range string validation to the active date crate.
+#[cfg(feature = "chrono")]
+fn validate_date_range_str_dispatch(value: &str, opts: &DateRangeOptions) -> RuleResult {
+  crate::rule_impls::date_chrono::validate_date_range_str(value, opts)
+}
+
+#[cfg(all(feature = "jiff", not(feature = "chrono")))]
+fn validate_date_range_str_dispatch(value: &str, opts: &DateRangeOptions) -> RuleResult {
+  crate::rule_impls::date_jiff::validate_date_range_str(value, opts)
+}
+
+#[cfg(not(any(feature = "chrono", feature = "jiff")))]
+fn validate_date_range_str_dispatch(_value: &str, _opts: &DateRangeOptions) -> RuleResult {
+  Err(Violation::new(
+    crate::ViolationType::CustomError,
+    "Date range validation requires the `chrono` or `jiff` feature.",
+  ))
+}
+
 /// Cached validators for a compiled rule.
 ///
 /// This struct holds compiled regex patterns for string validation rules.
@@ -262,8 +392,6 @@ fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
 pub(crate) struct CachedStringValidators {
   /// Cached regex for Pattern rules
   pub(crate) pattern_regex: Option<regex::Regex>,
-  /// Cached email regex
-  pub(crate) email_regex: Option<regex::Regex>,
 }
 
 impl CachedStringValidators {
@@ -325,20 +453,13 @@ impl Rule<String> {
         }
         Err(_) => Err(Violation::pattern_mismatch(pattern)),
       },
-      Rule::Email => {
-        // Simple email validation using regex
-        let email_re =
-          regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap();
-        if email_re.is_match(value) {
-          Ok(())
-        } else {
-          Err(Violation::invalid_email())
-        }
-      }
+      Rule::Email(opts) => validate_email(value, opts),
       Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Hostname(opts) => validate_hostname(value, opts),
+      Rule::Date(opts) => validate_date_str_dispatch(value, opts),
+      Rule::DateRange(opts) => validate_date_range_str_dispatch(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -529,10 +650,6 @@ impl CompiledRule<String> {
         cache.pattern_regex = regex::Regex::new(pattern).ok();
       }
 
-      // Pre-compile email regex
-      cache.email_regex =
-        regex::Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").ok();
-
       cache
     })
   }
@@ -592,22 +709,13 @@ impl CompiledRule<String> {
           Err(Violation::pattern_mismatch(pattern))
         }
       }
-      Rule::Email => {
-        let matches = cache
-          .email_regex
-          .as_ref()
-          .map(|re| re.is_match(value))
-          .unwrap_or(false);
-        if matches {
-          Ok(())
-        } else {
-          Err(Violation::invalid_email())
-        }
-      }
+      Rule::Email(opts) => validate_email(value, opts),
       Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
       Rule::Ip(opts) => validate_ip(value, opts),
       Rule::Hostname(opts) => validate_hostname(value, opts),
+      Rule::Date(opts) => validate_date_str_dispatch(value, opts),
+      Rule::DateRange(opts) => validate_date_range_str_dispatch(value, opts),
       Rule::Equals(expected) => {
         if value == expected {
           Ok(())
@@ -738,11 +846,80 @@ mod tests {
 
   #[test]
   fn test_validate_str_email() {
-    let rule = Rule::<String>::Email;
+    let rule = Rule::<String>::Email(Default::default());
     assert!(rule.validate_str("user@example.com").is_ok());
     assert!(rule.validate_str("user@sub.example.com").is_ok());
     assert!(rule.validate_str("invalid").is_err());
     assert!(rule.validate_str("@example.com").is_err());
+    assert!(rule.validate_str("user@").is_err());
+    assert!(rule.validate_str("").is_err());
+    assert!(rule.validate_str(".user@example.com").is_err());
+    assert!(rule.validate_str("user.@example.com").is_err());
+    assert!(rule.validate_str("u..ser@example.com").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_email_allow_ip() {
+    let rule = Rule::<String>::Email(crate::EmailOptions {
+      allow_ip: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("user@[192.168.0.1]").is_ok());
+    assert!(rule.validate_str("user@[IPv6:::1]").is_ok());
+    assert!(rule.validate_str("user@example.com").is_ok());
+    // IP without brackets must still be rejected (RFC 5321 requires brackets)
+    assert!(rule.validate_str("user@192.168.0.1").is_err());
+    assert!(rule.validate_str("user@[not-an-ip]").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_email_allow_local() {
+    let rule = Rule::<String>::Email(crate::EmailOptions {
+      allow_local: true,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("user@localhost").is_ok());
+    assert!(rule.validate_str("user@example.com").is_ok());
+
+    // Without allow_local, localhost is rejected
+    let strict = Rule::<String>::Email(Default::default());
+    assert!(strict.validate_str("user@localhost").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_email_no_check_domain() {
+    let rule = Rule::<String>::Email(crate::EmailOptions {
+      check_domain: false,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("user").is_ok());
+    assert!(rule.validate_str("user@anything").is_ok());
+    assert!(rule.validate_str("").is_err()); // still enforces min_local_part_length
+  }
+
+  #[test]
+  fn test_validate_str_email_local_part_length() {
+    let rule = Rule::<String>::Email(crate::EmailOptions {
+      min_local_part_length: 3,
+      max_local_part_length: 10,
+      ..Default::default()
+    });
+    assert!(rule.validate_str("abc@example.com").is_ok());
+    assert!(rule.validate_str("ab@example.com").is_err()); // too short
+    assert!(rule.validate_str("abcdefghijk@example.com").is_err()); // too long (11 chars)
+    assert!(rule.validate_str("abcdefghij@example.com").is_ok()); // exactly 10
+  }
+
+  #[test]
+  fn test_validate_str_email_ip_rejected_by_default() {
+    let rule = Rule::<String>::Email(Default::default());
+    assert!(rule.validate_str("user@[192.168.0.1]").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_email_local_rejected_by_default() {
+    let rule = Rule::<String>::Email(Default::default());
+    assert!(rule.validate_str("user@localhost").is_err());
   }
 
   #[test]
@@ -837,7 +1014,7 @@ mod tests {
 
   #[test]
   fn test_validate_str_any() {
-    let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
+    let rule = Rule::<String>::Email(Default::default()).or(Rule::Url(Default::default()));
     assert!(rule.validate_str("user@example.com").is_ok());
     assert!(rule.validate_str("http://example.com").is_ok());
     assert!(rule.validate_str("neither").is_err());
@@ -897,7 +1074,7 @@ mod tests {
     let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
     assert!(rule.validate_str_option(None).is_ok());
 
-    let rule = Rule::<String>::Email;
+    let rule = Rule::<String>::Email(Default::default());
     assert!(rule.validate_str_option(None).is_ok());
   }
 
@@ -977,7 +1154,7 @@ mod tests {
 
   #[test]
   fn test_compiled_rule_email() {
-    let rule = Rule::<String>::Email;
+    let rule = Rule::<String>::Email(Default::default());
     let compiled = rule.compile();
 
     assert!(compiled.validate_str("user@example.com").is_ok());
