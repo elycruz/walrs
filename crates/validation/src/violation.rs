@@ -106,6 +106,11 @@ impl Violation {
     Self::new(ViolationType::TypeMismatch, "Invalid IP address.")
   }
 
+  /// Value is not a valid hostname.
+  pub fn invalid_hostname() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid hostname.")
+  }
+
   /// Value is below the allowed minimum.
   pub fn range_underflow<T: Display>(min: &T) -> Self {
     Self::new(

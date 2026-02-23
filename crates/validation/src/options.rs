@@ -138,6 +138,67 @@ impl Default for IpOptions {
   }
 }
 
+/// Options for hostname validation (`Rule::Hostname`).
+///
+/// Controls which hostname forms are accepted. Inspired by laminas-validator's
+/// `Hostname` and `HostWithPublicIPv4Address` validators.
+///
+/// # Defaults
+///
+/// - `allow_dns`: `true`
+/// - `allow_ip`: `true`
+/// - `allow_local`: `false`
+/// - `require_public_ipv4`: `false`
+///
+/// # Example
+///
+/// ```rust
+/// use walrs_validation::HostnameOptions;
+///
+/// // Only accept DNS hostnames (no IPs, no local names)
+/// let opts = HostnameOptions {
+///   allow_dns: true,
+///   allow_ip: false,
+///   allow_local: false,
+///   ..Default::default()
+/// };
+///
+/// // Require that IP inputs are public IPv4 addresses
+/// let opts = HostnameOptions {
+///   require_public_ipv4: true,
+///   ..Default::default()
+/// };
+/// ```
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HostnameOptions {
+  /// Allow DNS hostnames, e.g. `example.com` (default: true).
+  pub allow_dns: bool,
+
+  /// Allow IP addresses as valid hostnames (default: true).
+  pub allow_ip: bool,
+
+  /// Allow local/reserved hostnames, e.g. `localhost`, single-label names
+  /// without a TLD (default: false).
+  pub allow_local: bool,
+
+  /// When true, IP address inputs must be public (non-reserved) IPv4 addresses.
+  /// Rejects RFC 1918 private, loopback, link-local, documentation, and other
+  /// reserved ranges. Only applies when the input is an IP address.
+  /// (default: false).
+  pub require_public_ipv4: bool,
+}
+
+impl Default for HostnameOptions {
+  fn default() -> Self {
+    Self {
+      allow_dns: true,
+      allow_ip: true,
+      allow_local: false,
+      require_public_ipv4: false,
+    }
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -200,6 +261,28 @@ mod tests {
     };
     let json = serde_json::to_string(&opts).unwrap();
     let deserialized: IpOptions = serde_json::from_str(&json).unwrap();
+    assert_eq!(opts, deserialized);
+  }
+
+  #[test]
+  fn test_hostname_options_default() {
+    let opts = HostnameOptions::default();
+    assert!(opts.allow_dns);
+    assert!(opts.allow_ip);
+    assert!(!opts.allow_local);
+    assert!(!opts.require_public_ipv4);
+  }
+
+  #[test]
+  fn test_hostname_options_serialization() {
+    let opts = HostnameOptions {
+      allow_dns: true,
+      allow_ip: false,
+      allow_local: true,
+      require_public_ipv4: false,
+    };
+    let json = serde_json::to_string(&opts).unwrap();
+    let deserialized: HostnameOptions = serde_json::from_str(&json).unwrap();
     assert_eq!(opts, deserialized);
   }
 }

@@ -90,6 +90,7 @@ impl<T: WithLength> Rule<T> {
       | Rule::Url(_)
       | Rule::Uri(_)
       | Rule::Ip(_)
+      | Rule::Hostname(_)
       | Rule::Min(_)
       | Rule::Max(_)
       | Rule::Range { .. }

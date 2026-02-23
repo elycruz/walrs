@@ -15,6 +15,7 @@ The `Rule` enum provides built-in validation for common constraints:
 - `Rule::Pattern` - Regex pattern matching
 - `Rule::Email` - Email format validation
 - `Rule::Step` - Step/multiple validation
+- `Rule::Hostname` - Configurable hostname validation (DNS/IP/local/public IPv4)
 - `Rule::Custom` - Custom closure-based validation
 
 ## Rule Composition
