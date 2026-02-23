@@ -16,6 +16,10 @@ use crate::Violation;
 const US_DATE_FMT: &str = "%m/%d/%Y";
 /// Format string for EU-style date: `DD/MM/YYYY`
 const EU_DATE_FMT: &str = "%d/%m/%Y";
+/// Format string for US-style datetime: `MM/DD/YYYY HH:MM:SS`
+const US_DATETIME_FMT: &str = "%m/%d/%Y %H:%M:%S";
+/// Format string for EU-style datetime: `DD/MM/YYYY HH:MM:SS`
+const EU_DATETIME_FMT: &str = "%d/%m/%Y %H:%M:%S";
 
 /// Parses a date string using the given `DateFormat`, returning a `NaiveDate`.
 pub(crate) fn parse_date_str(value: &str, format: &DateFormat) -> Result<NaiveDate, ()> {
@@ -46,11 +50,11 @@ pub(crate) fn parse_datetime_str(
         .map_err(|_| ())
     }
     DateFormat::UsDate => {
-      NaiveDateTime::parse_from_str(value, &format!("{} %H:%M:%S", US_DATE_FMT))
+      NaiveDateTime::parse_from_str(value, US_DATETIME_FMT)
         .map_err(|_| ())
     }
     DateFormat::EuDate => {
-      NaiveDateTime::parse_from_str(value, &format!("{} %H:%M:%S", EU_DATE_FMT))
+      NaiveDateTime::parse_from_str(value, EU_DATETIME_FMT)
         .map_err(|_| ())
     }
     DateFormat::Rfc2822 => chrono::DateTime::parse_from_rfc2822(value)
