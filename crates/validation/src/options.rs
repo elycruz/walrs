@@ -282,8 +282,32 @@ impl Default for DateOptions {
 /// Options for date range validation (`Rule::DateRange`).
 ///
 /// Validates that a date string is parseable and falls within an optional
-/// min/max range. The `min` and `max` bounds are stored as ISO 8601 strings
-/// for serialization and parsed at validation time.
+/// min/max range. The `min` and `max` bounds are stored as strings for
+/// serialization and parsed at validation time using the configured
+/// [`DateFormat`].
+///
+/// # Bound format and cross-format handling
+///
+/// Bounds are ideally provided in the same [`DateFormat`] and `allow_time`
+/// setting as the input values. For the default `DateFormat::Iso8601`:
+///
+/// - When `allow_time` is `false`, bounds should be date-only values
+///   (e.g., `"2020-01-01"`).
+/// - When `allow_time` is `true`, bounds may be full date-time values
+///   (e.g., `"2020-01-01T00:00:00"`) for precise time-based comparison.
+///
+/// When there is a format mismatch, the bound is still applied using the
+/// available date component:
+///
+/// - A date-only bound with a datetime input (`allow_time = true`): the
+///   date component of the input is compared against the bound (e.g., any
+///   time on or after `"2020-01-01"` satisfies that min bound).
+/// - A datetime bound with a date-only input (`allow_time = false`): the
+///   date component of the bound is extracted for comparison.
+///
+/// If a bound string cannot be parsed as either a date or datetime in the
+/// configured format, that side of the range is treated as if it were not
+/// set and the corresponding min/max check is skipped.
 ///
 /// # Defaults
 ///
@@ -313,11 +337,11 @@ pub struct DateRangeOptions {
   /// Whether to also accept a time component (default: false, date-only).
   pub allow_time: bool,
 
-  /// Minimum date/datetime (inclusive), as an ISO 8601 string.
+  /// Minimum date/datetime (inclusive), in the configured [`DateFormat`].
   /// `None` means no lower bound.
   pub min: Option<String>,
 
-  /// Maximum date/datetime (inclusive), as an ISO 8601 string.
+  /// Maximum date/datetime (inclusive), in the configured [`DateFormat`].
   /// `None` means no upper bound.
   pub max: Option<String>,
 }
