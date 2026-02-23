@@ -1,7 +1,7 @@
 //! Form data transfer object.
 use crate::path::{PathSegment, parse_path};
+use walrs_validation::indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use std::collections::HashMap;
 use walrs_validation::Value;
 /// Form data transfer object.
@@ -60,7 +60,7 @@ impl FormData {
       .entry(first)
       .or_insert_with(|| match segments.get(1) {
         Some(PathSegment::Index(_)) => Value::Array(Vec::new()),
-        _ => Value::Object(Map::new()),
+        _ => Value::Object(IndexMap::new()),
       });
     set_nested(root, &segments[1..], value);
     self
@@ -94,34 +94,36 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
   }
   match &segments[0] {
     PathSegment::Field(name) => {
-      if !current.is_object() {
-        *current = Value::Object(Map::new());
+      if !matches!(current, Value::Object(_)) {
+        *current = Value::Object(IndexMap::new());
       }
-      let obj = current.as_object_mut().unwrap();
-      if segments.len() == 1 {
-        obj.insert(name.clone(), value);
-      } else {
-        let next = obj
-          .entry(name.clone())
-          .or_insert_with(|| match segments.get(1) {
-            Some(PathSegment::Index(_)) => Value::Array(Vec::new()),
-            _ => Value::Object(Map::new()),
-          });
-        set_nested(next, &segments[1..], value);
+      if let Value::Object(obj) = current {
+        if segments.len() == 1 {
+          obj.insert(name.clone(), value);
+        } else {
+          let next = obj
+            .entry(name.clone())
+            .or_insert_with(|| match segments.get(1) {
+              Some(PathSegment::Index(_)) => Value::Array(Vec::new()),
+              _ => Value::Object(IndexMap::new()),
+            });
+          set_nested(next, &segments[1..], value);
+        }
       }
     }
     PathSegment::Index(idx) => {
-      if !current.is_array() {
+      if !matches!(current, Value::Array(_)) {
         *current = Value::Array(Vec::new());
       }
-      let arr = current.as_array_mut().unwrap();
-      while arr.len() <= *idx {
-        arr.push(Value::Null);
-      }
-      if segments.len() == 1 {
-        arr[*idx] = value;
-      } else {
-        set_nested(&mut arr[*idx], &segments[1..], value);
+      if let Value::Array(arr) = current {
+        while arr.len() <= *idx {
+          arr.push(Value::Null);
+        }
+        if segments.len() == 1 {
+          arr[*idx] = value;
+        } else {
+          set_nested(&mut arr[*idx], &segments[1..], value);
+        }
       }
     }
   }
@@ -133,7 +135,8 @@ impl From<HashMap<String, Value>> for FormData {
 }
 impl From<serde_json::Value> for FormData {
   fn from(value: serde_json::Value) -> Self {
-    if let Value::Object(map) = value {
+    let v = Value::from(value);
+    if let Value::Object(map) = v {
       let converted: HashMap<String, Value> = map.into_iter().collect();
       Self(converted)
     } else {
@@ -144,11 +147,10 @@ impl From<serde_json::Value> for FormData {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
   #[test]
   fn test_simple_insert_and_get() {
     let mut data = FormData::new();
-    data.insert("email", json!("test@example.com"));
+    data.insert("email", Value::Str("test@example.com".to_string()));
     assert_eq!(
       data.get("email").unwrap().as_str(),
       Some("test@example.com")
@@ -157,7 +159,9 @@ mod tests {
   #[test]
   fn test_dot_notation_get() {
     let mut data = FormData::new();
-    data.insert("user", json!({"email": "test@example.com"}));
+    let mut user = IndexMap::new();
+    user.insert("email".to_string(), Value::Str("test@example.com".to_string()));
+    data.insert("user", Value::Object(user));
     assert_eq!(
       data.get("user.email").unwrap().as_str(),
       Some("test@example.com")

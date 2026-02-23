@@ -8,7 +8,7 @@ use crate::filter_enum::Filter;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_validation::Value;
-use walrs_validation::{Rule, ValidateRef, Violation, Violations};
+use walrs_validation::{Rule, ValidateRef, Violations};
 
 /// Validation configuration for a single field.
 ///
@@ -172,25 +172,14 @@ impl Field<Value> {
   ///
   /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
   ///
-  /// Note: For `Value` fields, rules are applied based on the underlying type.
-  /// Currently supports `Rule::Required` check via `ValueExt::is_empty_value()`.
+  /// Delegates to the full `Rule<Value>::validate_value()` implementation.
   pub fn validate(&self, value: &Value) -> Result<(), Violations> {
-    use walrs_validation::ValueExt;
-
     match &self.rule {
-      Some(rule) => {
-        // Check if rule requires value (Required or All containing Required)
-        if rule.requires_value() && value.is_empty_value() {
-          let mut violations = Violations::empty();
-          violations.push(Violation::new(
-            walrs_validation::ViolationType::ValueMissing,
-            "Value is required.",
-          ));
-          return Err(violations);
-        }
-        // TODO: Implement full Rule<Value> validation in walrs_validation
-        Ok(())
-      }
+      Some(rule) => rule.validate_value(value).map_err(|v| {
+        let mut vs = Violations::empty();
+        vs.push(v);
+        vs
+      }),
       None => Ok(()),
     }
   }
@@ -208,7 +197,6 @@ impl Field<Value> {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
   use walrs_validation::Rule;
 
   #[test]
@@ -295,8 +283,8 @@ mod tests {
       .build()
       .unwrap();
 
-    let result = field.filter(json!("  HELLO  "));
-    assert_eq!(result, json!("hello"));
+    let result = field.filter(Value::Str("  HELLO  ".to_string()));
+    assert_eq!(result, Value::Str("hello".to_string()));
   }
 
   #[test]
@@ -306,9 +294,9 @@ mod tests {
       .build()
       .unwrap();
 
-    assert!(field.validate(&json!(null)).is_err());
-    assert!(field.validate(&json!("")).is_err());
-    assert!(field.validate(&json!("hello")).is_ok());
+    assert!(field.validate(&Value::Null).is_err());
+    assert!(field.validate(&Value::Str("".to_string())).is_err());
+    assert!(field.validate(&Value::Str("hello".to_string())).is_ok());
   }
 
   #[test]

@@ -415,18 +415,10 @@ fn evaluate_condition(condition: &Condition<Value>, value: &Value) -> bool {
     Condition::IsNotEmpty => !value.is_empty_value(),
     Condition::Equals(expected) => value == expected,
     Condition::GreaterThan(threshold) => {
-      if let (Some(v), Some(t)) = (value.as_f64(), threshold.as_f64()) {
-        v > t
-      } else {
-        false
-      }
+      value.partial_cmp(threshold) == Some(std::cmp::Ordering::Greater)
     }
     Condition::LessThan(threshold) => {
-      if let (Some(v), Some(t)) = (value.as_f64(), threshold.as_f64()) {
-        v < t
-      } else {
-        false
-      }
+      value.partial_cmp(threshold) == Some(std::cmp::Ordering::Less)
     }
     Condition::Matches(pattern) => {
       if let Some(s) = value.as_str() {
@@ -445,7 +437,6 @@ fn evaluate_condition(condition: &Condition<Value>, value: &Value) -> bool {
 mod tests {
   use super::*;
   use crate::field::FieldBuilder;
-  use serde_json::json;
   use walrs_validation::Rule;
 
   fn make_data(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
@@ -466,7 +457,7 @@ mod tests {
         .unwrap(),
     );
 
-    let data = make_data(&[("email", json!("test@example.com"))]);
+    let data = make_data(&[("email", Value::Str("test@example.com".to_string()))]);
     assert!(filter.validate(&data).is_ok());
 
     let empty_data = make_data(&[]);
@@ -487,15 +478,15 @@ mod tests {
 
     // Matching passwords
     let data = make_data(&[
-      ("password", json!("secret123")),
-      ("password_confirm", json!("secret123")),
+      ("password", Value::Str("secret123".to_string())),
+      ("password_confirm", Value::Str("secret123".to_string())),
     ]);
     assert!(filter.validate(&data).is_ok());
 
     // Non-matching passwords
     let data = make_data(&[
-      ("password", json!("secret123")),
-      ("password_confirm", json!("different")),
+      ("password", Value::Str("secret123".to_string())),
+      ("password_confirm", Value::Str("different".to_string())),
     ]);
     assert!(filter.validate(&data).is_err());
   }
@@ -514,11 +505,11 @@ mod tests {
     assert!(filter.validate(&data).is_err());
 
     // Email present
-    let data = make_data(&[("email", json!("test@example.com"))]);
+    let data = make_data(&[("email", Value::Str("test@example.com".to_string()))]);
     assert!(filter.validate(&data).is_ok());
 
     // Phone present
-    let data = make_data(&[("phone", json!("123-456-7890"))]);
+    let data = make_data(&[("phone", Value::Str("123-456-7890".to_string()))]);
     assert!(filter.validate(&data).is_ok());
   }
 
@@ -539,13 +530,13 @@ mod tests {
     assert!(filter.validate(&data).is_ok());
 
     // One present - OK
-    let data = make_data(&[("credit_card", json!("1234-5678-9012-3456"))]);
+    let data = make_data(&[("credit_card", Value::Str("1234-5678-9012-3456".to_string()))]);
     assert!(filter.validate(&data).is_ok());
 
     // Both present - Error
     let data = make_data(&[
-      ("credit_card", json!("1234-5678-9012-3456")),
-      ("paypal", json!("user@paypal.com")),
+      ("credit_card", Value::Str("1234-5678-9012-3456".to_string())),
+      ("paypal", Value::Str("user@paypal.com".to_string())),
     ]);
     assert!(filter.validate(&data).is_err());
   }
@@ -568,13 +559,13 @@ mod tests {
 
     // Credit card with billing address - OK
     let data = make_data(&[
-      ("credit_card", json!("1234-5678-9012-3456")),
-      ("billing_address", json!("123 Main St")),
+      ("credit_card", Value::Str("1234-5678-9012-3456".to_string())),
+      ("billing_address", Value::Str("123 Main St".to_string())),
     ]);
     assert!(filter.validate(&data).is_ok());
 
     // Credit card without billing address - Error
-    let data = make_data(&[("credit_card", json!("1234-5678-9012-3456"))]);
+    let data = make_data(&[("credit_card", Value::Str("1234-5678-9012-3456".to_string()))]);
     assert!(filter.validate(&data).is_err());
   }
 
@@ -592,10 +583,10 @@ mod tests {
         .unwrap(),
     );
 
-    let data = make_data(&[("email", json!("  TEST@EXAMPLE.COM  "))]);
+    let data = make_data(&[("email", Value::Str("  TEST@EXAMPLE.COM  ".to_string()))]);
     let filtered = field_filter.filter(data);
 
-    assert_eq!(filtered.get("email").unwrap(), &json!("test@example.com"));
+    assert_eq!(filtered.get("email").unwrap(), &Value::Str("test@example.com".to_string()));
   }
 
   #[test]
@@ -610,12 +601,12 @@ mod tests {
         .unwrap(),
     );
 
-    let data = make_data(&[("email", json!("  test@example.com  "))]);
+    let data = make_data(&[("email", Value::Str("  test@example.com  ".to_string()))]);
     let result = field_filter.process(data);
     assert!(result.is_ok());
     assert_eq!(
       result.unwrap().get("email").unwrap(),
-      &json!("test@example.com")
+      &Value::Str("test@example.com".to_string())
     );
   }
 
@@ -635,18 +626,15 @@ mod tests {
       })),
     });
 
-    let data = make_data(&[("age", json!(21))]);
+    let data = make_data(&[("age", Value::I64(21))]);
     assert!(filter.validate(&data).is_ok());
 
-    let data = make_data(&[("age", json!(16))]);
+    let data = make_data(&[("age", Value::I64(16))]);
     assert!(filter.validate(&data).is_err());
   }
 
   #[test]
   fn test_break_on_failure_stops_at_field_and_skips_cross_field_rules() {
-    // A single field with break_on_failure = true paired with a cross-field rule
-    // that would also fail. When the field fails, FieldFilter::validate must
-    // return early without evaluating the cross-field rule.
     let mut filter = FieldFilter::new();
     filter.add_field(
       "email",
@@ -656,7 +644,6 @@ mod tests {
         .build()
         .unwrap(),
     );
-    // Cross-field rule: password and confirm must be equal (they won't be).
     filter.add_cross_field_rule(CrossFieldRule {
       name: Some("password_match".into()),
       fields: vec!["password".to_string(), "password_confirm".to_string()],
@@ -666,28 +653,25 @@ mod tests {
       },
     });
 
-    // email is missing → field fails with break_on_failure = true.
-    // Cross-field rule must NOT be evaluated (no form-level violations).
     let data = make_data(&[
-      ("password", json!("secret")),
-      ("password_confirm", json!("different")),
+      ("password", Value::Str("secret".to_string())),
+      ("password_confirm", Value::Str("different".to_string())),
     ]);
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_some()); // field violation recorded
-    assert!(violations.form.is_empty()); // cross-field rule was not reached
+    assert!(violations.for_field("email").is_some());
+    assert!(violations.form.is_empty());
 
-    // email is present → field passes, cross-field rule is evaluated and fails.
     let data = make_data(&[
-      ("email", json!("test@example.com")),
-      ("password", json!("secret")),
-      ("password_confirm", json!("different")),
+      ("email", Value::Str("test@example.com".to_string())),
+      ("password", Value::Str("secret".to_string())),
+      ("password_confirm", Value::Str("different".to_string())),
     ]);
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_none()); // email passed
-    assert!(!violations.form.is_empty()); // cross-field rule was evaluated
+    assert!(violations.for_field("email").is_none());
+    assert!(!violations.form.is_empty());
   }
 }

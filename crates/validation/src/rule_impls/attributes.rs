@@ -1,3 +1,5 @@
+#![cfg(feature = "serde_json_bridge")]
+
 use serde::Serialize;
 use serde_json::value::to_value as to_json_value;
 

@@ -120,10 +120,10 @@ impl SelectElement {
   ///
   /// ```rust
   /// use walrs_form::SelectElement;
-  /// use serde_json::json;
+  /// use walrs_validation::Value;
   ///
   /// let select = SelectElement::new("test");
-  /// assert!(select.validate_value(&json!("option1")).is_ok());
+  /// assert!(select.validate_value(&Value::from("option1")).is_ok());
   /// ```
   pub fn validate_value(&self, value: &Value) -> Result<(), Violations> {
     if let Some(ref field) = self.field {
@@ -152,7 +152,6 @@ impl SelectElement {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use serde_json::json;
   #[test]
   fn test_new() {
     let select = SelectElement::new("country");
@@ -183,6 +182,6 @@ mod tests {
   #[test]
   fn test_validate_without_field() {
     let select = SelectElement::new("test");
-    assert!(select.validate_value(&json!("value")).is_ok());
+    assert!(select.validate_value(&Value::from("value")).is_ok());
   }
 }

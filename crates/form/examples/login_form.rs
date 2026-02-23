@@ -2,10 +2,10 @@
 //!
 //! This example demonstrates how to create a simple login form
 //! with username, password, and remember me checkbox.
-use serde_json::json;
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };
+use walrs_validation::Value;
 fn main() {
   // Create the form
   let mut form = Form::new("login");
@@ -46,8 +46,8 @@ fn main() {
   }
   // Bind some data
   let mut data = FormData::new();
-  data.insert("username", json!("john_doe"));
-  data.insert("remember", json!(true));
+  data.insert("username", Value::from("john_doe"));
+  data.insert("remember", Value::from(true));
   form.bind_data(data);
   // Serialize to JSON
   let json_output = serde_json::to_string_pretty(&form).unwrap();

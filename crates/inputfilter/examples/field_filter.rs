@@ -203,7 +203,7 @@ fn main() {
 fn make_data(pairs: &[(&str, &str)]) -> HashMap<String, Value> {
   pairs
     .iter()
-    .map(|(k, v)| (k.to_string(), Value::String(v.to_string())))
+    .map(|(k, v)| (k.to_string(), Value::Str(v.to_string())))
     .collect()
 }
 

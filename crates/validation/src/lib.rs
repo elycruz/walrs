@@ -42,6 +42,8 @@
 //! assert!(range_rule.validate(-1).is_err());
 //! ```
 
+pub use indexmap;
+
 pub mod attributes;
 pub(crate) mod rule_impls;
 pub mod message;
