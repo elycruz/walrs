@@ -667,12 +667,11 @@ impl<T> Rule<T> {
     Rule::Pattern(pattern.into())
   }
 
-  /// Creates an `Email` rule with default options.
-  pub fn email() -> Rule<T> {
-    Rule::Email(EmailOptions::default())
+  /// Creates an `Email` rule with the given options.
+  pub fn email(options: EmailOptions) -> Rule<T> {
+    Rule::Email(options)
   }
 
-  /// Creates a `Url` rule.
   /// Creates a `Url` rule with the given options.
   pub fn url(options: UrlOptions) -> Rule<T> {
     Rule::Url(options)
