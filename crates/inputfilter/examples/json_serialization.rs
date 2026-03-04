@@ -124,7 +124,7 @@ fn main() {
 
   let test_values = vec!["", "ABC", "ABCD1234", "abcd1234", "ABCD12345"];
   for value in test_values {
-    let result = product_code_field.validate(&value.to_string());
+    let result = product_code_field.validate_ref(value);
     println!("   '{}' -> {:?}", value, result.is_ok());
   }
 

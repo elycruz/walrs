@@ -25,11 +25,11 @@ fn main() {
 
   println!(
     "   Validating empty string: {:?}",
-    username_field.validate(&empty)
+    username_field.validate_ref(&empty)
   );
   println!(
     "   Validating 'john_doe': {:?}",
-    username_field.validate(&valid)
+    username_field.validate_ref(&valid)
   );
 
   // Example 2: Field with multiple rules using .and() combinator
@@ -49,11 +49,11 @@ fn main() {
 
   println!(
     "   Validating 'abc': {:?}",
-    password_field.validate(&short_password)
+    password_field.validate_ref(&short_password)
   );
   println!(
     "   Validating 'securepassword123': {:?}",
-    password_field.validate(&valid_password)
+    password_field.validate_ref(&valid_password)
   );
 
   // Example 3: Field with filters
@@ -69,7 +69,7 @@ fn main() {
   let filtered = email_field.filter(messy_email.clone());
   println!("   Original: '{}'", messy_email);
   println!("   Filtered: '{}'", filtered);
-  println!("   Validation: {:?}", email_field.validate(&filtered));
+  println!("   Validation: {:?}", email_field.validate_ref(&filtered));
 
   // Example 4: Process (filter + validate in one step)
   println!("\n4. Using process() for filter + validate:");
@@ -93,7 +93,7 @@ fn main() {
     .unwrap();
 
   let too_short = "ab".to_string();
-  match strict_field.validate(&too_short) {
+  match strict_field.validate_ref(&too_short) {
     Ok(()) => println!("   Valid!"),
     Err(violations) => {
       println!("   Found {} violation(s):", violations.len());
@@ -116,7 +116,7 @@ fn main() {
     .build()
     .unwrap();
 
-  match fast_fail_field.validate(&too_short) {
+  match fast_fail_field.validate_ref(&too_short) {
     Ok(()) => println!("   Valid!"),
     Err(violations) => {
       println!("   Stopped after {} violation(s):", violations.len());

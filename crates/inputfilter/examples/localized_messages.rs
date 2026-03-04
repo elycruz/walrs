@@ -52,7 +52,7 @@ fn main() {
 
   println!("Value: \"{}\"", test_value);
   println!("Locale: en (default)");
-  if let Err(violations) = field_en.validate(&test_value) {
+  if let Err(violations) = field_en.validate_ref(&test_value) {
     for v in violations.iter() {
       println!("  Error: {}", v.message());
     }
@@ -67,7 +67,7 @@ fn main() {
     .unwrap();
 
   println!("\nLocale: es");
-  if let Err(violations) = field_es.validate(&test_value) {
+  if let Err(violations) = field_es.validate_ref(&test_value) {
     for v in violations.iter() {
       println!("  Error: {}", v.message());
     }
@@ -82,7 +82,7 @@ fn main() {
     .unwrap();
 
   println!("\nLocale: fr");
-  if let Err(violations) = field_fr.validate(&test_value) {
+  if let Err(violations) = field_fr.validate_ref(&test_value) {
     for v in violations.iter() {
       println!("  Error: {}", v.message());
     }
@@ -97,7 +97,7 @@ fn main() {
     .unwrap();
 
   println!("\nLocale: de");
-  if let Err(violations) = field_de.validate(&test_value) {
+  if let Err(violations) = field_de.validate_ref(&test_value) {
     for v in violations.iter() {
       println!("  Error: {}", v.message());
     }
@@ -150,7 +150,7 @@ fn main() {
 
   println!("Value: \"{}\" (weak password)", weak_password);
   println!("Locale: es");
-  if let Err(violations) = password_field_es.validate(&weak_password) {
+  if let Err(violations) = password_field_es.validate_ref(&weak_password) {
     println!("  Violations ({}):", violations.len());
     for v in violations.iter() {
       println!("    - {}", v.message());
@@ -165,7 +165,7 @@ fn main() {
     .unwrap();
 
   println!("\nLocale: fr");
-  if let Err(violations) = password_field_fr.validate(&weak_password) {
+  if let Err(violations) = password_field_fr.validate_ref(&weak_password) {
     println!("  Violations ({}):", violations.len());
     for v in violations.iter() {
       println!("    - {}", v.message());
@@ -209,7 +209,7 @@ fn main() {
 
     println!("Value: \"{}\"", invalid_email);
     println!("Locale: {:?}", locale.unwrap_or("en (default)"));
-    if let Err(violations) = field.validate(&invalid_email) {
+    if let Err(violations) = field.validate_ref(&invalid_email) {
       for v in violations.iter() {
         println!("  Error: {}", v.message());
       }

@@ -127,7 +127,7 @@ impl SelectElement {
   /// ```
   pub fn validate_value(&self, value: &Value) -> Result<(), Violations> {
     if let Some(ref field) = self.field {
-      field.validate(value)
+      field.validate_ref(value)
     } else {
       Ok(())
     }

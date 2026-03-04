@@ -46,7 +46,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 /// let value = "  TEST@EXAMPLE.COM  ".to_string();
 /// let filtered = field.filter(value);
 /// assert_eq!(filtered, "test@example.com");
-/// assert!(field.validate(&filtered).is_ok());
+/// assert!(field.validate_ref(&filtered).is_ok());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
@@ -120,20 +120,22 @@ impl Field<String> {
 
   /// Validate the value against the rule, short-circuiting on the first violation.
   ///
+  /// Accepts a `&str` directly, avoiding any allocation at the call site.
+  ///
   /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with the first failure.
   /// If the field has a locale set, it is applied to the rule for internationalized
   /// error messages.
   /// Whether the calling context stops processing further fields on failure is
   /// controlled by the `break_on_failure` flag (used by `FieldFilter`).
-  pub fn validate(&self, value: &String) -> Result<(), Violations> {
+  pub fn validate_ref(&self, value: &str) -> Result<(), Violations> {
     match &self.rule {
       Some(rule) => {
         // Apply locale to rule if set, then validate via trait method
         // @todo `locale` should be set directly on `rule`.
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_ref(value.as_str())
+          rule.clone().with_locale(locale.as_ref()).validate_ref(value)
         } else {
-          rule.validate_ref(value.as_str())
+          rule.validate_ref(value)
         };
         result.map_err(|v| {
           let mut violations = Violations::empty();
@@ -145,12 +147,18 @@ impl Field<String> {
     }
   }
 
+  /// Validate a `&String` value. Delegates to [`validate_ref`](Self::validate_ref).
+  pub fn validate(&self, value: String) -> Result<(), Violations> {
+    self.validate_ref(value.as_str())
+  }
+
   /// Filter the value and then validate it.
   ///
   /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
   pub fn process(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
-    self.validate(&filtered)?;
+    // @todo Should the ordering of the this be before filter step.
+    self.validate_ref(&filtered)?;
     Ok(filtered)
   }
 }
@@ -168,6 +176,29 @@ impl Field<Value> {
     }
   }
 
+  /// Validate a `&Value` reference against the rule.
+  ///
+  /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with the first failure.
+  /// If the field has a locale set, it is applied to the rule for internationalized
+  /// error messages.
+  pub fn validate_ref(&self, value: &Value) -> Result<(), Violations> {
+    match &self.rule {
+      Some(rule) => {
+        let result = if let Some(locale) = &self.locale {
+          rule.clone().with_locale(locale.as_ref()).validate_ref(value)
+        } else {
+          rule.validate_ref(value)
+        };
+        result.map_err(|v| {
+          let mut violations = Violations::empty();
+          violations.push(v);
+          violations
+        })
+      }
+      None => Ok(()),
+    }
+  }
+
   /// Validate the value against the rule.
   ///
   /// Returns `Ok(())` if the rule passes, or `Err(Violations)` with failures.
@@ -175,11 +206,18 @@ impl Field<Value> {
   /// Delegates to the full `Rule<Value>::validate_value()` implementation.
   pub fn validate(&self, value: &Value) -> Result<(), Violations> {
     match &self.rule {
-      Some(rule) => rule.validate_value(value).map_err(|v| {
-        let mut vs = Violations::empty();
-        vs.push(v);
-        vs
-      }),
+      Some(rule) => {
+        let result = if let Some(locale) = &self.locale {
+          rule.clone().with_locale(locale.as_ref()).validate_value(value)
+        } else {
+          rule.validate_value(value)
+        };
+        result.map_err(|v| {
+          let mut vs = Violations::empty();
+          vs.push(v);
+          vs
+        })
+      }
       None => Ok(()),
     }
   }
@@ -189,7 +227,7 @@ impl Field<Value> {
   /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
   pub fn process(&self, value: Value) -> Result<Value, Violations> {
     let filtered = self.filter(value);
-    self.validate(&filtered)?;
+    self.validate_ref(&filtered)?;
     Ok(filtered)
   }
 }
@@ -233,13 +271,25 @@ mod tests {
   }
 
   #[test]
+  fn test_string_field_validate_ref() {
+    let field = FieldBuilder::<String>::default()
+      .rule(Rule::Required.and(Rule::MinLength(3)))
+      .build()
+      .unwrap();
+
+    assert!(field.validate_ref("hello").is_ok());
+    assert!(field.validate_ref("hi").is_err());
+    assert!(field.validate_ref("").is_err());
+  }
+
+  #[test]
   fn test_string_field_validate_passes() {
     let field = FieldBuilder::<String>::default()
       .rule(Rule::MinLength(3))
       .build()
       .unwrap();
 
-    assert!(field.validate(&"hello".to_string()).is_ok());
+    assert!(field.validate_ref("hello").is_ok());
   }
 
   #[test]
@@ -249,7 +299,7 @@ mod tests {
       .build()
       .unwrap();
 
-    assert!(field.validate(&"hello".to_string()).is_err());
+    assert!(field.validate_ref("hello").is_err());
   }
 
   #[test]
@@ -259,9 +309,9 @@ mod tests {
       .build()
       .unwrap();
 
-    assert!(field.validate(&"".to_string()).is_err());
-    assert!(field.validate(&"   ".to_string()).is_err());
-    assert!(field.validate(&"hello".to_string()).is_ok());
+    assert!(field.validate_ref("").is_err());
+    assert!(field.validate_ref("   ").is_err());
+    assert!(field.validate_ref("hello").is_ok());
   }
 
   #[test]
@@ -315,7 +365,7 @@ mod tests {
       .unwrap();
 
     // Empty string fails on the first encountered violation
-    let result = field.validate(&"".to_string());
+    let result = field.validate_ref("");
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert_eq!(violations.len(), 1); // Always returns the first violation only

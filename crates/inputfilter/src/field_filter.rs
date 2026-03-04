@@ -109,7 +109,7 @@ impl FieldFilter {
     // Validate individual fields
     for (field_name, field) in &self.fields {
       let value = data.get(field_name).cloned().unwrap_or(Value::Null);
-      if let Err(field_violations) = field.validate(&value) {
+      if let Err(field_violations) = field.validate_ref(&value) {
         violations.add_field_violations(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
