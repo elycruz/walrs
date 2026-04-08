@@ -356,25 +356,33 @@ impl Default for DateOptions {
 ///
 /// Validates that a date string is parseable and falls within an optional
 /// min/max range. The `min` and `max` bounds are stored as strings for
-/// serialization and parsed at validation time using the configured
-/// [`DateFormat`].
+/// serialization and parsed at validation time using the same [`DateFormat`]
+/// configured for the input values.
 ///
-/// # Bound format and cross-format handling
+/// # Bound format
 ///
-/// Bounds are ideally provided in the same [`DateFormat`] and `allow_time`
-/// setting as the input values. For the default `DateFormat::Iso8601`:
+/// Bounds must be provided in the same [`DateFormat`] as the input values:
 ///
-/// - When `allow_time` is `false`, bounds should be date-only values
-///   (e.g., `"2020-01-01"`).
-/// - When `allow_time` is `true`, bounds may be full date-time values
-///   (e.g., `"2020-01-01T00:00:00"`) for precise time-based comparison.
+/// - When `format` is `DateFormat::Iso8601`, bounds should be in ISO 8601
+///   format (e.g., `"2020-01-01"` for date-only or `"2020-01-01T00:00:00"`
+///   for datetime).
+/// - When `format` is `DateFormat::UsDate`, bounds should be in US format
+///   (e.g., `"01/01/2020"` for date-only or `"01/01/2020 00:00:00"` for
+///   datetime).
+/// - When `format` is `DateFormat::EuDate`, bounds should be in EU format
+///   (e.g., `"01/01/2020"` for date-only or `"01/01/2020 00:00:00"` for
+///   datetime).
+/// - When `format` is `DateFormat::Custom(fmt)`, bounds should use the same
+///   custom format.
 ///
-/// When there is a format mismatch, the bound is still applied using the
-/// available date component:
+/// # Cross-format handling
+///
+/// When there is a format mismatch between date-only and datetime values,
+/// the bound is still applied using the available date component:
 ///
 /// - A date-only bound with a datetime input (`allow_time = true`): the
 ///   date component of the input is compared against the bound (e.g., any
-///   time on or after `"2020-01-01"` satisfies that min bound).
+///   time on or after the min date satisfies that bound).
 /// - A datetime bound with a date-only input (`allow_time = false`): the
 ///   date component of the bound is extracted for comparison.
 ///
@@ -401,6 +409,14 @@ impl Default for DateOptions {
 ///   min: Some("2020-01-01".into()),
 ///   max: Some("2030-12-31".into()),
 /// };
+///
+/// // Accept US dates between 01/01/2020 and 12/31/2030
+/// let opts = DateRangeOptions {
+///   format: DateFormat::UsDate,
+///   allow_time: false,
+///   min: Some("01/01/2020".into()),
+///   max: Some("12/31/2030".into()),
+/// };
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DateRangeOptions {
@@ -410,12 +426,12 @@ pub struct DateRangeOptions {
   /// Whether to also accept a time component (default: false, date-only).
   pub allow_time: bool,
 
-  /// Minimum date/datetime (inclusive), always specified in ISO 8601 format,
-  /// regardless of the configured [`DateFormat`]. `None` means no lower bound.
+  /// Minimum date/datetime (inclusive), specified in the same [`DateFormat`]
+  /// as the input values. `None` means no lower bound.
   pub min: Option<String>,
 
-  /// Maximum date/datetime (inclusive), always specified in ISO 8601 format,
-  /// regardless of the configured [`DateFormat`]. `None` means no upper bound.
+  /// Maximum date/datetime (inclusive), specified in the same [`DateFormat`]
+  /// as the input values. `None` means no upper bound.
   pub max: Option<String>,
 }
 

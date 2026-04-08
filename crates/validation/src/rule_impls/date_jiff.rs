@@ -70,16 +70,14 @@ pub(crate) fn parse_datetime_str(
   }
 }
 
-/// Parses a bound string as a `jiff::civil::Date` (always ISO 8601).
-fn parse_bound_date(s: &str) -> Result<Date, ()> {
-  Date::strptime("%Y-%m-%d", s).map_err(|_| ())
+/// Parses a bound string as a `jiff::civil::Date` using the given `DateFormat`.
+fn parse_bound_date(s: &str, format: &DateFormat) -> Result<Date, ()> {
+  parse_date_str(s, format)
 }
 
-/// Parses a bound string as a `jiff::civil::DateTime` (always ISO 8601).
-fn parse_bound_datetime(s: &str) -> Result<DateTime, ()> {
-  DateTime::strptime("%Y-%m-%dT%H:%M:%S", s)
-    .or_else(|_| DateTime::strptime("%Y-%m-%d %H:%M:%S", s))
-    .map_err(|_| ())
+/// Parses a bound string as a `jiff::civil::DateTime` using the given `DateFormat`.
+fn parse_bound_datetime(s: &str, format: &DateFormat) -> Result<DateTime, ()> {
+  parse_datetime_str(s, format)
 }
 
 // ============================================================================
@@ -109,37 +107,23 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
     if let Ok(dt) = parse_datetime_str(value, &opts.format) {
       if let Some(min_str) = &opts.min {
         // Try datetime bound first; fall back to date-only bound (compare date component)
-        if let Ok(min_dt) = parse_bound_datetime(min_str) {
+        if let Ok(min_dt) = parse_bound_datetime(min_str, &opts.format) {
           if dt < min_dt {
             return Err(Violation::date_range_underflow(min_str));
           }
-        } else if let Ok(min_d) = parse_bound_date(min_str) {
-        match parse_bound_datetime(min_str) {
-          Ok(min_dt) => {
-            if dt < min_dt {
-              return Err(Violation::date_range_underflow(min_str));
-            }
-          }
-          Err(_) => {
-            // Misconfigured `min` bound: treat as a validation error rather than
-            // silently skipping the lower-bound check.
-            return Err(Violation::invalid_date());
+        } else if let Ok(min_d) = parse_bound_date(min_str, &opts.format) {
+          if dt.date() < min_d {
+            return Err(Violation::date_range_underflow(min_str));
           }
         }
       }
       if let Some(max_str) = &opts.max {
-        match parse_bound_datetime(max_str) {
-          Ok(max_dt) => {
-            if dt > max_dt {
-              return Err(Violation::date_range_overflow(max_str));
-            }
+        // Try datetime bound first; fall back to date-only bound (compare date component)
+        if let Ok(max_dt) = parse_bound_datetime(max_str, &opts.format) {
+          if dt > max_dt {
+            return Err(Violation::date_range_overflow(max_str));
           }
-          Err(_) => {
-            // Misconfigured `max` bound: treat as a validation error rather than
-            // silently skipping the upper-bound check.
-            return Err(Violation::invalid_date());
-          }
-        } else if let Ok(max_d) = parse_bound_date(max_str) {
+        } else if let Ok(max_d) = parse_bound_date(max_str, &opts.format) {
           if dt.date() > max_d {
             return Err(Violation::date_range_overflow(max_str));
           }
@@ -148,11 +132,11 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
       return Ok(());
     }
     if let Ok(d) = parse_date_str(value, &opts.format) {
-      return check_date_bounds(d, &opts.min, &opts.max);
+      return check_date_bounds(d, &opts.min, &opts.max, &opts.format);
     }
   } else {
     if let Ok(d) = parse_date_str(value, &opts.format) {
-      return check_date_bounds(d, &opts.min, &opts.max);
+      return check_date_bounds(d, &opts.min, &opts.max, &opts.format);
     }
   }
   Err(Violation::invalid_date())
@@ -162,11 +146,12 @@ fn check_date_bounds(
   d: Date,
   min: &Option<String>,
   max: &Option<String>,
+  format: &DateFormat,
 ) -> RuleResult {
   if let Some(min_str) = min {
     // Try date-only bound first; fall back to datetime bound (extract date component)
-    let min_d = parse_bound_date(min_str)
-      .or_else(|_| parse_bound_datetime(min_str).map(|dt| dt.date()));
+    let min_d = parse_bound_date(min_str, format)
+      .or_else(|_| parse_bound_datetime(min_str, format).map(|dt| dt.date()));
     if let Ok(min_d) = min_d {
       if d < min_d {
         return Err(Violation::date_range_underflow(min_str));
@@ -175,8 +160,8 @@ fn check_date_bounds(
   }
   if let Some(max_str) = max {
     // Try date-only bound first; fall back to datetime bound (extract date component)
-    let max_d = parse_bound_date(max_str)
-      .or_else(|_| parse_bound_datetime(max_str).map(|dt| dt.date()));
+    let max_d = parse_bound_date(max_str, format)
+      .or_else(|_| parse_bound_datetime(max_str, format).map(|dt| dt.date()));
     if let Ok(max_d) = max_d {
       if d > max_d {
         return Err(Violation::date_range_overflow(max_str));
