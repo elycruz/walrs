@@ -72,7 +72,7 @@ fn main() {
 
   // Example 4: Using .or() combinator (Any must pass)
   println!("\n4. Using .or() combinator (Any must pass):");
-  let contact_rule = Rule::<String>::Email.or(Rule::Pattern(r"^\d{3}-\d{4}$".to_string()));
+  let contact_rule = Rule::<String>::Email(Default::default()).or(Rule::Pattern(r"^\d{3}-\d{4}$".to_string()));
 
   println!(
     "   'user@example.com': {:?}",
@@ -90,7 +90,7 @@ fn main() {
   // Example 5: Using Rule::Any directly
   println!("\n5. Using Rule::Any directly:");
   let flexible_id = Rule::<String>::Any(vec![
-    Rule::Email,
+    Rule::Email(Default::default()),
     Rule::Pattern(r"^\d{5,10}$".to_string()), // Numeric ID
     Rule::Pattern(r"^[A-Z]{2}\d{6}$".to_string()), // Code format
   ]);
@@ -155,7 +155,7 @@ fn main() {
 
   // Example 9: Pattern matching
   println!("\n9. Pattern matching:");
-  let email_pattern = Rule::<String>::Email;
+  let email_pattern = Rule::<String>::Email(Default::default());
   let url_pattern = Rule::<String>::Url(Default::default());
   let custom_pattern = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
 

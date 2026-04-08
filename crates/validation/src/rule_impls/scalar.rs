@@ -127,11 +127,13 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
       | Rule::MaxLength(_)
       | Rule::ExactLength(_)
       | Rule::Pattern(_)
-      | Rule::Email
+      | Rule::Email(_)
       | Rule::Url(_)
       | Rule::Uri(_)
       | Rule::Ip(_)
-      | Rule::Hostname(_) => Ok(()),
+      | Rule::Hostname(_)
+      | Rule::Date(_)
+      | Rule::DateRange(_) => Ok(()),
     }
   }
 

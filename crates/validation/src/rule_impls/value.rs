@@ -114,8 +114,8 @@ impl Rule<Value> {
           "Expected a string for Pattern.",
         )),
       },
-      Rule::Email => match value {
-        Value::Str(s) => Rule::<String>::Email.validate_str(s.as_str()),
+      Rule::Email(opts) => match value {
+        Value::Str(s) => Rule::<String>::Email(opts.clone()).validate_str(s.as_str()),
         _ => Err(Violation::new(
           ViolationType::TypeMismatch,
           "Expected a string for Email.",
@@ -147,6 +147,20 @@ impl Rule<Value> {
         _ => Err(Violation::new(
           ViolationType::TypeMismatch,
           "Expected a string for Hostname.",
+        )),
+      },
+      Rule::Date(opts) => match value {
+        Value::Str(s) => Rule::<String>::Date(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for Date.",
+        )),
+      },
+      Rule::DateRange(opts) => match value {
+        Value::Str(s) => Rule::<String>::DateRange(opts.clone()).validate_str(s.as_str()),
+        _ => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Expected a string for DateRange.",
         )),
       },
 
@@ -368,7 +382,7 @@ mod tests {
 
   #[test]
   fn test_email() {
-    let rule = Rule::<Value>::Email;
+    let rule = Rule::<Value>::Email(Default::default());
     assert!(rule.validate_value(&Value::Str("test@example.com".to_string())).is_ok());
     assert!(rule.validate_value(&Value::Str("invalid".to_string())).is_err());
   }
@@ -458,7 +472,7 @@ mod tests {
   #[test]
   fn test_any() {
     let rule = Rule::<Value>::Any(vec![
-      Rule::Email,
+      Rule::Email(Default::default()),
       Rule::Url(Default::default()),
     ]);
     assert!(rule.validate_value(&Value::Str("test@example.com".to_string())).is_ok());

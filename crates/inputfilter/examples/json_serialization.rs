@@ -32,7 +32,7 @@ fn main() {
   println!("\n2. Serialize a field with filters:");
   let email_field = FieldBuilder::<String>::default()
     .name("email")
-    .rule(Rule::Required.and(Rule::Email))
+    .rule(Rule::Required.and(Rule::Email(Default::default())))
     .filters(vec![Filter::Trim, Filter::Lowercase])
     .build()
     .unwrap();
@@ -69,7 +69,7 @@ fn main() {
 
   // Example 5: Serialize Rule::Any
   println!("\n5. Serialize Rule::Any:");
-  let any_rule = Rule::<String>::Any(vec![Rule::Email, Rule::Pattern(r"^\d{10}$".to_string())]);
+  let any_rule = Rule::<String>::Any(vec![Rule::Email(Default::default()), Rule::Pattern(r"^\d{10}$".to_string())]);
 
   let json = serde_json::to_string_pretty(&any_rule).unwrap();
   println!("{}", json);

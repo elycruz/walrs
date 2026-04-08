@@ -22,7 +22,7 @@
 //! let email_field = FieldBuilder::<String>::default()
 //!     .name("email".to_string())
 //!     .filters(vec![FilterEnum::Trim, FilterEnum::Lowercase])
-//!     .rule(Rule::Required.and(Rule::Email))
+//!     .rule(Rule::Required.and(Rule::Email(Default::default())))
 //!     .build()
 //!     .unwrap();
 //!

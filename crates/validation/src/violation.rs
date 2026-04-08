@@ -111,6 +111,27 @@ impl Violation {
     Self::new(ViolationType::TypeMismatch, "Invalid hostname.")
   }
 
+  /// Value is not a valid date.
+  pub fn invalid_date() -> Self {
+    Self::new(ViolationType::TypeMismatch, "Invalid date.")
+  }
+
+  /// Date is before the allowed minimum.
+  pub fn date_range_underflow(min: &str) -> Self {
+    Self::new(
+      ViolationType::RangeUnderflow,
+      format!("Date must be on or after {}.", min),
+    )
+  }
+
+  /// Date exceeds the allowed maximum.
+  pub fn date_range_overflow(max: &str) -> Self {
+    Self::new(
+      ViolationType::RangeOverflow,
+      format!("Date must be on or before {}.", max),
+    )
+  }
+
   /// Value is below the allowed minimum.
   pub fn range_underflow<T: Display>(min: &T) -> Self {
     Self::new(

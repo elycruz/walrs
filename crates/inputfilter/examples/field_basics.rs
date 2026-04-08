@@ -60,7 +60,7 @@ fn main() {
   println!("\n3. Field with filters:");
   let email_field = FieldBuilder::<String>::default()
     .name("email")
-    .rule(Rule::Required.and(Rule::Email))
+    .rule(Rule::Required.and(Rule::Email(Default::default())))
     .filters(vec![Filter::Trim, Filter::Lowercase])
     .build()
     .unwrap();

@@ -37,7 +37,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 /// // Field with rule and filters
 /// let field = FieldBuilder::<String>::default()
 ///     .name("email")
-///     .rule(Rule::Required.and(Rule::Email))
+///     .rule(Rule::Required.and(Rule::Email(Default::default())))
 ///     .filters(vec![Filter::Trim, Filter::Lowercase])
 ///     .build()
 ///     .unwrap();

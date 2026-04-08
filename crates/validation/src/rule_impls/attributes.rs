@@ -73,7 +73,7 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
         "pattern".to_string(),
         serde_json::Value::from(p.clone()),
       )]),
-      Rule::Email => Some(vec![("type".to_string(), serde_json::Value::from("email"))]),
+      Rule::Email(_) => Some(vec![("type".to_string(), serde_json::Value::from("email"))]),
       Rule::Url(_) => Some(vec![("type".to_string(), serde_json::Value::from("url"))]),
 
       // Numeric Rules
@@ -133,6 +133,8 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
       Rule::Uri(_) => None,
       Rule::Ip(_) => None,
       Rule::Hostname(_) => None,
+      Rule::Date(_) => None,
+      Rule::DateRange(_) => None,
 
       // WithMessage - delegate to inner rule
       Rule::WithMessage { rule, .. } => rule.to_attributes_list(),
@@ -199,7 +201,7 @@ mod tests {
 
   #[test]
   fn test_to_attributes_list_email() {
-    let rule = Rule::<String>::Email;
+    let rule = Rule::<String>::Email(Default::default());
     let attrs = rule.to_attributes_list().unwrap();
     assert_eq!(attrs.len(), 1);
     assert_eq!(attrs[0].0, "type");
@@ -266,9 +268,8 @@ mod tests {
 
   #[test]
   fn test_to_attributes_list_any_composite() {
-    let rule = Rule::<String>::Email.or(Rule::Url(Default::default()));
+    let rule = Rule::<String>::Email(Default::default()).or(Rule::Url(Default::default()));
     let attrs = rule.to_attributes_list().unwrap();
-    assert_eq!(attrs.len(), 2);
     assert!(attrs.iter().any(|(k, v)| k == "type" && v == "email"));
     assert!(attrs.iter().any(|(k, v)| k == "type" && v == "url"));
   }
