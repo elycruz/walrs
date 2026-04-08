@@ -6,7 +6,7 @@ use chrono::NaiveDateTime;
 use crate::options::{DateFormat, DateOptions, DateRangeOptions};
 use crate::rule::{Rule, RuleResult};
 use crate::traits::{Validate, ValidateRef};
-use crate::Violation;
+use crate::{Violation, ViolationType};
 
 // ============================================================================
 // String Parsing Helpers
@@ -113,6 +113,12 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           if dt.date() < min_d {
             return Err(Violation::date_range_underflow(min_str));
           }
+        } else if !min_str.is_empty() {
+          // Misconfigured min bound: non-empty but unparseable
+          return Err(Violation::new(
+            ViolationType::CustomError,
+            format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+          ));
         }
       }
       if let Some(max_str) = &opts.max {
@@ -125,6 +131,12 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           if dt.date() > max_d {
             return Err(Violation::date_range_overflow(max_str));
           }
+        } else if !max_str.is_empty() {
+          // Misconfigured max bound: non-empty but unparseable
+          return Err(Violation::new(
+            ViolationType::CustomError,
+            format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+          ));
         }
       }
       return Ok(());
@@ -151,20 +163,40 @@ fn check_date_bounds(
     // Try date-only bound first; fall back to datetime bound (extract date component)
     let min_d = parse_bound_date(min_str, format)
       .or_else(|_| parse_bound_datetime(min_str, format).map(|dt| dt.date()));
-    if let Ok(min_d) = min_d {
-      if d < min_d {
-        return Err(Violation::date_range_underflow(min_str));
+    match min_d {
+      Ok(min_d) => {
+        if d < min_d {
+          return Err(Violation::date_range_underflow(min_str));
+        }
       }
+      Err(_) if !min_str.is_empty() => {
+        // Misconfigured min bound: non-empty but unparseable
+        return Err(Violation::new(
+          ViolationType::CustomError,
+          format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+        ));
+      }
+      _ => {}
     }
   }
   if let Some(max_str) = max {
     // Try date-only bound first; fall back to datetime bound (extract date component)
     let max_d = parse_bound_date(max_str, format)
       .or_else(|_| parse_bound_datetime(max_str, format).map(|dt| dt.date()));
-    if let Ok(max_d) = max_d {
-      if d > max_d {
-        return Err(Violation::date_range_overflow(max_str));
+    match max_d {
+      Ok(max_d) => {
+        if d > max_d {
+          return Err(Violation::date_range_overflow(max_str));
+        }
       }
+      Err(_) if !max_str.is_empty() => {
+        // Misconfigured max bound: non-empty but unparseable
+        return Err(Violation::new(
+          ViolationType::CustomError,
+          format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+        ));
+      }
+      _ => {}
     }
   }
   Ok(())
@@ -619,5 +651,83 @@ mod tests {
     let ok_date = NaiveDate::from_ymd_opt(2025, 1, 1).unwrap();
     assert!(Validate::validate(&rule, ok_date).is_ok());
     assert!(ValidateRef::validate_ref(&rule, &ok_date).is_ok());
+  }
+
+  // --- Invalid bound error handling tests ---
+
+  #[test]
+  fn test_invalid_min_bound_returns_error() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("invalid-date".into()),
+      max: None,
+    };
+
+    let result = validate_date_range_str("2025-06-15", &opts);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("Invalid min date bound"));
+  }
+
+  #[test]
+  fn test_invalid_max_bound_returns_error() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: None,
+      max: Some("not-a-date".into()),
+    };
+
+    let result = validate_date_range_str("2025-06-15", &opts);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("Invalid max date bound"));
+  }
+
+  #[test]
+  fn test_empty_min_bound_is_ignored() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("".into()),
+      max: Some("2030-12-31".into()),
+    };
+
+    // Empty min bound should be silently ignored
+    let result = validate_date_range_str("2025-06-15", &opts);
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn test_empty_max_bound_is_ignored() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2020-01-01".into()),
+      max: Some("".into()),
+    };
+
+    // Empty max bound should be silently ignored
+    let result = validate_date_range_str("2025-06-15", &opts);
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn test_invalid_min_bound_with_allow_time() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: true,
+      min: Some("bad-datetime".into()),
+      max: None,
+    };
+
+    let result = validate_date_range_str("2025-06-15T12:00:00", &opts);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("Invalid min date bound"));
   }
 }
