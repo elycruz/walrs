@@ -6,7 +6,7 @@
 //! Run with: `cargo run --example field_basics`
 
 use walrs_inputfilter::field::FieldBuilder;
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_filter::FilterOp;
 use walrs_validation::Rule;
 
 fn main() {
@@ -61,7 +61,7 @@ fn main() {
   let email_field = FieldBuilder::<String>::default()
     .name("email")
     .rule(Rule::Required.and(Rule::Email(Default::default())))
-    .filters(vec![Filter::Trim, Filter::Lowercase])
+    .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
     .build()
     .unwrap();
 

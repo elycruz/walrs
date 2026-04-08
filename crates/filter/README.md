@@ -10,6 +10,36 @@ This crate provides reusable filter implementations that can transform input val
 - **`StripTagsFilter`** - Removes/sanitizes HTML tags using [Ammonia](https://docs.rs/ammonia).
 - **`XmlEntitiesFilter`** - Encodes special characters as XML entities.
 
+## FilterOp Enum
+
+The `FilterOp<T>` enum provides a composable, serializable way to define filter
+operations for config-driven form processing. It delegates to the filter structs above.
+
+Available operations:
+- `Trim` - Remove whitespace
+- `Uppercase` / `Lowercase` - Case transformation
+- `StripTags` - Remove HTML tags
+- `HtmlEntities` - Encode XML/HTML entities
+- `Slug` - URL-safe slug generation
+- `Clamp(min, max)` - Numeric clamping
+- `Chain(ops)` - Sequential filter chain
+- `Custom(fn)` - Custom filter function
+
+```rust
+use walrs_filter::FilterOp;
+
+fn main() {
+    let op = FilterOp::<String>::Chain(vec![
+        FilterOp::Trim,
+        FilterOp::Lowercase,
+    ]);
+    assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
+}
+```
+
+When the `validation` feature is enabled (default), `FilterOp<Value>` is available
+for dynamic value transformation using `walrs_validation::Value`.
+
 ## Usage
 
 Add to your `Cargo.toml`:
@@ -40,7 +70,7 @@ fn main () {
 
 ## The Filter Trait
 
-All filters implement the `Filter<T>` trait:
+All filter structs implement the `Filter<T>` trait:
 
 ```rust
 pub trait Filter<T> {
@@ -53,6 +83,7 @@ This allows filters to transform values, potentially to different types.
 
 ## Features
 
+- **`validation`** (default) - Enables `FilterOp<Value>` support via `walrs_validation`.
 - **`fn_traits`** - Enables nightly for `Fn` trait implementations when you want filters that can be called as functions.
 - **`nightly`** - Catch all feature - enables any nightly features available in the crate, currently only 'fn_trait' one.
 

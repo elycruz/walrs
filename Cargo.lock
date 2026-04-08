@@ -2098,6 +2098,9 @@ dependencies = [
  "criterion",
  "derive_builder",
  "regex",
+ "serde",
+ "serde_json",
+ "walrs_validation",
 ]
 
 [[package]]

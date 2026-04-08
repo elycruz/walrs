@@ -7,7 +7,7 @@
 
 use walrs_validation::Value;
 use walrs_inputfilter::field::{Field, FieldBuilder};
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_filter::FilterOp;
 use walrs_validation::Rule;
 
 fn main() {
@@ -33,7 +33,7 @@ fn main() {
   let email_field = FieldBuilder::<String>::default()
     .name("email")
     .rule(Rule::Required.and(Rule::Email(Default::default())))
-    .filters(vec![Filter::Trim, Filter::Lowercase])
+    .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
     .build()
     .unwrap();
 
@@ -79,7 +79,7 @@ fn main() {
   let dynamic_field = FieldBuilder::<Value>::default()
     .name("dynamic_input")
     .rule(Rule::Required)
-    .filters(vec![Filter::Trim])
+    .filters(vec![FilterOp::Trim])
     .build()
     .unwrap();
 
@@ -91,7 +91,7 @@ fn main() {
   let original = FieldBuilder::<String>::default()
     .name("password")
     .rule(Rule::Required.and(Rule::MinLength(8)))
-    .filters(vec![Filter::Trim])
+    .filters(vec![FilterOp::Trim])
     .break_on_failure(true)
     .build()
     .unwrap();

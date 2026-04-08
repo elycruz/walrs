@@ -4,7 +4,7 @@
 //! rules for a single form field. It replaces the old `Input`/`RefInput` API with
 //! a unified, serializable design.
 
-use crate::filter_enum::Filter;
+use walrs_filter::FilterOp;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_validation::Value;
@@ -16,7 +16,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 /// replacing the old `Input`/`RefInput` split. It supports:
 ///
 /// - Rule-based validation using the `Rule<T>` enum
-/// - Filter-based transformation using the `Filter<T>` enum
+/// - Filter-based transformation using the `FilterOp<T>` enum
 /// - Builder pattern via `FieldBuilder`
 /// - JSON/YAML serialization for config-driven forms
 ///
@@ -24,7 +24,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 ///
 /// ```rust
 /// use walrs_inputfilter::field::{Field, FieldBuilder};
-/// use walrs_inputfilter::filter_enum::Filter;
+/// use walrs_filter::FilterOp;
 /// use walrs_validation::Rule;
 ///
 /// // Simple field with just a rule (no filters)
@@ -38,7 +38,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 /// let field = FieldBuilder::<String>::default()
 ///     .name("email")
 ///     .rule(Rule::Required.and(Rule::Email(Default::default())))
-///     .filters(vec![Filter::Trim, Filter::Lowercase])
+///     .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
 ///     .build()
 ///     .unwrap();
 ///
@@ -69,10 +69,10 @@ where
   #[builder(default = "None")]
   pub rule: Option<Rule<T>>,
 
-  /// Filters to apply before validation. Use `Filter::Chain` for multiple filters.
+  /// Filters to apply before validation. Use `FilterOp::Chain` for multiple filters.
   #[serde(skip_serializing_if = "Option::is_none")]
   #[builder(default = "None")]
-  pub filters: Option<Vec<Filter<T>>>,
+  pub filters: Option<Vec<FilterOp<T>>>,
 
   /// When true, stops validation at the first error.
   #[builder(default = "false")]
@@ -94,7 +94,7 @@ impl<T: Clone> Default for Field<T> {
 impl<T: Clone + PartialEq> PartialEq for Field<T>
 where
   Rule<T>: PartialEq,
-  Filter<T>: PartialEq,
+  FilterOp<T>: PartialEq,
 {
   fn eq(&self, other: &Self) -> bool {
     self.name == other.name
@@ -250,7 +250,7 @@ mod tests {
     let field = FieldBuilder::<String>::default()
       .name("email")
       .rule(Rule::Required.and(Rule::MinLength(5)))
-      .filters(vec![Filter::Trim])
+      .filters(vec![FilterOp::Trim])
       .build()
       .unwrap();
 
@@ -262,7 +262,7 @@ mod tests {
   #[test]
   fn test_string_field_filter() {
     let field = FieldBuilder::<String>::default()
-      .filters(vec![Filter::Trim, Filter::Lowercase])
+      .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
       .build()
       .unwrap();
 
@@ -317,7 +317,7 @@ mod tests {
   #[test]
   fn test_string_field_process() {
     let field = FieldBuilder::<String>::default()
-      .filters(vec![Filter::Trim])
+      .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
       .build()
       .unwrap();
@@ -329,7 +329,7 @@ mod tests {
   #[test]
   fn test_value_field_filter() {
     let field = FieldBuilder::<Value>::default()
-      .filters(vec![Filter::Trim, Filter::Lowercase])
+      .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
       .build()
       .unwrap();
 

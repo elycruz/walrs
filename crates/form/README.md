@@ -83,12 +83,12 @@ data.set("address.city", json!("New York"));
 Elements can have `Field<Value>` configurations for validation:
 ```rust
 use walrs_form::{InputElement, InputType, Field, FieldBuilder};
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_filter::FilterOp;
 let mut input = InputElement::new("email", InputType::Email);
 input.field = Some(
     FieldBuilder::default()
         .required(true)
-        .filters(vec![Filter::Trim, Filter::Lowercase])
+        .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
         .build()
         .unwrap()
 );

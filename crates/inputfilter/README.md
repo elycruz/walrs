@@ -7,7 +7,7 @@ Field-level validation and filtering for the walrs form ecosystem.
 Unified field configuration for validation and filtering:
 ```rust
 use walrs_inputfilter::{Field, FieldBuilder};
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_filter::FilterOp;
 use walrs_validation::Rule;
 use walrs_validation::Value;
 use serde_json::json;
@@ -16,24 +16,24 @@ let field: Field<Value> = FieldBuilder::default()
     .rule(Rule::Required)
     .build()
     .unwrap();
-// Field with rule and filters
+// Field with rule and filter operations
 let field: Field<Value> = FieldBuilder::default()
     .rule(Rule::Required.and(Rule::MinLength(3)))
-    .filters(vec![Filter::Trim, Filter::Lowercase])
+    .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
     .build()
     .unwrap();
 // Validate
 let result = field.validate(&json!(""));
 assert!(result.is_err()); // Required field is empty
 ```
-### Filter<T> Enum
-Serializable filters for value transformation:
+### FilterOp<T> Enum
+Serializable filter operations for value transformation (defined in `walrs_filter`, re-exported here):
 ```rust
-use walrs_inputfilter::filter_enum::Filter;
-let filters: Vec<Filter<String>> = vec![
-    Filter::Trim,
-    Filter::Lowercase,
-    Filter::StripTags,
+use walrs_filter::FilterOp;
+let filters: Vec<FilterOp<String>> = vec![
+    FilterOp::Trim,
+    FilterOp::Lowercase,
+    FilterOp::StripTags,
 ];
 let mut value = "  <b>HELLO</b>  ".to_string();
 for filter in &filters {
@@ -41,13 +41,13 @@ for filter in &filters {
 }
 assert_eq!(value, "hello");
 ```
-Available filters:
+Available filter operations:
 - `Trim` - Remove whitespace
 - `Uppercase` / `Lowercase` - Case transformation
 - `StripTags` - Remove HTML tags
 - `Slug` - URL-safe slug generation
 - `Clamp(min, max)` - Numeric clamping
-- `Chain(filters)` - Sequential filter chain
+- `Chain(ops)` - Sequential filter chain
 - `Custom(fn)` - Custom filter function
 ### FieldFilter
 Multi-field validation with cross-field rules:
@@ -122,10 +122,9 @@ walrs_inputfilter = { path = "../inputfilter" }
 ## Architecture
 This crate sits between `walrs_validation` and `walrs_form`:
 ```
-walrs_validation    → walrs_inputfilter → walrs_form
-(Rule<T> enum)       (Field<T>,          (Form,
-                      FieldFilter,        Element)
-                      Filter<T>)
+walrs_validation    → walrs_filter      → walrs_inputfilter → walrs_form
+(Rule<T> enum)       (Filter trait,       (Field<T>,          (Form,
+                      FilterOp<T> enum)    FieldFilter)        Element)
 ```
 ## License
 MIT OR Apache-2.0
