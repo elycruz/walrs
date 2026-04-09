@@ -15,8 +15,12 @@ the `Rule<T>` enum, along with core validation traits.
 ```toml
 [dependencies]
 walrs_validation = "0.1"
+```
 
-# With optional features:
+To enable optional features:
+
+```toml
+[dependencies]
 walrs_validation = { version = "0.1", features = ["async", "chrono", "indexmap"] }
 ```
 
@@ -198,11 +202,17 @@ The `indexmap` feature provides `From<IndexMap<String, V>> for Value` for constr
 
 Date validation requires enabling one of the date crate features:
 
-```toml
-# Using chrono (most popular, widest ecosystem)
-walrs_validation = { version = "0.1", features = ["chrono"] }
+Using `chrono` (most popular, widest ecosystem):
 
-# Using jiff (modern API, best timezone handling)
+```toml
+[dependencies]
+walrs_validation = { version = "0.1", features = ["chrono"] }
+```
+
+Using `jiff` (modern API, best timezone handling):
+
+```toml
+[dependencies]
 walrs_validation = { version = "0.1", features = ["jiff"] }
 ```
 
