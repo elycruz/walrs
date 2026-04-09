@@ -106,9 +106,12 @@ pub enum FilterOp<T> {
   // ---- Numeric Filters ----
   /// Clamp value to a range (for numeric types).
   ///
-  /// # Panics (debug builds)
+  /// # Panics
   ///
-  /// Asserts `min <= max` in debug builds to catch misconfigured clamp ranges early.
+  /// Panics if `min > max`.
+  ///
+  /// For floating-point types, this also panics if either bound is `NaN`,
+  /// matching the behavior of `clamp()`.
   Clamp {
     /// Minimum value.
     min: T,
@@ -250,10 +253,10 @@ impl FilterOp<String> {
         Cow::Borrowed(value)
       }
       FilterOp::Replace { from, to } => {
-        if value.contains(from.as_str()) {
-          Cow::Owned(value.replace(from.as_str(), to.as_str()))
-        } else {
+        if from.is_empty() || !value.contains(from.as_str()) {
           Cow::Borrowed(value)
+        } else {
+          Cow::Owned(value.replace(from.as_str(), to.as_str()))
         }
       }
       FilterOp::Clamp { .. } => Cow::Borrowed(value), // Clamp doesn't apply to strings
@@ -369,10 +372,10 @@ impl FilterOp<Value> {
       }
       FilterOp::Replace { from, to } => {
         if let Value::Str(s) = value {
-          if s.contains(from.as_str()) {
-            Value::Str(s.replace(from.as_str(), to.as_str()))
-          } else {
+          if from.is_empty() || !s.contains(from.as_str()) {
             value.clone()
+          } else {
+            Value::Str(s.replace(from.as_str(), to.as_str()))
           }
         } else {
           value.clone()
@@ -426,7 +429,6 @@ macro_rules! impl_numeric_filter_op {
                 pub fn apply(&self, value: $t) -> $t {
                     match self {
                         FilterOp::Clamp { min, max } => {
-                            debug_assert!(min <= max, "FilterOp::Clamp: min must be <= max");
                             value.clamp(*min, *max)
                         }
                         FilterOp::Chain(filters) => {
@@ -886,6 +888,30 @@ mod tests {
       to: "0".to_string(),
     };
     assert_eq!(filter.apply("foo bar boo".to_string()), "f00 bar b00");
+  }
+
+  #[test]
+  fn test_replace_empty_from_is_noop() {
+    // Empty `from` must be treated as a no-op — returning Cow::Borrowed.
+    let filter = FilterOp::<String>::Replace {
+      from: "".to_string(),
+      to: "x".to_string(),
+    };
+    let result = filter.apply_ref("hello world");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "hello world");
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_replace_value_empty_from_is_noop() {
+    // Empty `from` on Value::Str must also be a no-op (returns the original clone).
+    let filter = FilterOp::<Value>::Replace {
+      from: "".to_string(),
+      to: "x".to_string(),
+    };
+    let value = Value::Str("hello world".to_string());
+    assert_eq!(filter.apply_ref(&value), value);
   }
 
   // ====================================================================
