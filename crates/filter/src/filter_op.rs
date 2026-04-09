@@ -359,11 +359,9 @@ impl FilterOp<Value> {
       }
       FilterOp::Truncate { max_length } => {
         if let Value::Str(s) = value {
-          let char_count = s.chars().count();
-          if char_count <= *max_length {
-            value.clone()
-          } else {
-            Value::Str(s.chars().take(*max_length).collect())
+          match s.char_indices().nth(*max_length) {
+            None => value.clone(),
+            Some((idx, _)) => Value::Str(s[..idx].to_string()),
           }
         } else {
           value.clone()
