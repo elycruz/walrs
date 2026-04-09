@@ -9,6 +9,7 @@ include = ["src/**/*", "Cargo.toml"]
 
 [features]
 default = ["serde_json_bridge"]
+async = []
 serde_json_bridge = ["dep:serde_json"]
 indexmap = ["dep:indexmap"]
 chrono = ["dep:chrono"]
@@ -23,3 +24,6 @@ serde = { version = "1.0.103", features = ["derive"] }
 serde_json = { version = "1.0.82", optional = true }
 thiserror = "1.0"
 url = "2"
+
+[dev-dependencies]
+tokio = { version = "1", features = ["rt", "macros"] }

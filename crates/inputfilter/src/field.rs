@@ -281,6 +281,85 @@ impl Field<Value> {
   }
 }
 
+// ============================================================================
+// Async Field Implementations
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Field<String> {
+  /// Validate the value asynchronously against the rule.
+  ///
+  /// Works like [`validate_ref`](Self::validate_ref) but supports
+  /// `Rule::CustomAsync` validators.
+  pub async fn validate_ref_async(&self, value: &str) -> Result<(), Violations> {
+    match &self.rule {
+      Some(rule) => {
+        use walrs_validation::ValidateRefAsync;
+        let result = if let Some(locale) = &self.locale {
+          rule.clone().with_locale(locale.as_ref()).validate_ref_async(value).await
+        } else {
+          rule.validate_ref_async(value).await
+        };
+        result.map_err(|v| {
+          let mut violations = Violations::empty();
+          violations.push(v);
+          violations
+        })
+      }
+      None => Ok(()),
+    }
+  }
+
+  /// Validate a `String` value asynchronously.
+  pub async fn validate_async(&self, value: String) -> Result<(), Violations> {
+    self.validate_ref_async(value.as_str()).await
+  }
+
+  /// Filter the value synchronously, then validate it asynchronously.
+  ///
+  /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
+  pub async fn process_async(&self, value: String) -> Result<String, Violations> {
+    let filtered = self.filter(value);
+    self.validate_ref_async(&filtered).await?;
+    Ok(filtered)
+  }
+}
+
+#[cfg(feature = "async")]
+impl Field<Value> {
+  /// Validate a `&Value` reference asynchronously.
+  pub async fn validate_ref_async(&self, value: &Value) -> Result<(), Violations> {
+    match &self.rule {
+      Some(rule) => {
+        use walrs_validation::ValidateRefAsync;
+        let result = if let Some(locale) = &self.locale {
+          rule.clone().with_locale(locale.as_ref()).validate_ref_async(value).await
+        } else {
+          rule.validate_ref_async(value).await
+        };
+        result.map_err(|v| {
+          let mut violations = Violations::empty();
+          violations.push(v);
+          violations
+        })
+      }
+      None => Ok(()),
+    }
+  }
+
+  /// Validate a `Value` asynchronously (takes ownership).
+  pub async fn validate_async(&self, value: &Value) -> Result<(), Violations> {
+    self.validate_ref_async(value).await
+  }
+
+  /// Filter the value synchronously, then validate it asynchronously.
+  pub async fn process_async(&self, value: Value) -> Result<Value, Violations> {
+    let filtered = self.filter(value);
+    self.validate_ref_async(&filtered).await?;
+    Ok(filtered)
+  }
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

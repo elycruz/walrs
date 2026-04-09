@@ -53,6 +53,9 @@ pub use walrs_validation::{
   Violation, ViolationMessage, ViolationType, Violations,
 };
 
+#[cfg(feature = "async")]
+pub use walrs_validation::{ValidateAsync, ValidateRefAsync};
+
 // Re-export FilterOp from walrs_filter
 pub use walrs_filter::FilterOp;
 

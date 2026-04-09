@@ -219,6 +219,19 @@ pub enum CrossFieldRuleType {
   /// Custom validation (not serializable).
   #[serde(skip)]
   Custom(Arc<dyn Fn(&IndexMap<String, Value>) -> RuleResult + Send + Sync>),
+
+  /// Async custom validation (not serializable).
+  #[cfg(feature = "async")]
+  #[serde(skip)]
+  CustomAsync(
+    Arc<
+      dyn Fn(
+          &IndexMap<String, Value>,
+        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>>
+        + Send
+        + Sync,
+    >,
+  ),
 }
 
 impl Debug for CrossFieldRuleType {
@@ -247,6 +260,8 @@ impl Debug for CrossFieldRuleType {
         .field("depends_on", depends_on)
         .finish(),
       Self::Custom(_) => write!(f, "Custom(<fn>)"),
+      #[cfg(feature = "async")]
+      Self::CustomAsync(_) => write!(f, "CustomAsync(<async fn>)"),
     }
   }
 }
@@ -401,6 +416,12 @@ impl CrossFieldRuleType {
       }
 
       CrossFieldRuleType::Custom(f) => f(data),
+
+      #[cfg(feature = "async")]
+      CrossFieldRuleType::CustomAsync(_) => Err(Violation::new(
+        ViolationType::CustomError,
+        "Cannot run async cross-field rule in sync context; use validate_async.",
+      )),
     }
   }
 }
@@ -427,6 +448,86 @@ fn evaluate_condition(condition: &Condition<Value>, value: &Value) -> bool {
       }
     }
     Condition::Custom(f) => f(value),
+  }
+}
+
+// ============================================================================
+// Async Cross-Field & FieldFilter Methods
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl CrossFieldRuleType {
+  /// Evaluates the rule asynchronously.
+  ///
+  /// Sync rule types are evaluated inline; `CustomAsync` is awaited.
+  pub async fn evaluate_async(
+    &self,
+    data: &IndexMap<String, Value>,
+    rule_name: Option<&str>,
+  ) -> RuleResult {
+    match self {
+      CrossFieldRuleType::CustomAsync(f) => f(data).await,
+      // All other variants are sync — delegate
+      other => other.evaluate(data, rule_name),
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl CrossFieldRule {
+  /// Evaluates the rule asynchronously.
+  pub async fn evaluate_async(&self, data: &IndexMap<String, Value>) -> RuleResult {
+    self.rule.evaluate_async(data, self.name.as_deref()).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl FieldFilter {
+  /// Validates form data asynchronously against all fields and cross-field rules.
+  ///
+  /// Works like [`validate`](Self::validate) but supports `Rule::CustomAsync`
+  /// in field rules and `CrossFieldRuleType::CustomAsync` in cross-field rules.
+  pub async fn validate_async(
+    &self,
+    data: &IndexMap<String, Value>,
+  ) -> Result<(), FormViolations> {
+    let mut violations = FormViolations::new();
+
+    // Validate individual fields (async)
+    for (field_name, field) in &self.fields {
+      let value = data.get(field_name).cloned().unwrap_or(Value::Null);
+      if let Err(field_violations) = field.validate_ref_async(&value).await {
+        violations.add_field_violations(field_name, field_violations);
+        if field.break_on_failure {
+          return Err(violations);
+        }
+      }
+    }
+
+    // Validate cross-field rules (async)
+    for rule in &self.cross_field_rules {
+      if let Err(violation) = rule.evaluate_async(data).await {
+        violations.add_form_violation(violation);
+      }
+    }
+
+    if violations.is_empty() {
+      Ok(())
+    } else {
+      Err(violations)
+    }
+  }
+
+  /// Filters and then validates the data asynchronously.
+  ///
+  /// Filtering is synchronous (CPU-bound); validation is async.
+  pub async fn process_async(
+    &self,
+    data: IndexMap<String, Value>,
+  ) -> Result<IndexMap<String, Value>, FormViolations> {
+    let filtered = self.filter(data);
+    self.validate_async(&filtered).await?;
+    Ok(filtered)
   }
 }
 

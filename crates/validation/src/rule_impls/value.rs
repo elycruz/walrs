@@ -279,6 +279,11 @@ impl Rule<Value> {
 
       // ---- Custom / Ref / WithMessage ----
       Rule::Custom(f) => f(value),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Err(Violation::new(
+        crate::ViolationType::CustomError,
+        "Cannot run async rule in sync context; use validate_ref_async.",
+      )),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage {
         rule,
@@ -308,6 +313,102 @@ impl ValidateRef<Value> for Rule<Value> {
 impl Validate<Value> for Rule<Value> {
   fn validate(&self, value: Value) -> crate::ValidatorResult {
     self.validate_ref(&value)
+  }
+}
+
+// ============================================================================
+// Async Value Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<Value> {
+  /// Validates a Value asynchronously (first-failure, short-circuit).
+  pub(crate) async fn validate_value_async(&self, value: &Value) -> RuleResult {
+    self.validate_value_async_inner(value, None).await
+  }
+
+  /// Internal async validation with inherited locale.
+  fn validate_value_async_inner<'a>(
+    &'a self,
+    value: &'a Value,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule.validate_value_async_inner(value, inherited_locale).await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule.validate_value_async_inner(value, inherited_locale).await {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner.validate_value_async_inner(value, inherited_locale).await {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate_value(value) {
+            then_rule.validate_value_async_inner(value, inherited_locale).await
+          } else {
+            match else_rule {
+              Some(rule) => rule.validate_value_async_inner(value, inherited_locale).await,
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage { rule, message, locale } => {
+          let effective_locale = locale.as_deref().or(inherited_locale);
+          match rule.validate_value_async_inner(value, effective_locale).await {
+            Ok(()) => Ok(()),
+            Err(violation) => {
+              let custom_msg = message.resolve_or(
+                value,
+                violation.message(),
+                effective_locale,
+              );
+              Err(Violation::new(violation.violation_type(), custom_msg))
+            }
+          }
+        }
+
+        // All other (sync) rules — delegate to sync validation
+        other => other.validate_value_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Value> for Rule<Value> {
+  async fn validate_ref_async(&self, value: &Value) -> crate::ValidatorResult {
+    self.validate_value_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Value> for Rule<Value> {
+  async fn validate_async(&self, value: Value) -> crate::ValidatorResult {
+    self.validate_value_async(&value).await
   }
 }
 

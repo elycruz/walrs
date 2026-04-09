@@ -194,3 +194,27 @@ impl_with_length_len!(HashMap<K, V, S>, K, V, S);
 impl_with_length_len!(Vec<T>, T);
 impl_with_length_len!(VecDeque<T>, T);
 
+// ============================================================================
+// Async Validation Traits
+// ============================================================================
+
+/// Trait for asynchronously validating owned/copied values.
+///
+/// This is the async counterpart of [`Validate`]. Async validators handle
+/// both sync and async rules — sync rules execute inline while async
+/// rules (e.g., `Rule::CustomAsync`) are awaited.
+#[cfg(feature = "async")]
+pub trait ValidateAsync<T: Send> {
+  fn validate_async(&self, value: T) -> impl std::future::Future<Output = ValidatorResult> + Send;
+}
+
+/// Trait for asynchronously validating referenced values.
+///
+/// This is the async counterpart of [`ValidateRef`]. Async validators handle
+/// both sync and async rules — sync rules execute inline while async
+/// rules (e.g., `Rule::CustomAsync`) are awaited.
+#[cfg(feature = "async")]
+pub trait ValidateRefAsync<T: ?Sized + Sync> {
+  fn validate_ref_async(&self, value: &T) -> impl std::future::Future<Output = ValidatorResult> + Send;
+}
+

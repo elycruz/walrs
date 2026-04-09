@@ -34,6 +34,9 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 
+#[cfg(feature = "async")]
+use std::pin::Pin;
+
 use crate::{Message, MessageContext, SteppableValue, Violation};
 use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
@@ -267,6 +270,20 @@ pub enum Rule<T> {
   #[serde(skip)]
   Custom(Arc<dyn Fn(&T) -> RuleResult + Send + Sync>),
 
+  /// Async custom validation function (not serializable).
+  ///
+  /// The closure returns a pinned, boxed future for type-erased async validation.
+  /// Use `Rule::custom_async()` to construct this variant.
+  #[cfg(feature = "async")]
+  #[serde(skip)]
+  CustomAsync(
+    Arc<
+      dyn Fn(&T) -> Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>>
+        + Send
+        + Sync,
+    >,
+  ),
+
   /// Reference to a named rule (left to userland code)
   #[serde(skip)]
   Ref(String),
@@ -326,6 +343,8 @@ impl<T: Debug> Debug for Rule<T> {
         .field("else_rule", else_rule)
         .finish(),
       Self::Custom(_) => write!(f, "Custom(<fn>)"),
+      #[cfg(feature = "async")]
+      Self::CustomAsync(_) => write!(f, "CustomAsync(<async fn>)"),
       Self::Ref(name) => f.debug_tuple("Ref").field(name).finish(),
       Self::WithMessage { rule, message, locale } => f
         .debug_struct("WithMessage")
@@ -388,6 +407,9 @@ impl<T: PartialEq> PartialEq for Rule<T> {
       ) => r1 == r2 && m1 == m2 && l1 == l2,
       // Custom rules are never equal
       (Self::Custom(_), Self::Custom(_)) => false,
+      // Async custom rules are never equal
+      #[cfg(feature = "async")]
+      (Self::CustomAsync(_), Self::CustomAsync(_)) => false,
       _ => false,
     }
   }
@@ -529,6 +551,38 @@ impl<T> Rule<T> {
   /// ```
   pub fn custom(f: Arc<dyn Fn(&T) -> RuleResult + Send + Sync>) -> Rule<T> {
     Rule::Custom(f)
+  }
+
+  /// Creates an async custom rule from a closure that returns a future.
+  ///
+  /// # Example
+  ///
+  /// ```rust,ignore
+  /// use std::sync::Arc;
+  /// use walrs_validation::rule::Rule;
+  /// use walrs_validation::{Violation, ViolationType};
+  ///
+  /// let check_unique = Rule::<String>::custom_async(Arc::new(|value: &String| {
+  ///     let value = value.clone();
+  ///     Box::pin(async move {
+  ///         // Simulate an async database lookup
+  ///         if value == "taken" {
+  ///             Err(Violation::new(ViolationType::CustomError, "Username already taken."))
+  ///         } else {
+  ///             Ok(())
+  ///         }
+  ///     })
+  /// }));
+  /// ```
+  #[cfg(feature = "async")]
+  pub fn custom_async(
+    f: Arc<
+      dyn Fn(&T) -> Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>>
+        + Send
+        + Sync,
+    >,
+  ) -> Rule<T> {
+    Rule::CustomAsync(f)
   }
 
   /// Creates a reference to a named rule.
