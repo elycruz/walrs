@@ -277,6 +277,8 @@ impl Rule<Date> {
         Err(_) => Ok(()),
       },
       Rule::Custom(f) => f(value),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);
@@ -383,6 +385,8 @@ impl Rule<DateTime> {
         Err(_) => Ok(()),
       },
       Rule::Custom(f) => f(value),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);

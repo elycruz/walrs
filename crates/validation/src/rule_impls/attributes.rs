@@ -127,6 +127,8 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
 
       // Custom/Runtime variants - not attribute-mappable
       Rule::Custom(_) => None,
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => None,
       Rule::Ref(_) => None,
 
       // Uri/Ip - no HTML attribute equivalent

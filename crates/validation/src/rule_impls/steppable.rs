@@ -99,6 +99,8 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         }
       }
       Rule::Custom(f) => f(&value),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);
@@ -230,6 +232,104 @@ impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value and collects all violations.
   pub(crate) fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
     self.rule.validate_step_all(value)
+  }
+}
+
+// ============================================================================
+// Async Numeric Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
+  /// Validates a numeric value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_step_async(&self, value: T) -> RuleResult {
+    self.validate_step_async_inner(value, None).await
+  }
+
+  /// Internal async validation with inherited locale.
+  /// Handles both sync and async rules in a single traversal.
+  fn validate_step_async_inner<'a>(
+    &'a self,
+    value: T,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>>
+  where
+    T: 'a,
+  {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(&value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule.validate_step_async_inner(value, inherited_locale).await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule.validate_step_async_inner(value, inherited_locale).await {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner.validate_step_async_inner(value, inherited_locale).await {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(&value) {
+            then_rule.validate_step_async_inner(value, inherited_locale).await
+          } else {
+            match else_rule {
+              Some(rule) => rule.validate_step_async_inner(value, inherited_locale).await,
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage { rule, message, locale } => {
+          let effective_locale = locale.as_deref().or(inherited_locale);
+          match rule.validate_step_async_inner(value, effective_locale).await {
+            Ok(()) => Ok(()),
+            Err(violation) => {
+              let custom_msg = message.resolve_or(&value, violation.message(), effective_locale);
+              Err(Violation::new(violation.violation_type(), custom_msg))
+            }
+          }
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_step_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> for Rule<T> {
+  async fn validate_async(&self, value: T) -> crate::ValidatorResult {
+    self.validate_step_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> for CompiledRule<T> {
+  async fn validate_async(&self, value: T) -> crate::ValidatorResult {
+    self.rule.validate_step_async(value).await
   }
 }
 

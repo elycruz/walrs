@@ -78,6 +78,8 @@ impl<T: WithLength> Rule<T> {
         // as they require the specific type T
         Ok(())
       }
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, .. } => {
         // For WithLength types, we can't easily resolve messages without more bounds

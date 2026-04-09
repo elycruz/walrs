@@ -513,6 +513,8 @@ impl Rule<String> {
         }
       }
       Rule::Custom(f) => f(&value.to_string()),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         // Use this variant's locale if set, otherwise inherit from parent
@@ -769,6 +771,8 @@ impl CompiledRule<String> {
         }
       }
       Rule::Custom(f) => f(&value.to_string()),
+      #[cfg(feature = "async")]
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref();
@@ -787,6 +791,105 @@ impl CompiledRule<String> {
   /// Validates a string value and collects all violations.
   pub(crate) fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
     self.rule.validate_str_all(value)
+  }
+}
+
+// ============================================================================
+// Async String Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<String> {
+  /// Validates a string value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_str_async(&self, value: &str) -> RuleResult {
+    self.validate_str_async_inner(value, None).await
+  }
+
+  /// Internal async validation with inherited locale.
+  /// Handles both sync and async rules in a single traversal.
+  fn validate_str_async_inner<'a>(
+    &'a self,
+    value: &'a str,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(&value.to_string()).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule.validate_str_async_inner(value, inherited_locale).await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule.validate_str_async_inner(value, inherited_locale).await {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner.validate_str_async_inner(value, inherited_locale).await {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate_str(value) {
+            then_rule.validate_str_async_inner(value, inherited_locale).await
+          } else {
+            match else_rule {
+              Some(rule) => rule.validate_str_async_inner(value, inherited_locale).await,
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage { rule, message, locale } => {
+          let effective_locale = locale.as_deref().or(inherited_locale);
+          match rule.validate_str_async_inner(value, effective_locale).await {
+            Ok(()) => Ok(()),
+            Err(violation) => {
+              let custom_msg = message.resolve_or(
+                &value.to_string(),
+                violation.message(),
+                effective_locale,
+              );
+              Err(Violation::new(violation.violation_type(), custom_msg))
+            }
+          }
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_str_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<str> for Rule<String> {
+  async fn validate_ref_async(&self, value: &str) -> crate::ValidatorResult {
+    self.validate_str_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<str> for CompiledRule<String> {
+  async fn validate_ref_async(&self, value: &str) -> crate::ValidatorResult {
+    self.rule.validate_str_async(value).await
   }
 }
 
