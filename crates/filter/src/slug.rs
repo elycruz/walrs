@@ -80,7 +80,7 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
     .to_string();
 
   if rslt.len() > max_length {
-    Cow::Owned(rslt[..max_length + 1].to_string())
+    Cow::Owned(rslt[..max_length].to_string())
   } else {
     Cow::Owned(rslt)
   }

@@ -199,7 +199,7 @@ impl FilterOp<String> {
         }
         let first_result = filters[0].apply_ref(value);
         if filters.len() == 1 {
-          return first_result.into_owned().into();
+          return first_result;
         }
         let mut result = first_result.into_owned();
         for f in &filters[1..] {
