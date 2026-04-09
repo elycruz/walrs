@@ -50,6 +50,98 @@ fn main() {
 When the `validation` feature is enabled (default), `FilterOp<Value>` is available
 for dynamic value transformation using `walrs_validation::Value`.
 
+## TryFilterOp Enum (Fallible Filters)
+
+The `TryFilterOp<T>` enum is the fallible counterpart to `FilterOp<T>`. Use it for
+filters that can legitimately fail (e.g., base64 decode, JSON parse, URL decode).
+Errors are represented as [`FilterError`](#filtererror), which integrates with the
+validation error pipeline.
+
+Available variants:
+- `Infallible(FilterOp<T>)` - Wraps an infallible filter, lifting it into the fallible pipeline
+- `Chain(Vec<TryFilterOp<T>>)` - Sequential filter chain that short-circuits on the first error
+- `TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError>>)` - Custom fallible filter function
+
+```rust
+use walrs_filter::{TryFilterOp, FilterOp, FilterError};
+use std::sync::Arc;
+
+fn main() {
+    // Lift an infallible filter into the fallible pipeline
+    let trim: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+    assert_eq!(trim.try_apply("  hello  ".to_string()).unwrap(), "hello");
+
+    // From trait also works
+    let lowercase: TryFilterOp<String> = FilterOp::Lowercase.into();
+    assert_eq!(lowercase.try_apply("HELLO".to_string()).unwrap(), "hello");
+
+    // Custom fallible filter
+    let parse_hex: TryFilterOp<String> = TryFilterOp::TryCustom(Arc::new(|s: String| {
+        if s.chars().all(|c| c.is_ascii_hexdigit()) {
+            Ok(s.to_uppercase())
+        } else {
+            Err(FilterError::new("invalid hex string").with_name("HexNormalize"))
+        }
+    }));
+    assert_eq!(parse_hex.try_apply("abcdef".to_string()).unwrap(), "ABCDEF");
+    assert!(parse_hex.try_apply("xyz".to_string()).is_err());
+
+    // Chain: trim → validate → lowercase (short-circuits on error)
+    let pipeline: TryFilterOp<String> = TryFilterOp::Chain(vec![
+        TryFilterOp::Infallible(FilterOp::Trim),
+        TryFilterOp::TryCustom(Arc::new(|s: String| {
+            if s.is_empty() {
+                Err(FilterError::new("value must not be empty after trimming"))
+            } else {
+                Ok(s)
+            }
+        })),
+        TryFilterOp::Infallible(FilterOp::Lowercase),
+    ]);
+    assert_eq!(pipeline.try_apply("  HELLO  ".to_string()).unwrap(), "hello");
+    assert!(pipeline.try_apply("   ".to_string()).is_err());
+}
+```
+
+When the `validation` feature is enabled (default), `TryFilterOp<Value>` is available
+for dynamic value transformation, and `FilterError` can be converted to `Violation`/`Violations`.
+
+## FilterError
+
+`FilterError` represents a failure during a fallible filter transformation.
+It carries a human-readable message and an optional filter name for context.
+
+```rust
+use walrs_filter::FilterError;
+
+fn main() {
+    let err = FilterError::new("invalid base64 input")
+        .with_name("Base64Decode");
+
+    assert_eq!(err.message(), "invalid base64 input");
+    assert_eq!(err.filter_name(), Some("Base64Decode"));
+    assert_eq!(err.to_string(), "Filter 'Base64Decode' failed: invalid base64 input");
+}
+```
+
+With the `validation` feature enabled, `FilterError` converts to `Violation`
+(using `ViolationType::CustomError`) and `Violations` via `From` impls,
+allowing seamless integration with the validation error pipeline.
+
+## The TryFilter Trait
+
+The `TryFilter<T>` trait is the fallible counterpart to [`Filter<T>`](#the-filter-trait):
+
+```rust
+pub trait TryFilter<T> {
+    type Output;
+    fn try_filter(&self, value: T) -> Result<Self::Output, FilterError>;
+}
+```
+
+This allows implementing custom fallible filter structs that integrate with the
+`TryFilterOp` pipeline.
+
 ## Usage
 
 Add to your `Cargo.toml`:
@@ -93,7 +185,7 @@ This allows filters to transform values, potentially to different types.
 
 ## Features
 
-- **`validation`** (default) - Enables `FilterOp<Value>` support via `walrs_validation`.
+- **`validation`** (default) - Enables `FilterOp<Value>`, `TryFilterOp<Value>`, and `FilterError` → `Violation` conversions via `walrs_validation`.
 - **`fn_traits`** - Enables nightly for `Fn` trait implementations when you want filters that can be called as functions.
 - **`nightly`** - Catch all feature - enables any nightly features available in the crate, currently only 'fn_trait' one.
 
@@ -107,6 +199,9 @@ cargo run -p walrs_filter --example basic_filters
 
 # Chaining multiple filters together
 cargo run -p walrs_filter --example filter_chain
+
+# Fallible filters with TryFilterOp
+cargo run -p walrs_filter --example try_filters
 ```
 
 ## Running Benchmarks
