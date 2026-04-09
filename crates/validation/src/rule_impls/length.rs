@@ -4,7 +4,7 @@ use crate::Violation;
 
 impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
-  pub fn validate_len(&self, value: &T) -> RuleResult {
+  pub(crate) fn validate_len(&self, value: &T) -> RuleResult {
     match self {
       Rule::Required => {
         if value.length() == 0 {
@@ -103,7 +103,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates a collection's length and collects all violations.
-  pub fn validate_len_all(&self, value: &T) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_len_all(&self, value: &T) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_len_violations(value, &mut violations);
     if violations.is_empty() {
@@ -114,7 +114,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates an optional collection's length.
-  pub fn validate_option_len(&self, value: Option<&T>) -> RuleResult {
+  pub(crate) fn validate_option_len(&self, value: Option<&T>) -> RuleResult {
     match value {
       Some(v) => self.validate_len(v),
       None if self.requires_value() => Err(Violation::value_missing()),
@@ -123,7 +123,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates an optional collection's length and collects all violations.
-  pub fn validate_option_len_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_option_len_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_len_all(v),
       None if self.requires_value() => Err(crate::Violations::from(Violation::value_missing())),

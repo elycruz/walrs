@@ -142,8 +142,8 @@ impl LocalizedFormValidator {
     };
 
     rule
-      .validate_str_all(value)
-      .map_err(|violations| violations.iter().map(|v| v.message().to_string()).collect())
+      .validate_ref(value)
+      .map_err(|violation| vec![violation.message().to_string()])
   }
 }
 

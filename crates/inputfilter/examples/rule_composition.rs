@@ -246,20 +246,18 @@ fn main() {
     Err(violation) => println!("   Error: {}", violation.message()),
   }
 
-  // Example 14: Collecting all violations
-  println!("\n14. Collecting all violations:");
+  // Example 14: Validating with combined rules (fail-fast)
+  println!("\n14. Validating with combined rules:");
   let strict_rule = Rule::<String>::Required
     .and(Rule::MinLength(8))
     .and(Rule::Pattern(r"[0-9]".to_string()).with_message("Must contain a number"))
     .and(Rule::Pattern(r"[A-Z]".to_string()).with_message("Must contain uppercase"));
 
-  match strict_rule.validate_str_all("abc") {
+  match strict_rule.validate_ref("abc") {
     Ok(()) => println!("   All rules passed!"),
-    Err(violations) => {
-      println!("   Found {} violations:", violations.len());
-      for v in violations.iter() {
-        println!("      - {}", v.message());
-      }
+    Err(violation) => {
+      println!("   Validation failed:");
+      println!("      - {}", violation.message());
     }
   }
 
