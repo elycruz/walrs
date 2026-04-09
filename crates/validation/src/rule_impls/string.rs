@@ -402,7 +402,7 @@ impl CachedStringValidators {
 
 impl Rule<String> {
   /// Validates a string value against this rule.
-  pub fn validate_str(&self, value: &str) -> RuleResult {
+  pub(crate) fn validate_str(&self, value: &str) -> RuleResult {
     self.validate_str_inner(value, None)
   }
 
@@ -533,7 +533,7 @@ impl Rule<String> {
   /// Validates a string value and collects all violations.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violations)` with all failures.
-  pub fn validate_str_all(
+  pub(crate) fn validate_str_all(
     &self,
     value: &str,
   ) -> Result<(), crate::Violations> {
@@ -547,7 +547,7 @@ impl Rule<String> {
   }
 
   /// Validates an optional string value.
-  pub fn validate_str_option(&self, value: Option<&str>) -> RuleResult {
+  pub(crate) fn validate_str_option(&self, value: Option<&str>) -> RuleResult {
     match value {
       Some(v) => self.validate_str(v),
       None if self.requires_value() => Err(Violation::value_missing()),
@@ -556,7 +556,7 @@ impl Rule<String> {
   }
 
   /// Validates an optional string value and collects all violations.
-  pub fn validate_str_option_all(
+  pub(crate) fn validate_str_option_all(
     &self,
     value: Option<&str>,
   ) -> Result<(), crate::Violations> {
@@ -655,7 +655,7 @@ impl CompiledRule<String> {
   }
 
   /// Validates a string value using cached validators.
-  pub fn validate_str(&self, value: &str) -> RuleResult {
+  pub(crate) fn validate_str(&self, value: &str) -> RuleResult {
     self.validate_str_with_cache(value, self.get_or_init_cache())
   }
 
@@ -785,7 +785,7 @@ impl CompiledRule<String> {
   }
 
   /// Validates a string value and collects all violations.
-  pub fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
     self.rule.validate_str_all(value)
   }
 }

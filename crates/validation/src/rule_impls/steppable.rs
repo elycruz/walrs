@@ -5,7 +5,7 @@ use crate::CompiledRule;
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
-  pub fn validate_step(&self, value: T) -> RuleResult {
+  pub(crate) fn validate_step(&self, value: T) -> RuleResult {
     self.validate_step_inner(value, None)
   }
 
@@ -126,7 +126,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates a numeric value and collects all violations.
-  pub fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_violations(value, None, &mut violations);
     if violations.is_empty() {
@@ -137,7 +137,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value.
-  pub fn validate_option_step(&self, value: Option<T>) -> RuleResult {
+  pub(crate) fn validate_option_step(&self, value: Option<T>) -> RuleResult {
     match value {
       Some(v) => self.validate_step(v),
       None => Err(Violation::value_missing()),
@@ -145,7 +145,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value and collects all violations.
-  pub fn validate_option_step_all(
+  pub(crate) fn validate_option_step_all(
     &self,
     value: Option<T>,
   ) -> Result<(), crate::Violations> {
@@ -223,12 +223,12 @@ impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
 
 impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value using the compiled rule.
-  pub fn validate_step(&self, value: T) -> RuleResult {
+  pub(crate) fn validate_step(&self, value: T) -> RuleResult {
     self.rule.validate_step(value)
   }
 
   /// Validates a numeric value and collects all violations.
-  pub fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
     self.rule.validate_step_all(value)
   }
 }

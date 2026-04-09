@@ -253,13 +253,11 @@ fn main() {
     .and(Rule::Pattern(r"[0-9]".to_string()).with_message("Must contain a number"))
     .and(Rule::Pattern(r"[A-Z]".to_string()).with_message("Must contain uppercase"));
 
-  match strict_rule.validate_str_all("abc") {
+  match strict_rule.validate_ref("abc") {
     Ok(()) => println!("   All rules passed!"),
-    Err(violations) => {
-      println!("   Found {} violations:", violations.len());
-      for v in violations.iter() {
-        println!("      - {}", v.message());
-      }
+    Err(violation) => {
+      println!("   Validation failed:");
+      println!("      - {}", violation.message());
     }
   }
 

@@ -764,6 +764,7 @@ use crate::rule_impls::string::CachedStringValidators;
 ///
 /// ```rust
 /// use walrs_validation::rule::Rule;
+/// use walrs_validation::ValidateRef;
 ///
 /// // Define and compile rule once
 /// let rule = Rule::<String>::MinLength(8)
@@ -771,8 +772,8 @@ use crate::rule_impls::string::CachedStringValidators;
 /// let compiled = rule.compile();
 ///
 /// // Validate many times (reuses cached regex)
-/// assert!(compiled.validate_str("Password1").is_ok());
-/// assert!(compiled.validate_str("short").is_err());
+/// assert!(compiled.validate_ref("Password1").is_ok());
+/// assert!(compiled.validate_ref("short").is_err());
 /// ```
 pub struct CompiledRule<T> {
   /// The underlying rule
@@ -827,13 +828,14 @@ impl Rule<String> {
   ///
   /// ```rust
   /// use walrs_validation::rule::Rule;
+  /// use walrs_validation::ValidateRef;
   ///
   /// let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
   /// let compiled = rule.compile();
   ///
   /// // Repeated calls reuse the cached regex
-  /// assert!(compiled.validate_str("123").is_ok());
-  /// assert!(compiled.validate_str("456").is_ok());
+  /// assert!(compiled.validate_ref("123").is_ok());
+  /// assert!(compiled.validate_ref("456").is_ok());
   /// ```
   pub fn compile(self) -> CompiledRule<String> {
     CompiledRule::new(self)

@@ -4,7 +4,7 @@ use crate::{ScalarValue, Violation, Violations};
 
 impl<T: ScalarValue + IsEmpty> Rule<T> {
   /// Validates a scalar value against this rule.
-  pub fn validate_scalar(&self, value: T) -> RuleResult {
+  pub(crate) fn validate_scalar(&self, value: T) -> RuleResult {
     self.validate_scalar_inner(value, None)
   }
 
@@ -141,7 +141,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   ///
   /// Returns `Ok(())` when every rule passes, or `Err(Violations)` containing
   /// every failure discovered during tree traversal.
-  pub fn validate_scalar_all(&self, value: T) -> Result<(), Violations> {
+  pub(crate) fn validate_scalar_all(&self, value: T) -> Result<(), Violations> {
     let mut violations = Violations::default();
     self.collect_violations_scalar(value, None, &mut violations);
     if violations.is_empty() {
@@ -155,7 +155,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   ///
   /// `None` is treated as a missing value and fails only when this rule
   /// (or any nested rule) contains `Required`.
-  pub fn validate_scalar_option(&self, value: Option<T>) -> RuleResult {
+  pub(crate) fn validate_scalar_option(&self, value: Option<T>) -> RuleResult {
     match value {
       Some(v) => self.validate_scalar(v),
       None if self.requires_value() => Err(Violation::value_missing()),
@@ -164,7 +164,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional scalar value and collects all violations.
-  pub fn validate_scalar_option_all(&self, value: Option<T>) -> Result<(), Violations> {
+  pub(crate) fn validate_scalar_option_all(&self, value: Option<T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_scalar_all(v),
       None if self.requires_value() => Err(Violations::from(Violation::value_missing())),
