@@ -4,11 +4,11 @@
 //! rules for a single form field. It replaces the old `Input`/`RefInput` API with
 //! a unified, serializable design.
 
-use walrs_filter::FilterOp;
+use walrs_filter::{FilterOp, TryFilterOp};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_validation::Value;
-use walrs_validation::{Rule, ValidateRef, Violations};
+use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
 /// Validation configuration for a single field.
 ///
@@ -17,6 +17,7 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 ///
 /// - Rule-based validation using the `Rule<T>` enum
 /// - Filter-based transformation using the `FilterOp<T>` enum
+/// - Fallible filter-based transformation using the `TryFilterOp<T>` enum
 /// - Builder pattern via `FieldBuilder`
 /// - JSON/YAML serialization for config-driven forms
 ///
@@ -24,8 +25,9 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 ///
 /// ```rust
 /// use walrs_inputfilter::field::{Field, FieldBuilder};
-/// use walrs_filter::FilterOp;
+/// use walrs_filter::{FilterOp, TryFilterOp, FilterError};
 /// use walrs_validation::Rule;
+/// use std::sync::Arc;
 ///
 /// // Simple field with just a rule (no filters)
 /// let field = FieldBuilder::<String>::default()
@@ -34,19 +36,25 @@ use walrs_validation::{Rule, ValidateRef, Violations};
 ///     .build()
 ///     .unwrap();
 ///
-/// // Field with rule and filters
+/// // Field with infallible and fallible filters
 /// let field = FieldBuilder::<String>::default()
-///     .name("email")
-///     .rule(Rule::Required.and(Rule::Email(Default::default())))
-///     .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
+///     .name("encoded_data")
+///     .filters(vec![FilterOp::Trim])
+///     .try_filters(vec![
+///         TryFilterOp::TryCustom(Arc::new(|s: String| {
+///             if s.contains('\0') {
+///                 Err(FilterError::new("input contains null bytes"))
+///             } else {
+///                 Ok(s)
+///             }
+///         })),
+///     ])
 ///     .build()
 ///     .unwrap();
 ///
-/// // Filter then validate
-/// let value = "  TEST@EXAMPLE.COM  ".to_string();
-/// let filtered = field.filter(value);
-/// assert_eq!(filtered, "test@example.com");
-/// assert!(field.validate_ref(&filtered).is_ok());
+/// // process() applies infallible filters, then fallible filters, then validates
+/// assert!(field.process("  hello  ".to_string()).is_ok());
+/// assert!(field.process("  \0bad  ".to_string()).is_err());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
@@ -74,6 +82,14 @@ where
   #[builder(default = "None")]
   pub filters: Option<Vec<FilterOp<T>>>,
 
+  /// Fallible filters to apply after infallible filters, before validation.
+  ///
+  /// If any fallible filter fails, the error is converted to a `Violation`
+  /// and returned as part of the validation error pipeline.
+  #[serde(skip_serializing_if = "Option::is_none")]
+  #[builder(default = "None")]
+  pub try_filters: Option<Vec<TryFilterOp<T>>>,
+
   /// When true, stops validation at the first error.
   #[builder(default = "false")]
   pub break_on_failure: bool,
@@ -86,6 +102,7 @@ impl<T: Clone> Default for Field<T> {
       locale: None,
       rule: None,
       filters: None,
+      try_filters: None,
       break_on_failure: false,
     }
   }
@@ -95,12 +112,14 @@ impl<T: Clone + PartialEq> PartialEq for Field<T>
 where
   Rule<T>: PartialEq,
   FilterOp<T>: PartialEq,
+  TryFilterOp<T>: PartialEq,
 {
   fn eq(&self, other: &Self) -> bool {
     self.name == other.name
       && self.locale == other.locale
       && self.rule == other.rule
       && self.filters == other.filters
+      && self.try_filters == other.try_filters
       && self.break_on_failure == other.break_on_failure
   }
 }
@@ -147,6 +166,34 @@ impl Field<String> {
     }
   }
 
+  /// Apply all fallible filters to a `&str` reference.
+  ///
+  /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
+  /// the filter error converted to a `Violation`.
+  pub fn try_filter_ref(&self, value: &str) -> Result<String, Violations> {
+    match &self.try_filters {
+      Some(try_filters) => {
+        let mut result = value.to_string();
+        for f in try_filters {
+          result = f.try_apply(result).map_err(|e| -> Violations {
+            let violation: Violation = e.into();
+            Violations::new(vec![violation])
+          })?;
+        }
+        Ok(result)
+      }
+      None => Ok(value.to_string()),
+    }
+  }
+
+  /// Apply all fallible filters to an owned `String`.
+  ///
+  /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
+  /// the filter error converted to a `Violation`.
+  pub fn try_filter(&self, value: String) -> Result<String, Violations> {
+    self.try_filter_ref(&value)
+  }
+
   /// Validate the value against the rule, short-circuiting on the first violation.
   ///
   /// Accepts a `&str` directly, avoiding any allocation at the call site.
@@ -183,10 +230,11 @@ impl Field<String> {
 
   /// Filter the value and then validate it.
   ///
-  /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
+  /// Applies infallible filters first, then fallible filters, then validates.
+  /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
   pub fn process(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
-    // @todo Should the ordering of the this be before filter step.
+    let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
     Ok(filtered)
   }
@@ -223,6 +271,34 @@ impl Field<Value> {
       }
       None => value,
     }
+  }
+
+  /// Apply all fallible filters to a `&Value` reference.
+  ///
+  /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
+  /// the filter error converted to a `Violation`.
+  pub fn try_filter_ref(&self, value: &Value) -> Result<Value, Violations> {
+    match &self.try_filters {
+      Some(try_filters) => {
+        let mut result = value.clone();
+        for f in try_filters {
+          result = f.try_apply(result).map_err(|e| -> Violations {
+            let violation: Violation = e.into();
+            Violations::new(vec![violation])
+          })?;
+        }
+        Ok(result)
+      }
+      None => Ok(value.clone()),
+    }
+  }
+
+  /// Apply all fallible filters to an owned `Value`.
+  ///
+  /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
+  /// the filter error converted to a `Violation`.
+  pub fn try_filter(&self, value: Value) -> Result<Value, Violations> {
+    self.try_filter_ref(&value)
   }
 
   /// Validate a `&Value` reference against the rule.
@@ -273,9 +349,11 @@ impl Field<Value> {
 
   /// Filter the value and then validate it.
   ///
-  /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
+  /// Applies infallible filters first, then fallible filters, then validates.
+  /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
   pub fn process(&self, value: Value) -> Result<Value, Violations> {
     let filtered = self.filter(value);
+    let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
     Ok(filtered)
   }
@@ -315,11 +393,12 @@ impl Field<String> {
     self.validate_ref_async(value.as_str()).await
   }
 
-  /// Filter the value synchronously, then validate it asynchronously.
+  /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
   ///
-  /// Returns `Ok(filtered_value)` if validation passes, or `Err(Violations)`.
+  /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
   pub async fn process_async(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
+    let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
     Ok(filtered)
   }
@@ -352,9 +431,10 @@ impl Field<Value> {
     self.validate_ref_async(value).await
   }
 
-  /// Filter the value synchronously, then validate it asynchronously.
+  /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
   pub async fn process_async(&self, value: Value) -> Result<Value, Violations> {
     let filtered = self.filter(value);
+    let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
     Ok(filtered)
   }
@@ -363,6 +443,8 @@ impl Field<Value> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::sync::Arc;
+  use walrs_filter::{FilterError, TryFilterOp};
   use walrs_validation::Rule;
 
   #[test]
@@ -553,5 +635,210 @@ mod tests {
     let value = Value::Str("unchanged".to_string());
     let result = field.filter_ref(&value);
     assert_eq!(result, Value::Str("unchanged".to_string()));
+  }
+
+  // ====================================================================
+  // try_filter / try_filter_ref tests — Field<String>
+  // ====================================================================
+
+  #[test]
+  fn test_string_field_try_filter_success() {
+    let field = FieldBuilder::<String>::default()
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
+        Ok(s.to_uppercase())
+      }))])
+      .build()
+      .unwrap();
+
+    let result = field.try_filter("hello".to_string());
+    assert_eq!(result.unwrap(), "HELLO");
+  }
+
+  #[test]
+  fn test_string_field_try_filter_failure() {
+    let field = FieldBuilder::<String>::default()
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
+        if s.is_empty() {
+          Err(FilterError::new("empty after trim"))
+        } else {
+          Ok(s)
+        }
+      }))])
+      .build()
+      .unwrap();
+
+    assert!(field.try_filter("hello".to_string()).is_ok());
+    assert!(field.try_filter("".to_string()).is_err());
+  }
+
+  #[test]
+  fn test_string_field_try_filter_ref() {
+    let field = FieldBuilder::<String>::default()
+      .try_filters(vec![TryFilterOp::Infallible(FilterOp::Lowercase)])
+      .build()
+      .unwrap();
+
+    let result = field.try_filter_ref("HELLO");
+    assert_eq!(result.unwrap(), "hello");
+  }
+
+  #[test]
+  fn test_string_field_try_filter_none() {
+    let field = FieldBuilder::<String>::default().build().unwrap();
+    let result = field.try_filter("hello".to_string());
+    assert_eq!(result.unwrap(), "hello");
+  }
+
+  #[test]
+  fn test_string_field_process_with_try_filters() {
+    let field = FieldBuilder::<String>::default()
+      .filters(vec![FilterOp::Trim])
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
+        if s.is_empty() {
+          Err(FilterError::new("value must not be empty after trimming"))
+        } else {
+          Ok(s)
+        }
+      }))])
+      .rule(Rule::MinLength(3))
+      .build()
+      .unwrap();
+
+    // Happy path: trim -> try_filter passes -> validation passes
+    assert_eq!(
+      field.process("  hello  ".to_string()).unwrap(),
+      "hello"
+    );
+
+    // Try filter fails (empty after trim)
+    let err = field.process("     ".to_string()).unwrap_err();
+    assert_eq!(err.len(), 1);
+    assert!(err[0].message().contains("empty after trimming"));
+
+    // Try filter passes but validation fails (too short)
+    let err = field.process("  hi  ".to_string()).unwrap_err();
+    assert_eq!(err.len(), 1);
+  }
+
+  #[test]
+  fn test_string_field_process_try_filter_short_circuits() {
+    let field = FieldBuilder::<String>::default()
+      .try_filters(vec![
+        TryFilterOp::TryCustom(Arc::new(|_| {
+          Err(FilterError::new("first fails"))
+        })),
+        TryFilterOp::TryCustom(Arc::new(|_| {
+          panic!("should not reach second filter");
+        })),
+      ])
+      .build()
+      .unwrap();
+
+    let err = field.process("hello".to_string()).unwrap_err();
+    assert!(err[0].message().contains("first fails"));
+  }
+
+  // ====================================================================
+  // try_filter / try_filter_ref tests — Field<Value>
+  // ====================================================================
+
+  #[test]
+  fn test_value_field_try_filter_success() {
+    let field = FieldBuilder::<Value>::default()
+      .try_filters(vec![TryFilterOp::Infallible(FilterOp::Trim)])
+      .build()
+      .unwrap();
+
+    let result = field.try_filter(Value::Str("  hello  ".to_string()));
+    assert_eq!(result.unwrap(), Value::Str("hello".to_string()));
+  }
+
+  #[test]
+  fn test_value_field_try_filter_failure() {
+    let field = FieldBuilder::<Value>::default()
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
+        if let Value::Str(ref s) = v {
+          if s.is_empty() {
+            return Err(FilterError::new("empty string"));
+          }
+        }
+        Ok(v)
+      }))])
+      .build()
+      .unwrap();
+
+    assert!(field
+      .try_filter(Value::Str("hello".to_string()))
+      .is_ok());
+    assert!(field
+      .try_filter(Value::Str("".to_string()))
+      .is_err());
+  }
+
+  #[test]
+  fn test_value_field_try_filter_ref() {
+    let field = FieldBuilder::<Value>::default()
+      .try_filters(vec![TryFilterOp::Infallible(FilterOp::Lowercase)])
+      .build()
+      .unwrap();
+
+    let value = Value::Str("HELLO".to_string());
+    let result = field.try_filter_ref(&value);
+    assert_eq!(result.unwrap(), Value::Str("hello".to_string()));
+  }
+
+  #[test]
+  fn test_value_field_try_filter_none() {
+    let field = FieldBuilder::<Value>::default().build().unwrap();
+    let value = Value::Str("hello".to_string());
+    let result = field.try_filter(value.clone());
+    assert_eq!(result.unwrap(), value);
+  }
+
+  #[test]
+  fn test_value_field_process_with_try_filters() {
+    let field = FieldBuilder::<Value>::default()
+      .filters(vec![FilterOp::Trim])
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
+        if let Value::Str(ref s) = v {
+          if s.is_empty() {
+            return Err(FilterError::new("empty after trim"));
+          }
+        }
+        Ok(v)
+      }))])
+      .rule(Rule::Required)
+      .build()
+      .unwrap();
+
+    // Happy path
+    assert_eq!(
+      field.process(Value::Str("  hello  ".to_string())).unwrap(),
+      Value::Str("hello".to_string())
+    );
+
+    // Try filter fails
+    assert!(field.process(Value::Str("     ".to_string())).is_err());
+  }
+
+  // ====================================================================
+  // Builder with try_filters
+  // ====================================================================
+
+  #[test]
+  fn test_field_builder_defaults_include_try_filters() {
+    let field = FieldBuilder::<String>::default().build().unwrap();
+    assert!(field.try_filters.is_none());
+  }
+
+  #[test]
+  fn test_field_builder_with_try_filters() {
+    let field = FieldBuilder::<String>::default()
+      .try_filters(vec![TryFilterOp::Infallible(FilterOp::Trim)])
+      .build()
+      .unwrap();
+
+    assert!(field.try_filters.is_some());
+    assert_eq!(field.try_filters.as_ref().map(|f| f.len()), Some(1));
   }
 }

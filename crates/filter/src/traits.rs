@@ -26,3 +26,36 @@ pub trait Filter<T> {
 
   fn filter(&self, value: T) -> Self::Output;
 }
+
+/// Fallible filter trait for transformations that can fail.
+///
+/// This is the fallible counterpart to [`Filter`], mirroring the
+/// `Validate`/`ValidateRef` pattern. Use this for filters that can
+/// legitimately fail (e.g., base64 decode, JSON parse, URL decode).
+///
+/// # Examples
+///
+/// ```rust
+/// use walrs_filter::{TryFilter, FilterError};
+///
+/// struct ParseIntFilter;
+///
+/// impl TryFilter<String> for ParseIntFilter {
+///     type Output = i64;
+///     
+///     fn try_filter(&self, value: String) -> Result<Self::Output, FilterError> {
+///         value.trim().parse::<i64>().map_err(|e|
+///             FilterError::new(e.to_string()).with_name("ParseInt")
+///         )
+///     }
+/// }
+///
+/// let filter = ParseIntFilter;
+/// assert_eq!(filter.try_filter("42".to_string()).unwrap(), 42);
+/// assert!(filter.try_filter("not_a_number".to_string()).is_err());
+/// ```
+pub trait TryFilter<T> {
+  type Output;
+
+  fn try_filter(&self, value: T) -> Result<Self::Output, crate::FilterError>;
+}

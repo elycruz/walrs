@@ -17,11 +17,21 @@
 //! The [`FilterOp`] enum provides a composable, serializable way to define
 //! filter operations for config-driven form processing.
 //!
+//! ## TryFilterOp Enum
+//!
+//! The [`TryFilterOp`] enum provides a composable, serializable way to define
+//! **fallible** filter operations. Use this for filters that can legitimately
+//! fail (e.g., base64 decode, JSON parse, URL decode). Errors are represented
+//! as [`FilterError`], which can be converted to
+//! [`Violation`](walrs_validation::Violation) for integration with the
+//! validation error pipeline.
+//!
 //! ## Example
 //!
 //! ```rust
-//! use walrs_filter::{Filter, SlugFilter, StripTagsFilter, FilterOp};
+//! use walrs_filter::{Filter, SlugFilter, StripTagsFilter, FilterOp, TryFilterOp, FilterError};
 //! use std::borrow::Cow;
+//! use std::sync::Arc;
 //!
 //! // Use filter structs directly via the Filter trait
 //! let slug_filter = SlugFilter::new(200, false);
@@ -37,6 +47,20 @@
 //! assert_eq!(op.apply_ref("  HELLO  "), "hello");
 //! // apply accepts an owned String (delegates to apply_ref)
 //! assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
+//!
+//! // Use TryFilterOp for fallible filter pipelines
+//! let try_op: TryFilterOp<String> = TryFilterOp::Chain(vec![
+//!     TryFilterOp::Infallible(FilterOp::Trim),
+//!     TryFilterOp::TryCustom(Arc::new(|s: String| {
+//!         if s.is_empty() {
+//!             Err(FilterError::new("value must not be empty after trimming"))
+//!         } else {
+//!             Ok(s)
+//!         }
+//!     })),
+//! ]);
+//! assert!(try_op.try_apply("  hello  ".to_string()).is_ok());
+//! assert!(try_op.try_apply("     ".to_string()).is_err());
 //! ```
 
 #![cfg_attr(feature = "fn_traits", feature(fn_traits))]
@@ -45,14 +69,18 @@
 #[macro_use]
 extern crate derive_builder;
 
+pub mod filter_error;
 pub mod filter_op;
 pub mod slug;
 pub mod strip_tags;
 pub mod traits;
+pub mod try_filter_op;
 pub mod xml_entities;
 
+pub use filter_error::*;
 pub use filter_op::*;
 pub use slug::*;
 pub use strip_tags::*;
 pub use traits::*;
+pub use try_filter_op::*;
 pub use xml_entities::*;

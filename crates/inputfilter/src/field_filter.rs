@@ -129,7 +129,7 @@ impl FieldFilter {
     }
   }
 
-  /// Filters all field values in the data.
+  /// Filters all field values in the data (infallible filters only).
   ///
   /// Returns a new IndexMap with filtered values.
   pub fn filter(&self, data: IndexMap<String, Value>) -> IndexMap<String, Value> {
@@ -142,16 +142,47 @@ impl FieldFilter {
     result
   }
 
-  /// Filters and then validates the data.
-  /// @todo Consider adding a field, or a method param, that will allow to switch
-  ///     the execution order:
-  ///     - filtering first, then validation or
-  ///     - vice-versa
+  /// Applies fallible filters to all field values in the data.
+  ///
+  /// Returns `Ok(data)` with filtered values, or `Err(FormViolations)` if
+  /// any fallible filter fails. Short-circuits on fields with `break_on_failure`.
+  pub fn try_filter(
+    &self,
+    data: IndexMap<String, Value>,
+  ) -> Result<IndexMap<String, Value>, FormViolations> {
+    let mut result = data;
+    let mut violations = FormViolations::new();
+
+    for (field_name, field) in &self.fields {
+      if let Some(value) = result.get(field_name).cloned() {
+        match field.try_filter(value) {
+          Ok(filtered) => {
+            result.insert(field_name.clone(), filtered);
+          }
+          Err(field_violations) => {
+            violations.add_field_violations(field_name, field_violations);
+            if field.break_on_failure {
+              return Err(violations);
+            }
+          }
+        }
+      }
+    }
+
+    if violations.is_empty() {
+      Ok(result)
+    } else {
+      Err(violations)
+    }
+  }
+
+  /// Filters (infallible + fallible) and then validates the data.
   pub fn process(
     &self,
     data: IndexMap<String, Value>,
   ) -> Result<IndexMap<String, Value>, FormViolations> {
     let filtered = self.filter(data);
+    let filtered = self.try_filter(filtered)?;
     self.validate(&filtered)?;
     Ok(filtered)
   }
@@ -515,7 +546,7 @@ impl FieldFilter {
     }
   }
 
-  /// Filters and then validates the data asynchronously.
+  /// Filters (infallible + fallible) and then validates the data asynchronously.
   ///
   /// Filtering is synchronous (CPU-bound); validation is async.
   pub async fn process_async(
@@ -523,6 +554,7 @@ impl FieldFilter {
     data: IndexMap<String, Value>,
   ) -> Result<IndexMap<String, Value>, FormViolations> {
     let filtered = self.filter(data);
+    let filtered = self.try_filter(filtered)?;
     self.validate_async(&filtered).await?;
     Ok(filtered)
   }
@@ -532,6 +564,7 @@ impl FieldFilter {
 mod tests {
   use super::*;
   use crate::field::FieldBuilder;
+  use walrs_filter::FilterOp;
   use walrs_validation::Rule;
 
   fn make_data(pairs: &[(&str, Value)]) -> IndexMap<String, Value> {
@@ -768,5 +801,149 @@ mod tests {
     let violations = result.unwrap_err();
     assert!(violations.for_field("email").is_none());
     assert!(!violations.form.is_empty());
+  }
+
+  // ====================================================================
+  // try_filter tests
+  // ====================================================================
+
+  #[test]
+  fn test_field_filter_try_filter_success() {
+    use walrs_filter::{FilterError, TryFilterOp};
+
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "name",
+      FieldBuilder::<Value>::default()
+        .try_filters(vec![TryFilterOp::Infallible(FilterOp::Trim)])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[("name", Value::Str("  hello  ".to_string()))]);
+    let result = filter.try_filter(data).unwrap();
+    assert_eq!(
+      result.get("name").unwrap(),
+      &Value::Str("hello".to_string())
+    );
+  }
+
+  #[test]
+  fn test_field_filter_try_filter_failure() {
+    use std::sync::Arc;
+    use walrs_filter::{FilterError, TryFilterOp};
+
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "encoded",
+      FieldBuilder::<Value>::default()
+        .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
+          if let Value::Str(ref s) = v {
+            if s.contains('\0') {
+              return Err(FilterError::new("null bytes not allowed"));
+            }
+          }
+          Ok(v)
+        }))])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[("encoded", Value::Str("good input".to_string()))]);
+    assert!(filter.try_filter(data).is_ok());
+
+    let data = make_data(&[("encoded", Value::Str("bad\0input".to_string()))]);
+    let err = filter.try_filter(data).unwrap_err();
+    assert!(err.for_field("encoded").is_some());
+  }
+
+  #[test]
+  fn test_field_filter_try_filter_break_on_failure() {
+    use std::sync::Arc;
+    use walrs_filter::{FilterError, TryFilterOp};
+
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "first",
+      FieldBuilder::<Value>::default()
+        .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|_| {
+          Err(FilterError::new("first fails"))
+        }))])
+        .break_on_failure(true)
+        .build()
+        .unwrap(),
+    );
+    filter.add_field(
+      "second",
+      FieldBuilder::<Value>::default()
+        .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|_| {
+          panic!("should not reach second field")
+        }))])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[
+      ("first", Value::Str("a".to_string())),
+      ("second", Value::Str("b".to_string())),
+    ]);
+    let err = filter.try_filter(data).unwrap_err();
+    assert!(err.for_field("first").is_some());
+    assert!(err.for_field("second").is_none());
+  }
+
+  #[test]
+  fn test_field_filter_process_with_try_filters() {
+    use std::sync::Arc;
+    use walrs_filter::{FilterError, TryFilterOp};
+
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "name",
+      FieldBuilder::<Value>::default()
+        .filters(vec![FilterOp::Trim])
+        .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
+          if let Value::Str(ref s) = v {
+            if s.is_empty() {
+              return Err(FilterError::new("empty after trim"));
+            }
+          }
+          Ok(v)
+        }))])
+        .rule(Rule::Required)
+        .build()
+        .unwrap(),
+    );
+
+    // Happy path: trim -> try_filter passes -> validation passes
+    let data = make_data(&[("name", Value::Str("  hello  ".to_string()))]);
+    let result = filter.process(data).unwrap();
+    assert_eq!(
+      result.get("name").unwrap(),
+      &Value::Str("hello".to_string())
+    );
+
+    // Try filter fails
+    let data = make_data(&[("name", Value::Str("     ".to_string()))]);
+    assert!(filter.process(data).is_err());
+  }
+
+  #[test]
+  fn test_field_filter_try_filter_no_try_filters() {
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "name",
+      FieldBuilder::<Value>::default()
+        .filters(vec![FilterOp::Trim])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[("name", Value::Str("  hello  ".to_string()))]);
+    let result = filter.try_filter(data).unwrap();
+    assert_eq!(
+      result.get("name").unwrap(),
+      &Value::Str("  hello  ".to_string())
+    );
   }
 }
