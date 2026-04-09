@@ -1,8 +1,8 @@
 //! Error type for fallible filter operations.
 //!
 //! [`FilterError`] represents a failure during a filter transformation.
-//! It can be converted into a [`walrs_validation::Violation`] for seamless integration with
-//! the validation error pipeline.
+//! With the `validation` feature enabled, it can be converted into a
+//! [`walrs_validation::Violation`] for seamless integration with the validation error pipeline.
 
 use std::fmt;
 
