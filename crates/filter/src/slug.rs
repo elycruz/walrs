@@ -42,7 +42,37 @@ pub fn to_pretty_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
   _to_pretty_slug(get_slug_filter_regex(), 200, xs)
 }
 
+/// Returns `true` if the input is already a valid slug for the given parameters.
+fn is_valid_slug(s: &str, max_length: usize, allow_duplicate_dashes: bool) -> bool {
+  if s.is_empty() || s.len() > max_length {
+    return false;
+  }
+  if s.starts_with('-') || s.ends_with('-') {
+    return false;
+  }
+  let mut prev_dash = false;
+  for c in s.chars() {
+    if c == '-' {
+      if !allow_duplicate_dashes && prev_dash {
+        return false;
+      }
+      prev_dash = true;
+    } else {
+      prev_dash = false;
+      if !(c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_') {
+        return false;
+      }
+    }
+  }
+  true
+}
+
 fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
+  // Fast path: if already a valid slug, return as-is
+  if is_valid_slug(&xs, max_length, true) {
+    return Cow::Owned(xs.into_owned());
+  }
+
   let rslt = pattern
     .replace_all(xs.as_ref(), "-")
     .to_lowercase()
@@ -59,6 +89,11 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
 fn _to_pretty_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
   if xs.is_empty() {
     return Cow::Owned(String::new());
+  }
+
+  // Fast path: if already a valid pretty slug, return as-is
+  if is_valid_slug(&xs, max_length, false) {
+    return Cow::Owned(xs.into_owned());
   }
 
   get_dash_filter_regex()
@@ -193,6 +228,43 @@ mod test {
         );
       });
     });
+  }
+
+  #[test]
+  fn test_slug_noop_already_valid() {
+    // These are already valid slugs — should be no-op
+    for input in ["hello-world", "abc123", "test_slug", "a"] {
+      let result = to_slug(Cow::Borrowed(input));
+      assert_eq!(result, input);
+    }
+  }
+
+  #[test]
+  fn test_pretty_slug_noop_already_valid() {
+    // These are already valid pretty slugs (no duplicate dashes)
+    for input in ["hello-world", "abc123", "test_slug", "a"] {
+      let result = to_pretty_slug(Cow::Borrowed(input));
+      assert_eq!(result, input);
+    }
+  }
+
+  #[test]
+  fn test_slug_filter_noop() {
+    let filter = SlugFilter::new(200, false);
+
+    // Already a valid pretty slug
+    let result = filter.filter(Cow::Borrowed("hello-world"));
+    assert_eq!(result, "hello-world");
+  }
+
+  #[test]
+  fn test_slug_filter_noop_reuses_owned_input() {
+    let filter = SlugFilter::new(200, false);
+
+    // When input is Cow::Owned and no-op, should reuse the owned String
+    let input = "hello-world".to_string();
+    let result = filter.filter(Cow::Owned(input));
+    assert_eq!(result, "hello-world");
   }
 
   #[cfg(feature = "fn_traits")]

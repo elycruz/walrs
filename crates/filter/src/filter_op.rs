@@ -23,21 +23,27 @@ use walrs_validation::Value;
 /// # Calling convention
 ///
 /// - **`apply(&self, value: T) -> T`** — for `Copy` (scalar/numeric) types.
-/// - **`apply_ref(&self, value: &U) -> T`** — for `?Sized` reference types
-///   (e.g., `&str`), returning an owned result.
+/// - **`apply_ref(&self, value: &str) -> Cow<'_, str>`** — for `FilterOp<String>`,
+///   returns `Cow::Borrowed` when input is unchanged (zero-copy) or `Cow::Owned`
+///   when the value is transformed.
 ///
 /// For `FilterOp<String>`, prefer `apply_ref` when you already have a `&str`,
-/// avoiding an allocation. `apply` is a convenience wrapper that delegates to
-/// `apply_ref`.
+/// avoiding an allocation when the filter is a no-op. `apply` is a convenience
+/// wrapper that delegates to `apply_ref`.
 ///
 /// # Example
 ///
 /// ```rust
 /// use walrs_filter::FilterOp;
+/// use std::borrow::Cow;
 ///
 /// let filter = FilterOp::<String>::Trim;
 ///
-/// // By reference — no allocation needed at the call site
+/// // No-op case — returns Cow::Borrowed, zero allocation
+/// let result = filter.apply_ref("already_trimmed");
+/// assert!(matches!(result, Cow::Borrowed(_)));
+///
+/// // Mutation case — returns Cow::Owned
 /// let result = filter.apply_ref("  hello  ");
 /// assert_eq!(result, "hello");
 ///
@@ -143,36 +149,68 @@ impl<T: PartialEq> PartialEq for FilterOp<T> {
 // ============================================================================
 
 impl FilterOp<String> {
-  /// Apply the filter operation to a `&str` reference, returning an owned `String`.
+  /// Apply the filter operation to a `&str` reference, returning a `Cow<'_, str>`.
+  ///
+  /// Returns `Cow::Borrowed` when the filter is a no-op (input unchanged),
+  /// avoiding allocation. Returns `Cow::Owned` when the value is transformed.
   ///
   /// Prefer this method when you already have a `&str`, avoiding an
   /// unnecessary allocation at the call site.
-  pub fn apply_ref(&self, value: &str) -> String {
+  pub fn apply_ref<'a>(&self, value: &'a str) -> Cow<'a, str> {
     match self {
-      FilterOp::Trim => value.trim().to_string(),
-      FilterOp::Lowercase => value.to_lowercase(),
-      FilterOp::Uppercase => value.to_uppercase(),
+      FilterOp::Trim => {
+        let trimmed = value.trim();
+        if trimmed.len() == value.len() {
+          Cow::Borrowed(value)
+        } else {
+          Cow::Owned(trimmed.to_string())
+        }
+      }
+      FilterOp::Lowercase => {
+        if value.chars().all(|c| c.is_lowercase() || !c.is_alphabetic()) {
+          Cow::Borrowed(value)
+        } else {
+          Cow::Owned(value.to_lowercase())
+        }
+      }
+      FilterOp::Uppercase => {
+        if value.chars().all(|c| c.is_uppercase() || !c.is_alphabetic()) {
+          Cow::Borrowed(value)
+        } else {
+          Cow::Owned(value.to_uppercase())
+        }
+      }
       FilterOp::StripTags => {
         let filter = StripTagsFilter::new();
-        filter.filter(Cow::Borrowed(value)).into_owned()
+        filter.filter(Cow::Borrowed(value))
       }
       FilterOp::HtmlEntities => {
         let filter = XmlEntitiesFilter::new();
-        filter.filter(Cow::Borrowed(value)).into_owned()
+        filter.filter(Cow::Borrowed(value))
       }
       FilterOp::Slug { max_length } => {
         let filter = SlugFilter::new(max_length.unwrap_or(200), false);
-        filter.filter(Cow::Borrowed(value)).into_owned()
+        filter.filter(Cow::Borrowed(value))
       }
-      FilterOp::Clamp { .. } => value.to_string(), // Clamp doesn't apply to strings
+      FilterOp::Clamp { .. } => Cow::Borrowed(value), // Clamp doesn't apply to strings
       FilterOp::Chain(filters) => {
-        let mut result = value.to_string();
-        for f in filters {
-          result = f.apply_ref(&result);
+        if filters.is_empty() {
+          return Cow::Borrowed(value);
         }
-        result
+        let first_result = filters[0].apply_ref(value);
+        if filters.len() == 1 {
+          return first_result.into_owned().into();
+        }
+        let mut result = first_result.into_owned();
+        for f in &filters[1..] {
+          match f.apply_ref(&result) {
+            Cow::Borrowed(_) => {} // No change, keep result as-is
+            Cow::Owned(s) => result = s,
+          }
+        }
+        Cow::Owned(result)
       }
-      FilterOp::Custom(f) => f(value.to_string()),
+      FilterOp::Custom(f) => Cow::Owned(f(value.to_string())),
     }
   }
 
@@ -180,7 +218,7 @@ impl FilterOp<String> {
   ///
   /// Convenience wrapper that delegates to [`apply_ref`](Self::apply_ref).
   pub fn apply(&self, value: String) -> String {
-    self.apply_ref(&value)
+    self.apply_ref(&value).into_owned()
   }
 }
 
@@ -199,21 +237,34 @@ impl FilterOp<Value> {
     match self {
       FilterOp::Trim => {
         if let Value::Str(s) = value {
-          Value::Str(s.trim().to_string())
+          let trimmed = s.trim();
+          if trimmed.len() == s.len() {
+            value.clone()
+          } else {
+            Value::Str(trimmed.to_string())
+          }
         } else {
           value.clone()
         }
       }
       FilterOp::Lowercase => {
         if let Value::Str(s) = value {
-          Value::Str(s.to_lowercase())
+          if s.chars().all(|c| c.is_lowercase() || !c.is_alphabetic()) {
+            value.clone()
+          } else {
+            Value::Str(s.to_lowercase())
+          }
         } else {
           value.clone()
         }
       }
       FilterOp::Uppercase => {
         if let Value::Str(s) = value {
-          Value::Str(s.to_uppercase())
+          if s.chars().all(|c| c.is_uppercase() || !c.is_alphabetic()) {
+            value.clone()
+          } else {
+            Value::Str(s.to_uppercase())
+          }
         } else {
           value.clone()
         }
@@ -534,5 +585,131 @@ mod tests {
     let bool_val = Value::Bool(true);
     assert_eq!(filter.apply_ref(&int_val), Value::I64(42));
     assert_eq!(filter.apply_ref(&bool_val), Value::Bool(true));
+  }
+
+  // ====================================================================
+  // No-op (zero-copy) tests — FilterOp<String>::apply_ref
+  // ====================================================================
+
+  #[test]
+  fn test_trim_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::Trim;
+    let result = filter.apply_ref("already_trimmed");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "already_trimmed");
+  }
+
+  #[test]
+  fn test_lowercase_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::Lowercase;
+    let result = filter.apply_ref("already lowercase 123");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "already lowercase 123");
+  }
+
+  #[test]
+  fn test_uppercase_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::Uppercase;
+    let result = filter.apply_ref("ALREADY UPPERCASE 123");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "ALREADY UPPERCASE 123");
+  }
+
+  #[test]
+  fn test_strip_tags_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::StripTags;
+    // No HTML tags — filter should detect no-op
+    let result = filter.apply_ref("Hello World");
+    assert_eq!(result, "Hello World");
+  }
+
+  #[test]
+  fn test_html_entities_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::HtmlEntities;
+    // No special characters — filter should detect no-op
+    let result = filter.apply_ref("Hello World");
+    assert_eq!(result, "Hello World");
+  }
+
+  #[test]
+  fn test_slug_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::Slug { max_length: None };
+    // Already a valid slug
+    let result = filter.apply_ref("hello-world");
+    assert_eq!(result, "hello-world");
+  }
+
+  #[test]
+  fn test_clamp_noop_returns_borrowed() {
+    let filter = FilterOp::<String>::Clamp {
+      min: "a".to_string(),
+      max: "z".to_string(),
+    };
+    let result = filter.apply_ref("hello");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "hello");
+  }
+
+  #[test]
+  fn test_chain_empty_returns_borrowed() {
+    let filter: FilterOp<String> = FilterOp::Chain(vec![]);
+    let result = filter.apply_ref("hello");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "hello");
+  }
+
+  #[test]
+  fn test_trim_mutation_returns_owned() {
+    let filter = FilterOp::<String>::Trim;
+    let result = filter.apply_ref("  hello  ");
+    assert!(matches!(result, Cow::Owned(_)));
+    assert_eq!(result, "hello");
+  }
+
+  #[test]
+  fn test_lowercase_mutation_returns_owned() {
+    let filter = FilterOp::<String>::Lowercase;
+    let result = filter.apply_ref("HELLO");
+    assert!(matches!(result, Cow::Owned(_)));
+    assert_eq!(result, "hello");
+  }
+
+  #[test]
+  fn test_uppercase_mutation_returns_owned() {
+    let filter = FilterOp::<String>::Uppercase;
+    let result = filter.apply_ref("hello");
+    assert!(matches!(result, Cow::Owned(_)));
+    assert_eq!(result, "hello".to_uppercase());
+  }
+
+  // ====================================================================
+  // No-op tests — FilterOp<Value>::apply_ref
+  // ====================================================================
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_trim_value_noop() {
+    let filter = FilterOp::<Value>::Trim;
+    let value = Value::Str("already_trimmed".to_string());
+    let result = filter.apply_ref(&value);
+    assert_eq!(result, Value::Str("already_trimmed".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_lowercase_value_noop() {
+    let filter = FilterOp::<Value>::Lowercase;
+    let value = Value::Str("already lowercase 123".to_string());
+    let result = filter.apply_ref(&value);
+    assert_eq!(result, Value::Str("already lowercase 123".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_uppercase_value_noop() {
+    let filter = FilterOp::<Value>::Uppercase;
+    let value = Value::Str("ALREADY UPPERCASE 123".to_string());
+    let result = filter.apply_ref(&value);
+    assert_eq!(result, Value::Str("ALREADY UPPERCASE 123".to_string()));
   }
 }

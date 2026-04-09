@@ -119,7 +119,10 @@ impl Field<String> {
       Some(filters) => {
         let mut result = value.to_string();
         for f in filters {
-          result = f.apply_ref(&result);
+          match f.apply_ref(&result) {
+            std::borrow::Cow::Borrowed(_) => {} // No change, keep result as-is
+            std::borrow::Cow::Owned(s) => result = s,
+          }
         }
         result
       }
@@ -133,7 +136,10 @@ impl Field<String> {
       Some(filters) => {
         let mut result = value;
         for f in filters {
-          result = f.apply_ref(&result);
+          match f.apply_ref(&result) {
+            std::borrow::Cow::Borrowed(_) => {} // No change, keep result as-is
+            std::borrow::Cow::Owned(s) => result = s,
+          }
         }
         result
       }

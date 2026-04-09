@@ -38,7 +38,7 @@ let filters: Vec<FilterOp<String>> = vec![
 // apply_ref accepts &str — no allocation needed at the call site
 let mut value = "  <b>HELLO</b>  ".to_string();
 for filter in &filters {
-    value = filter.apply_ref(&value);
+    value = filter.apply_ref(&value).into_owned();
 }
 assert_eq!(value, "hello");
 ```

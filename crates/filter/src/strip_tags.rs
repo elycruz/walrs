@@ -93,6 +93,11 @@ impl Filter<Cow<'_, str>> for StripTagsFilter<'_> {
   /// ```
   ///
   fn filter(&self, input: Cow<'_, str>) -> Self::Output {
+    // Fast path: if no '<' present, no HTML tags to process
+    if !input.contains('<') {
+      return Cow::Owned(input.into_owned());
+    }
+
     match self.ammonia {
       None => Cow::Owned(
         DEFAULT_AMMONIA_BUILDER
@@ -198,6 +203,27 @@ mod test {
         );
       });
     });
+  }
+
+  #[test]
+  fn test_noop_no_html_tags() {
+    let filter = StripTagsFilter::new();
+
+    // These inputs have no '<' character — should be no-op
+    for input in ["Hello", "Hello World", "abc123", "", "Socrates'", "\"Hello\""] {
+      let result = filter.filter(input.into());
+      assert_eq!(result, input);
+    }
+  }
+
+  #[test]
+  fn test_noop_reuses_owned_input() {
+    let filter = StripTagsFilter::new();
+
+    // When input is Cow::Owned and no-op, should reuse the owned String
+    let input = "Hello World".to_string();
+    let result = filter.filter(Cow::Owned(input));
+    assert_eq!(result, "Hello World");
   }
 
   #[test]
