@@ -6,13 +6,14 @@ edition = "2024"
 rust-version = "1.85"
 description = "Composable validation rules for input validation"
 license = "MIT OR Apache-2.0"
+license-file = "../../LICENSE"
 repository = "https://github.com/elycruz/walrs"
 homepage = "https://github.com/elycruz/walrs"
 documentation = "https://docs.rs/walrs_validation"
 readme = "README.md"
 keywords = ["validation", "forms", "rules", "input", "composable"]
 categories = ["web-programming", "data-structures"]
-include = ["src/**/*", "Cargo.toml", "README.md", "LICENSE*", "tests/**/*"]
+include = ["src/**/*", "Cargo.toml", "README.md", "../../LICENSE", "tests/**/*", "examples/**/*", "benches/**/*"]
 
 [package.metadata.docs.rs]
 all-features = true
