@@ -576,8 +576,8 @@ mod tests {
       "email",
       FieldBuilder::<Value>::default()
         .filters(vec![
-          crate::filter_enum::Filter::Trim,
-          crate::filter_enum::Filter::Lowercase,
+          walrs_filter::FilterOp::Trim,
+          walrs_filter::FilterOp::Lowercase,
         ])
         .build()
         .unwrap(),
@@ -596,7 +596,7 @@ mod tests {
       "email",
       FieldBuilder::<Value>::default()
         .rule(Rule::Required)
-        .filters(vec![crate::filter_enum::Filter::Trim])
+        .filters(vec![walrs_filter::FilterOp::Trim])
         .build()
         .unwrap(),
     );

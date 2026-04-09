@@ -6,14 +6,14 @@
 //!
 //! - [`Field`] - Unified validation configuration
 //! - [`FieldFilter`] - Multi-field validation with cross-field rules
-//! - [`Filter`] - Serializable filter enum for value transformation
+//! - [`FilterOp`] - Serializable filter enum for value transformation (re-exported from `walrs_filter`)
 //! - [`FormViolations`] - Collection of form-level validation errors
 //!
 //! ## Example
 //!
 //! ```rust
-//! use walrs_inputfilter::{Field, FieldBuilder, Filter, FieldFilter};
-//! use walrs_inputfilter::filter_enum::Filter as FilterEnum;
+//! use walrs_inputfilter::{Field, FieldBuilder, FieldFilter};
+//! use walrs_filter::FilterOp;
 //! use walrs_validation::Rule;
 //! use walrs_validation::Value;
 //! use serde_json::json;
@@ -21,7 +21,7 @@
 //! // Create a field with filters and rule (use Rule::All for multiple rules)
 //! let email_field = FieldBuilder::<String>::default()
 //!     .name("email".to_string())
-//!     .filters(vec![FilterEnum::Trim, FilterEnum::Lowercase])
+//!     .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
 //!     .rule(Rule::Required.and(Rule::Email(Default::default())))
 //!     .build()
 //!     .unwrap();
@@ -37,7 +37,6 @@ extern crate derive_builder;
 
 pub mod field;
 pub mod field_filter;
-pub mod filter_enum;
 pub mod form_violations;
 
 pub mod filters;
@@ -51,9 +50,11 @@ pub use walrs_validation::{
   Violation, ViolationMessage, ViolationType, Violations,
 };
 
+// Re-export FilterOp from walrs_filter
+pub use walrs_filter::FilterOp;
+
 pub use field::{Field, FieldBuilder};
 pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
-pub use filter_enum::Filter;
 pub use form_violations::FormViolations;
 
 pub use filters::*;

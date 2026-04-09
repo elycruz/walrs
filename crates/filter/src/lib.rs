@@ -12,21 +12,28 @@
 //! - [`StripTagsFilter`] - Removes/sanitizes HTML tags using Ammonia
 //! - [`XmlEntitiesFilter`] - Encodes special characters as XML entities
 //!
+//! ## FilterOp Enum
+//!
+//! The [`FilterOp`] enum provides a composable, serializable way to define
+//! filter operations for config-driven form processing.
+//!
 //! ## Example
 //!
 //! ```rust
-//! use walrs_filter::{Filter, SlugFilter, StripTagsFilter};
+//! use walrs_filter::{Filter, SlugFilter, StripTagsFilter, FilterOp};
 //! use std::borrow::Cow;
 //!
-//! // Create a slug from a title
+//! // Use filter structs directly via the Filter trait
 //! let slug_filter = SlugFilter::new(200, false);
 //! let slug = slug_filter.filter(Cow::Borrowed("Hello World!"));
 //! assert_eq!(slug, "hello-world");
 //!
-//! // Strip HTML tags
-//! let strip_filter = StripTagsFilter::new();
-//! let clean = strip_filter.filter(Cow::Borrowed("<script>alert('xss')</script>Hello"));
-//! assert_eq!(clean, "Hello");
+//! // Use FilterOp for composable, serializable filter pipelines
+//! let op = FilterOp::<String>::Chain(vec![
+//!     FilterOp::Trim,
+//!     FilterOp::Lowercase,
+//! ]);
+//! assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
 //! ```
 
 #![cfg_attr(feature = "fn_traits", feature(fn_traits))]
@@ -35,11 +42,13 @@
 #[macro_use]
 extern crate derive_builder;
 
+pub mod filter_op;
 pub mod slug;
 pub mod strip_tags;
 pub mod traits;
 pub mod xml_entities;
 
+pub use filter_op::*;
 pub use slug::*;
 pub use strip_tags::*;
 pub use traits::*;
