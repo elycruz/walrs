@@ -102,7 +102,7 @@ pub trait ToAttributesList {
 // IsEmpty
 // ============================================================================
 
-/// Trait for checking if a value is "empty", used by [`Condition`] evaluation.
+/// Trait for checking if a value is "empty", used by [`crate::Condition`] evaluation.
 ///
 /// For strings "empty" means blank/whitespace-only.  For collections it means
 /// zero elements.  Numeric scalars, `bool`, and `char` are never empty.
@@ -216,5 +216,123 @@ pub trait ValidateAsync<T: Send> {
 #[cfg(feature = "async")]
 pub trait ValidateRefAsync<T: ?Sized + Sync> {
   fn validate_ref_async(&self, value: &T) -> impl std::future::Future<Output = ValidatorResult> + Send;
+}
+
+// ============================================================================
+// Tests
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  // ==========================================================================
+  // IsEmpty
+  // ==========================================================================
+
+  #[test]
+  fn test_is_empty_string() {
+    assert!(IsEmpty::is_empty(&String::new()));
+    assert!(IsEmpty::is_empty(&"   ".to_string()));
+    assert!(!IsEmpty::is_empty(&"hello".to_string()));
+  }
+
+  #[test]
+  fn test_is_empty_str() {
+    assert!(IsEmpty::is_empty(""));
+    assert!(IsEmpty::is_empty("  \t\n "));
+    assert!(!IsEmpty::is_empty("x"));
+  }
+
+  #[test]
+  fn test_is_empty_str_ref() {
+    let s: &str = "   ";
+    assert!(IsEmpty::is_empty(s));
+    let s2: &str = "abc";
+    assert!(!IsEmpty::is_empty(s2));
+  }
+
+  #[test]
+  fn test_is_empty_vec() {
+    let empty: Vec<i32> = vec![];
+    assert!(IsEmpty::is_empty(&empty));
+    assert!(!IsEmpty::is_empty(&vec![1]));
+  }
+
+  #[test]
+  fn test_is_empty_option() {
+    let none: Option<i32> = None;
+    assert!(IsEmpty::is_empty(&none));
+    assert!(!IsEmpty::is_empty(&Some(0)));
+  }
+
+  #[test]
+  fn test_is_empty_never_for_numerics() {
+    assert!(!IsEmpty::is_empty(&0_i32));
+    assert!(!IsEmpty::is_empty(&1_u8));
+    assert!(!IsEmpty::is_empty(&0.0_f64));
+    assert!(!IsEmpty::is_empty(&false));
+    assert!(!IsEmpty::is_empty(&'a'));
+  }
+
+  // ==========================================================================
+  // WithLength
+  // ==========================================================================
+
+  #[test]
+  fn test_with_length_str_unicode() {
+    // Unicode chars — length should count chars, not bytes
+    let s = "héllo";
+    assert_eq!(s.length(), 5);
+    let s2 = "日本語";
+    assert_eq!(s2.length(), 3);
+  }
+
+  #[test]
+  fn test_with_length_string() {
+    assert_eq!("hello".to_string().length(), 5);
+    assert_eq!(String::new().length(), 0);
+  }
+
+  #[test]
+  fn test_with_length_vec() {
+    let v: Vec<i32> = vec![1, 2, 3];
+    assert_eq!(v.length(), 3);
+    let empty: Vec<i32> = vec![];
+    assert_eq!(empty.length(), 0);
+  }
+
+  #[test]
+  fn test_with_length_hashmap() {
+    use std::collections::HashMap;
+    let mut map = HashMap::new();
+    map.insert("a", 1);
+    map.insert("b", 2);
+    assert_eq!(map.length(), 2);
+  }
+
+  // ==========================================================================
+  // SteppableValue::rem_check
+  // ==========================================================================
+
+  #[test]
+  fn test_rem_check_integer() {
+    assert!(10_i32.rem_check(5));
+    assert!(!10_i32.rem_check(3));
+    assert!(!10_i32.rem_check(0)); // zero divisor returns false
+  }
+
+  #[test]
+  fn test_rem_check_float() {
+    assert!(1.0_f64.rem_check(0.5));
+    assert!(!1.0_f64.rem_check(0.3));
+    assert!(!1.0_f64.rem_check(0.0)); // zero divisor returns false
+  }
+
+  #[test]
+  fn test_rem_check_f32() {
+    assert!(2.0_f32.rem_check(1.0));
+    assert!(!2.0_f32.rem_check(0.0));
+  }
 }
 

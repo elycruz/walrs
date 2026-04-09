@@ -1,9 +1,24 @@
 # walrs_validation
 
+[![Crates.io](https://img.shields.io/crates/v/walrs_validation.svg)](https://crates.io/crates/walrs_validation)
+[![docs.rs](https://docs.rs/walrs_validation/badge.svg)](https://docs.rs/walrs_validation)
+[![License](https://img.shields.io/crates/l/walrs_validation.svg)](https://github.com/elycruz/walrs/blob/main/LICENSE)
+[![CI](https://github.com/elycruz/walrs/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/elycruz/walrs/actions/workflows/build-and-test.yml)
+
 Composable validation rules for input validation.
 
 This crate provides a serializable, composable validation rule system based on
 the `Rule<T>` enum, along with core validation traits.
+
+## Installation
+
+```toml
+[dependencies]
+walrs_validation = "0.1"
+
+# With optional features:
+walrs_validation = { version = "0.1", features = ["async", "chrono", "indexmap"] }
+```
 
 ## Validation Rules
 
@@ -11,14 +26,22 @@ The `Rule` enum provides built-in validation for common constraints:
 
 - `Rule::Required` - Value must not be empty
 - `Rule::MinLength` / `Rule::MaxLength` - Length constraints
-- `Rule::Min` / `Rule::Max` - Range constraints
+- `Rule::ExactLength` - Exact length constraint
+- `Rule::Min` / `Rule::Max` - Numeric range constraints
+- `Rule::Range` - Inclusive range constraint (min and max together)
+- `Rule::Equals` - Exact value match
+- `Rule::OneOf` - Value must be one of an allowed set
 - `Rule::Pattern` - Regex pattern matching
 - `Rule::Email` - Configurable email validation (DNS/IP/local domains, local part length)
+- `Rule::Url` - Configurable URL validation (scheme filtering)
+- `Rule::Uri` - Configurable URI validation (scheme, relative/absolute)
+- `Rule::Ip` - Configurable IP address validation (IPv4/IPv6/IPvFuture)
 - `Rule::Step` - Step/multiple validation
 - `Rule::Hostname` - Configurable hostname validation (DNS/IP/local/public IPv4)
 - `Rule::Date` - Date format validation (ISO 8601, US, EU, RFC 2822, custom)
 - `Rule::DateRange` - Date range validation with min/max bounds
 - `Rule::Custom` - Custom closure-based validation
+- `Rule::CustomAsync` - Async custom closure (requires `async` feature)
 
 ## Rule Composition
 
@@ -29,33 +52,22 @@ Rules can be composed using methods on `Rule`:
 - `.not()` - Negates a rule (produces `Rule::Not`)
 - `.when()` / `.when_else()` - Conditional validation (produces `Rule::When`)
 
-## Usage
-
-Add to your `Cargo.toml`:
-
-```toml
-[dependencies]
-walrs_validation = { path = "../validation" }
-```
-
 ## Example
 
 ```rust
 use walrs_validation::{Rule, Validate, ValidateRef};
 
-fn main() {
-    // Length validation
-    let length_rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(20));
+// Length validation
+let length_rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(20));
 
-    assert!(length_rule.validate_ref("hello").is_ok());
-    assert!(length_rule.validate_ref("hi").is_err());
+assert!(length_rule.validate_ref("hello").is_ok());
+assert!(length_rule.validate_ref("hi").is_err());
 
-    // Range validation
-    let range_rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+// Range validation
+let range_rule = Rule::<i32>::Min(0).and(Rule::Max(100));
 
-    assert!(range_rule.validate(50).is_ok());
-    assert!(range_rule.validate(-1).is_err());
-}
+assert!(range_rule.validate(50).is_ok());
+assert!(range_rule.validate(-1).is_err());
 ```
 
 ## Validation Traits
@@ -72,6 +84,97 @@ pub trait Validate<T> {
 pub trait ValidateRef<T: ?Sized> {
     fn validate_ref(&self, value: &T) -> ValidatorResult;
 }
+```
+
+### Async variants (`async` feature)
+
+Enable the `async` feature to use `ValidateAsync` and `ValidateRefAsync`:
+
+```toml
+walrs_validation = { version = "0.1", features = ["async"] }
+```
+
+```rust,ignore
+use walrs_validation::{Rule, ValidateAsync, ValidateRefAsync};
+
+// Rule::CustomAsync — async closure-based validation
+let rule = Rule::<String>::custom_async(std::sync::Arc::new(|value: &String| {
+    let value = value.clone();
+    Box::pin(async move {
+        // async I/O, DB lookup, etc.
+        if value.is_empty() {
+            Err(walrs_validation::Violation::value_missing())
+        } else {
+            Ok(())
+        }
+    })
+}));
+
+// Awaitable validation
+let result = rule.validate_ref_async("hello").await;
+assert!(result.is_ok());
+```
+
+## CompiledRule, WithMessage, and the Message System
+
+### `CompiledRule<T>`
+
+`CompiledRule<T>` wraps a `Rule<T>` and caches compiled resources (e.g., regex
+patterns) for efficient repeated validation:
+
+```rust
+use walrs_validation::Rule;
+
+let rule = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
+let compiled = rule.compile();
+
+// The regex is compiled once and reused on every call
+assert!(compiled.validate_ref("hello").is_ok());
+assert!(compiled.validate_ref("HELLO").is_err());
+```
+
+### `WithMessage` — custom violation messages
+
+Attach a custom message to any rule (or composed rule) using `.with_message()`:
+
+```rust
+use walrs_validation::{Rule, ValidateRef};
+
+let rule = Rule::<String>::MinLength(8)
+    .with_message("Password must be at least 8 characters.");
+
+let err = rule.validate_ref("short").unwrap_err();
+assert_eq!(err.message(), "Password must be at least 8 characters.");
+```
+
+Use `.with_message_provider()` for dynamic messages based on the failing value:
+
+```rust
+use walrs_validation::{Rule, ValidateRef};
+
+let rule = Rule::<String>::MinLength(5).with_message_provider(
+    |value: &String, _locale| {
+        format!("\"{}\" is too short (minimum 5 characters).", value)
+    },
+    None,
+);
+```
+
+### `Message` / `MessageParams` / `MessageContext`
+
+The `Message` type is the building block of the `WithMessage` system. It can be
+a static string, a parameterised template, or a closure-based provider:
+
+```rust,ignore
+use walrs_validation::{Message, Rule, ValidateRef};
+
+// Static message
+let msg = Message::from("Value is required.");
+
+// Dynamic provider — receives the failing value and locale
+let msg = Message::from_fn(|value: &String, _locale| {
+    format!("\"{}\" failed validation.", value)
+});
 ```
 
 ## Shared Types
@@ -97,10 +200,10 @@ Date validation requires enabling one of the date crate features:
 
 ```toml
 # Using chrono (most popular, widest ecosystem)
-walrs_validation = { path = "../validation", features = ["chrono"] }
+walrs_validation = { version = "0.1", features = ["chrono"] }
 
 # Using jiff (modern API, best timezone handling)
-walrs_validation = { path = "../validation", features = ["jiff"] }
+walrs_validation = { version = "0.1", features = ["jiff"] }
 ```
 
 **String-based validation** — validate date strings with `Rule::Date` and `Rule::DateRange`:
@@ -110,7 +213,7 @@ use walrs_validation::{Rule, DateOptions, DateRangeOptions, DateFormat};
 
 // Validate ISO 8601 date strings
 let rule = Rule::<String>::Date(DateOptions::default());
-assert!(rule.validate_str("2026-02-23").is_ok());
+assert!(rule.validate_ref("2026-02-23").is_ok());
 
 // Validate date range
 let rule = Rule::<String>::DateRange(DateRangeOptions {
@@ -119,7 +222,7 @@ let rule = Rule::<String>::DateRange(DateRangeOptions {
     min: Some("2020-01-01".into()),
     max: Some("2030-12-31".into()),
 });
-assert!(rule.validate_str("2025-06-15").is_ok());
+assert!(rule.validate_ref("2025-06-15").is_ok());
 ```
 
 **Native type validation** — validate `chrono::NaiveDate` / `jiff::civil::Date` directly:
@@ -142,3 +245,4 @@ When both features are enabled, `chrono` takes precedence for string parsing.
 ## License
 
 MIT & Apache-2.0
+

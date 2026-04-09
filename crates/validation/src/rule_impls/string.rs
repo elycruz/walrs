@@ -549,6 +549,7 @@ impl Rule<String> {
   }
 
   /// Validates an optional string value.
+  #[allow(dead_code)] // Reserved for a future `validate_option` public API
   pub(crate) fn validate_str_option(&self, value: Option<&str>) -> RuleResult {
     match value {
       Some(v) => self.validate_str(v),
@@ -558,6 +559,7 @@ impl Rule<String> {
   }
 
   /// Validates an optional string value and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_option_all` public API
   pub(crate) fn validate_str_option_all(
     &self,
     value: Option<&str>,
@@ -789,6 +791,7 @@ impl CompiledRule<String> {
   }
 
   /// Validates a string value and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_all` public API
   pub(crate) fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
     self.rule.validate_str_all(value)
   }

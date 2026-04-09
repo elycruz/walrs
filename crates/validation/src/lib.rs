@@ -10,7 +10,11 @@
 //! The [`Rule`] enum provides built-in validation for common constraints:
 //! - `Rule::Required` - Value must not be empty
 //! - `Rule::MinLength` / `Rule::MaxLength` - Length constraints
-//! - `Rule::Min` / `Rule::Max` - Range constraints
+//! - `Rule::ExactLength` - Exact length constraint
+//! - `Rule::Min` / `Rule::Max` - Numeric range constraints
+//! - `Rule::Range` - Inclusive range constraint (min and max together)
+//! - `Rule::Equals` - Exact value match
+//! - `Rule::OneOf` - Value must be one of an allowed set
 //! - `Rule::Pattern` - Regex pattern matching
 //! - `Rule::Email` - Configurable email validation (DNS/IP/local domains, local part length)
 //! - `Rule::Url` - Configurable URL validation (scheme filtering)
@@ -21,6 +25,7 @@
 //! - `Rule::DateRange` - Date range validation with min/max bounds
 //! - `Rule::Step` - Step/multiple validation
 //! - `Rule::Custom` - Custom closure-based validation
+//! - `Rule::CustomAsync` - Async custom closure-based validation (requires `async` feature)
 //!
 //! ## Rule Composition
 //!

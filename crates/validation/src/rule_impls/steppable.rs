@@ -139,6 +139,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value.
+  #[allow(dead_code)] // Reserved for a future `validate_option` public API
   pub(crate) fn validate_option_step(&self, value: Option<T>) -> RuleResult {
     match value {
       Some(v) => self.validate_step(v),
@@ -147,6 +148,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional numeric value and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_option_all` public API
   pub(crate) fn validate_option_step_all(
     &self,
     value: Option<T>,
@@ -225,11 +227,13 @@ impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
 
 impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
   /// Validates a numeric value using the compiled rule.
+  #[allow(dead_code)] // Reserved for a future public API
   pub(crate) fn validate_step(&self, value: T) -> RuleResult {
     self.rule.validate_step(value)
   }
 
   /// Validates a numeric value and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_all` public API
   pub(crate) fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
     self.rule.validate_step_all(value)
   }

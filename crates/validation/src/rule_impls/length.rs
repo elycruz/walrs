@@ -4,6 +4,7 @@ use crate::Violation;
 
 impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
+  #[allow(dead_code)] // Reserved for a future public API
   pub(crate) fn validate_len(&self, value: &T) -> RuleResult {
     match self {
       Rule::Required => {
@@ -105,6 +106,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates a collection's length and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_all` public API
   pub(crate) fn validate_len_all(&self, value: &T) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_len_violations(value, &mut violations);
@@ -116,6 +118,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates an optional collection's length.
+  #[allow(dead_code)] // Reserved for a future `validate_option` public API
   pub(crate) fn validate_option_len(&self, value: Option<&T>) -> RuleResult {
     match value {
       Some(v) => self.validate_len(v),
@@ -125,6 +128,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Validates an optional collection's length and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_option_all` public API
   pub(crate) fn validate_option_len_all(&self, value: Option<&T>) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_len_all(v),
@@ -134,6 +138,7 @@ impl<T: WithLength> Rule<T> {
   }
 
   /// Helper to collect all length violations recursively.
+  #[allow(dead_code)] // Called transitively from validate_len_all
   fn collect_len_violations(&self, value: &T, violations: &mut crate::Violations) {
     match self {
       Rule::All(rules) => {
