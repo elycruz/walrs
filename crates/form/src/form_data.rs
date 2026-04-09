@@ -128,6 +128,8 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
     }
   }
 }
+/// Converts from `HashMap`. Note: the resulting insertion order in the
+/// `IndexMap` is arbitrary since `HashMap` iteration order is non-deterministic.
 impl From<HashMap<String, Value>> for FormData {
   fn from(map: HashMap<String, Value>) -> Self {
     Self(map.into_iter().collect())

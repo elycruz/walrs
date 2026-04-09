@@ -135,9 +135,8 @@ impl FieldFilter {
   pub fn filter(&self, data: IndexMap<String, Value>) -> IndexMap<String, Value> {
     let mut result = data;
     for (field_name, field) in &self.fields {
-      if let Some(value) = result.shift_remove(field_name) {
-        let filtered = field.filter(value);
-        result.insert(field_name.clone(), filtered);
+      if let Some(value) = result.get_mut(field_name) {
+        *value = field.filter(value.clone());
       }
     }
     result
