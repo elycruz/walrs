@@ -80,7 +80,7 @@ For `FilterOp<Value>`, both `apply_ref(&self, &Value) -> Value` and `apply(&self
 |----------|----------------|
 | Config-driven pipeline (load from JSON/YAML) | `FilterOp<String>` or `FilterOp<Value>` |
 | Static pipeline in code | Either — `FilterOp::Chain(...)` is ergonomic |
-| Polymorphic dispatch via trait objects (`Box<dyn Filter<T>>`) | Concrete structs (`SlugFilter`, etc.) or implement `Filter` |
+| Polymorphic dispatch via trait objects (`Box<dyn Filter<T>>`) | Concrete structs (`SlugFilter`, etc.) or `FilterOp<T>` itself where it implements `Filter<T>` |
 | Numeric clamping | `FilterOp::Clamp { min, max }` |
 | Custom runtime logic | `FilterOp::Custom(Arc::new(fn))` (not serializable) |
 
