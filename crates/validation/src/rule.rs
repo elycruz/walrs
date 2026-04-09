@@ -916,6 +916,7 @@ impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::traits::{Validate, ValidateRef};
 
   #[test]
   fn test_rule_and_combinator() {
@@ -1159,10 +1160,17 @@ mod tests {
   // ==========================================================================
   #[test]
   fn test_e2e_only_rule_and_validators() {
-    let _slug = Rule::<String>::Pattern(r"(?i)^[\w\-]{1,108}$".to_string());
-    let _screen_name = Rule::<String>::Pattern(r"(?i)^[a-z][\w\-]{7,55}$".to_string());
-    let _numeric_id = Rule::<usize>::Range { min: 1, max: usize::MAX };
+    let slug = Rule::<String>::Pattern(r"(?i)^[\w\-]{1,108}$".to_string());
+    let screen_name = Rule::<String>::Pattern(r"(?i)^[a-z][\w\-]{7,55}$".to_string());
+    let numeric_id = Rule::<usize>::Range { min: 1, max: usize::MAX };
 
-    // TODO: Complete this.
+    assert!(slug.validate_ref("hello-world").is_ok());
+    assert!(slug.validate_ref("").is_err());
+
+    assert!(screen_name.validate_ref("alice_dev").is_ok());
+    assert!(screen_name.validate_ref("ab").is_err());
+
+    assert!(numeric_id.validate(42).is_ok());
+    assert!(numeric_id.validate(0).is_err());
   }
 }

@@ -3,9 +3,21 @@ name = "walrs_validation"
 version = "0.1.0"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
 edition = "2024"
+rust-version = "1.85"
 description = "Composable validation rules for input validation"
 license = "MIT OR Apache-2.0"
-include = ["src/**/*", "Cargo.toml"]
+license-file = "../../LICENSE"
+repository = "https://github.com/elycruz/walrs"
+homepage = "https://github.com/elycruz/walrs"
+documentation = "https://docs.rs/walrs_validation"
+readme = "README.md"
+keywords = ["validation", "forms", "rules", "input", "composable"]
+categories = ["web-programming", "data-structures"]
+include = ["src/**/*", "Cargo.toml", "README.md", "../../LICENSE", "tests/**/*", "examples/**/*", "benches/**/*"]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
 default = ["serde_json_bridge"]
@@ -26,4 +38,9 @@ thiserror = "1.0"
 url = "2"
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+
+[[bench]]
+name = "validation_benchmarks"
+harness = false

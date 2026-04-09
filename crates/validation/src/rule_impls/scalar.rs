@@ -144,6 +144,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   ///
   /// Returns `Ok(())` when every rule passes, or `Err(Violations)` containing
   /// every failure discovered during tree traversal.
+  #[allow(dead_code)] // Reserved for a future `validate_all` public API
   pub(crate) fn validate_scalar_all(&self, value: T) -> Result<(), Violations> {
     let mut violations = Violations::default();
     self.collect_violations_scalar(value, None, &mut violations);
@@ -158,6 +159,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   ///
   /// `None` is treated as a missing value and fails only when this rule
   /// (or any nested rule) contains `Required`.
+  #[allow(dead_code)] // Reserved for a future `validate_option` public API
   pub(crate) fn validate_scalar_option(&self, value: Option<T>) -> RuleResult {
     match value {
       Some(v) => self.validate_scalar(v),
@@ -167,6 +169,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   }
 
   /// Validates an optional scalar value and collects all violations.
+  #[allow(dead_code)] // Reserved for a future `validate_option_all` public API
   pub(crate) fn validate_scalar_option_all(&self, value: Option<T>) -> Result<(), Violations> {
     match value {
       Some(v) => self.validate_scalar_all(v),
@@ -176,6 +179,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
   }
 
   /// Recursively collects all violations into `violations` (fail-slow traversal).
+  #[allow(dead_code)] // Called transitively from validate_scalar_all
   fn collect_violations_scalar(
     &self,
     value: T,
