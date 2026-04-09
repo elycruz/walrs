@@ -13,40 +13,40 @@ fn main() {
   // Example 1: Trim filter
   println!("1. Trim filter:");
   let trim_filter = FilterOp::<String>::Trim;
-  let input = "  hello world  ".to_string();
-  let result = trim_filter.apply(input.clone());
+  let input = "  hello world  ";
+  let result = trim_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
   // Example 2: Lowercase filter
   println!("\n2. Lowercase filter:");
   let lowercase_filter = FilterOp::<String>::Lowercase;
-  let input = "HELLO World".to_string();
-  let result = lowercase_filter.apply(input.clone());
+  let input = "HELLO World";
+  let result = lowercase_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
   // Example 3: Uppercase filter
   println!("\n3. Uppercase filter:");
   let uppercase_filter = FilterOp::<String>::Uppercase;
-  let input = "hello world".to_string();
-  let result = uppercase_filter.apply(input.clone());
+  let input = "hello world";
+  let result = uppercase_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
   // Example 4: StripTags filter
   println!("\n4. StripTags filter:");
   let strip_tags_filter = FilterOp::<String>::StripTags;
-  let input = "<p>Hello <strong>World</strong>!</p>".to_string();
-  let result = strip_tags_filter.apply(input.clone());
+  let input = "<p>Hello <strong>World</strong>!</p>";
+  let result = strip_tags_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
   // Example 5: Slug filter
   println!("\n5. Slug filter:");
   let slug_filter = FilterOp::<String>::Slug { max_length: None };
-  let input = "Hello World! This is a Test".to_string();
-  let result = slug_filter.apply(input.clone());
+  let input = "Hello World! This is a Test";
+  let result = slug_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
@@ -54,8 +54,8 @@ fn main() {
   println!("\n6. Chain filter (Trim -> Lowercase -> StripTags):");
   let chain_filter =
     FilterOp::<String>::Chain(vec![FilterOp::Trim, FilterOp::Lowercase, FilterOp::StripTags]);
-  let input = "  <B>HELLO</B> World  ".to_string();
-  let result = chain_filter.apply(input.clone());
+  let input = "  <B>HELLO</B> World  ";
+  let result = chain_filter.apply_ref(input);
   println!("   Input:  '{}'", input);
   println!("   Output: '{}'", result);
 
@@ -79,7 +79,7 @@ fn main() {
   ];
 
   for email in emails {
-    let result = email_normalizer.apply(email.to_string());
+    let result = email_normalizer.apply_ref(email);
     println!("   '{}' -> '{}'", email, result);
   }
 
@@ -98,7 +98,7 @@ fn main() {
   ];
 
   for title in titles {
-    let result = slug_processor.apply(title.to_string());
+    let result = slug_processor.apply_ref(title);
     println!("   '{}'\n      -> '{}'", title, result);
   }
 
@@ -108,13 +108,13 @@ fn main() {
 
   let value_trim = FilterOp::<Value>::Trim;
   let json_value = Value::Str("  hello  ".to_string());
-  let result = value_trim.apply(json_value.clone());
+  let result = value_trim.apply_ref(&json_value);
   println!("   Input:  {:?}", json_value);
   println!("   Output: {:?}", result);
 
   // Non-string values pass through unchanged
   let number_value = Value::I64(42);
-  let result = value_trim.apply(number_value.clone());
+  let result = value_trim.apply_ref(&number_value);
   println!("\n   Input (number):  {:?}", number_value);
   println!("   Output (unchanged): {:?}", result);
 

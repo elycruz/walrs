@@ -110,10 +110,33 @@ where
 // ============================================================================
 
 impl Field<String> {
+  /// Apply all filters to a `&str` reference, returning an owned `String`.
+  ///
+  /// Prefer this method when you already have a `&str`, avoiding an
+  /// allocation at the call site.
+  pub fn filter_ref(&self, value: &str) -> String {
+    match &self.filters {
+      Some(filters) => {
+        let mut result = value.to_string();
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
+      None => value.to_string(),
+    }
+  }
+
   /// Apply all filters to the value sequentially.
   pub fn filter(&self, value: String) -> String {
     match &self.filters {
-      Some(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
+      Some(filters) => {
+        let mut result = value;
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
       None => value,
     }
   }
@@ -168,10 +191,30 @@ impl Field<String> {
 // ============================================================================
 
 impl Field<Value> {
+  /// Apply all filters to a `&Value` reference, returning an owned `Value`.
+  pub fn filter_ref(&self, value: &Value) -> Value {
+    match &self.filters {
+      Some(filters) => {
+        let mut result = value.clone();
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
+      None => value.clone(),
+    }
+  }
+
   /// Apply all filters to the value sequentially.
   pub fn filter(&self, value: Value) -> Value {
     match &self.filters {
-      Some(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
+      Some(filters) => {
+        let mut result = value;
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
       None => value,
     }
   }
@@ -382,5 +425,48 @@ mod tests {
     let json = serde_json::to_string(&field).unwrap();
     assert!(json.contains("username"));
     assert!(json.contains("required")); // lowercase due to serde rename_all
+  }
+
+  // ====================================================================
+  // filter_ref tests
+  // ====================================================================
+
+  #[test]
+  fn test_string_field_filter_ref() {
+    let field = FieldBuilder::<String>::default()
+      .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
+      .build()
+      .unwrap();
+
+    // filter_ref accepts &str directly — no .to_string() needed
+    let result = field.filter_ref("  HELLO  ");
+    assert_eq!(result, "hello");
+  }
+
+  #[test]
+  fn test_string_field_filter_ref_no_filters() {
+    let field = FieldBuilder::<String>::default().build().unwrap();
+    let result = field.filter_ref("unchanged");
+    assert_eq!(result, "unchanged");
+  }
+
+  #[test]
+  fn test_value_field_filter_ref() {
+    let field = FieldBuilder::<Value>::default()
+      .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
+      .build()
+      .unwrap();
+
+    let value = Value::Str("  HELLO  ".to_string());
+    let result = field.filter_ref(&value);
+    assert_eq!(result, Value::Str("hello".to_string()));
+  }
+
+  #[test]
+  fn test_value_field_filter_ref_no_filters() {
+    let field = FieldBuilder::<Value>::default().build().unwrap();
+    let value = Value::Str("unchanged".to_string());
+    let result = field.filter_ref(&value);
+    assert_eq!(result, Value::Str("unchanged".to_string()));
   }
 }
