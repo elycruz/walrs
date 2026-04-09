@@ -240,12 +240,14 @@ impl FilterOp<String> {
         filter.filter(Cow::Borrowed(value))
       }
       FilterOp::Truncate { max_length } => {
-        let char_count = value.chars().count();
-        if char_count <= *max_length {
-          Cow::Borrowed(value)
-        } else {
-          Cow::Owned(value.chars().take(*max_length).collect())
+        let mut char_count = 0;
+        for (idx, _) in value.char_indices() {
+          char_count += 1;
+          if char_count > *max_length {
+            return Cow::Owned(value[..idx].to_string());
+          }
         }
+        Cow::Borrowed(value)
       }
       FilterOp::Replace { from, to } => {
         if value.contains(from.as_str()) {
