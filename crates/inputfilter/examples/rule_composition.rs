@@ -246,8 +246,8 @@ fn main() {
     Err(violation) => println!("   Error: {}", violation.message()),
   }
 
-  // Example 14: Collecting all violations
-  println!("\n14. Collecting all violations:");
+  // Example 14: Validating with combined rules (fail-fast)
+  println!("\n14. Validating with combined rules:");
   let strict_rule = Rule::<String>::Required
     .and(Rule::MinLength(8))
     .and(Rule::Pattern(r"[0-9]".to_string()).with_message("Must contain a number"))
