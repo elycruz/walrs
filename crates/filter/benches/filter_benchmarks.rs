@@ -4,7 +4,8 @@
 
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::borrow::Cow;
-use walrs_filter::{Filter, FilterOp, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
+use std::sync::Arc;
+use walrs_filter::{Filter, FilterOp, SlugFilter, StripTagsFilter, TryFilterOp, XmlEntitiesFilter};
 
 fn bench_slug_filter(c: &mut Criterion) {
   let mut group = c.benchmark_group("SlugFilter");
@@ -177,6 +178,174 @@ fn bench_filter_op_noop(c: &mut Criterion) {
   group.finish();
 }
 
+fn bench_filter_op_chain(c: &mut Criterion) {
+  let mut group = c.benchmark_group("FilterOp_Chain");
+
+  let chain_1: FilterOp<String> = FilterOp::Chain(vec![FilterOp::Trim]);
+  let chain_3: FilterOp<String> = FilterOp::Chain(vec![
+    FilterOp::Trim,
+    FilterOp::Lowercase,
+    FilterOp::StripTags,
+  ]);
+  let chain_5: FilterOp<String> = FilterOp::Chain(vec![
+    FilterOp::Trim,
+    FilterOp::Lowercase,
+    FilterOp::StripTags,
+    FilterOp::HtmlEntities,
+    FilterOp::Slug { max_length: None },
+  ]);
+
+  let input = "  <b>Hello World & Friends</b>  ";
+
+  group.bench_function("chain_1", |b| {
+    b.iter(|| chain_1.apply_ref(black_box(input)))
+  });
+  group.bench_function("chain_3", |b| {
+    b.iter(|| chain_3.apply_ref(black_box(input)))
+  });
+  group.bench_function("chain_5", |b| {
+    b.iter(|| chain_5.apply_ref(black_box(input)))
+  });
+
+  group.finish();
+}
+
+fn bench_filter_op_clamp(c: &mut Criterion) {
+  let mut group = c.benchmark_group("FilterOp_Clamp");
+
+  let clamp_i32 = FilterOp::<i32>::Clamp { min: 0, max: 100 };
+  let clamp_f64 = FilterOp::<f64>::Clamp {
+    min: 0.0,
+    max: 100.0,
+  };
+
+  group.bench_function("clamp_i32_in_range", |b| {
+    b.iter(|| clamp_i32.apply(black_box(50_i32)))
+  });
+  group.bench_function("clamp_i32_below_min", |b| {
+    b.iter(|| clamp_i32.apply(black_box(-10_i32)))
+  });
+  group.bench_function("clamp_i32_above_max", |b| {
+    b.iter(|| clamp_i32.apply(black_box(200_i32)))
+  });
+  group.bench_function("clamp_f64_in_range", |b| {
+    b.iter(|| clamp_f64.apply(black_box(50.0_f64)))
+  });
+  group.bench_function("clamp_f64_below_min", |b| {
+    b.iter(|| clamp_f64.apply(black_box(-10.0_f64)))
+  });
+  group.bench_function("clamp_f64_above_max", |b| {
+    b.iter(|| clamp_f64.apply(black_box(200.0_f64)))
+  });
+
+  group.finish();
+}
+
+fn bench_try_filter_op(c: &mut Criterion) {
+  let mut group = c.benchmark_group("TryFilterOp");
+
+  // Infallible wrapping cost
+  let infallible: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+  group.bench_function("infallible_trim_noop", |b| {
+    b.iter(|| {
+      infallible
+        .try_apply_ref(black_box("already_trimmed"))
+        .unwrap()
+    })
+  });
+  group.bench_function("infallible_trim_mutation", |b| {
+    b.iter(|| {
+      infallible
+        .try_apply_ref(black_box("  needs trimming  "))
+        .unwrap()
+    })
+  });
+
+  // TryCustom success path
+  let try_custom: TryFilterOp<String> =
+    TryFilterOp::TryCustom(Arc::new(|s: String| Ok(s.to_uppercase())));
+  group.bench_function("try_custom_success", |b| {
+    b.iter(|| try_custom.try_apply(black_box("hello".to_string())).unwrap())
+  });
+
+  // Chain with infallible ops
+  let chain: TryFilterOp<String> = TryFilterOp::Chain(vec![
+    TryFilterOp::Infallible(FilterOp::Trim),
+    TryFilterOp::Infallible(FilterOp::Lowercase),
+    TryFilterOp::Infallible(FilterOp::StripTags),
+  ]);
+  group.bench_function("chain_3_infallible", |b| {
+    b.iter(|| {
+      chain
+        .try_apply_ref(black_box("  <b>HELLO</b>  "))
+        .unwrap()
+    })
+  });
+
+  // Chain that short-circuits on error
+  let fail_on_empty: TryFilterOp<String> = TryFilterOp::Chain(vec![
+    TryFilterOp::Infallible(FilterOp::Trim),
+    TryFilterOp::TryCustom(Arc::new(|s: String| {
+      if s.is_empty() {
+        Err(walrs_filter::FilterError::new("empty"))
+      } else {
+        Ok(s)
+      }
+    })),
+  ]);
+  group.bench_function("chain_short_circuit_ok", |b| {
+    b.iter(|| {
+      fail_on_empty
+        .try_apply(black_box("hello".to_string()))
+        .unwrap()
+    })
+  });
+  group.bench_function("chain_short_circuit_err", |b| {
+    b.iter(|| fail_on_empty.try_apply(black_box("".to_string())).is_err())
+  });
+
+  group.finish();
+}
+
+#[cfg(feature = "validation")]
+fn bench_filter_op_value(c: &mut Criterion) {
+  use walrs_validation::Value;
+
+  let mut group = c.benchmark_group("FilterOp_Value");
+
+  let trim = FilterOp::<Value>::Trim;
+  group.bench_function("trim_str_noop", |b| {
+    b.iter(|| trim.apply_ref(black_box(&Value::Str("already_trimmed".to_string()))))
+  });
+  group.bench_function("trim_str_mutation", |b| {
+    b.iter(|| trim.apply_ref(black_box(&Value::Str("  needs trimming  ".to_string()))))
+  });
+  group.bench_function("trim_non_str_passthrough", |b| {
+    b.iter(|| trim.apply_ref(black_box(&Value::I64(42))))
+  });
+
+  let clamp = FilterOp::<Value>::Clamp {
+    min: Value::I64(0),
+    max: Value::I64(100),
+  };
+  group.bench_function("clamp_i64_in_range", |b| {
+    b.iter(|| clamp.apply_ref(black_box(&Value::I64(50))))
+  });
+  group.bench_function("clamp_i64_above_max", |b| {
+    b.iter(|| clamp.apply_ref(black_box(&Value::I64(200))))
+  });
+
+  let chain: FilterOp<Value> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
+  group.bench_function("chain_trim_lowercase", |b| {
+    b.iter(|| chain.apply_ref(black_box(&Value::Str("  HELLO WORLD  ".to_string()))))
+  });
+
+  group.finish();
+}
+
+#[cfg(not(feature = "validation"))]
+fn bench_filter_op_value(_c: &mut Criterion) {}
+
 criterion_group!(
   benches,
   bench_slug_filter,
@@ -184,6 +353,11 @@ criterion_group!(
   bench_xml_entities_filter,
   bench_filter_comparison,
   bench_filter_op_noop,
+  bench_filter_op_chain,
+  bench_filter_op_clamp,
+  bench_try_filter_op,
+  bench_filter_op_value,
 );
 
 criterion_main!(benches);
+

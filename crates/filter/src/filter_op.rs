@@ -84,8 +84,31 @@ pub enum FilterOp<T> {
     max_length: Option<usize>,
   },
 
+  /// Truncate a string to at most `max_length` characters (Unicode scalar values).
+  ///
+  /// Unlike [`Slug`](Self::Slug), `Truncate` does not alter the content of the string —
+  /// it simply clips it at a character boundary. Non-string types are passed through unchanged.
+  Truncate {
+    /// Maximum number of Unicode scalar values to keep.
+    max_length: usize,
+  },
+
+  /// Replace all occurrences of `from` with `to` in a string.
+  ///
+  /// Non-string types are passed through unchanged.
+  Replace {
+    /// Substring to search for.
+    from: String,
+    /// Replacement string.
+    to: String,
+  },
+
   // ---- Numeric Filters ----
   /// Clamp value to a range (for numeric types).
+  ///
+  /// # Panics (debug builds)
+  ///
+  /// Asserts `min <= max` in debug builds to catch misconfigured clamp ranges early.
   Clamp {
     /// Minimum value.
     min: T,
@@ -99,6 +122,17 @@ pub enum FilterOp<T> {
 
   // ---- Custom ----
   /// Custom filter function (not serializable).
+  ///
+  /// # Serde limitation
+  ///
+  /// `Custom` is annotated with `#[serde(skip)]`. This means:
+  /// - A `Custom` variant **cannot be serialized** — attempting to do so returns an error.
+  /// - A `Chain` that contains a `Custom` variant will also **fail to serialize** because
+  ///   serde will encounter the un-serializable variant.
+  /// - Deserialization will never produce a `Custom` variant.
+  ///
+  /// If your filter pipeline must survive a serialization round-trip, avoid `Custom`
+  /// or add the custom logic as a post-deserialization step.
   #[serde(skip)]
   Custom(Arc<dyn Fn(T) -> T + Send + Sync>),
 }
@@ -114,6 +148,15 @@ impl<T: Debug> Debug for FilterOp<T> {
       Self::Slug { max_length } => f
         .debug_struct("Slug")
         .field("max_length", max_length)
+        .finish(),
+      Self::Truncate { max_length } => f
+        .debug_struct("Truncate")
+        .field("max_length", max_length)
+        .finish(),
+      Self::Replace { from, to } => f
+        .debug_struct("Replace")
+        .field("from", from)
+        .field("to", to)
         .finish(),
       Self::Clamp { min, max } => f
         .debug_struct("Clamp")
@@ -135,6 +178,10 @@ impl<T: PartialEq> PartialEq for FilterOp<T> {
       (Self::StripTags, Self::StripTags) => true,
       (Self::HtmlEntities, Self::HtmlEntities) => true,
       (Self::Slug { max_length: a }, Self::Slug { max_length: b }) => a == b,
+      (Self::Truncate { max_length: a }, Self::Truncate { max_length: b }) => a == b,
+      (Self::Replace { from: fa, to: ta }, Self::Replace { from: fb, to: tb }) => {
+        fa == fb && ta == tb
+      }
       (Self::Clamp { min: a1, max: a2 }, Self::Clamp { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
       (Self::Chain(a), Self::Chain(b)) => a == b,
       // Custom filters are never equal
@@ -191,6 +238,21 @@ impl FilterOp<String> {
       FilterOp::Slug { max_length } => {
         let filter = SlugFilter::new(max_length.unwrap_or(200), false);
         filter.filter(Cow::Borrowed(value))
+      }
+      FilterOp::Truncate { max_length } => {
+        let char_count = value.chars().count();
+        if char_count <= *max_length {
+          Cow::Borrowed(value)
+        } else {
+          Cow::Owned(value.chars().take(*max_length).collect())
+        }
+      }
+      FilterOp::Replace { from, to } => {
+        if value.contains(from.as_str()) {
+          Cow::Owned(value.replace(from.as_str(), to.as_str()))
+        } else {
+          Cow::Borrowed(value)
+        }
       }
       FilterOp::Clamp { .. } => Cow::Borrowed(value), // Clamp doesn't apply to strings
       FilterOp::Chain(filters) => {
@@ -293,6 +355,29 @@ impl FilterOp<Value> {
           value.clone()
         }
       }
+      FilterOp::Truncate { max_length } => {
+        if let Value::Str(s) = value {
+          let char_count = s.chars().count();
+          if char_count <= *max_length {
+            value.clone()
+          } else {
+            Value::Str(s.chars().take(*max_length).collect())
+          }
+        } else {
+          value.clone()
+        }
+      }
+      FilterOp::Replace { from, to } => {
+        if let Value::Str(s) = value {
+          if s.contains(from.as_str()) {
+            Value::Str(s.replace(from.as_str(), to.as_str()))
+          } else {
+            value.clone()
+          }
+        } else {
+          value.clone()
+        }
+      }
       FilterOp::Clamp { min, max } => {
         match (value, min, max) {
           (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
@@ -340,21 +425,52 @@ macro_rules! impl_numeric_filter_op {
                 /// Apply the filter operation to a numeric value.
                 pub fn apply(&self, value: $t) -> $t {
                     match self {
-                        FilterOp::Clamp { min, max } => value.clamp(*min, *max),
+                        FilterOp::Clamp { min, max } => {
+                            debug_assert!(min <= max, "FilterOp::Clamp: min must be <= max");
+                            value.clamp(*min, *max)
+                        }
                         FilterOp::Chain(filters) => {
                             filters.iter().fold(value, |v, f| f.apply(v))
                         }
                         FilterOp::Custom(f) => f(value),
-                        // String filters don't apply to numeric types
+                        // String/other filters don't apply to numeric types
                         _ => value,
                     }
+                }
+            }
+
+            impl crate::Filter<$t> for FilterOp<$t> {
+                type Output = $t;
+                fn filter(&self, value: $t) -> $t {
+                    self.apply(value)
                 }
             }
         )*
     };
 }
 
-impl_numeric_filter_op!(i32, i64, f32, f64);
+impl_numeric_filter_op!(i32, i64, f32, f64, u32, u64, usize);
+
+// ============================================================================
+// Filter trait implementations for FilterOp<String> and FilterOp<Value>
+// ============================================================================
+
+impl crate::Filter<String> for FilterOp<String> {
+  type Output = String;
+
+  fn filter(&self, value: String) -> String {
+    self.apply(value)
+  }
+}
+
+#[cfg(feature = "validation")]
+impl crate::Filter<Value> for FilterOp<Value> {
+  type Output = Value;
+
+  fn filter(&self, value: Value) -> Value {
+    self.apply(value)
+  }
+}
 
 #[cfg(test)]
 mod tests {
@@ -711,5 +827,253 @@ mod tests {
     let value = Value::Str("ALREADY UPPERCASE 123".to_string());
     let result = filter.apply_ref(&value);
     assert_eq!(result, Value::Str("ALREADY UPPERCASE 123".to_string()));
+  }
+
+  // ====================================================================
+  // New variant tests — Truncate and Replace
+  // ====================================================================
+
+  #[test]
+  fn test_truncate_string_shorter_than_max() {
+    let filter = FilterOp::<String>::Truncate { max_length: 10 };
+    let result = filter.apply_ref("short");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "short");
+  }
+
+  #[test]
+  fn test_truncate_string_exceeds_max() {
+    let filter = FilterOp::<String>::Truncate { max_length: 5 };
+    let result = filter.apply_ref("Hello World");
+    assert!(matches!(result, Cow::Owned(_)));
+    assert_eq!(result, "Hello");
+  }
+
+  #[test]
+  fn test_truncate_string_unicode() {
+    // "café" has 4 Unicode scalar values
+    let filter = FilterOp::<String>::Truncate { max_length: 3 };
+    let result = filter.apply("café".to_string());
+    assert_eq!(result, "caf");
+  }
+
+  #[test]
+  fn test_replace_string_match() {
+    let filter = FilterOp::<String>::Replace {
+      from: "world".to_string(),
+      to: "rust".to_string(),
+    };
+    let result = filter.apply_ref("hello world");
+    assert!(matches!(result, Cow::Owned(_)));
+    assert_eq!(result, "hello rust");
+  }
+
+  #[test]
+  fn test_replace_string_no_match() {
+    let filter = FilterOp::<String>::Replace {
+      from: "xyz".to_string(),
+      to: "abc".to_string(),
+    };
+    let result = filter.apply_ref("hello world");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "hello world");
+  }
+
+  #[test]
+  fn test_replace_all_occurrences() {
+    let filter = FilterOp::<String>::Replace {
+      from: "o".to_string(),
+      to: "0".to_string(),
+    };
+    assert_eq!(filter.apply("foo bar boo".to_string()), "f00 bar b00");
+  }
+
+  // ====================================================================
+  // f32 Clamp tests
+  // ====================================================================
+
+  #[test]
+  fn test_clamp_f32() {
+    let filter = FilterOp::<f32>::Clamp {
+      min: 0.0_f32,
+      max: 1.0_f32,
+    };
+    assert_eq!(filter.apply(1.5_f32), 1.0_f32);
+    assert_eq!(filter.apply(-0.5_f32), 0.0_f32);
+    assert_eq!(filter.apply(0.5_f32), 0.5_f32);
+  }
+
+  // ====================================================================
+  // Expanded numeric type tests (u32, u64, usize)
+  // ====================================================================
+
+  #[test]
+  fn test_clamp_u32() {
+    let filter = FilterOp::<u32>::Clamp { min: 10, max: 100 };
+    assert_eq!(filter.apply(200_u32), 100_u32);
+    assert_eq!(filter.apply(5_u32), 10_u32);
+    assert_eq!(filter.apply(50_u32), 50_u32);
+  }
+
+  #[test]
+  fn test_clamp_u64() {
+    let filter = FilterOp::<u64>::Clamp { min: 0, max: 1000 };
+    assert_eq!(filter.apply(5000_u64), 1000_u64);
+    assert_eq!(filter.apply(500_u64), 500_u64);
+  }
+
+  #[test]
+  fn test_clamp_usize() {
+    let filter = FilterOp::<usize>::Clamp { min: 1, max: 255 };
+    assert_eq!(filter.apply(300_usize), 255_usize);
+    assert_eq!(filter.apply(0_usize), 1_usize);
+    assert_eq!(filter.apply(128_usize), 128_usize);
+  }
+
+  // ====================================================================
+  // Filter trait impl tests
+  // ====================================================================
+
+  #[test]
+  fn test_filter_trait_string() {
+    use crate::Filter;
+    let filter = FilterOp::<String>::Trim;
+    assert_eq!(filter.filter("  hello  ".to_string()), "hello");
+  }
+
+  #[test]
+  fn test_filter_trait_i32() {
+    use crate::Filter;
+    let filter = FilterOp::<i32>::Clamp { min: 0, max: 10 };
+    assert_eq!(filter.filter(20), 10);
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_filter_trait_value() {
+    use crate::Filter;
+    let filter = FilterOp::<Value>::Trim;
+    assert_eq!(
+      filter.filter(Value::Str("  hello  ".to_string())),
+      Value::Str("hello".to_string())
+    );
+  }
+
+  // ====================================================================
+  // Slug max_length truncation test
+  // ====================================================================
+
+  #[test]
+  fn test_slug_max_length_truncation() {
+    // "hello-world-this-is-a-long-title" is 32 chars
+    let filter = FilterOp::<String>::Slug { max_length: Some(11) };
+    let result = filter.apply("Hello World This Is A Long Title".to_string());
+    assert!(result.len() <= 11, "slug length {} exceeds max 11", result.len());
+  }
+
+  // ====================================================================
+  // Serde round-trip tests
+  // ====================================================================
+
+  #[test]
+  fn test_serde_roundtrip_trim() {
+    let op = FilterOp::<String>::Trim;
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_slug() {
+    let op = FilterOp::<String>::Slug { max_length: Some(50) };
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_chain() {
+    let op: FilterOp<String> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_truncate() {
+    let op = FilterOp::<String>::Truncate { max_length: 20 };
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_replace() {
+    let op = FilterOp::<String>::Replace {
+      from: "foo".to_string(),
+      to: "bar".to_string(),
+    };
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_clamp_i32() {
+    let op = FilterOp::<i32>::Clamp { min: 0, max: 100 };
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: FilterOp<i32> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  // ====================================================================
+  // Custom serde behavior test — Custom cannot be serialized
+  // ====================================================================
+
+  #[test]
+  fn test_custom_serde_skip_direct() {
+    // A standalone Custom variant cannot be serialized — returns an error.
+    let op: FilterOp<String> =
+      FilterOp::Custom(Arc::new(|s: String| s.to_uppercase()));
+    let result = serde_json::to_string(&op);
+    assert!(result.is_err(), "Custom variant should fail serialization");
+  }
+
+  #[test]
+  fn test_custom_serde_skip_in_chain() {
+    // A Chain containing Custom also fails to serialize.
+    let op: FilterOp<String> = FilterOp::Chain(vec![
+      FilterOp::Trim,
+      FilterOp::Custom(Arc::new(|s: String| s.to_uppercase())),
+      FilterOp::Lowercase,
+    ]);
+    let result = serde_json::to_string(&op);
+    assert!(
+      result.is_err(),
+      "Chain containing Custom should fail serialization"
+    );
+  }
+
+  // ====================================================================
+  // Value — Truncate and Replace tests
+  // ====================================================================
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_truncate_value_str() {
+    let filter = FilterOp::<Value>::Truncate { max_length: 5 };
+    let value = Value::Str("Hello World".to_string());
+    assert_eq!(filter.apply_ref(&value), Value::Str("Hello".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_replace_value_str() {
+    let filter = FilterOp::<Value>::Replace {
+      from: "World".to_string(),
+      to: "Rust".to_string(),
+    };
+    let value = Value::Str("Hello World".to_string());
+    assert_eq!(filter.apply_ref(&value), Value::Str("Hello Rust".to_string()));
   }
 }

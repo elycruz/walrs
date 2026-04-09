@@ -67,6 +67,16 @@ pub enum TryFilterOp<T> {
   Chain(Vec<TryFilterOp<T>>),
 
   /// Custom fallible filter function (not serializable).
+  ///
+  /// # Serde limitation
+  ///
+  /// `TryCustom` is annotated with `#[serde(skip)]`. This means:
+  /// - A `TryCustom` variant **cannot be serialized** — attempting to do so returns an error.
+  /// - A `Chain` that contains a `TryCustom` will also **fail to serialize**.
+  /// - Deserialization will never produce a `TryCustom` variant.
+  ///
+  /// If your filter pipeline must survive a serialization round-trip, avoid `TryCustom`
+  /// or add the custom logic as a post-deserialization step.
   #[serde(skip)]
   TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError> + Send + Sync>),
 }
@@ -182,7 +192,7 @@ macro_rules! impl_numeric_try_filter_op {
     };
 }
 
-impl_numeric_try_filter_op!(i32, i64, f32, f64);
+impl_numeric_try_filter_op!(i32, i64, f32, f64, u32, u64, usize);
 
 // ============================================================================
 // From<FilterOp<T>> for TryFilterOp<T> — lift infallible to fallible
@@ -191,6 +201,27 @@ impl_numeric_try_filter_op!(i32, i64, f32, f64);
 impl<T> From<FilterOp<T>> for TryFilterOp<T> {
   fn from(op: FilterOp<T>) -> Self {
     TryFilterOp::Infallible(op)
+  }
+}
+
+// ============================================================================
+// TryFilter trait implementations
+// ============================================================================
+
+impl crate::TryFilter<String> for TryFilterOp<String> {
+  type Output = String;
+
+  fn try_filter(&self, value: String) -> Result<String, crate::FilterError> {
+    self.try_apply(value)
+  }
+}
+
+#[cfg(feature = "validation")]
+impl crate::TryFilter<Value> for TryFilterOp<Value> {
+  type Output = Value;
+
+  fn try_filter(&self, value: Value) -> Result<Value, crate::FilterError> {
+    self.try_apply(value)
   }
 }
 
@@ -432,5 +463,68 @@ mod tests {
     assert!(json.contains("Chain"));
     assert!(json.contains("Trim"));
     assert!(json.contains("Lowercase"));
+  }
+
+  // ====================================================================
+  // Serde round-trip tests
+  // ====================================================================
+
+  #[test]
+  fn test_serde_roundtrip_infallible() {
+    let op: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: TryFilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_serde_roundtrip_chain() {
+    let op: TryFilterOp<String> = TryFilterOp::Chain(vec![
+      TryFilterOp::Infallible(FilterOp::Trim),
+      TryFilterOp::Infallible(FilterOp::Lowercase),
+    ]);
+    let json = serde_json::to_string(&op).unwrap();
+    let deserialized: TryFilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op, deserialized);
+  }
+
+  #[test]
+  fn test_try_custom_serde_skip_in_chain() {
+    // TryCustom is annotated with #[serde(skip)] — it causes serialization to fail.
+    let op: TryFilterOp<String> = TryFilterOp::Chain(vec![
+      TryFilterOp::Infallible(FilterOp::Trim),
+      TryFilterOp::TryCustom(Arc::new(|s| Ok(s.to_uppercase()))),
+      TryFilterOp::Infallible(FilterOp::Lowercase),
+    ]);
+    let result = serde_json::to_string(&op);
+    assert!(
+      result.is_err(),
+      "Chain containing TryCustom should fail serialization"
+    );
+  }
+
+  // ====================================================================
+  // TryFilter trait tests
+  // ====================================================================
+
+  #[test]
+  fn test_try_filter_trait_string() {
+    use crate::TryFilter;
+    let op: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+    assert_eq!(
+      op.try_filter("  hello  ".to_string()).unwrap(),
+      "hello"
+    );
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_try_filter_trait_value() {
+    use crate::TryFilter;
+    let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
+    assert_eq!(
+      op.try_filter(Value::Str("  hello  ".to_string())).unwrap(),
+      Value::Str("hello".to_string())
+    );
   }
 }
