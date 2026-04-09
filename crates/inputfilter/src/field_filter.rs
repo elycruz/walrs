@@ -418,10 +418,7 @@ impl CrossFieldRuleType {
       CrossFieldRuleType::Custom(f) => f(data),
 
       #[cfg(feature = "async")]
-      CrossFieldRuleType::CustomAsync(_) => Err(Violation::new(
-        ViolationType::CustomError,
-        "Cannot run async cross-field rule in sync context; use validate_async.",
-      )),
+      CrossFieldRuleType::CustomAsync(_) => Ok(()),
     }
   }
 }

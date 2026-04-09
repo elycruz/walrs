@@ -278,10 +278,7 @@ impl Rule<Date> {
       },
       Rule::Custom(f) => f(value),
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);
@@ -389,10 +386,7 @@ impl Rule<DateTime> {
       },
       Rule::Custom(f) => f(value),
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref().or(inherited_locale);

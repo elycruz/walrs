@@ -514,10 +514,7 @@ impl Rule<String> {
       }
       Rule::Custom(f) => f(&value.to_string()),
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_ref_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         // Use this variant's locale if set, otherwise inherit from parent
@@ -775,10 +772,7 @@ impl CompiledRule<String> {
       }
       Rule::Custom(f) => f(&value.to_string()),
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_ref_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
         let effective_locale = locale.as_deref();
@@ -806,15 +800,15 @@ impl CompiledRule<String> {
 
 #[cfg(feature = "async")]
 impl Rule<String> {
-  /// Validates a string value asynchronously (first-failure, short-circuit).
+  /// Validates a string value asynchronously.
   ///
-  /// Handles both sync and async rules: sync rules execute inline,
-  /// `CustomAsync` rules are awaited.
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
   pub(crate) async fn validate_str_async(&self, value: &str) -> RuleResult {
     self.validate_str_async_inner(value, None).await
   }
 
   /// Internal async validation with inherited locale.
+  /// Handles both sync and async rules in a single traversal.
   fn validate_str_async_inner<'a>(
     &'a self,
     value: &'a str,
@@ -822,10 +816,8 @@ impl Rule<String> {
   ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
     Box::pin(async move {
       match self {
-        // Async custom rule — await the future
         Rule::CustomAsync(f) => f(&value.to_string()).await,
 
-        // Composite rules — recurse asynchronously
         Rule::All(rules) => {
           for rule in rules {
             rule.validate_str_async_inner(value, inherited_locale).await?;
@@ -856,8 +848,7 @@ impl Rule<String> {
           then_rule,
           else_rule,
         } => {
-          let should_apply = condition.evaluate_str(value);
-          if should_apply {
+          if condition.evaluate_str(value) {
             then_rule.validate_str_async_inner(value, inherited_locale).await
           } else {
             match else_rule {
@@ -881,7 +872,7 @@ impl Rule<String> {
           }
         }
 
-        // All other (sync) rules — delegate to sync validation
+        // All sync rules — delegate to sync validation
         other => other.validate_str_inner(value, inherited_locale),
       }
     })

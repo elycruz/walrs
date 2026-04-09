@@ -203,22 +203,23 @@ async fn any_mixed_sync_and_async() {
 }
 
 // ---------------------------------------------------------------------------
-// CustomAsync in sync context returns error
+// CustomAsync in sync context is skipped (returns Ok)
 // ---------------------------------------------------------------------------
 
 #[test]
-fn custom_async_in_sync_context_returns_error() {
+fn custom_async_in_sync_context_is_skipped() {
   use walrs_validation::ValidateRef;
   let rule = async_str_is_not_banned("bad");
-  let err = rule.validate_ref("good").unwrap_err();
-  assert_eq!(err.violation_type(), ViolationType::CustomError);
-  assert!(err.message().contains("async"));
+  // CustomAsync is skipped in sync context — always Ok
+  assert!(rule.validate_ref("good").is_ok());
+  assert!(rule.validate_ref("bad").is_ok());
 }
 
 #[test]
-fn custom_async_numeric_in_sync_context_returns_error() {
+fn custom_async_numeric_in_sync_context_is_skipped() {
   use walrs_validation::Validate;
   let rule = async_is_even();
-  let err = rule.validate(4i64).unwrap_err();
-  assert_eq!(err.violation_type(), ViolationType::CustomError);
+  // CustomAsync is skipped in sync context — always Ok
+  assert!(rule.validate(4i64).is_ok());
+  assert!(rule.validate(3i64).is_ok());
 }

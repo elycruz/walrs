@@ -280,10 +280,7 @@ impl Rule<Value> {
       // ---- Custom / Ref / WithMessage ----
       Rule::Custom(f) => f(value),
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_ref_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage {
         rule,
@@ -322,12 +319,15 @@ impl Validate<Value> for Rule<Value> {
 
 #[cfg(feature = "async")]
 impl Rule<Value> {
-  /// Validates a Value asynchronously (first-failure, short-circuit).
+  /// Validates a Value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
   pub(crate) async fn validate_value_async(&self, value: &Value) -> RuleResult {
     self.validate_value_async_inner(value, None).await
   }
 
   /// Internal async validation with inherited locale.
+  /// Handles both sync and async rules in a single traversal.
   fn validate_value_async_inner<'a>(
     &'a self,
     value: &'a Value,
@@ -391,7 +391,7 @@ impl Rule<Value> {
           }
         }
 
-        // All other (sync) rules — delegate to sync validation
+        // All sync rules — delegate to sync validation
         other => other.validate_value_inner(value, inherited_locale),
       }
     })

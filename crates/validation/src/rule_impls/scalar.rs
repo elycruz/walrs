@@ -104,10 +104,7 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
       Rule::Custom(f) => f(&value),
 
       #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Err(Violation::new(
-        crate::ViolationType::CustomError,
-        "Cannot run async rule in sync context; use validate_async.",
-      )),
+      Rule::CustomAsync(_) => Ok(()),
 
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
 
