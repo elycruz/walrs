@@ -27,14 +27,21 @@ Available operations:
 
 ```rust
 use walrs_filter::FilterOp;
+use std::borrow::Cow;
 
 fn main() {
     let op = FilterOp::<String>::Chain(vec![
         FilterOp::Trim,
         FilterOp::Lowercase,
     ]);
-    // apply_ref accepts &str directly — no allocation needed
+    // apply_ref returns Cow — zero-copy when input is unchanged
     assert_eq!(op.apply_ref("  HELLO  "), "hello");
+
+    // No-op case — returns Cow::Borrowed, no allocation
+    let trim = FilterOp::<String>::Trim;
+    let result = trim.apply_ref("already_trimmed");
+    assert!(matches!(result, Cow::Borrowed(_)));
+
     // apply accepts an owned String (delegates to apply_ref)
     assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
 }

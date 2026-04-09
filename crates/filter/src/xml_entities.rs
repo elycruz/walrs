@@ -77,6 +77,11 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
   /// }
   ///```
   fn filter(&self, input: Cow<'_, str>) -> Self::Output {
+    // Fast path: if no characters need encoding, return input as-is
+    if !input.chars().any(|c| self.chars_assoc_map.contains_key(&c)) {
+      return Cow::Owned(input.into_owned());
+    }
+
     let mut output = String::with_capacity(input.len());
     for c in input.chars() {
       match self.chars_assoc_map.get(&c) {
@@ -146,6 +151,28 @@ mod test {
     ] {
       assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
     }
+  }
+
+  #[test]
+  fn test_noop_no_encodable_chars() {
+    let filter = super::XmlEntitiesFilter::new();
+
+    // These inputs have no encodable characters — should be no-op
+    for input in ["Hello", "Hello World", "abc123", "", " "] {
+      let cow_input = std::borrow::Cow::Borrowed(input);
+      let result = filter.filter(cow_input);
+      assert_eq!(result, input);
+    }
+  }
+
+  #[test]
+  fn test_noop_reuses_owned_input() {
+    let filter = super::XmlEntitiesFilter::new();
+
+    // When input is Cow::Owned and no-op, should reuse the owned String
+    let input = "Hello World".to_string();
+    let result = filter.filter(std::borrow::Cow::Owned(input));
+    assert_eq!(result, "Hello World");
   }
 
   #[cfg(feature = "fn_traits")]

@@ -33,7 +33,7 @@
 //!     FilterOp::Trim,
 //!     FilterOp::Lowercase,
 //! ]);
-//! // apply_ref accepts &str directly — no allocation needed
+//! // apply_ref returns Cow — zero-copy when input is unchanged
 //! assert_eq!(op.apply_ref("  HELLO  "), "hello");
 //! // apply accepts an owned String (delegates to apply_ref)
 //! assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
