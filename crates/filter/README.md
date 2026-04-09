@@ -12,18 +12,19 @@ This crate provides reusable filter implementations that can transform input val
 
 ## FilterOp Enum
 
-The `FilterOp<T>` enum provides a composable, serializable way to define filter
-operations for config-driven form processing. It delegates to the filter structs above.
+The `FilterOp<T>` enum provides a composable, serializable way to define filter operations for config-driven form processing. It delegates to the filter structs above.
 
 Available operations:
-- `Trim` - Remove whitespace
+- `Trim` - Remove leading/trailing whitespace
 - `Uppercase` / `Lowercase` - Case transformation
 - `StripTags` - Remove HTML tags
 - `HtmlEntities` - Encode XML/HTML entities
-- `Slug` - URL-safe slug generation
-- `Clamp(min, max)` - Numeric clamping
+- `Slug { max_length }` - URL-safe slug generation
+- `Truncate { max_length }` - Clip string to at most `max_length` characters
+- `Replace { from, to }` - Replace all occurrences of a substring
+- `Clamp { min, max }` - Numeric clamping
 - `Chain(ops)` - Sequential filter chain
-- `Custom(fn)` - Custom filter function
+- `Custom(fn)` - Runtime filter function (not serializable — see [Serde notes](#serde-notes))
 
 ```rust
 use walrs_filter::FilterOp;
@@ -44,11 +45,89 @@ fn main() {
 
     // apply accepts an owned String (delegates to apply_ref)
     assert_eq!(op.apply("  HELLO  ".to_string()), "hello");
+
+    // Truncate string to max 10 characters
+    let truncate = FilterOp::<String>::Truncate { max_length: 10 };
+    assert_eq!(truncate.apply("Hello World!".to_string()), "Hello Worl");
+
+    // Replace substrings
+    let replace = FilterOp::<String>::Replace {
+        from: "foo".to_string(),
+        to: "bar".to_string(),
+    };
+    assert_eq!(replace.apply("foo baz foo".to_string()), "bar baz bar");
 }
 ```
 
 When the `validation` feature is enabled (default), `FilterOp<Value>` is available
 for dynamic value transformation using `walrs_validation::Value`.
+
+### `apply_ref` vs `apply`
+
+For `FilterOp<String>`:
+
+- **`apply_ref(&self, value: &str) -> Cow<'_, str>`** — preferred when you already have a `&str`.
+  Returns `Cow::Borrowed` for no-ops (zero allocation) and `Cow::Owned` when the value is transformed.
+- **`apply(&self, value: String) -> String`** — convenience wrapper that delegates to `apply_ref`.
+
+For `FilterOp<T>` where `T: Copy` (numeric types), only `apply(value: T) -> T` is available.
+
+For `FilterOp<Value>`, both `apply_ref(&self, &Value) -> Value` and `apply(&self, Value) -> Value` are available.
+
+### FilterOp vs concrete filter structs
+
+| Use case | Recommendation |
+|----------|----------------|
+| Config-driven pipeline (load from JSON/YAML) | `FilterOp<String>` or `FilterOp<Value>` |
+| Static pipeline in code | Either — `FilterOp::Chain(...)` is ergonomic |
+| Polymorphic dispatch via trait objects (`Box<dyn Filter<T>>`) | Concrete structs (`SlugFilter`, etc.) or `FilterOp<T>` itself where it implements `Filter<T>` |
+| Numeric clamping | `FilterOp::Clamp { min, max }` |
+| Custom runtime logic | `FilterOp::Custom(Arc::new(fn))` (not serializable) |
+
+### Serde notes
+
+`FilterOp` serializes with `#[serde(tag = "type", content = "config")]` (adjacent tagging):
+
+```json
+{"type":"Trim"}
+{"type":"Slug","config":{"max_length":50}}
+{"type":"Truncate","config":{"max_length":20}}
+{"type":"Replace","config":{"from":"foo","to":"bar"}}
+{"type":"Chain","config":[{"type":"Trim"},{"type":"Lowercase"}]}
+```
+
+**`Custom` cannot be serialized.** Attempting to serialize a `FilterOp::Custom` (or a `Chain`
+that contains one) returns an error. If your pipeline must survive a round-trip, avoid `Custom`
+or inject custom logic after deserialization.
+
+## Serialization Guide
+
+`FilterOp` is designed for config-driven pipelines — define your filter chain in JSON/YAML and
+load it at runtime:
+
+```rust
+use walrs_filter::FilterOp;
+
+fn main() {
+    // Define a filter chain as JSON
+    let json = r#"{"type":"Chain","config":[
+        {"type":"Trim"},
+        {"type":"Lowercase"},
+        {"type":"Slug","config":{"max_length":50}}
+    ]}"#;
+
+    // Deserialize at runtime
+    let filter: FilterOp<String> = serde_json::from_str(json).unwrap();
+
+    // Apply to input
+    let result = filter.apply("  Hello World!  ".to_string());
+    assert_eq!(result, "hello-world");
+}
+```
+
+Supported JSON variant types: `Trim`, `Lowercase`, `Uppercase`, `StripTags`, `HtmlEntities`,
+`Slug` (with `max_length`), `Truncate` (with `max_length`), `Replace` (with `from`/`to`),
+`Clamp` (with `min`/`max`), `Chain` (with array of ops).
 
 ## TryFilterOp Enum (Fallible Filters)
 
@@ -60,7 +139,7 @@ validation error pipeline.
 Available variants:
 - `Infallible(FilterOp<T>)` - Wraps an infallible filter, lifting it into the fallible pipeline
 - `Chain(Vec<TryFilterOp<T>>)` - Sequential filter chain that short-circuits on the first error
-- `TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError>>)` - Custom fallible filter function
+- `TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError>>)` - Custom fallible filter function (not serializable)
 
 ```rust
 use walrs_filter::{TryFilterOp, FilterOp, FilterError};
@@ -103,6 +182,10 @@ fn main() {
 }
 ```
 
+**`TryCustom` cannot be serialized.** Attempting to serialize a `TryFilterOp::TryCustom` (or a
+`Chain` that contains one) returns an error. If your pipeline must survive a round-trip, avoid
+`TryCustom` or inject custom logic after deserialization.
+
 When the `validation` feature is enabled (default), `TryFilterOp<Value>` is available
 for dynamic value transformation, and `FilterError` can be converted to `Violation`/`Violations`.
 
@@ -128,6 +211,27 @@ With the `validation` feature enabled, `FilterError` converts to `Violation`
 (using `ViolationType::CustomError`) and `Violations` via `From` impls,
 allowing seamless integration with the validation error pipeline.
 
+## The Filter Trait
+
+All filter structs implement the `Filter<T>` trait:
+
+```rust
+pub trait Filter<T> {
+    type Output;
+    fn filter(&self, value: T) -> Self::Output;
+}
+```
+
+`FilterOp<T>` also implements `Filter<T>` — you can use it anywhere a `Filter<String>`,
+`Filter<i32>`, `Filter<Value>`, etc. is expected:
+
+```rust
+use walrs_filter::{Filter, FilterOp};
+
+let filter: Box<dyn Filter<String, Output = String>> = Box::new(FilterOp::Trim);
+assert_eq!(filter.filter("  hello  ".to_string()), "hello");
+```
+
 ## The TryFilter Trait
 
 The `TryFilter<T>` trait is the fallible counterpart to [`Filter<T>`](#the-filter-trait):
@@ -139,8 +243,14 @@ pub trait TryFilter<T> {
 }
 ```
 
-This allows implementing custom fallible filter structs that integrate with the
-`TryFilterOp` pipeline.
+`TryFilterOp<T>` implements `TryFilter<T>` for `String` and `Value`:
+
+```rust
+use walrs_filter::{TryFilter, TryFilterOp, FilterOp, FilterError};
+
+let filter: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+assert_eq!(filter.try_filter("  hello  ".to_string()).unwrap(), "hello");
+```
 
 ## Usage
 
@@ -170,24 +280,14 @@ fn main () {
 }
 ```
 
-## The Filter Trait
-
-All filter structs implement the `Filter<T>` trait:
-
-```rust
-pub trait Filter<T> {
-    type Output;
-    fn filter(&self, value: T) -> Self::Output;
-}
-```
-
-This allows filters to transform values, potentially to different types.
-
 ## Features
 
-- **`validation`** (default) - Enables `FilterOp<Value>`, `TryFilterOp<Value>`, and `FilterError` → `Violation` conversions via `walrs_validation`.
-- **`fn_traits`** - Enables nightly for `Fn` trait implementations when you want filters that can be called as functions.
-- **`nightly`** - Catch all feature - enables any nightly features available in the crate, currently only 'fn_trait' one.
+- **`validation`** (default) — Enables `FilterOp<Value>`, `TryFilterOp<Value>`, and
+  `FilterError` → `Violation`/`Violations` conversions via `walrs_validation`.
+  Without this feature, only `FilterOp<String>` and scalar numeric types are available.
+- **`fn_traits`** — Enables nightly Rust `Fn`/`FnMut`/`FnOnce` trait implementations on
+  filter structs, allowing them to be called as closures. Requires a nightly compiler.
+- **`nightly`** — Catch-all for nightly features. Currently enables `fn_traits`.
 
 ## Running Examples
 
@@ -202,6 +302,9 @@ cargo run -p walrs_filter --example filter_chain
 
 # Fallible filters with TryFilterOp
 cargo run -p walrs_filter --example try_filters
+
+# FilterOp enum: all variants, serialization, numeric clamping
+cargo run -p walrs_filter --example filter_op_usage
 ```
 
 ## Running Benchmarks
@@ -216,6 +319,10 @@ cargo bench -p walrs_filter
 cargo bench -p walrs_filter -- SlugFilter
 cargo bench -p walrs_filter -- StripTagsFilter
 cargo bench -p walrs_filter -- XmlEntitiesFilter
+cargo bench -p walrs_filter -- FilterOp_Chain
+cargo bench -p walrs_filter -- FilterOp_Clamp
+cargo bench -p walrs_filter -- TryFilterOp
+cargo bench -p walrs_filter -- FilterOp_Value
 ```
 
 Benchmark groups include:
@@ -223,7 +330,13 @@ Benchmark groups include:
 - **StripTagsFilter** - Tests HTML sanitization with different HTML complexity
 - **XmlEntitiesFilter** - Tests XML entity encoding
 - **FilterComparison** - Compares performance across all filters
+- **FilterOp_noop_vs_mutation** - Zero-copy noop vs mutating apply_ref for all string variants
+- **FilterOp_Chain** - Composition overhead for 1, 3, and 5-filter chains
+- **FilterOp_Clamp** - Numeric clamping performance (i32, f64, in-range and out-of-range)
+- **TryFilterOp** - Fallible pipeline overhead (Infallible wrapping, Chain, TryCustom)
+- **FilterOp_Value** - Dynamic dispatch performance with `walrs_validation::Value`
 
 ## License
 
 MIT & Apache-2.0
+

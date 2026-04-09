@@ -5,7 +5,11 @@ authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
 edition = "2024"
 description = "Filter/transformation structs for input filtering"
 license = "MIT OR Apache-2.0"
-include = ["src/**/*", "Cargo.toml"]
+repository = "https://github.com/elycruz/walrs"
+readme = "README.md"
+keywords = ["filter", "sanitize", "transform", "validation", "form"]
+categories = ["text-processing", "web-programming"]
+include = ["src/**/*", "examples/**/*", "benches/**/*", "README.md", "Cargo.toml"]
 
 [features]
 default = ["validation"]
