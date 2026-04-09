@@ -17,13 +17,13 @@ fn main() {
 
   let trim: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
   let input = "  hello  ";
-  let result = trim.try_apply(input.to_string());
-  println!("  Trim \"{}\" -> {:?}", input, result);
+  let result = trim.try_apply(input.to_string()).unwrap();
+  println!("  Trim \"{}\" -> \"{}\"", input, result);
 
   // Using From trait
   let lowercase: TryFilterOp<String> = FilterOp::Lowercase.into();
-  let result = lowercase.try_apply("HELLO".to_string());
-  println!("  Lowercase \"HELLO\" -> {:?}", result);
+  let result = lowercase.try_apply("HELLO".to_string()).unwrap();
+  println!("  Lowercase \"HELLO\" -> \"{}\"", result);
 
   println!();
 
