@@ -44,6 +44,9 @@ pub mod rule;
 pub mod traits;
 pub mod validators;
 
+// Re-export IndexMap for consumers
+pub use indexmap::IndexMap;
+
 // Re-export types from walrs_validation
 pub use walrs_validation::{
   Attributes, CompiledRule, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,

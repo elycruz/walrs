@@ -3,7 +3,7 @@
 //! This module provides the `FormViolations` struct for collecting validation
 //! errors from multiple fields and cross-field validation rules.
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use walrs_validation::Violations;
 
 /// Collection of validation violations for a form.
@@ -37,7 +37,7 @@ use walrs_validation::Violations;
 #[derive(Clone, Debug, Default)]
 pub struct FormViolations {
   /// Per-field violations, keyed by field name.
-  pub fields: HashMap<String, Violations>,
+  pub fields: IndexMap<String, Violations>,
 
   /// Cross-field (form-level) violations.
   pub form: Violations,

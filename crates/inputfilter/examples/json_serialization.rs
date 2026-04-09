@@ -130,7 +130,7 @@ fn main() {
 
   // Example 9: FieldFilter serialization
   println!("\n9. FieldFilter serialization:");
-  use std::collections::HashMap;
+  use indexmap::IndexMap;
   use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 
   let mut field_filter = FieldFilter::new();
@@ -171,12 +171,12 @@ fn main() {
 
   let loaded_filter: FieldFilter = serde_json::from_str(filter_config).unwrap();
 
-  let valid_data: HashMap<String, Value> =
+  let valid_data: IndexMap<String, Value> =
     [("username".to_string(), Value::Str("john".to_string()))]
       .into_iter()
       .collect();
 
-  let invalid_data: HashMap<String, Value> = HashMap::new();
+  let invalid_data: IndexMap<String, Value> = IndexMap::new();
 
   println!(
     "   Valid data: {:?}",

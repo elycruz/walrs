@@ -57,7 +57,7 @@ use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
 use walrs_validation::Value;
 use walrs_validation::Rule;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use serde_json::json;
 
 let mut filter = FieldFilter::new();
@@ -76,7 +76,7 @@ filter
         },
     });
 
-let mut data = HashMap::new();
+let mut data = IndexMap::new();
 data.insert("email".to_string(), json!("user@example.com"));
 data.insert("password".to_string(), json!("secret123"));
 data.insert("confirm_password".to_string(), json!("secret456"));
