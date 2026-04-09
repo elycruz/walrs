@@ -20,12 +20,28 @@ use walrs_validation::Value;
 /// to JSON/YAML for config-driven form processing. Most variants delegate to
 /// filter struct implementations in the `walrs_filter` crate.
 ///
+/// # Calling convention
+///
+/// - **`apply(&self, value: T) -> T`** — for `Copy` (scalar/numeric) types.
+/// - **`apply_ref(&self, value: &U) -> T`** — for `?Sized` reference types
+///   (e.g., `&str`), returning an owned result.
+///
+/// For `FilterOp<String>`, prefer `apply_ref` when you already have a `&str`,
+/// avoiding an allocation. `apply` is a convenience wrapper that delegates to
+/// `apply_ref`.
+///
 /// # Example
 ///
 /// ```rust
 /// use walrs_filter::FilterOp;
 ///
 /// let filter = FilterOp::<String>::Trim;
+///
+/// // By reference — no allocation needed at the call site
+/// let result = filter.apply_ref("  hello  ");
+/// assert_eq!(result, "hello");
+///
+/// // By value — delegates to apply_ref internally
 /// let result = filter.apply("  hello  ".to_string());
 /// assert_eq!(result, "hello");
 ///
@@ -34,7 +50,7 @@ use walrs_validation::Value;
 ///     FilterOp::Trim,
 ///     FilterOp::Lowercase,
 /// ]);
-/// let result = chain.apply("  HELLO  ".to_string());
+/// let result = chain.apply_ref("  HELLO  ");
 /// assert_eq!(result, "hello");
 /// ```
 #[derive(Clone, Serialize, Deserialize)]
@@ -127,28 +143,44 @@ impl<T: PartialEq> PartialEq for FilterOp<T> {
 // ============================================================================
 
 impl FilterOp<String> {
-  /// Apply the filter operation to a String value.
-  pub fn apply(&self, value: String) -> String {
+  /// Apply the filter operation to a `&str` reference, returning an owned `String`.
+  ///
+  /// Prefer this method when you already have a `&str`, avoiding an
+  /// unnecessary allocation at the call site.
+  pub fn apply_ref(&self, value: &str) -> String {
     match self {
       FilterOp::Trim => value.trim().to_string(),
       FilterOp::Lowercase => value.to_lowercase(),
       FilterOp::Uppercase => value.to_uppercase(),
       FilterOp::StripTags => {
         let filter = StripTagsFilter::new();
-        filter.filter(Cow::Owned(value)).into_owned()
+        filter.filter(Cow::Borrowed(value)).into_owned()
       }
       FilterOp::HtmlEntities => {
         let filter = XmlEntitiesFilter::new();
-        filter.filter(Cow::Owned(value)).into_owned()
+        filter.filter(Cow::Borrowed(value)).into_owned()
       }
       FilterOp::Slug { max_length } => {
         let filter = SlugFilter::new(max_length.unwrap_or(200), false);
-        filter.filter(Cow::Owned(value)).into_owned()
+        filter.filter(Cow::Borrowed(value)).into_owned()
       }
-      FilterOp::Clamp { .. } => value, // Clamp doesn't apply to strings
-      FilterOp::Chain(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
-      FilterOp::Custom(f) => f(value),
+      FilterOp::Clamp { .. } => value.to_string(), // Clamp doesn't apply to strings
+      FilterOp::Chain(filters) => {
+        let mut result = value.to_string();
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
+      FilterOp::Custom(f) => f(value.to_string()),
     }
+  }
+
+  /// Apply the filter operation to an owned `String` value.
+  ///
+  /// Convenience wrapper that delegates to [`apply_ref`](Self::apply_ref).
+  pub fn apply(&self, value: String) -> String {
+    self.apply_ref(&value)
   }
 }
 
@@ -158,59 +190,60 @@ impl FilterOp<String> {
 
 #[cfg(feature = "validation")]
 impl FilterOp<Value> {
-  /// Apply the filter operation to a Value.
+  /// Apply the filter operation to a `&Value` reference, returning an owned `Value`.
   ///
   /// String-based filters only apply to `Value::Str` variants.
   /// Numeric filters apply to `Value::I64` / `Value::U64` / `Value::F64` variants.
-  pub fn apply(&self, value: Value) -> Value {
+  /// Non-matching types are cloned unchanged.
+  pub fn apply_ref(&self, value: &Value) -> Value {
     match self {
       FilterOp::Trim => {
         if let Value::Str(s) = value {
           Value::Str(s.trim().to_string())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::Lowercase => {
         if let Value::Str(s) = value {
           Value::Str(s.to_lowercase())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::Uppercase => {
         if let Value::Str(s) = value {
           Value::Str(s.to_uppercase())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::StripTags => {
         if let Value::Str(s) = value {
           let filter = StripTagsFilter::new();
-          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Borrowed(s.as_str())).into_owned())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::HtmlEntities => {
         if let Value::Str(s) = value {
           let filter = XmlEntitiesFilter::new();
-          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Borrowed(s.as_str())).into_owned())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::Slug { max_length } => {
         if let Value::Str(s) = value {
           let filter = SlugFilter::new(max_length.unwrap_or(200), false);
-          Value::Str(filter.filter(Cow::Owned(s)).into_owned())
+          Value::Str(filter.filter(Cow::Borrowed(s.as_str())).into_owned())
         } else {
-          value
+          value.clone()
         }
       }
       FilterOp::Clamp { min, max } => {
-        match (&value, min, max) {
+        match (value, min, max) {
           (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
             Value::I64((*v).clamp(*min_v, *max_v))
           }
@@ -220,12 +253,28 @@ impl FilterOp<Value> {
           (Value::F64(v), Value::F64(min_v), Value::F64(max_v)) => {
             Value::F64((*v).clamp(*min_v, *max_v))
           }
-          _ => value,
+          _ => value.clone(),
         }
       }
-      FilterOp::Chain(filters) => filters.iter().fold(value, |v, f| f.apply(v)),
-      FilterOp::Custom(f) => f(value),
+      FilterOp::Chain(filters) => {
+        let mut result = value.clone();
+        for f in filters {
+          result = f.apply_ref(&result);
+        }
+        result
+      }
+      FilterOp::Custom(f) => f(value.clone()),
     }
+  }
+
+  /// Apply the filter operation to an owned `Value`.
+  ///
+  /// Convenience wrapper that delegates to [`apply_ref`](Self::apply_ref).
+  ///
+  /// String-based filters only apply to `Value::Str` variants.
+  /// Numeric filters apply to `Value::I64` / `Value::U64` / `Value::F64` variants.
+  pub fn apply(&self, value: Value) -> Value {
+    self.apply_ref(&value)
   }
 }
 
@@ -363,5 +412,127 @@ mod tests {
     let json = serde_json::to_string(&filter).unwrap();
     assert!(json.contains("Slug"));
     assert!(json.contains("50"));
+  }
+
+  // ====================================================================
+  // apply_ref tests — FilterOp<String>
+  // ====================================================================
+
+  #[test]
+  fn test_trim_string_apply_ref() {
+    let filter = FilterOp::<String>::Trim;
+    assert_eq!(filter.apply_ref("  hello  "), "hello");
+  }
+
+  #[test]
+  fn test_lowercase_string_apply_ref() {
+    let filter = FilterOp::<String>::Lowercase;
+    assert_eq!(filter.apply_ref("HELLO"), "hello");
+  }
+
+  #[test]
+  fn test_uppercase_string_apply_ref() {
+    let filter = FilterOp::<String>::Uppercase;
+    assert_eq!(filter.apply_ref("hello"), "HELLO");
+  }
+
+  #[test]
+  fn test_strip_tags_string_apply_ref() {
+    let filter = FilterOp::<String>::StripTags;
+    let result = filter.apply_ref("<script>alert('xss')</script>Hello");
+    assert!(!result.contains("<script>"));
+    assert!(result.contains("Hello"));
+  }
+
+  #[test]
+  fn test_html_entities_string_apply_ref() {
+    let filter = FilterOp::<String>::HtmlEntities;
+    let result = filter.apply_ref("<b>Hello</b>");
+    assert!(result.contains("&lt;"));
+    assert!(result.contains("&gt;"));
+  }
+
+  #[test]
+  fn test_slug_string_apply_ref() {
+    let filter = FilterOp::<String>::Slug { max_length: None };
+    assert_eq!(filter.apply_ref("Hello World!"), "hello-world");
+  }
+
+  #[test]
+  fn test_chain_string_apply_ref() {
+    let filter: FilterOp<String> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
+    assert_eq!(filter.apply_ref("  HELLO  "), "hello");
+  }
+
+  #[test]
+  fn test_custom_string_apply_ref() {
+    let filter: FilterOp<String> =
+      FilterOp::Custom(Arc::new(|s: String| s.replace("world", "rust")));
+    assert_eq!(filter.apply_ref("hello world"), "hello rust");
+  }
+
+  #[test]
+  fn test_clamp_noop_on_string_apply_ref() {
+    let filter = FilterOp::<String>::Clamp {
+      min: "a".to_string(),
+      max: "z".to_string(),
+    };
+    assert_eq!(filter.apply_ref("hello"), "hello");
+  }
+
+  // ====================================================================
+  // apply_ref tests — FilterOp<Value>
+  // ====================================================================
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_trim_value_apply_ref() {
+    let filter = FilterOp::<Value>::Trim;
+    let value = Value::Str("  hello  ".to_string());
+    assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_lowercase_value_apply_ref() {
+    let filter = FilterOp::<Value>::Lowercase;
+    let value = Value::Str("HELLO".to_string());
+    assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_clamp_value_f64_apply_ref() {
+    let filter = FilterOp::<Value>::Clamp {
+      min: Value::F64(0.0),
+      max: Value::F64(100.0),
+    };
+    let high = Value::F64(150.0);
+    let low = Value::F64(-10.0);
+    let mid = Value::F64(50.0);
+    assert_eq!(filter.apply_ref(&high), Value::F64(100.0));
+    assert_eq!(filter.apply_ref(&low), Value::F64(0.0));
+    assert_eq!(filter.apply_ref(&mid), Value::F64(50.0));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_chain_value_apply_ref() {
+    let filter: FilterOp<Value> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
+    let value = Value::Str("  HELLO  ".to_string());
+    assert_eq!(
+      filter.apply_ref(&value),
+      Value::Str("hello".to_string())
+    );
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_filter_preserves_non_matching_types_apply_ref() {
+    let filter = FilterOp::<Value>::Trim;
+    let int_val = Value::I64(42);
+    let bool_val = Value::Bool(true);
+    assert_eq!(filter.apply_ref(&int_val), Value::I64(42));
+    assert_eq!(filter.apply_ref(&bool_val), Value::Bool(true));
   }
 }

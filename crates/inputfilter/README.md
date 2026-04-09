@@ -35,9 +35,10 @@ let filters: Vec<FilterOp<String>> = vec![
     FilterOp::Lowercase,
     FilterOp::StripTags,
 ];
+// apply_ref accepts &str — no allocation needed at the call site
 let mut value = "  <b>HELLO</b>  ".to_string();
 for filter in &filters {
-    value = filter.apply(value);
+    value = filter.apply_ref(&value);
 }
 assert_eq!(value, "hello");
 ```
