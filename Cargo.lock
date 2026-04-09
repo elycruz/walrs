@@ -2075,12 +2075,15 @@ dependencies = [
 name = "walrs"
 version = "0.1.0"
 dependencies = [
- "ammonia",
  "walrs_acl",
+ "walrs_digraph",
+ "walrs_filter",
+ "walrs_form",
  "walrs_graph",
  "walrs_inputfilter",
  "walrs_navigation",
  "walrs_rbac",
+ "walrs_validation",
 ]
 
 [[package]]

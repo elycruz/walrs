@@ -6,13 +6,30 @@ rust-version = "1.85"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+default = ["acl", "digraph", "filter", "form", "graph", "inputfilter", "navigation", "rbac", "validation"]
+full = ["acl", "digraph", "filter", "form", "graph", "inputfilter", "navigation", "rbac", "validation"]
+
+acl = ["dep:walrs_acl"]
+digraph = ["dep:walrs_digraph"]
+filter = ["dep:walrs_filter"]
+form = ["dep:walrs_form"]
+graph = ["dep:walrs_graph"]
+inputfilter = ["dep:walrs_inputfilter"]
+navigation = ["dep:walrs_navigation"]
+rbac = ["dep:walrs_rbac"]
+validation = ["dep:walrs_validation"]
+
 [dependencies]
-ammonia = "3.3.1"
-walrs_acl = { path = 'crates/acl' }
-walrs_graph = { path = 'crates/graph' }
-walrs_inputfilter = { path = "crates/inputfilter" }
-walrs_navigation = { path = "crates/navigation" }
-walrs_rbac = { path = "crates/rbac" }
+walrs_acl = { path = "crates/acl", optional = true }
+walrs_digraph = { path = "crates/digraph", optional = true }
+walrs_filter = { path = "crates/filter", optional = true }
+walrs_form = { path = "crates/form", optional = true }
+walrs_graph = { path = "crates/graph", optional = true }
+walrs_inputfilter = { path = "crates/inputfilter", optional = true }
+walrs_navigation = { path = "crates/navigation", optional = true }
+walrs_rbac = { path = "crates/rbac", optional = true }
+walrs_validation = { path = "crates/validation", optional = true }
 
 [workspace]
 members = [

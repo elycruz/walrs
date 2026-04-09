@@ -1,13 +1,50 @@
-# wal-rs (work-in-progress)
+# walrs
 
-An experimental Web Application Library, for Rust - The project is in research and development stage so please do not use it for production.
+An experimental Web Application Library for Rust. The project is in research and development stage — please do not use it for production.
 
-## (currently) in development:
+## Usage
 
-- `wal_inputfilter` - A set of `Input` validation structs used to validate primitive values as they pertain to web applications.
-- `wal_acl` - An access control list structure.
-- `wal_graph` - A collection of basic graph structures to use in `wal_acl` and `wal_navigation`, etc.
-- `wal_navigation` - A collection of structs to use to compose web page link graphs.  Can also be integrated with `wal_acl`.  This structure is overall useful in scenarios where page access needs to be controlled from the application level.
+Add the root crate to get access to all sub-crates:
+
+```toml
+[dependencies]
+walrs = "0.1"
+```
+
+Then import any sub-crate as a module:
+
+```rust
+use walrs::inputfilter::{Field, FieldBuilder};
+use walrs::validation::Rule;
+use walrs::filter::FilterOp;
+```
+
+### Feature flags
+
+All sub-crates are enabled by default. Disable features you don't need to reduce compile times:
+
+```toml
+[dependencies]
+walrs = { version = "0.1", default-features = false, features = ["inputfilter", "validation", "filter"] }
+```
+
+Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `inputfilter`, `navigation`, `rbac`, `validation`.
+
+You can also depend on individual sub-crates directly (e.g., `walrs_inputfilter = "0.1"`).
+
+## Sub-crates
+
+| Crate | Description |
+|---|---|
+| `walrs_acl` | Access control list structure |
+| `walrs_digraph` | Directed graph structures |
+| `walrs_filter` | Input value transformation/sanitization filters |
+| `walrs_form` | Form elements and structure for web frameworks |
+| `walrs_graph` | Undirected graph structures |
+| `walrs_inputfilter` | Field-level validation and filtering for form processing |
+| `walrs_navigation` | Web page link graph / navigation structures |
+| `walrs_rbac` | Role-Based Access Control |
+| `walrs_validation` | Composable validation rules |
 
 ## Development
 
@@ -30,6 +67,6 @@ Note: branch and functions tracking is not supported with this method (currently
 
 Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
 
-## License:
+## License
 
-MIT 3.0 + Apache 2.0
+MIT + Apache 2.0
