@@ -8,7 +8,7 @@ use crate::field::Field;
 use crate::form_violations::FormViolations;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
 use walrs_validation::{Value, ValueExt};
@@ -28,7 +28,6 @@ use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 /// use walrs_validation::Value;
 /// use walrs_validation::Rule;
 /// use serde_json::json;
-/// use std::collections::HashMap;
 ///
 /// let mut field_filter = FieldFilter::new();
 ///
@@ -49,9 +48,9 @@ use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 /// ```
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FieldFilter {
-  /// Field definitions keyed by name.
+  /// Field definitions keyed by name (insertion-ordered).
   #[serde(default)]
-  pub fields: HashMap<String, Field<Value>>,
+  pub fields: IndexMap<String, Field<Value>>,
 
   /// Cross-field validation rules.
   #[serde(default)]
@@ -72,7 +71,7 @@ impl FieldFilter {
 
   /// Removes a field definition.
   pub fn remove_field(&mut self, name: &str) -> Option<Field<Value>> {
-    self.fields.remove(name)
+    self.fields.shift_remove(name)
   }
 
   /// Gets a field definition.
@@ -98,12 +97,11 @@ impl FieldFilter {
   /// contain violations from fields or cross-field rules that were not
   /// evaluated before the early exit.
   ///
-  /// **Note**: Because `fields` is a `HashMap`, iteration order is
-  /// non-deterministic. When more than one field has `break_on_failure = true`,
-  /// the "first" field that triggers an early return may vary between runs.
-  /// For predictable early-exit behaviour, set `break_on_failure = true` on
-  /// at most one field, or use a single field whose failure you wish to stop on.
-  pub fn validate(&self, data: &HashMap<String, Value>) -> Result<(), FormViolations> {
+  /// **Note**: Because `fields` is an `IndexMap`, iteration follows insertion
+  /// order. When `break_on_failure = true`, the "first" field that triggers an
+  /// early return is deterministic and corresponds to the order in which fields
+  /// were added.
+  pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
     let mut violations = FormViolations::new();
 
     // Validate individual fields
@@ -133,13 +131,12 @@ impl FieldFilter {
 
   /// Filters all field values in the data.
   ///
-  /// Returns a new HashMap with filtered values.
-  pub fn filter(&self, data: HashMap<String, Value>) -> HashMap<String, Value> {
+  /// Returns a new IndexMap with filtered values.
+  pub fn filter(&self, data: IndexMap<String, Value>) -> IndexMap<String, Value> {
     let mut result = data;
     for (field_name, field) in &self.fields {
-      if let Some(value) = result.remove(field_name) {
-        let filtered = field.filter(value);
-        result.insert(field_name.clone(), filtered);
+      if let Some(value) = result.get_mut(field_name) {
+        *value = field.filter(value.clone());
       }
     }
     result
@@ -152,8 +149,8 @@ impl FieldFilter {
   ///     - vice-versa
   pub fn process(
     &self,
-    data: HashMap<String, Value>,
-  ) -> Result<HashMap<String, Value>, FormViolations> {
+    data: IndexMap<String, Value>,
+  ) -> Result<IndexMap<String, Value>, FormViolations> {
     let filtered = self.filter(data);
     self.validate(&filtered)?;
     Ok(filtered)
@@ -186,7 +183,7 @@ impl Debug for CrossFieldRule {
 
 impl CrossFieldRule {
   /// Evaluates the rule against the provided data.
-  pub fn evaluate(&self, data: &HashMap<String, Value>) -> RuleResult {
+  pub fn evaluate(&self, data: &IndexMap<String, Value>) -> RuleResult {
     self.rule.evaluate(data, self.name.as_deref())
   }
 }
@@ -221,7 +218,7 @@ pub enum CrossFieldRuleType {
 
   /// Custom validation (not serializable).
   #[serde(skip)]
-  Custom(Arc<dyn Fn(&HashMap<String, Value>) -> RuleResult + Send + Sync>),
+  Custom(Arc<dyn Fn(&IndexMap<String, Value>) -> RuleResult + Send + Sync>),
 }
 
 impl Debug for CrossFieldRuleType {
@@ -256,7 +253,7 @@ impl Debug for CrossFieldRuleType {
 
 impl CrossFieldRuleType {
   /// Evaluates the rule against the provided data.
-  pub fn evaluate(&self, data: &HashMap<String, Value>, rule_name: Option<&str>) -> RuleResult {
+  pub fn evaluate(&self, data: &IndexMap<String, Value>, rule_name: Option<&str>) -> RuleResult {
     match self {
       CrossFieldRuleType::FieldsEqual { field_a, field_b } => {
         let val_a = data.get(field_a);
@@ -439,7 +436,7 @@ mod tests {
   use crate::field::FieldBuilder;
   use walrs_validation::Rule;
 
-  fn make_data(pairs: &[(&str, Value)]) -> HashMap<String, Value> {
+  fn make_data(pairs: &[(&str, Value)]) -> IndexMap<String, Value> {
     pairs
       .iter()
       .map(|(k, v)| (k.to_string(), v.clone()))

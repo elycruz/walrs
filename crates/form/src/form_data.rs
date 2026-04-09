@@ -1,14 +1,15 @@
 //! Form data transfer object.
 use crate::path::{PathSegment, parse_path};
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use walrs_validation::Value;
 /// Form data transfer object.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-pub struct FormData(HashMap<String, Value>);
+pub struct FormData(IndexMap<String, Value>);
 impl FormData {
   pub fn new() -> Self {
-    Self(HashMap::new())
+    Self(IndexMap::new())
   }
   pub fn insert<K: Into<String>>(&mut self, key: K, value: Value) -> &mut Self {
     self.0.insert(key.into(), value);
@@ -65,7 +66,7 @@ impl FormData {
     self
   }
   pub fn remove(&mut self, key: &str) -> Option<Value> {
-    self.0.remove(key)
+    self.0.shift_remove(key)
   }
   pub fn contains_key(&self, key: &str) -> bool {
     self.0.contains_key(key)
@@ -79,10 +80,10 @@ impl FormData {
   pub fn is_empty(&self) -> bool {
     self.0.is_empty()
   }
-  pub fn into_inner(self) -> HashMap<String, Value> {
+  pub fn into_inner(self) -> IndexMap<String, Value> {
     self.0
   }
-  pub fn as_inner(&self) -> &HashMap<String, Value> {
+  pub fn as_inner(&self) -> &IndexMap<String, Value> {
     &self.0
   }
 }
@@ -127,8 +128,15 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
     }
   }
 }
+/// Converts from `HashMap`. Note: the resulting insertion order in the
+/// `IndexMap` is arbitrary since `HashMap` iteration order is non-deterministic.
 impl From<HashMap<String, Value>> for FormData {
   fn from(map: HashMap<String, Value>) -> Self {
+    Self(map.into_iter().collect())
+  }
+}
+impl From<IndexMap<String, Value>> for FormData {
+  fn from(map: IndexMap<String, Value>) -> Self {
     Self(map)
   }
 }
@@ -136,7 +144,7 @@ impl From<serde_json::Value> for FormData {
   fn from(value: serde_json::Value) -> Self {
     let v = Value::from(value);
     if let Value::Object(map) = v {
-      let converted: HashMap<String, Value> = map.into_iter().collect();
+      let converted: IndexMap<String, Value> = map.into_iter().collect();
       Self(converted)
     } else {
       Self::new()

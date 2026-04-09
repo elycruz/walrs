@@ -2108,6 +2108,7 @@ name = "walrs_form"
 version = "0.1.0"
 dependencies = [
  "derive_builder",
+ "indexmap",
  "js-sys",
  "regex",
  "serde",
@@ -2135,6 +2136,7 @@ dependencies = [
  "ammonia",
  "bytes",
  "derive_builder",
+ "indexmap",
  "regex",
  "serde",
  "serde_json",

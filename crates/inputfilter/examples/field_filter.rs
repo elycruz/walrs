@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example field_filter`
 
-use std::collections::HashMap;
+use indexmap::IndexMap;
 use walrs_validation::Value;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
@@ -200,7 +200,7 @@ fn main() {
   println!("\n=== Examples Complete ===");
 }
 
-fn make_data(pairs: &[(&str, &str)]) -> HashMap<String, Value> {
+fn make_data(pairs: &[(&str, &str)]) -> IndexMap<String, Value> {
   pairs
     .iter()
     .map(|(k, v)| (k.to_string(), Value::Str(v.to_string())))
