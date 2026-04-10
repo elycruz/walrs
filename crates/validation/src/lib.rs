@@ -53,7 +53,6 @@
 //! assert!(range_rule.validate(-1).is_err());
 //! ```
 
-#[cfg(feature = "indexmap")]
 pub use indexmap;
 
 pub mod attributes;

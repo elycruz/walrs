@@ -3,13 +3,15 @@
 //! This module provides the `Attributes` struct for storing and rendering
 //! HTML attributes in a type-safe way.
 
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// HTML attributes storage.
 ///
-/// A wrapper around a HashMap that provides methods for managing HTML attributes
-/// and rendering them as HTML attribute strings.
+/// A wrapper around an IndexMap that provides methods for managing HTML attributes
+/// and rendering them as HTML attribute strings. Insertion order is preserved,
+/// which guarantees deterministic serialization and rendering.
 ///
 /// # Examples
 ///
@@ -23,17 +25,17 @@ use std::collections::HashMap;
 /// assert_eq!(attrs.get("class"), Some(&"form-control".to_string()));
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Attributes(HashMap<String, String>);
+pub struct Attributes(IndexMap<String, String>);
 
 impl Attributes {
   /// Creates a new empty Attributes instance.
   pub fn new() -> Self {
-    Self(HashMap::new())
+    Self(IndexMap::new())
   }
 
   /// Creates Attributes with the given capacity.
   pub fn with_capacity(capacity: usize) -> Self {
-    Self(HashMap::with_capacity(capacity))
+    Self(IndexMap::with_capacity(capacity))
   }
 
   /// Inserts an attribute key-value pair.
@@ -56,7 +58,7 @@ impl Attributes {
   ///
   /// Returns the value if the key was present.
   pub fn remove(&mut self, key: &str) -> Option<String> {
-    self.0.remove(key)
+    self.0.shift_remove(key)
   }
 
   /// Checks if the attributes contain a key.
@@ -99,13 +101,11 @@ impl Attributes {
   /// attrs.insert("id", "email");
   ///
   /// let html = attrs.to_html();
-  /// // Result is something like: `class="form-control" id="email"`
-  /// // (order may vary due to HashMap)
-  /// assert!(html.contains(r#"class="form-control""#));
-  /// assert!(html.contains(r#"id="email""#));
+  /// // Output preserves insertion order
+  /// assert_eq!(html, r#"class="form-control" id="email""#);
   /// ```
   pub fn to_html(&self) -> String {
-    let mut parts: Vec<String> = self
+    self
       .0
       .iter()
       .map(|(k, v)| {
@@ -115,9 +115,8 @@ impl Attributes {
           escape_html_attr_value(v)
         )
       })
-      .collect();
-    parts.sort(); // Sort for deterministic output
-    parts.join(" ")
+      .collect::<Vec<_>>()
+      .join(" ")
   }
 
   /// Merges another Attributes instance into this one.
@@ -131,11 +130,23 @@ impl Attributes {
 
 impl From<HashMap<String, String>> for Attributes {
   fn from(map: HashMap<String, String>) -> Self {
-    Self(map)
+    Self(map.into_iter().collect())
   }
 }
 
 impl From<Attributes> for HashMap<String, String> {
+  fn from(attrs: Attributes) -> Self {
+    attrs.0.into_iter().collect()
+  }
+}
+
+impl From<IndexMap<String, String>> for Attributes {
+  fn from(map: IndexMap<String, String>) -> Self {
+    Self(map)
+  }
+}
+
+impl From<Attributes> for IndexMap<String, String> {
   fn from(attrs: Attributes) -> Self {
     attrs.0
   }
@@ -214,8 +225,8 @@ mod tests {
     attrs.insert("class", "form-control");
     attrs.insert("id", "email");
     let html = attrs.to_html();
-    assert!(html.contains(r#"class="form-control""#));
-    assert!(html.contains(r#"id="email""#));
+    // Insertion order is preserved
+    assert_eq!(html, r#"class="form-control" id="email""#);
   }
 
   #[test]
@@ -249,5 +260,38 @@ mod tests {
     let json = serde_json::to_string(&attrs).unwrap();
     let deserialized: Attributes = serde_json::from_str(&json).unwrap();
     assert_eq!(attrs, deserialized);
+  }
+
+  #[test]
+  fn test_serialization_preserves_insertion_order() {
+    let mut attrs = Attributes::new();
+    attrs.insert("a", "val_a");
+    attrs.insert("b", "val_b");
+    attrs.insert("c", "val_c");
+    attrs.insert("d", "val_d");
+    attrs.insert("e", "val_e");
+    let json = serde_json::to_string(&attrs).unwrap();
+    assert_eq!(
+      json,
+      r#"{"a":"val_a","b":"val_b","c":"val_c","d":"val_d","e":"val_e"}"#
+    );
+  }
+
+  #[test]
+  fn test_from_indexmap() {
+    let mut map = IndexMap::new();
+    map.insert("class".to_string(), "btn".to_string());
+    map.insert("type".to_string(), "submit".to_string());
+    let attrs = Attributes::from(map);
+    assert_eq!(attrs.get("class"), Some(&"btn".to_string()));
+    assert_eq!(attrs.get("type"), Some(&"submit".to_string()));
+  }
+
+  #[test]
+  fn test_into_indexmap() {
+    let attrs = Attributes::from([("class", "btn"), ("type", "submit")]);
+    let map: IndexMap<String, String> = attrs.into();
+    assert_eq!(map.get("class"), Some(&"btn".to_string()));
+    assert_eq!(map.get("type"), Some(&"submit".to_string()));
   }
 }
