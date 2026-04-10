@@ -54,7 +54,7 @@ impl Attributes {
     self.0.get(key)
   }
 
-  /// Removes a key from the attributes.
+  /// Removes a key from the attributes, preserving insertion order.
   ///
   /// Returns the value if the key was present.
   pub fn remove(&mut self, key: &str) -> Option<String> {
