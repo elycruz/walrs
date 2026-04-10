@@ -18,13 +18,9 @@ fn bench_string_email(c: &mut Criterion) {
 
 fn bench_string_pattern(c: &mut Criterion) {
     let rule = Rule::<String>::pattern(r"^[a-zA-Z0-9_\-]{3,30}$").unwrap();
-    let compiled = rule.clone().compile();
 
     c.bench_function("pattern rule", |b| {
         b.iter(|| rule.validate_ref("hello_world"))
-    });
-    c.bench_function("pattern compiled rule", |b| {
-        b.iter(|| compiled.validate_ref("hello_world"))
     });
 }
 
@@ -118,23 +114,6 @@ fn bench_composite_any(c: &mut Criterion) {
     });
 }
 
-// ============================================================================
-// CompiledRule vs uncompiled
-// ============================================================================
-
-fn bench_compiled_vs_uncompiled(c: &mut Criterion) {
-    let rule = Rule::<String>::pattern(r"^[a-z]{3,30}$").unwrap();
-    let compiled = rule.clone().compile();
-    let value = "hello";
-
-    c.bench_function("pattern rule (pre-compiled regex)", |b| {
-        b.iter(|| rule.validate_ref(value))
-    });
-    c.bench_function("compiled rule (cached wrapper)", |b| {
-        b.iter(|| compiled.validate_ref(value))
-    });
-}
-
 criterion_group!(
     string_benches,
     bench_string_email,
@@ -156,7 +135,6 @@ criterion_group!(
     composite_benches,
     bench_composite_all,
     bench_composite_any,
-    bench_compiled_vs_uncompiled,
 );
 
 criterion_main!(string_benches, numeric_benches, composite_benches);

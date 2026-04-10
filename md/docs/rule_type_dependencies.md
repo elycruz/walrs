@@ -19,9 +19,8 @@
 
 | Item | Usage |
 |---|---|
-| `std::fmt::{self, Debug, Display}` | `Debug` impls for `Rule<T>`, `Condition<T>`, `CompiledRule<T>` |
+| `std::fmt::{self, Debug, Display}` | `Debug` impls for `Rule<T>`, `Condition<T>` |
 | `std::sync::Arc` | `Custom` variants in both `Rule<T>` and `Condition<T>`; `Message::Provider` |
-| `std::sync::OnceLock` | `CompiledRule<T>` — lazy cache for compiled validators |
 
 ## Crate-Internal Type Dependencies
 
@@ -36,10 +35,9 @@
 | `WithLength` (trait) | `traits.rs` | Bound on `Rule<T>::validate_len` |
 | `InputValue` (trait) | `traits.rs` | Supertrait of `ScalarValue` |
 | `NumberValue` (trait) | `traits.rs` | Supertrait of `SteppableValue` |
-| `Validate` (trait) | `traits.rs` | Implemented by `Rule<T>` for steppable/scalar types, `CompiledRule<T>` |
-| `ValidateRef` (trait) | `traits.rs` | Implemented by `CompiledRule<String>` |
+| `Validate` (trait) | `traits.rs` | Implemented by `Rule<T>` for steppable/scalar types |
+| `ValidateRef` (trait) | `traits.rs` | Implemented by `Rule<String>` |
 | `ToAttributesList` (trait) | `traits.rs` | Implemented for `Rule<T: Serialize>` |
-| `CachedStringValidators` | `impls/string.rs` | `CompiledRule<T>` field (cached regex patterns) |
 
 ## Trait Bounds on `T` (by impl block)
 
@@ -50,11 +48,9 @@
 | `PartialEq for Rule<T>` | `PartialEq` |
 | `Rule<T>` combinators (`and`, `or`, `not`, `when`, etc.) | *(none — unconstrained)* |
 | `Rule<String>::validate_str` | `T = String` (concrete) |
-| `Rule<String>::compile` | `T = String` (concrete) |
 | `Rule<T>::validate_step` | `SteppableValue + IsEmpty` |
 | `Rule<T>::validate_scalar` | `ScalarValue + IsEmpty` |
 | `Rule<T>::validate_len` | `WithLength` |
-| `Rule<T>::compile` (generic) | `SteppableValue + IsEmpty + Clone` |
 | `Validate<T> for Rule<T>` | `SteppableValue + IsEmpty` |
 | `ToAttributesList for Rule<T>` | `Serialize` |
 | `Condition<T>::evaluate` | `PartialEq + PartialOrd + IsEmpty` |

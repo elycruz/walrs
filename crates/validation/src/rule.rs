@@ -37,7 +37,7 @@ use std::sync::Arc;
 #[cfg(feature = "async")]
 use std::pin::Pin;
 
-use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::{Message, MessageContext, Violation};
 use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
 
@@ -883,107 +883,6 @@ impl<T> Rule<T> {
 
 // Rule<Numeric> implementation moved to rule_impls/steppable.rs
 
-// ============================================================================
-// CompiledRule - Cached Validator Wrapper
-// ============================================================================
-
-use std::sync::OnceLock;
-use crate::rule_impls::string::CachedStringValidators;
-
-/// A compiled rule with cached validators for better performance.
-///
-/// Use `CompiledRule` when you need to validate many values against the same rule.
-/// The compiled form caches regex patterns and other validators to avoid
-/// repeated construction.
-///
-/// # Example
-///
-/// ```rust
-/// use walrs_validation::rule::Rule;
-/// use walrs_validation::ValidateRef;
-///
-/// // Define and compile rule once
-/// let rule = Rule::<String>::MinLength(8)
-///     .and(Rule::pattern(r"[A-Z]").unwrap());
-/// let compiled = rule.compile();
-///
-/// // Validate many times (reuses cached regex)
-/// assert!(compiled.validate_ref("Password1").is_ok());
-/// assert!(compiled.validate_ref("short").is_err());
-/// ```
-pub struct CompiledRule<T> {
-  /// The underlying rule
-  pub(crate) rule: Rule<T>,
-  /// Cached string validators (lazily initialized)
-  pub(crate) string_cache: OnceLock<CachedStringValidators>,
-}
-
-impl<T: Clone> CompiledRule<T> {
-  /// Creates a new compiled rule from an existing rule.
-  pub fn new(rule: Rule<T>) -> Self {
-    Self {
-      rule,
-      string_cache: OnceLock::new(),
-    }
-  }
-
-  /// Returns a reference to the underlying rule.
-  pub fn rule(&self) -> &Rule<T> {
-    &self.rule
-  }
-
-  /// Consumes the compiled rule and returns the underlying rule.
-  pub fn into_rule(self) -> Rule<T> {
-    self.rule
-  }
-}
-
-impl<T: Clone> Clone for CompiledRule<T> {
-  fn clone(&self) -> Self {
-    Self {
-      rule: self.rule.clone(),
-      string_cache: OnceLock::new(), // Reset cache on clone
-    }
-  }
-}
-
-impl<T: Debug> Debug for CompiledRule<T> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("CompiledRule")
-      .field("rule", &self.rule)
-      .finish()
-  }
-}
-
-impl Rule<String> {
-  /// Compiles this rule for efficient repeated validation.
-  ///
-  /// The compiled form caches regex patterns and other validators.
-  ///
-  /// # Example
-  ///
-  /// ```rust
-  /// use walrs_validation::rule::Rule;
-  /// use walrs_validation::ValidateRef;
-  ///
-  /// let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
-  /// let compiled = rule.compile();
-  ///
-  /// // Repeated calls reuse the cached regex
-  /// assert!(compiled.validate_ref("123").is_ok());
-  /// assert!(compiled.validate_ref("456").is_ok());
-  /// ```
-  pub fn compile(self) -> CompiledRule<String> {
-    CompiledRule::new(self)
-  }
-}
-
-impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
-  /// Compiles this rule for efficient repeated validation.
-  pub fn compile(self) -> CompiledRule<T> {
-    CompiledRule::new(self)
-  }
-}
 
 // Trait implementations moved to rule_impls modules
 
