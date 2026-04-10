@@ -252,10 +252,9 @@ impl From<()> for Value {
 }
 
 // ============================================================================
-// indexmap support (feature-gated)
+// indexmap support
 // ============================================================================
 
-#[cfg(feature = "indexmap")]
 impl<V: Into<Value>> From<indexmap::IndexMap<String, V>> for Value {
   fn from(m: indexmap::IndexMap<String, V>) -> Self {
     Value::Object(m.into_iter().map(|(k, v)| (k, v.into())).collect())
@@ -591,7 +590,6 @@ mod tests {
     }
   }
 
-  #[cfg(feature = "indexmap")]
   mod indexmap_tests {
     use super::*;
 
