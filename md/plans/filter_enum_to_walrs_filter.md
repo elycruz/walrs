@@ -32,7 +32,7 @@ similarly, and `walrs_inputfilter` re-exporting it.
 ```
 crates/validation/src/
 ├── lib.rs              # pub use rule::{Rule, ...}; pub(crate) mod rule_impls;
-├── rule.rs             # Rule<T> enum, Condition<T>, CompiledRule<T>, combinators
+├── rule.rs             # Rule<T> enum, Condition<T>, combinators
 ├── rule_impls/
 │   ├── mod.rs          # pub(crate) mod string; pub(crate) mod length; ...
 │   ├── string.rs       # impl Rule<String> { validate_str(), validate_str_all(), ... }

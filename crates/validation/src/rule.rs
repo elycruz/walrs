@@ -37,9 +37,83 @@ use std::sync::Arc;
 #[cfg(feature = "async")]
 use std::pin::Pin;
 
-use crate::{Message, MessageContext, SteppableValue, Violation};
+use crate::{Message, MessageContext, Violation};
 use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
 use crate::traits::IsEmpty;
+
+// ============================================================================
+// CompiledPattern — pre-compiled regex wrapper
+// ============================================================================
+
+/// A pre-compiled regex pattern for use in `Rule::Pattern` and `Condition::Matches`.
+///
+/// Wraps a [`regex::Regex`] so that the pattern is compiled once at construction
+/// time rather than on every validation call. Implements `Serialize`/`Deserialize`
+/// as a plain pattern string for backward-compatible JSON/YAML configs.
+///
+/// # Construction
+///
+/// ```rust
+/// use walrs_validation::CompiledPattern;
+///
+/// // From &str (fallible)
+/// let cp = CompiledPattern::try_from(r"^\d+$").unwrap();
+///
+/// // From String
+/// let cp = CompiledPattern::try_from(String::from(r"^\d+$")).unwrap();
+/// ```
+#[derive(Clone)]
+pub struct CompiledPattern(pub regex::Regex);
+
+impl CompiledPattern {
+  /// Returns the pattern string.
+  pub fn as_str(&self) -> &str {
+    self.0.as_str()
+  }
+}
+
+impl Debug for CompiledPattern {
+  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    f.debug_tuple("CompiledPattern").field(&self.0.as_str()).finish()
+  }
+}
+
+impl PartialEq for CompiledPattern {
+  fn eq(&self, other: &Self) -> bool {
+    self.0.as_str() == other.0.as_str()
+  }
+}
+
+impl TryFrom<&str> for CompiledPattern {
+  type Error = regex::Error;
+
+  fn try_from(pattern: &str) -> Result<Self, Self::Error> {
+    regex::Regex::new(pattern).map(CompiledPattern)
+  }
+}
+
+impl TryFrom<String> for CompiledPattern {
+  type Error = regex::Error;
+
+  fn try_from(pattern: String) -> Result<Self, Self::Error> {
+    regex::Regex::new(&pattern).map(CompiledPattern)
+  }
+}
+
+impl Serialize for CompiledPattern {
+  fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(self.0.as_str())
+  }
+}
+
+impl<'de> Deserialize<'de> for CompiledPattern {
+  fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+    let pattern = String::deserialize(deserializer)?;
+    regex::Regex::new(&pattern)
+      .map(CompiledPattern)
+      .map_err(serde::de::Error::custom)
+  }
+}
 
 // ============================================================================
 // Result Types
@@ -74,8 +148,8 @@ pub enum Condition<T> {
   /// Value is less than the specified value
   LessThan(T),
 
-  /// Value matches a regex pattern (string representation)
-  Matches(String),
+  /// Value matches a regex pattern (pre-compiled)
+  Matches(CompiledPattern),
 
   /// Custom condition function (not serializable)
   #[serde(skip)]
@@ -90,7 +164,7 @@ impl<T: Debug> Debug for Condition<T> {
       Self::Equals(v) => f.debug_tuple("Equals").field(v).finish(),
       Self::GreaterThan(v) => f.debug_tuple("GreaterThan").field(v).finish(),
       Self::LessThan(v) => f.debug_tuple("LessThan").field(v).finish(),
-      Self::Matches(p) => f.debug_tuple("Matches").field(p).finish(),
+      Self::Matches(cp) => f.debug_tuple("Matches").field(&cp.as_str()).finish(),
       Self::Custom(_) => write!(f, "Custom(<fn>)"),
     }
   }
@@ -130,7 +204,7 @@ impl<T: PartialEq + PartialOrd> Condition<T> {
       Condition::Equals(expected) => value == expected,
       Condition::GreaterThan(threshold) => value > threshold,
       Condition::LessThan(threshold) => value < threshold,
-      Condition::Matches(_pattern) => {
+      Condition::Matches(_cp) => {
         // For Matches, we need string conversion - handled in specialized impl
         false
       }
@@ -148,9 +222,7 @@ impl Condition<String> {
       Condition::Equals(expected) => value == expected,
       Condition::GreaterThan(threshold) => value > threshold.as_str(),
       Condition::LessThan(threshold) => value < threshold.as_str(),
-      Condition::Matches(pattern) => regex::Regex::new(pattern)
-        .map(|re| re.is_match(value))
-        .unwrap_or(false),
+      Condition::Matches(cp) => cp.0.is_match(value),
       Condition::Custom(f) => f(&value.to_string()),
     }
   }
@@ -195,8 +267,8 @@ pub enum Rule<T> {
   ExactLength(usize),
 
   // ---- String Rules ----
-  /// Regex pattern match (stored as string for serialization)
-  Pattern(String),
+  /// Regex pattern match (pre-compiled at construction time)
+  Pattern(CompiledPattern),
 
   /// Email format validation with configurable options.
   Email(EmailOptions),
@@ -311,7 +383,7 @@ impl<T: Debug> Debug for Rule<T> {
       Self::MinLength(n) => f.debug_tuple("MinLength").field(n).finish(),
       Self::MaxLength(n) => f.debug_tuple("MaxLength").field(n).finish(),
       Self::ExactLength(n) => f.debug_tuple("ExactLength").field(n).finish(),
-      Self::Pattern(p) => f.debug_tuple("Pattern").field(p).finish(),
+      Self::Pattern(cp) => f.debug_tuple("Pattern").field(&cp.as_str()).finish(),
       Self::Email(opts) => f.debug_tuple("Email").field(opts).finish(),
       Self::Url(opts) => f.debug_tuple("Url").field(opts).finish(),
       Self::Uri(opts) => f.debug_tuple("Uri").field(opts).finish(),
@@ -716,9 +788,19 @@ impl<T> Rule<T> {
     Rule::ExactLength(len)
   }
 
-  /// Creates a `Pattern` rule.
-  pub fn pattern(pattern: impl Into<String>) -> Rule<T> {
-    Rule::Pattern(pattern.into())
+  /// Creates a `Pattern` rule by compiling the given regex pattern.
+  ///
+  /// Returns `Err(regex::Error)` if the pattern is invalid.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use walrs_validation::rule::Rule;
+  ///
+  /// let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
+  /// ```
+  pub fn pattern(pattern: impl AsRef<str>) -> Result<Rule<T>, regex::Error> {
+    CompiledPattern::try_from(pattern.as_ref()).map(Rule::Pattern)
   }
 
   /// Creates an `Email` rule with the given options.
@@ -801,107 +883,6 @@ impl<T> Rule<T> {
 
 // Rule<Numeric> implementation moved to rule_impls/steppable.rs
 
-// ============================================================================
-// CompiledRule - Cached Validator Wrapper
-// ============================================================================
-
-use std::sync::OnceLock;
-use crate::rule_impls::string::CachedStringValidators;
-
-/// A compiled rule with cached validators for better performance.
-///
-/// Use `CompiledRule` when you need to validate many values against the same rule.
-/// The compiled form caches regex patterns and other validators to avoid
-/// repeated construction.
-///
-/// # Example
-///
-/// ```rust
-/// use walrs_validation::rule::Rule;
-/// use walrs_validation::ValidateRef;
-///
-/// // Define and compile rule once
-/// let rule = Rule::<String>::MinLength(8)
-///     .and(Rule::Pattern(r"[A-Z]".to_string()));
-/// let compiled = rule.compile();
-///
-/// // Validate many times (reuses cached regex)
-/// assert!(compiled.validate_ref("Password1").is_ok());
-/// assert!(compiled.validate_ref("short").is_err());
-/// ```
-pub struct CompiledRule<T> {
-  /// The underlying rule
-  pub(crate) rule: Rule<T>,
-  /// Cached string validators (lazily initialized)
-  pub(crate) string_cache: OnceLock<CachedStringValidators>,
-}
-
-impl<T: Clone> CompiledRule<T> {
-  /// Creates a new compiled rule from an existing rule.
-  pub fn new(rule: Rule<T>) -> Self {
-    Self {
-      rule,
-      string_cache: OnceLock::new(),
-    }
-  }
-
-  /// Returns a reference to the underlying rule.
-  pub fn rule(&self) -> &Rule<T> {
-    &self.rule
-  }
-
-  /// Consumes the compiled rule and returns the underlying rule.
-  pub fn into_rule(self) -> Rule<T> {
-    self.rule
-  }
-}
-
-impl<T: Clone> Clone for CompiledRule<T> {
-  fn clone(&self) -> Self {
-    Self {
-      rule: self.rule.clone(),
-      string_cache: OnceLock::new(), // Reset cache on clone
-    }
-  }
-}
-
-impl<T: Debug> Debug for CompiledRule<T> {
-  fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_struct("CompiledRule")
-      .field("rule", &self.rule)
-      .finish()
-  }
-}
-
-impl Rule<String> {
-  /// Compiles this rule for efficient repeated validation.
-  ///
-  /// The compiled form caches regex patterns and other validators.
-  ///
-  /// # Example
-  ///
-  /// ```rust
-  /// use walrs_validation::rule::Rule;
-  /// use walrs_validation::ValidateRef;
-  ///
-  /// let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
-  /// let compiled = rule.compile();
-  ///
-  /// // Repeated calls reuse the cached regex
-  /// assert!(compiled.validate_ref("123").is_ok());
-  /// assert!(compiled.validate_ref("456").is_ok());
-  /// ```
-  pub fn compile(self) -> CompiledRule<String> {
-    CompiledRule::new(self)
-  }
-}
-
-impl<T: SteppableValue + IsEmpty + Clone> Rule<T> {
-  /// Compiles this rule for efficient repeated validation.
-  pub fn compile(self) -> CompiledRule<T> {
-    CompiledRule::new(self)
-  }
-}
 
 // Trait implementations moved to rule_impls modules
 
@@ -938,7 +919,7 @@ mod tests {
   fn test_rule_and_combinator_flattens() {
     let rule1 = Rule::<String>::MinLength(3);
     let rule2 = Rule::<String>::MaxLength(10);
-    let rule3 = Rule::<String>::Pattern(r"^\w+$".to_string());
+    let rule3 = Rule::<String>::pattern(r"^\w+$").unwrap();
 
     let combined = rule1.and(rule2).and(rule3);
 
@@ -1160,8 +1141,8 @@ mod tests {
   // ==========================================================================
   #[test]
   fn test_e2e_only_rule_and_validators() {
-    let slug = Rule::<String>::Pattern(r"(?i)^[\w\-]{1,108}$".to_string());
-    let screen_name = Rule::<String>::Pattern(r"(?i)^[a-z][\w\-]{7,55}$".to_string());
+    let slug = Rule::<String>::pattern(r"(?i)^[\w\-]{1,108}$").unwrap();
+    let screen_name = Rule::<String>::pattern(r"(?i)^[a-z][\w\-]{7,55}$").unwrap();
     let numeric_id = Rule::<usize>::Range { min: 1, max: usize::MAX };
 
     assert!(slug.validate_ref("hello-world").is_ok());

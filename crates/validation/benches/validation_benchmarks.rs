@@ -17,14 +17,10 @@ fn bench_string_email(c: &mut Criterion) {
 }
 
 fn bench_string_pattern(c: &mut Criterion) {
-    let rule = Rule::<String>::Pattern(r"^[a-zA-Z0-9_\-]{3,30}$".to_string());
-    let compiled = rule.clone().compile();
+    let rule = Rule::<String>::pattern(r"^[a-zA-Z0-9_\-]{3,30}$").unwrap();
 
-    c.bench_function("pattern uncompiled", |b| {
+    c.bench_function("pattern rule", |b| {
         b.iter(|| rule.validate_ref("hello_world"))
-    });
-    c.bench_function("pattern compiled", |b| {
-        b.iter(|| compiled.validate_ref("hello_world"))
     });
 }
 
@@ -95,7 +91,7 @@ fn bench_composite_all(c: &mut Criterion) {
     let rule = Rule::<String>::Required
         .and(Rule::MinLength(3))
         .and(Rule::MaxLength(50))
-        .and(Rule::Pattern(r"^[a-zA-Z0-9_]+$".to_string()));
+        .and(Rule::pattern(r"^[a-zA-Z0-9_]+$").unwrap());
 
     c.bench_function("composite All (4 rules) valid", |b| {
         b.iter(|| rule.validate_ref("hello_world"))
@@ -115,23 +111,6 @@ fn bench_composite_any(c: &mut Criterion) {
     });
     c.bench_function("composite Any (3 rules) last match", |b| {
         b.iter(|| rule.validate(200))
-    });
-}
-
-// ============================================================================
-// CompiledRule vs uncompiled
-// ============================================================================
-
-fn bench_compiled_vs_uncompiled(c: &mut Criterion) {
-    let rule = Rule::<String>::Pattern(r"^[a-z]{3,30}$".to_string());
-    let compiled = rule.clone().compile();
-    let value = "hello";
-
-    c.bench_function("uncompiled pattern (recompiles regex each call)", |b| {
-        b.iter(|| rule.validate_ref(value))
-    });
-    c.bench_function("compiled pattern (cached regex)", |b| {
-        b.iter(|| compiled.validate_ref(value))
     });
 }
 
@@ -156,7 +135,6 @@ criterion_group!(
     composite_benches,
     bench_composite_all,
     bench_composite_any,
-    bench_compiled_vs_uncompiled,
 );
 
 criterion_main!(string_benches, numeric_benches, composite_benches);

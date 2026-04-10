@@ -58,7 +58,7 @@ fn main() {
     Rule::Required,
     Rule::MinLength(8),
     Rule::MaxLength(128),
-    Rule::Pattern(r"[A-Z]".to_string()), // Must contain uppercase
+    Rule::pattern(r"[A-Z]").unwrap(), // Must contain uppercase
   ]);
 
   println!(
@@ -72,7 +72,7 @@ fn main() {
 
   // Example 4: Using .or() combinator (Any must pass)
   println!("\n4. Using .or() combinator (Any must pass):");
-  let contact_rule = Rule::<String>::Email(Default::default()).or(Rule::Pattern(r"^\d{3}-\d{4}$".to_string()));
+  let contact_rule = Rule::<String>::Email(Default::default()).or(Rule::pattern(r"^\d{3}-\d{4}$").unwrap());
 
   println!(
     "   'user@example.com': {:?}",
@@ -91,8 +91,8 @@ fn main() {
   println!("\n5. Using Rule::Any directly:");
   let flexible_id = Rule::<String>::Any(vec![
     Rule::Email(Default::default()),
-    Rule::Pattern(r"^\d{5,10}$".to_string()), // Numeric ID
-    Rule::Pattern(r"^[A-Z]{2}\d{6}$".to_string()), // Code format
+    Rule::pattern(r"^\d{5,10}$").unwrap(), // Numeric ID
+    Rule::pattern(r"^[A-Z]{2}\d{6}$").unwrap(), // Code format
   ]);
 
   println!(
@@ -157,7 +157,7 @@ fn main() {
   println!("\n9. Pattern matching:");
   let email_pattern = Rule::<String>::Email(Default::default());
   let url_pattern = Rule::<String>::Url(Default::default());
-  let custom_pattern = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
+  let custom_pattern = Rule::<String>::pattern(r"^[a-z]+$").unwrap();
 
   println!(
     "   Email on 'test@example.com': {:?}",
@@ -250,8 +250,8 @@ fn main() {
   println!("\n14. Validating with combined rules:");
   let strict_rule = Rule::<String>::Required
     .and(Rule::MinLength(8))
-    .and(Rule::Pattern(r"[0-9]".to_string()).with_message("Must contain a number"))
-    .and(Rule::Pattern(r"[A-Z]".to_string()).with_message("Must contain uppercase"));
+    .and(Rule::pattern(r"[0-9]").unwrap().with_message("Must contain a number"))
+    .and(Rule::pattern(r"[A-Z]").unwrap().with_message("Must contain uppercase"));
 
   match strict_rule.validate_ref("abc") {
     Ok(()) => println!("   All rules passed!"),

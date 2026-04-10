@@ -39,7 +39,7 @@ fn main() {
     // -------------------------------------------------------------------------
     // Regex pattern matching
     // -------------------------------------------------------------------------
-    let slug_rule = Rule::<String>::Pattern(r"(?i)^[\w\-]{1,100}$".to_string());
+    let slug_rule = Rule::<String>::pattern(r"(?i)^[\w\-]{1,100}$").unwrap();
     assert!(slug_rule.validate_ref("my-article-title").is_ok());
     assert!(slug_rule.validate_ref("invalid slug!").is_err());
 

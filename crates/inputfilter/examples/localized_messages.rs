@@ -124,14 +124,14 @@ fn main() {
       }
     }, None))
     .and(
-      Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message_provider(|ctx| match ctx.locale {
+      Rule::<String>::pattern(r"[A-Z]").unwrap().with_message_provider(|ctx| match ctx.locale {
         Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
         Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
         _ => "Password must contain at least one uppercase letter".to_string(),
       }, None),
     )
     .and(
-      Rule::<String>::Pattern(r"[0-9]".to_string()).with_message_provider(|ctx| match ctx.locale {
+      Rule::<String>::pattern(r"[0-9]").unwrap().with_message_provider(|ctx| match ctx.locale {
         Some("es") => "La contraseña debe contener al menos un número".to_string(),
         Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),
         _ => "Password must contain at least one number".to_string(),
@@ -227,7 +227,7 @@ fn main() {
   // locale on the rule, then validate via the ValidateRef trait.
 
   let age_rule =
-    Rule::<String>::Pattern(r"^\d+$".to_string()).with_message_provider(|ctx| match ctx.locale {
+    Rule::<String>::pattern(r"^\d+$").unwrap().with_message_provider(|ctx| match ctx.locale {
       Some("es") => format!("'{}' no es un número válido", ctx.value),
       Some("fr") => format!("'{}' n'est pas un nombre valide", ctx.value),
       _ => format!("'{}' is not a valid number", ctx.value),

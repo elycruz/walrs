@@ -61,15 +61,15 @@ fn main() {
   println!("\n4. Serialize complex rule compositions:");
   let complex_rule = Rule::<String>::Required
     .and(Rule::MinLength(8))
-    .and(Rule::Pattern(r"[A-Z]".to_string()))
-    .and(Rule::Pattern(r"[0-9]".to_string()));
+    .and(Rule::pattern(r"[A-Z]").unwrap())
+    .and(Rule::pattern(r"[0-9]").unwrap());
 
   let json = serde_json::to_string_pretty(&complex_rule).unwrap();
   println!("{}", json);
 
   // Example 5: Serialize Rule::Any
   println!("\n5. Serialize Rule::Any:");
-  let any_rule = Rule::<String>::Any(vec![Rule::Email(Default::default()), Rule::Pattern(r"^\d{10}$".to_string())]);
+  let any_rule = Rule::<String>::Any(vec![Rule::Email(Default::default()), Rule::pattern(r"^\d{10}$").unwrap()]);
 
   let json = serde_json::to_string_pretty(&any_rule).unwrap();
   println!("{}", json);

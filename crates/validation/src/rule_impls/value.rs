@@ -28,10 +28,8 @@ impl Condition<Value> {
       Condition::LessThan(threshold) => {
         value.partial_cmp(threshold) == Some(Ordering::Less)
       }
-      Condition::Matches(pattern) => match value {
-        Value::Str(s) => regex::Regex::new(pattern)
-          .map(|re| re.is_match(s))
-          .unwrap_or(false),
+      Condition::Matches(cp) => match value {
+        Value::Str(s) => cp.0.is_match(s),
         _ => false,
       },
       Condition::Custom(f) => f(value),
@@ -105,9 +103,9 @@ impl Rule<Value> {
       },
 
       // ---- String rules ----
-      Rule::Pattern(pattern) => match value {
+      Rule::Pattern(cp) => match value {
         Value::Str(s) => {
-          Rule::<String>::Pattern(pattern.clone()).validate_str(s.as_str())
+          Rule::<String>::Pattern(cp.clone()).validate_str(s.as_str())
         }
         _ => Err(Violation::new(
           ViolationType::TypeMismatch,
@@ -476,7 +474,7 @@ mod tests {
 
   #[test]
   fn test_pattern() {
-    let rule = Rule::<Value>::Pattern(r"^\d+$".to_string());
+    let rule = Rule::<Value>::pattern(r"^\d+$").unwrap();
     assert!(rule.validate_value(&Value::Str("123".to_string())).is_ok());
     assert!(rule.validate_value(&Value::Str("abc".to_string())).is_err());
   }

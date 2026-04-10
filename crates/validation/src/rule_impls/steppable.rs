@@ -1,7 +1,6 @@
 use crate::rule::{Rule, RuleResult};
 use crate::traits::{IsEmpty, Validate};
 use crate::{SteppableValue, Violation};
-use crate::CompiledRule;
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
@@ -219,26 +218,6 @@ impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T> {
   }
 }
 
-impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for CompiledRule<T> {
-  fn validate(&self, value: T) -> crate::ValidatorResult {
-    self.rule.validate_step(value)
-  }
-}
-
-impl<T: SteppableValue + IsEmpty + Clone> CompiledRule<T> {
-  /// Validates a numeric value using the compiled rule.
-  #[allow(dead_code)] // Reserved for a future public API
-  pub(crate) fn validate_step(&self, value: T) -> RuleResult {
-    self.rule.validate_step(value)
-  }
-
-  /// Validates a numeric value and collects all violations.
-  #[allow(dead_code)] // Reserved for a future `validate_all` public API
-  pub(crate) fn validate_step_all(&self, value: T) -> Result<(), crate::Violations> {
-    self.rule.validate_step_all(value)
-  }
-}
-
 // ============================================================================
 // Async Numeric Validation
 // ============================================================================
@@ -327,13 +306,6 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
 impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> for Rule<T> {
   async fn validate_async(&self, value: T) -> crate::ValidatorResult {
     self.validate_step_async(value).await
-  }
-}
-
-#[cfg(feature = "async")]
-impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> for CompiledRule<T> {
-  async fn validate_async(&self, value: T) -> crate::ValidatorResult {
-    self.rule.validate_step_async(value).await
   }
 }
 
@@ -489,22 +461,6 @@ mod tests {
 
     let result = rule.validate_option_step_all(Some(55));
     assert!(result.is_err());
-  }
-
-  // ========================================================================
-  // CompiledRule (Numeric) Tests
-  // ========================================================================
-
-  #[test]
-  fn test_compiled_rule_numeric() {
-    let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_step(50).is_ok());
-    assert!(compiled.validate_step(0).is_ok());
-    assert!(compiled.validate_step(100).is_ok());
-    assert!(compiled.validate_step(-1).is_err());
-    assert!(compiled.validate_step(101).is_err());
   }
 
   // ========================================================================

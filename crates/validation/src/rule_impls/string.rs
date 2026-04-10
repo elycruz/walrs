@@ -1,7 +1,6 @@
 use crate::rule::{Rule, RuleResult};
 use crate::Violation;
 use crate::traits::ValidateRef;
-use crate::CompiledRule;
 use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
@@ -384,22 +383,6 @@ fn validate_date_range_str_dispatch(_value: &str, _opts: &DateRangeOptions) -> R
   ))
 }
 
-/// Cached validators for a compiled rule.
-///
-/// This struct holds compiled regex patterns for string validation rules.
-/// Included in `CompiledRule` for all types, but only populated for String rules.
-#[derive(Debug, Default)]
-pub(crate) struct CachedStringValidators {
-  /// Cached regex for Pattern rules
-  pub(crate) pattern_regex: Option<regex::Regex>,
-}
-
-impl CachedStringValidators {
-  pub(crate) fn new() -> Self {
-    Self::default()
-  }
-}
-
 impl Rule<String> {
   /// Validates a string value against this rule.
   pub(crate) fn validate_str(&self, value: &str) -> RuleResult {
@@ -443,15 +426,12 @@ impl Rule<String> {
           Ok(())
         }
       }
-      Rule::Pattern(pattern) => match regex::Regex::new(pattern) {
-        Ok(re) => {
-          if re.is_match(value) {
+      Rule::Pattern(cp) => {
+          if cp.0.is_match(value) {
             Ok(())
           } else {
-            Err(Violation::pattern_mismatch(pattern))
+            Err(Violation::pattern_mismatch(cp.as_str()))
           }
-        }
-        Err(_) => Err(Violation::pattern_mismatch(pattern)),
       },
       Rule::Email(opts) => validate_email(value, opts),
       Rule::Url(opts) => validate_url(value, opts),
@@ -637,166 +617,6 @@ impl ValidateRef<str> for Rule<String> {
   }
 }
 
-impl ValidateRef<str> for CompiledRule<String> {
-  fn validate_ref(&self, value: &str) -> crate::ValidatorResult {
-    CompiledRule::validate_str(self, value)
-  }
-}
-
-impl CompiledRule<String> {
-  /// Gets or initializes the cached string validators.
-  fn get_or_init_cache(&self) -> &CachedStringValidators {
-    self.string_cache.get_or_init(|| {
-      let mut cache = CachedStringValidators::new();
-
-      // Pre-compile pattern regex if applicable
-      if let Rule::Pattern(pattern) = &self.rule {
-        cache.pattern_regex = regex::Regex::new(pattern).ok();
-      }
-
-      cache
-    })
-  }
-
-  /// Validates a string value using cached validators.
-  pub(crate) fn validate_str(&self, value: &str) -> RuleResult {
-    self.validate_str_with_cache(value, self.get_or_init_cache())
-  }
-
-  fn validate_str_with_cache(&self, value: &str, cache: &CachedStringValidators) -> RuleResult {
-    match &self.rule {
-      Rule::Required => {
-        if value.trim().is_empty() {
-          Err(Violation::value_missing())
-        } else {
-          Ok(())
-        }
-      }
-      Rule::MinLength(min) => {
-        let len = value.chars().count();
-        if len < *min {
-          Err(Violation::too_short(*min, len))
-        } else {
-          Ok(())
-        }
-      }
-      Rule::MaxLength(max) => {
-        let len = value.chars().count();
-        if len > *max {
-          Err(Violation::too_long(*max, len))
-        } else {
-          Ok(())
-        }
-      }
-      Rule::ExactLength(expected) => {
-        let len = value.chars().count();
-        if len != *expected {
-          Err(Violation::exact_length(*expected, len))
-        } else {
-          Ok(())
-        }
-      }
-      Rule::Pattern(pattern) => {
-        // Use cached regex if available
-        let matches = cache
-          .pattern_regex
-          .as_ref()
-          .map(|re| re.is_match(value))
-          .unwrap_or_else(|| {
-            regex::Regex::new(pattern)
-              .map(|re| re.is_match(value))
-              .unwrap_or(false)
-          });
-        if matches {
-          Ok(())
-        } else {
-          Err(Violation::pattern_mismatch(pattern))
-        }
-      }
-      Rule::Email(opts) => validate_email(value, opts),
-      Rule::Url(opts) => validate_url(value, opts),
-      Rule::Uri(opts) => validate_uri(value, opts),
-      Rule::Ip(opts) => validate_ip(value, opts),
-      Rule::Hostname(opts) => validate_hostname(value, opts),
-      Rule::Date(opts) => validate_date_str_dispatch(value, opts),
-      Rule::DateRange(opts) => validate_date_range_str_dispatch(value, opts),
-      Rule::Equals(expected) => {
-        if value == expected {
-          Ok(())
-        } else {
-          Err(Violation::not_equal(expected))
-        }
-      }
-      Rule::OneOf(allowed) => {
-        if allowed.iter().any(|v| v == value) {
-          Ok(())
-        } else {
-          Err(Violation::not_one_of())
-        }
-      }
-      Rule::All(rules) => {
-        for rule in rules {
-          CompiledRule::new(rule.clone()).validate_str(value)?;
-        }
-        Ok(())
-      }
-      Rule::Any(rules) => {
-        if rules.is_empty() {
-          return Ok(());
-        }
-        let mut last_err = None;
-        for rule in rules {
-          match CompiledRule::new(rule.clone()).validate_str(value) {
-            Ok(()) => return Ok(()),
-            Err(e) => last_err = Some(e),
-          }
-        }
-        Err(last_err.unwrap())
-      }
-      Rule::Not(inner) => match CompiledRule::new((**inner).clone()).validate_str(value) {
-        Ok(()) => Err(Violation::negation_failed()),
-        Err(_) => Ok(()),
-      },
-      Rule::When {
-        condition,
-        then_rule,
-        else_rule,
-      } => {
-        let should_apply = condition.evaluate_str(value);
-        if should_apply {
-          CompiledRule::new((**then_rule).clone()).validate_str(value)
-        } else {
-          match else_rule {
-            Some(rule) => CompiledRule::new((**rule).clone()).validate_str(value),
-            None => Ok(()),
-          }
-        }
-      }
-      Rule::Custom(f) => f(&value.to_string()),
-      #[cfg(feature = "async")]
-      Rule::CustomAsync(_) => Ok(()),
-      Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
-        let effective_locale = locale.as_deref();
-        match CompiledRule::new((**rule).clone()).validate_str(value) {
-          Ok(()) => Ok(()),
-          Err(violation) => {
-            let custom_msg = message.resolve_or(&value.to_string(), violation.message(), effective_locale);
-            Err(Violation::new(violation.violation_type(), custom_msg))
-          }
-        }
-      }
-      Rule::Min(_) | Rule::Max(_) | Rule::Range { .. } | Rule::Step(_) => Ok(()),
-    }
-  }
-
-  /// Validates a string value and collects all violations.
-  #[allow(dead_code)] // Reserved for a future `validate_all` public API
-  pub(crate) fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
-    self.rule.validate_str_all(value)
-  }
-}
-
 // ============================================================================
 // Async String Validation
 // ============================================================================
@@ -889,13 +709,6 @@ impl crate::ValidateRefAsync<str> for Rule<String> {
   }
 }
 
-#[cfg(feature = "async")]
-impl crate::ValidateRefAsync<str> for CompiledRule<String> {
-  async fn validate_ref_async(&self, value: &str) -> crate::ValidatorResult {
-    self.rule.validate_str_async(value).await
-  }
-}
-
 // ============================================================================
 // Tests
 // ============================================================================
@@ -944,7 +757,7 @@ mod tests {
 
   #[test]
   fn test_validate_str_pattern() {
-    let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
     assert!(rule.validate_str("123").is_ok());
     assert!(rule.validate_str("abc").is_err());
     assert!(rule.validate_str("12a").is_err());
@@ -1080,11 +893,11 @@ mod tests {
 
   #[test]
   fn test_validate_str_url_compiled() {
-    let compiled = Rule::<String>::Url(crate::UrlOptions::default()).compile();
-    assert!(compiled.validate_str("http://example.com").is_ok());
-    assert!(compiled.validate_str("https://example.com/path?q=1#frag").is_ok());
-    assert!(compiled.validate_str("not-a-url").is_err());
-    assert!(compiled.validate_str("ftp://example.com").is_err());
+    let rule = Rule::<String>::Url(crate::UrlOptions::default());
+    assert!(rule.validate_str("http://example.com").is_ok());
+    assert!(rule.validate_str("https://example.com/path?q=1#frag").is_ok());
+    assert!(rule.validate_str("not-a-url").is_err());
+    assert!(rule.validate_str("ftp://example.com").is_err());
   }
 
   #[test]
@@ -1158,7 +971,7 @@ mod tests {
   fn test_validate_str_all_violations() {
     let rule = Rule::<String>::MinLength(3)
       .and(Rule::MaxLength(5))
-      .and(Rule::Pattern(r"^\d+$".to_string()));
+      .and(Rule::pattern(r"^\d+$").unwrap());
 
     assert!(rule.validate_str_all("123").is_ok());
 
@@ -1177,7 +990,7 @@ mod tests {
     let rule = Rule::<String>::MinLength(3);
     assert!(rule.validate_str_option(None).is_ok());
 
-    let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
     assert!(rule.validate_str_option(None).is_ok());
 
     let rule = Rule::<String>::Email(Default::default());
@@ -1231,104 +1044,6 @@ mod tests {
 
     assert!(rule.validate_str_option_all(Some("hello")).is_ok());
     assert!(rule.validate_str_option_all(Some("hi")).is_err());
-  }
-
-  // ========================================================================
-  // CompiledRule (String) Tests
-  // ========================================================================
-
-  #[test]
-  fn test_compiled_rule_string_basic() {
-    let rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(10));
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str("hello").is_ok());
-    assert!(compiled.validate_str("hi").is_err());
-    assert!(compiled.validate_str("hello world!").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_pattern_cached() {
-    let rule = Rule::<String>::Pattern(r"^\d{3}-\d{4}$".to_string());
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str("123-4567").is_ok());
-    assert!(compiled.validate_str("999-0000").is_ok());
-    assert!(compiled.validate_str("abc-defg").is_err());
-    assert!(compiled.validate_str("12-345").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_email() {
-    let rule = Rule::<String>::Email(Default::default());
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str("user@example.com").is_ok());
-    assert!(compiled.validate_str("test@sub.domain.org").is_ok());
-    assert!(compiled.validate_str("invalid").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_url() {
-    let rule = Rule::<String>::Url(crate::UrlOptions::default());
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str("http://example.com").is_ok());
-    assert!(compiled.validate_str("https://example.com/path?query=1").is_ok());
-    assert!(compiled.validate_str("not-a-url").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_clone() {
-    let rule = Rule::<String>::Pattern(r"^\w+$".to_string());
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str("hello").is_ok());
-
-    let cloned = compiled.clone();
-    assert!(cloned.validate_str("world").is_ok());
-  }
-
-  #[test]
-  fn test_compiled_rule_debug() {
-    let rule = Rule::<String>::MinLength(5);
-    let compiled = rule.compile();
-    let debug_str = format!("{:?}", compiled);
-    assert!(debug_str.contains("CompiledRule"));
-    assert!(debug_str.contains("MinLength"));
-  }
-
-  #[test]
-  fn test_compiled_rule_into_rule() {
-    let rule = Rule::<String>::Required;
-    let compiled = rule.clone().compile();
-    let recovered = compiled.into_rule();
-    assert_eq!(recovered, rule);
-  }
-
-  #[test]
-  fn test_compiled_rule_with_trait() {
-    use crate::ValidateRef;
-
-    let rule = Rule::<String>::MinLength(3);
-    let compiled = rule.compile();
-
-    let validator: &dyn ValidateRef<str> = &compiled;
-    assert!(validator.validate_ref("hello").is_ok());
-    assert!(validator.validate_ref("hi").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_validate_all() {
-    let rule = Rule::<String>::MinLength(3)
-      .and(Rule::MaxLength(5))
-      .and(Rule::Pattern(r"^[a-z]+$".to_string()));
-    let compiled = rule.compile();
-
-    assert!(compiled.validate_str_all("abc").is_ok());
-
-    let result = compiled.validate_str_all("AB");
-    assert!(result.is_err());
   }
 
   // ========================================================================
@@ -1435,15 +1150,14 @@ mod tests {
   }
 
   #[test]
-  fn test_compiled_rule_uri() {
+  fn test_validate_uri_scheme_restriction() {
     let rule = Rule::<String>::Uri(crate::UriOptions {
       allow_absolute: true,
       allow_relative: false,
       allowed_schemes: Some(vec!["https".into()]),
     });
-    let compiled = rule.compile();
-    assert!(compiled.validate_str("https://example.com").is_ok());
-    assert!(compiled.validate_str("http://example.com").is_err());
+    assert!(rule.validate_str("https://example.com").is_ok());
+    assert!(rule.validate_str("http://example.com").is_err());
   }
 
   // ========================================================================
@@ -1566,18 +1280,6 @@ mod tests {
     let rule = Rule::<String>::Required.and(Rule::Ip(crate::IpOptions::default()));
     assert!(rule.validate_str("192.168.1.1").is_ok());
     assert!(rule.validate_str("").is_err());
-  }
-
-  #[test]
-  fn test_compiled_rule_ip() {
-    let rule = Rule::<String>::Ip(crate::IpOptions {
-      allow_ipv4: true,
-      allow_ipv6: false,
-      ..Default::default()
-    });
-    let compiled = rule.compile();
-    assert!(compiled.validate_str("192.168.1.1").is_ok());
-    assert!(compiled.validate_str("::1").is_err());
   }
 
   #[test]
@@ -1789,14 +1491,13 @@ mod tests {
   }
 
   #[test]
-  fn test_compiled_rule_hostname() {
+  fn test_validate_hostname_no_ip() {
     let rule = Rule::<String>::Hostname(crate::HostnameOptions {
       allow_ip: false,
       ..Default::default()
     });
-    let compiled = rule.compile();
-    assert!(compiled.validate_str("example.com").is_ok());
-    assert!(compiled.validate_str("192.168.1.1").is_err());
+    assert!(rule.validate_str("example.com").is_ok());
+    assert!(rule.validate_str("192.168.1.1").is_err());
   }
 
   #[test]

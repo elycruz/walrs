@@ -119,23 +119,7 @@ let result = rule.validate_ref_async("hello").await;
 assert!(result.is_ok());
 ```
 
-## CompiledRule, WithMessage, and the Message System
-
-### `CompiledRule<T>`
-
-`CompiledRule<T>` wraps a `Rule<T>` and caches compiled resources (e.g., regex
-patterns) for efficient repeated validation:
-
-```rust
-use walrs_validation::Rule;
-
-let rule = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
-let compiled = rule.compile();
-
-// The regex is compiled once and reused on every call
-assert!(compiled.validate_ref("hello").is_ok());
-assert!(compiled.validate_ref("HELLO").is_err());
-```
+## WithMessage — Custom Violation Messages
 
 ### `WithMessage` — custom violation messages
 
