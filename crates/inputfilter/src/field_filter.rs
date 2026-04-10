@@ -466,11 +466,9 @@ fn evaluate_condition(condition: &Condition<Value>, value: &Value) -> bool {
     Condition::LessThan(threshold) => {
       value.partial_cmp(threshold) == Some(std::cmp::Ordering::Less)
     }
-    Condition::Matches(pattern) => {
+    Condition::Matches(cp) => {
       if let Some(s) = value.as_str() {
-        regex::Regex::new(pattern)
-          .map(|re| re.is_match(s))
-          .unwrap_or(false)
+        cp.0.is_match(s)
       } else {
         false
       }

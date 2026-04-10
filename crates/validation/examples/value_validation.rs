@@ -49,7 +49,7 @@ fn main() {
     // -------------------------------------------------------------------------
     // Pattern on string values
     // -------------------------------------------------------------------------
-    let email_pattern = Rule::<Value>::Pattern(r"^[^@\s]+@[^@\s]+\.[^@\s]+$".to_string());
+    let email_pattern = Rule::<Value>::pattern(r"^[^@\s]+@[^@\s]+\.[^@\s]+$").unwrap();
 
     assert!(email_pattern.validate(Value::Str("user@example.com".into())).is_ok());
     assert!(email_pattern.validate(Value::Str("not-an-email".into())).is_err());

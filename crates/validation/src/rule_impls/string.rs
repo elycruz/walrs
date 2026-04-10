@@ -386,17 +386,16 @@ fn validate_date_range_str_dispatch(_value: &str, _opts: &DateRangeOptions) -> R
 
 /// Cached validators for a compiled rule.
 ///
-/// This struct holds compiled regex patterns for string validation rules.
+/// This struct holds cached validators for string validation rules.
 /// Included in `CompiledRule` for all types, but only populated for String rules.
+/// Currently empty since `Pattern` now holds a pre-compiled regex, but retained
+/// for future cached validators.
 #[derive(Debug, Default)]
-pub(crate) struct CachedStringValidators {
-  /// Cached regex for Pattern rules
-  pub(crate) pattern_regex: Option<regex::Regex>,
-}
+pub(crate) struct CachedStringValidators;
 
 impl CachedStringValidators {
   pub(crate) fn new() -> Self {
-    Self::default()
+    Self
   }
 }
 
@@ -443,15 +442,12 @@ impl Rule<String> {
           Ok(())
         }
       }
-      Rule::Pattern(pattern) => match regex::Regex::new(pattern) {
-        Ok(re) => {
-          if re.is_match(value) {
+      Rule::Pattern(cp) => {
+          if cp.0.is_match(value) {
             Ok(())
           } else {
-            Err(Violation::pattern_mismatch(pattern))
+            Err(Violation::pattern_mismatch(cp.as_str()))
           }
-        }
-        Err(_) => Err(Violation::pattern_mismatch(pattern)),
       },
       Rule::Email(opts) => validate_email(value, opts),
       Rule::Url(opts) => validate_url(value, opts),
@@ -646,16 +642,7 @@ impl ValidateRef<str> for CompiledRule<String> {
 impl CompiledRule<String> {
   /// Gets or initializes the cached string validators.
   fn get_or_init_cache(&self) -> &CachedStringValidators {
-    self.string_cache.get_or_init(|| {
-      let mut cache = CachedStringValidators::new();
-
-      // Pre-compile pattern regex if applicable
-      if let Rule::Pattern(pattern) = &self.rule {
-        cache.pattern_regex = regex::Regex::new(pattern).ok();
-      }
-
-      cache
-    })
+    self.string_cache.get_or_init(CachedStringValidators::new)
   }
 
   /// Validates a string value using cached validators.
@@ -663,7 +650,7 @@ impl CompiledRule<String> {
     self.validate_str_with_cache(value, self.get_or_init_cache())
   }
 
-  fn validate_str_with_cache(&self, value: &str, cache: &CachedStringValidators) -> RuleResult {
+  fn validate_str_with_cache(&self, value: &str, _cache: &CachedStringValidators) -> RuleResult {
     match &self.rule {
       Rule::Required => {
         if value.trim().is_empty() {
@@ -696,21 +683,11 @@ impl CompiledRule<String> {
           Ok(())
         }
       }
-      Rule::Pattern(pattern) => {
-        // Use cached regex if available
-        let matches = cache
-          .pattern_regex
-          .as_ref()
-          .map(|re| re.is_match(value))
-          .unwrap_or_else(|| {
-            regex::Regex::new(pattern)
-              .map(|re| re.is_match(value))
-              .unwrap_or(false)
-          });
-        if matches {
+      Rule::Pattern(cp) => {
+        if cp.0.is_match(value) {
           Ok(())
         } else {
-          Err(Violation::pattern_mismatch(pattern))
+          Err(Violation::pattern_mismatch(cp.as_str()))
         }
       }
       Rule::Email(opts) => validate_email(value, opts),
@@ -944,7 +921,7 @@ mod tests {
 
   #[test]
   fn test_validate_str_pattern() {
-    let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
     assert!(rule.validate_str("123").is_ok());
     assert!(rule.validate_str("abc").is_err());
     assert!(rule.validate_str("12a").is_err());
@@ -1158,7 +1135,7 @@ mod tests {
   fn test_validate_str_all_violations() {
     let rule = Rule::<String>::MinLength(3)
       .and(Rule::MaxLength(5))
-      .and(Rule::Pattern(r"^\d+$".to_string()));
+      .and(Rule::pattern(r"^\d+$").unwrap());
 
     assert!(rule.validate_str_all("123").is_ok());
 
@@ -1177,7 +1154,7 @@ mod tests {
     let rule = Rule::<String>::MinLength(3);
     assert!(rule.validate_str_option(None).is_ok());
 
-    let rule = Rule::<String>::Pattern(r"^\d+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\d+$").unwrap();
     assert!(rule.validate_str_option(None).is_ok());
 
     let rule = Rule::<String>::Email(Default::default());
@@ -1249,7 +1226,7 @@ mod tests {
 
   #[test]
   fn test_compiled_rule_pattern_cached() {
-    let rule = Rule::<String>::Pattern(r"^\d{3}-\d{4}$".to_string());
+    let rule = Rule::<String>::pattern(r"^\d{3}-\d{4}$").unwrap();
     let compiled = rule.compile();
 
     assert!(compiled.validate_str("123-4567").is_ok());
@@ -1280,7 +1257,7 @@ mod tests {
 
   #[test]
   fn test_compiled_rule_clone() {
-    let rule = Rule::<String>::Pattern(r"^\w+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\w+$").unwrap();
     let compiled = rule.compile();
 
     assert!(compiled.validate_str("hello").is_ok());
@@ -1322,7 +1299,7 @@ mod tests {
   fn test_compiled_rule_validate_all() {
     let rule = Rule::<String>::MinLength(3)
       .and(Rule::MaxLength(5))
-      .and(Rule::Pattern(r"^[a-z]+$".to_string()));
+      .and(Rule::pattern(r"^[a-z]+$").unwrap());
     let compiled = rule.compile();
 
     assert!(compiled.validate_str_all("abc").is_ok());

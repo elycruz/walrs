@@ -67,7 +67,7 @@ pub mod violation;
 pub use attributes::*;
 pub use message::*;
 pub use options::*;
-pub use rule::{CompiledRule, Condition, Rule, RuleResult};
+pub use rule::{CompiledPattern, CompiledRule, Condition, Rule, RuleResult};
 pub use traits::*;
 pub use value::*;
 pub use violation::*;

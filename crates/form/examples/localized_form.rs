@@ -116,7 +116,7 @@ impl LocalizedFormValidator {
         }
       }, None))
       .and(
-        Rule::<String>::Pattern(r"[A-Z]".to_string()).with_message_provider(|ctx| {
+        Rule::<String>::pattern(r"[A-Z]").unwrap().with_message_provider(|ctx| {
           match ctx.locale {
             Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
             Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
@@ -126,7 +126,7 @@ impl LocalizedFormValidator {
         }, None),
       )
       .and(
-        Rule::<String>::Pattern(r"[0-9]".to_string()).with_message_provider(|ctx| {
+        Rule::<String>::pattern(r"[0-9]").unwrap().with_message_provider(|ctx| {
           match ctx.locale {
             Some("es") => "La contraseña debe contener al menos un número".to_string(),
             Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),

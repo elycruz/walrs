@@ -129,7 +129,7 @@ patterns) for efficient repeated validation:
 ```rust
 use walrs_validation::Rule;
 
-let rule = Rule::<String>::Pattern(r"^[a-z]+$".to_string());
+let rule = Rule::<String>::pattern(r"^[a-z]+$").unwrap();
 let compiled = rule.compile();
 
 // The regex is compiled once and reused on every call

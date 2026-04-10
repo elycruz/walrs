@@ -69,9 +69,9 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
       ]),
 
       // String Rules
-      Rule::Pattern(p) => Some(vec![(
+      Rule::Pattern(cp) => Some(vec![(
         "pattern".to_string(),
-        serde_json::Value::from(p.clone()),
+        serde_json::Value::from(cp.as_str()),
       )]),
       Rule::Email(_) => Some(vec![("type".to_string(), serde_json::Value::from("email"))]),
       Rule::Url(_) => Some(vec![("type".to_string(), serde_json::Value::from("url"))]),
@@ -194,7 +194,7 @@ mod tests {
 
   #[test]
   fn test_to_attributes_list_pattern() {
-    let rule = Rule::<String>::Pattern(r"^\w+$".to_string());
+    let rule = Rule::<String>::pattern(r"^\w+$").unwrap();
     let attrs = rule.to_attributes_list().unwrap();
     assert_eq!(attrs.len(), 1);
     assert_eq!(attrs[0].0, "pattern");
@@ -281,7 +281,7 @@ mod tests {
     let rule = Rule::<String>::Required
       .and(Rule::MinLength(5))
       .and(Rule::MaxLength(100))
-      .and(Rule::Pattern(r"^\w+$".to_string()));
+      .and(Rule::pattern(r"^\w+$").unwrap());
     let attrs = rule.to_attributes_list().unwrap();
     assert_eq!(attrs.len(), 4);
     assert!(attrs.iter().any(|(k, _)| k == "required"));

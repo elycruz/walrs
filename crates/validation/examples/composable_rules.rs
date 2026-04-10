@@ -12,8 +12,8 @@ fn main() {
     // -------------------------------------------------------------------------
     let password_rule = Rule::<String>::MinLength(8)
         .and(Rule::MaxLength(64))
-        .and(Rule::Pattern(r"[A-Z]".to_string()))  // must contain uppercase
-        .and(Rule::Pattern(r"[0-9]".to_string())); // must contain digit
+        .and(Rule::pattern(r"[A-Z]").unwrap())  // must contain uppercase
+        .and(Rule::pattern(r"[0-9]").unwrap()); // must contain digit
 
     assert!(password_rule.validate_ref("SecurePass1").is_ok());
     assert!(password_rule.validate_ref("short1A").is_err());   // too short
@@ -26,8 +26,8 @@ fn main() {
     // `.or()` — at least one rule must pass
     // -------------------------------------------------------------------------
     // Accept either a US phone (+1...) or an international phone (+44...)
-    let phone_rule = Rule::<String>::Pattern(r"^\+1\d{10}$".to_string())
-        .or(Rule::Pattern(r"^\+44\d{10}$".to_string()));
+    let phone_rule = Rule::<String>::pattern(r"^\+1\d{10}$").unwrap()
+        .or(Rule::pattern(r"^\+44\d{10}$").unwrap());
 
     assert!(phone_rule.validate_ref("+12345678901").is_ok());
     assert!(phone_rule.validate_ref("+44123456789_").is_err()); // wrong length
@@ -87,7 +87,7 @@ fn main() {
     let username_rule = Rule::<String>::Required
         .and(Rule::MinLength(3))
         .and(Rule::MaxLength(30))
-        .and(Rule::Pattern(r"^[a-zA-Z][a-zA-Z0-9_\-]*$".to_string()))
+        .and(Rule::pattern(r"^[a-zA-Z][a-zA-Z0-9_\-]*$").unwrap())
         .and(
             Rule::OneOf(vec![
                 "admin".to_string(),

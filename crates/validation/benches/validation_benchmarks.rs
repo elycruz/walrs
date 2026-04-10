@@ -17,13 +17,13 @@ fn bench_string_email(c: &mut Criterion) {
 }
 
 fn bench_string_pattern(c: &mut Criterion) {
-    let rule = Rule::<String>::Pattern(r"^[a-zA-Z0-9_\-]{3,30}$".to_string());
+    let rule = Rule::<String>::pattern(r"^[a-zA-Z0-9_\-]{3,30}$").unwrap();
     let compiled = rule.clone().compile();
 
-    c.bench_function("pattern uncompiled", |b| {
+    c.bench_function("pattern rule", |b| {
         b.iter(|| rule.validate_ref("hello_world"))
     });
-    c.bench_function("pattern compiled", |b| {
+    c.bench_function("pattern compiled rule", |b| {
         b.iter(|| compiled.validate_ref("hello_world"))
     });
 }
@@ -95,7 +95,7 @@ fn bench_composite_all(c: &mut Criterion) {
     let rule = Rule::<String>::Required
         .and(Rule::MinLength(3))
         .and(Rule::MaxLength(50))
-        .and(Rule::Pattern(r"^[a-zA-Z0-9_]+$".to_string()));
+        .and(Rule::pattern(r"^[a-zA-Z0-9_]+$").unwrap());
 
     c.bench_function("composite All (4 rules) valid", |b| {
         b.iter(|| rule.validate_ref("hello_world"))
@@ -123,14 +123,14 @@ fn bench_composite_any(c: &mut Criterion) {
 // ============================================================================
 
 fn bench_compiled_vs_uncompiled(c: &mut Criterion) {
-    let rule = Rule::<String>::Pattern(r"^[a-z]{3,30}$".to_string());
+    let rule = Rule::<String>::pattern(r"^[a-z]{3,30}$").unwrap();
     let compiled = rule.clone().compile();
     let value = "hello";
 
-    c.bench_function("uncompiled pattern (recompiles regex each call)", |b| {
+    c.bench_function("pattern rule (pre-compiled regex)", |b| {
         b.iter(|| rule.validate_ref(value))
     });
-    c.bench_function("compiled pattern (cached regex)", |b| {
+    c.bench_function("compiled rule (cached wrapper)", |b| {
         b.iter(|| compiled.validate_ref(value))
     });
 }
