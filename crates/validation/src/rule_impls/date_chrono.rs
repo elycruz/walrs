@@ -5,8 +5,24 @@ use chrono::NaiveDateTime;
 
 use crate::options::{DateFormat, DateOptions, DateRangeOptions};
 use crate::rule::{Rule, RuleResult};
-use crate::traits::{Validate, ValidateRef};
+use crate::traits::{IsEmpty, Validate, ValidateRef};
 use crate::{Violation, ViolationType};
+
+// ============================================================================
+// IsEmpty Implementations
+// ============================================================================
+
+impl IsEmpty for NaiveDate {
+  fn is_empty(&self) -> bool {
+    false
+  }
+}
+
+impl IsEmpty for NaiveDateTime {
+  fn is_empty(&self) -> bool {
+    false
+  }
+}
 
 // ============================================================================
 // String Parsing Helpers
@@ -38,10 +54,7 @@ pub(crate) fn parse_date_str(value: &str, format: &DateFormat) -> Result<NaiveDa
 }
 
 /// Parses a datetime string using the given `DateFormat`, returning a `NaiveDateTime`.
-pub(crate) fn parse_datetime_str(
-  value: &str,
-  format: &DateFormat,
-) -> Result<NaiveDateTime, ()> {
+pub(crate) fn parse_datetime_str(value: &str, format: &DateFormat) -> Result<NaiveDateTime, ()> {
   match format {
     DateFormat::Iso8601 => {
       // Try with 'T' separator first, then space
@@ -49,20 +62,12 @@ pub(crate) fn parse_datetime_str(
         .or_else(|_| NaiveDateTime::parse_from_str(value, "%Y-%m-%d %H:%M:%S"))
         .map_err(|_| ())
     }
-    DateFormat::UsDate => {
-      NaiveDateTime::parse_from_str(value, US_DATETIME_FMT)
-        .map_err(|_| ())
-    }
-    DateFormat::EuDate => {
-      NaiveDateTime::parse_from_str(value, EU_DATETIME_FMT)
-        .map_err(|_| ())
-    }
+    DateFormat::UsDate => NaiveDateTime::parse_from_str(value, US_DATETIME_FMT).map_err(|_| ()),
+    DateFormat::EuDate => NaiveDateTime::parse_from_str(value, EU_DATETIME_FMT).map_err(|_| ()),
     DateFormat::Rfc2822 => chrono::DateTime::parse_from_rfc2822(value)
       .map(|dt| dt.naive_local())
       .map_err(|_| ()),
-    DateFormat::Custom(fmt) => {
-      NaiveDateTime::parse_from_str(value, fmt).map_err(|_| ())
-    }
+    DateFormat::Custom(fmt) => NaiveDateTime::parse_from_str(value, fmt).map_err(|_| ()),
   }
 }
 
@@ -117,7 +122,10 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           // Misconfigured min bound: non-empty but unparseable
           return Err(Violation::new(
             ViolationType::CustomError,
-            format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+            format!(
+              "Invalid min date bound: '{}' cannot be parsed in the configured format.",
+              min_str
+            ),
           ));
         }
       }
@@ -135,7 +143,10 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           // Misconfigured max bound: non-empty but unparseable
           return Err(Violation::new(
             ViolationType::CustomError,
-            format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+            format!(
+              "Invalid max date bound: '{}' cannot be parsed in the configured format.",
+              max_str
+            ),
           ));
         }
       }
@@ -173,7 +184,10 @@ fn check_date_bounds(
         // Misconfigured min bound: non-empty but unparseable
         return Err(Violation::new(
           ViolationType::CustomError,
-          format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+          format!(
+            "Invalid min date bound: '{}' cannot be parsed in the configured format.",
+            min_str
+          ),
         ));
       }
       _ => {}
@@ -193,7 +207,10 @@ fn check_date_bounds(
         // Misconfigured max bound: non-empty but unparseable
         return Err(Violation::new(
           ViolationType::CustomError,
-          format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+          format!(
+            "Invalid max date bound: '{}' cannot be parsed in the configured format.",
+            max_str
+          ),
         ));
       }
       _ => {}
@@ -279,7 +296,11 @@ impl Rule<NaiveDate> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_date_inner(value, eff), value, eff)
       }
@@ -317,6 +338,133 @@ impl ValidateRef<Option<NaiveDate>> for Rule<NaiveDate> {
       None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
       Some(v) => self.validate_date(v),
+    }
+  }
+}
+
+// ============================================================================
+// Async NaiveDate Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<NaiveDate> {
+  /// Validates a `chrono::NaiveDate` value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_date_async(&self, value: &NaiveDate) -> RuleResult {
+    self.validate_date_async_inner(value, None).await
+  }
+
+  fn validate_date_async_inner<'a>(
+    &'a self,
+    value: &'a NaiveDate,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await
+            {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner
+            .validate_date_async_inner(value, inherited_locale)
+            .await
+          {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(value) {
+            then_rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await
+          } else {
+            match else_rule {
+              Some(rule) => {
+                rule
+                  .validate_date_async_inner(value, inherited_locale)
+                  .await
+              }
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff)
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_date_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<NaiveDate> for Rule<NaiveDate> {
+  async fn validate_async(&self, value: NaiveDate) -> crate::ValidatorResult {
+    self.validate_date_async(&value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<NaiveDate> for Rule<NaiveDate> {
+  async fn validate_ref_async(&self, value: &NaiveDate) -> crate::ValidatorResult {
+    self.validate_date_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<NaiveDate>> for Rule<NaiveDate> {
+  async fn validate_async(&self, value: Option<NaiveDate>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_date_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<NaiveDate>> for Rule<NaiveDate> {
+  async fn validate_ref_async(&self, value: &Option<NaiveDate>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date_async(v).await,
     }
   }
 }
@@ -402,7 +550,11 @@ impl Rule<NaiveDateTime> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_datetime_inner(value, eff), value, eff)
       }
@@ -439,6 +591,137 @@ impl ValidateRef<Option<NaiveDateTime>> for Rule<NaiveDateTime> {
       None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
       Some(v) => self.validate_datetime(v),
+    }
+  }
+}
+
+// ============================================================================
+// Async NaiveDateTime Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<NaiveDateTime> {
+  /// Validates a `chrono::NaiveDateTime` value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_datetime_async(&self, value: &NaiveDateTime) -> RuleResult {
+    self.validate_datetime_async_inner(value, None).await
+  }
+
+  fn validate_datetime_async_inner<'a>(
+    &'a self,
+    value: &'a NaiveDateTime,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await
+            {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner
+            .validate_datetime_async_inner(value, inherited_locale)
+            .await
+          {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(value) {
+            then_rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await
+          } else {
+            match else_rule {
+              Some(rule) => {
+                rule
+                  .validate_datetime_async_inner(value, inherited_locale)
+                  .await
+              }
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(
+            rule.validate_datetime_async_inner(value, eff).await,
+            value,
+            eff,
+          )
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_datetime_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<NaiveDateTime> for Rule<NaiveDateTime> {
+  async fn validate_async(&self, value: NaiveDateTime) -> crate::ValidatorResult {
+    self.validate_datetime_async(&value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<NaiveDateTime> for Rule<NaiveDateTime> {
+  async fn validate_ref_async(&self, value: &NaiveDateTime) -> crate::ValidatorResult {
+    self.validate_datetime_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<NaiveDateTime>> for Rule<NaiveDateTime> {
+  async fn validate_async(&self, value: Option<NaiveDateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_datetime_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<NaiveDateTime>> for Rule<NaiveDateTime> {
+  async fn validate_ref_async(&self, value: &Option<NaiveDateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime_async(v).await,
     }
   }
 }
@@ -525,11 +808,15 @@ mod tests {
     };
     assert!(validate_date_range_str("2025-06-15", &opts).is_ok());
     assert_eq!(
-      validate_date_range_str("2019-12-31", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     assert_eq!(
-      validate_date_range_str("2031-01-01", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -553,12 +840,16 @@ mod tests {
     assert!(validate_date_range_str("2025-06-15T12:00:00", &opts).is_ok());
     // datetime before min date
     assert_eq!(
-      validate_date_range_str("2019-12-31T23:59:59", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31T23:59:59", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     // datetime after max date
     assert_eq!(
-      validate_date_range_str("2031-01-01T00:00:00", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01T00:00:00", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -574,11 +865,15 @@ mod tests {
     };
     assert!(validate_date_range_str("2025-06-15", &opts).is_ok());
     assert_eq!(
-      validate_date_range_str("2019-12-31", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     assert_eq!(
-      validate_date_range_str("2031-01-01", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -809,7 +1104,10 @@ mod tests {
 
   #[test]
   fn test_option_datetime_none_not_required() {
-    let dt = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let dt = NaiveDate::from_ymd_opt(2024, 1, 1)
+      .unwrap()
+      .and_hms_opt(0, 0, 0)
+      .unwrap();
     let rule = Rule::<NaiveDateTime>::Min(dt);
     assert!(rule.validate(None::<NaiveDateTime>).is_ok());
     assert!(rule.validate_ref(&None::<NaiveDateTime>).is_ok());
@@ -817,8 +1115,14 @@ mod tests {
 
   #[test]
   fn test_option_datetime_some_valid() {
-    let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
-    let val = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let min = NaiveDate::from_ymd_opt(2024, 1, 1)
+      .unwrap()
+      .and_hms_opt(0, 0, 0)
+      .unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 6, 15)
+      .unwrap()
+      .and_hms_opt(12, 0, 0)
+      .unwrap();
     let rule = Rule::<NaiveDateTime>::Min(min);
     assert!(rule.validate(Some(val)).is_ok());
     assert!(rule.validate_ref(&Some(val)).is_ok());
@@ -826,10 +1130,172 @@ mod tests {
 
   #[test]
   fn test_option_datetime_some_invalid() {
-    let min = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
-    let val = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let min = NaiveDate::from_ymd_opt(2024, 6, 1)
+      .unwrap()
+      .and_hms_opt(0, 0, 0)
+      .unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 1, 15)
+      .unwrap()
+      .and_hms_opt(12, 0, 0)
+      .unwrap();
     let rule = Rule::<NaiveDateTime>::Min(min);
     assert!(rule.validate(Some(val)).is_err());
     assert!(rule.validate_ref(&Some(val)).is_err());
+  }
+
+  // ========================================================================
+  // IsEmpty Tests
+  // ========================================================================
+
+  #[test]
+  fn test_is_empty_naive_date() {
+    let d = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    assert!(!IsEmpty::is_empty(&d));
+  }
+
+  #[test]
+  fn test_is_empty_naive_datetime() {
+    let dt = NaiveDate::from_ymd_opt(2024, 6, 15)
+      .unwrap()
+      .and_hms_opt(12, 0, 0)
+      .unwrap();
+    assert!(!IsEmpty::is_empty(&dt));
+  }
+
+  // ========================================================================
+  // Async NaiveDate/NaiveDateTime Validation
+  // ========================================================================
+
+  #[cfg(feature = "async")]
+  mod async_date_tests {
+    use crate::rule::Rule;
+    use crate::{ValidateAsync, ValidateRefAsync};
+    use chrono::{NaiveDate, NaiveDateTime};
+
+    #[tokio::test]
+    async fn test_async_naive_date_min() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+      let rule = Rule::<NaiveDate>::Min(min);
+      assert!(
+        rule
+          .validate_async(NaiveDate::from_ymd_opt(2024, 6, 15).unwrap())
+          .await
+          .is_ok()
+      );
+      assert!(
+        rule
+          .validate_async(NaiveDate::from_ymd_opt(2023, 6, 15).unwrap())
+          .await
+          .is_err()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_date_ref() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+      let rule = Rule::<NaiveDate>::Min(min);
+      let val = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+      assert!(rule.validate_ref_async(&val).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_date_option_none_required() {
+      let rule = Rule::<NaiveDate>::Required;
+      assert!(rule.validate_async(None::<NaiveDate>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<NaiveDate>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_date_option_none_not_required() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+      let rule = Rule::<NaiveDate>::Min(min);
+      assert!(rule.validate_async(None::<NaiveDate>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<NaiveDate>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_date_option_some_valid() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+      let rule = Rule::<NaiveDate>::Min(min);
+      let val = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+      assert!(rule.validate_async(Some(val)).await.is_ok());
+      assert!(rule.validate_ref_async(&Some(val)).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_datetime_min() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+      let rule = Rule::<NaiveDateTime>::Min(min);
+      let ok_val = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+      let err_val = NaiveDate::from_ymd_opt(2023, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+      assert!(rule.validate_async(ok_val).await.is_ok());
+      assert!(rule.validate_async(err_val).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_datetime_ref() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+      let rule = Rule::<NaiveDateTime>::Min(min);
+      let val = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+      assert!(rule.validate_ref_async(&val).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_datetime_option_none_required() {
+      let rule = Rule::<NaiveDateTime>::Required;
+      assert!(rule.validate_async(None::<NaiveDateTime>).await.is_err());
+      assert!(
+        rule
+          .validate_ref_async(&None::<NaiveDateTime>)
+          .await
+          .is_err()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_datetime_option_none_not_required() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+      let rule = Rule::<NaiveDateTime>::Min(min);
+      assert!(rule.validate_async(None::<NaiveDateTime>).await.is_ok());
+      assert!(
+        rule
+          .validate_ref_async(&None::<NaiveDateTime>)
+          .await
+          .is_ok()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_naive_datetime_option_some_valid() {
+      let min = NaiveDate::from_ymd_opt(2024, 1, 1)
+        .unwrap()
+        .and_hms_opt(0, 0, 0)
+        .unwrap();
+      let rule = Rule::<NaiveDateTime>::Min(min);
+      let val = NaiveDate::from_ymd_opt(2024, 6, 15)
+        .unwrap()
+        .and_hms_opt(12, 0, 0)
+        .unwrap();
+      assert!(rule.validate_async(Some(val)).await.is_ok());
+      assert!(rule.validate_ref_async(&Some(val)).await.is_ok());
+    }
   }
 }
