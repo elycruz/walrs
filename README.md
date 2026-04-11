@@ -51,7 +51,7 @@ You can also depend on individual sub-crates directly (e.g., `walrs_inputfilter 
 ### Code coverage with `cargo-llvm-cov`
 
 1.  Install `cargo-llvm-cov`: `cargo install cargo-llvm-cov`
-2.  Run tests with coverage and generate HTML report: `sh ./test.sh` or the command directly: `cargo llvm-cov --html --workspace --branch`
+2.  Run tests with coverage and generate HTML report: `sh ./llvm-cov-all.sh` or the command directly: `cargo llvm-cov --html --workspace --branch`
 3.  Open the generated report at `target/llvm-cov/html/index.html` in your web browser.
 
 Cargo llvm-cov reference: https://github.com/taiki-e/cargo-llvm-cov
@@ -62,7 +62,7 @@ Note: branch and functions tracking is not supported with this method (currently
 
 1. Install `llvm-tools`: `$ rustup component add llvm-tools-preview`
 2. Install grcov: `cargo install grcov`.
-3. Run `sh ./grcov-coverage.sh` (builds project with instrumentation and runs tests).
+3. Run `sh ./grcov-all.sh` (builds project with instrumentation and runs tests).
 4. Run the coverage "index.html" file (target/coverage/html/index.html) in the browser.
 
 Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
