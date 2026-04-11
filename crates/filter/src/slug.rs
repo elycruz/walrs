@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::sync::OnceLock;
 
 static SLUG_FILTER_REGEX: OnceLock<Regex> = OnceLock::new();
-static SLUG_FILTER_REGEX_STR: &str = r"(?i)[^\w\-]";
+static SLUG_FILTER_REGEX_STR: &str = r"(?i)[^a-zA-Z0-9_\-]";
 static DASH_FILTER_REGEX: OnceLock<Regex> = OnceLock::new();
 static DASH_FILTER_REGEX_STR: &str = r"(?i)\-{2,}";
 
@@ -18,7 +18,7 @@ pub fn get_dash_filter_regex() -> &'static Regex {
   DASH_FILTER_REGEX.get_or_init(|| Regex::new(DASH_FILTER_REGEX_STR).unwrap())
 }
 
-/// Normalizes given string into a slug - e.g., a string matching /^\w[\w\-]{0,198}\w?$/
+/// Normalizes given string into a slug - e.g., a string matching /^[a-z0-9_][a-z0-9_\-]{0,198}[a-z0-9_]?$/
 ///
 /// ```rust
 /// use std::borrow::Cow;
@@ -265,6 +265,30 @@ mod test {
     let input = "hello-world".to_string();
     let result = filter.filter(Cow::Owned(input));
     assert_eq!(result, "hello-world");
+  }
+
+  #[test]
+  fn test_slug_strips_unicode_chars() {
+    // CJK characters should be replaced with dashes (one per char)
+    assert_eq!(to_slug(Cow::Borrowed("hello世界world")), "hello--world");
+    // Pretty slug collapses duplicate dashes
+    assert_eq!(
+      to_pretty_slug(Cow::Borrowed("hello世界world")),
+      "hello-world"
+    );
+    // Pure CJK input becomes empty after stripping and trimming dashes
+    assert_eq!(to_slug(Cow::Borrowed("你好")), "");
+    // Cyrillic characters should be replaced with dashes
+    assert_eq!(to_slug(Cow::Borrowed("helloМирworld")), "hello---world");
+    // Arabic characters should be replaced with dashes
+    assert_eq!(to_slug(Cow::Borrowed("helloعالمworld")), "hello----world");
+    // Mixed ASCII and Unicode - trailing non-ASCII is trimmed
+    assert_eq!(to_slug(Cow::Borrowed("café")), "caf");
+    // Accented Latin characters should be stripped
+    assert_eq!(
+      to_pretty_slug(Cow::Borrowed("Ça fait du café")),
+      "a-fait-du-caf"
+    );
   }
 
   #[cfg(feature = "fn_traits")]
