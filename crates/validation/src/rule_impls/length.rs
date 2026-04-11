@@ -6,6 +6,11 @@ impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
   #[allow(dead_code)] // Reserved for a future public API
   pub(crate) fn validate_len(&self, value: &T) -> RuleResult {
+    self.validate_len_inner(value, None)
+  }
+
+  /// Internal validation with inherited locale from an outer `WithMessage`.
+  fn validate_len_inner(&self, value: &T, inherited_locale: Option<&str>) -> RuleResult {
     match self {
       Rule::Required => {
         if value.length() == 0 {
@@ -40,7 +45,7 @@ impl<T: WithLength> Rule<T> {
       }
       Rule::All(rules) => {
         for rule in rules {
-          rule.validate_len(value)?;
+          rule.validate_len_inner(value, inherited_locale)?;
         }
         Ok(())
       }
@@ -50,14 +55,14 @@ impl<T: WithLength> Rule<T> {
         }
         let mut last_err = None;
         for rule in rules {
-          match rule.validate_len(value) {
+          match rule.validate_len_inner(value, inherited_locale) {
             Ok(()) => return Ok(()),
             Err(e) => last_err = Some(e),
           }
         }
         Err(last_err.unwrap())
       }
-      Rule::Not(inner) => match inner.validate_len(value) {
+      Rule::Not(inner) => match inner.validate_len_inner(value, inherited_locale) {
         Ok(()) => Err(Violation::negation_failed()),
         Err(_) => Ok(()),
       },
@@ -70,7 +75,7 @@ impl<T: WithLength> Rule<T> {
         // Full condition evaluation would require additional trait bounds
         // For now, always apply then_rule if value is not empty
         if value.length() > 0 {
-          then_rule.validate_len(value)?;
+          then_rule.validate_len_inner(value, inherited_locale)?;
         }
         Ok(())
       }
@@ -82,10 +87,20 @@ impl<T: WithLength> Rule<T> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, .. } => {
-        // For WithLength types, we can't easily resolve messages without more bounds
-        // Just delegate to inner rule
-        rule.validate_len(value)
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
+        let effective_locale = locale.as_deref().or(inherited_locale);
+        match rule.validate_len_inner(value, effective_locale) {
+          Ok(()) => Ok(()),
+          Err(violation) => {
+            let custom_msg =
+              message.resolve_or(value, violation.message(), effective_locale);
+            Err(Violation::new(violation.violation_type(), custom_msg))
+          }
+        }
       }
       // Non-length rules don't apply to collections - pass through
       Rule::Pattern(_)
@@ -109,7 +124,7 @@ impl<T: WithLength> Rule<T> {
   #[allow(dead_code)] // Reserved for a future `validate_all` public API
   pub(crate) fn validate_len_all(&self, value: &T) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
-    self.collect_len_violations(value, &mut violations);
+    self.collect_len_violations(value, None, &mut violations);
     if violations.is_empty() {
       Ok(())
     } else {
@@ -139,11 +154,16 @@ impl<T: WithLength> Rule<T> {
 
   /// Helper to collect all length violations recursively.
   #[allow(dead_code)] // Called transitively from validate_len_all
-  fn collect_len_violations(&self, value: &T, violations: &mut crate::Violations) {
+  fn collect_len_violations(
+    &self,
+    value: &T,
+    inherited_locale: Option<&str>,
+    violations: &mut crate::Violations,
+  ) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
-          rule.collect_len_violations(value, violations);
+          rule.collect_len_violations(value, inherited_locale, violations);
         }
       }
       Rule::Any(rules) => {
@@ -152,7 +172,7 @@ impl<T: WithLength> Rule<T> {
         let mut any_passed = false;
         for rule in rules {
           let mut rule_violations = crate::Violations::default();
-          rule.collect_len_violations(value, &mut rule_violations);
+          rule.collect_len_violations(value, inherited_locale, &mut rule_violations);
           if rule_violations.is_empty() {
             any_passed = true;
             break;
@@ -170,15 +190,25 @@ impl<T: WithLength> Rule<T> {
       } => {
         // For collections, apply then_rule if not empty
         if value.length() > 0 {
-          then_rule.collect_len_violations(value, violations);
+          then_rule.collect_len_violations(value, inherited_locale, violations);
         }
       }
-      Rule::WithMessage { rule, message: _, locale: _ } => {
-        // Delegate to inner rule
-        rule.collect_len_violations(value, violations);
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
+        let effective_locale = locale.as_deref().or(inherited_locale);
+        let mut inner_violations = crate::Violations::default();
+        rule.collect_len_violations(value, effective_locale, &mut inner_violations);
+        for violation in inner_violations {
+          let custom_msg =
+            message.resolve_or(value, violation.message(), effective_locale);
+          violations.push(Violation::new(violation.violation_type(), custom_msg));
+        }
       }
       _ => {
-        if let Err(v) = self.validate_len(value) {
+        if let Err(v) = self.validate_len_inner(value, inherited_locale) {
           violations.push(v);
         }
       }
@@ -397,5 +427,142 @@ mod tests {
       violation.message(),
       "Value length must be exactly 3 (got 2)."
     );
+  }
+
+  // ========================================================================
+  // WithMessage + Locale Tests
+  // ========================================================================
+
+  #[test]
+  fn test_validate_len_with_message_static() {
+    let rule = Rule::<Vec<i32>>::MinLength(3)
+      .with_message("Too few items");
+
+    let result = rule.validate_len(&vec![1]);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().message(), "Too few items");
+
+    // Passing case should still succeed
+    assert!(rule.validate_len(&vec![1, 2, 3]).is_ok());
+  }
+
+  #[test]
+  fn test_validate_len_with_message_provider_and_locale() {
+    let rule = Rule::<Vec<i32>>::MinLength(2)
+      .with_message_provider(
+        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+          Some("es") => format!("Se requieren al menos 2 elementos, recibidos: {}", ctx.value.len()),
+          Some("fr") => format!("Au moins 2 éléments requis, reçu : {}", ctx.value.len()),
+          _ => format!("At least 2 items required, got: {}", ctx.value.len()),
+        },
+        Some("es"),
+      );
+
+    let result = rule.validate_len(&vec![1]);
+    assert!(result.is_err());
+    assert_eq!(
+      result.unwrap_err().message(),
+      "Se requieren al menos 2 elementos, recibidos: 1"
+    );
+  }
+
+  #[test]
+  fn test_validate_len_with_message_provider_default_locale() {
+    let rule = Rule::<Vec<i32>>::MinLength(2)
+      .with_message_provider(
+        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+          Some("es") => "Muy pocos".to_string(),
+          _ => format!("Need at least 2, got {}", ctx.value.len()),
+        },
+        None,
+      );
+
+    // No locale set → default arm
+    let result = rule.validate_len(&vec![1]);
+    assert!(result.is_err());
+    assert_eq!(result.unwrap_err().message(), "Need at least 2, got 1");
+  }
+
+  #[test]
+  fn test_validate_len_all_with_message_and_locale() {
+    let rule = Rule::<Vec<i32>>::MinLength(3)
+      .and(Rule::MaxLength(5))
+      .with_message("Longitud inválida")
+      .with_locale("es".to_string());
+
+    // Too short — static message overrides all inner violations
+    let result = rule.validate_len_all(&vec![1]);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert_eq!(violations.len(), 1);
+    assert_eq!(violations[0].message(), "Longitud inválida");
+
+    // Too long
+    let result = rule.validate_len_all(&vec![1, 2, 3, 4, 5, 6]);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert_eq!(violations.len(), 1);
+    assert_eq!(violations[0].message(), "Longitud inválida");
+
+    // Valid
+    assert!(rule.validate_len_all(&vec![1, 2, 3, 4]).is_ok());
+  }
+
+  #[test]
+  fn test_validate_len_nested_with_message_locale_inheritance() {
+    // Inner WithMessage has a locale-aware provider, outer sets the locale
+    let inner = Rule::<Vec<i32>>::MinLength(2)
+      .with_message_provider(
+        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+          Some("fr") => format!("Besoin d'au moins 2, reçu {}", ctx.value.len()),
+          _ => format!("Need at least 2, got {}", ctx.value.len()),
+        },
+        None,
+      );
+
+    let outer = inner.with_locale("fr".to_string());
+
+    let result = outer.validate_len(&vec![1]);
+    assert!(result.is_err());
+    assert_eq!(
+      result.unwrap_err().message(),
+      "Besoin d'au moins 2, reçu 1"
+    );
+  }
+
+  #[test]
+  fn test_validate_len_with_message_empty_static_uses_default() {
+    // Empty static message should fall back to the default violation message
+    let rule = Rule::<Vec<i32>>::MinLength(3)
+      .with_locale("en".to_string());
+
+    let result = rule.validate_len(&vec![1]);
+    assert!(result.is_err());
+    assert_eq!(
+      result.unwrap_err().message(),
+      "Value length must be at least 3;  Received 1."
+    );
+  }
+
+  #[test]
+  fn test_collect_violations_with_message_locale() {
+    // Contradictory rules wrapped with locale-aware message
+    let rule = Rule::<Vec<i32>>::MinLength(5)
+      .and(Rule::MaxLength(2))
+      .with_message_provider(
+        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+          Some("es") => format!("Error de longitud ({})", ctx.value.len()),
+          _ => format!("Length error ({})", ctx.value.len()),
+        },
+        Some("es"),
+      );
+
+    let result = rule.validate_len_all(&vec![1, 2, 3]);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    // Both MinLength and MaxLength fail
+    assert_eq!(violations.len(), 2);
+    assert_eq!(violations[0].message(), "Error de longitud (3)");
+    assert_eq!(violations[1].message(), "Error de longitud (3)");
   }
 }
