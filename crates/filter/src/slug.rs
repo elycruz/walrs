@@ -79,8 +79,13 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
     .trim_matches('-')
     .to_string();
 
-  if rslt.len() > max_length {
-    Cow::Owned(rslt[..max_length].to_string())
+  if rslt.chars().take(max_length + 1).count() > max_length {
+    let byte_idx = rslt
+      .char_indices()
+      .nth(max_length)
+      .map(|(i, _)| i)
+      .unwrap_or(rslt.len());
+    Cow::Owned(rslt[..byte_idx].to_string())
   } else {
     Cow::Owned(rslt)
   }
@@ -265,6 +270,25 @@ mod test {
     let input = "hello-world".to_string();
     let result = filter.filter(Cow::Owned(input));
     assert_eq!(result, "hello-world");
+  }
+
+  #[test]
+  fn test_slug_truncation_multibyte_no_panic() {
+    // Regression: byte-based truncation panicked on multi-byte char boundary.
+    // With ASCII-only regex, Unicode chars are replaced with '-' and trimmed.
+    // This test ensures char-based truncation works correctly without panic.
+    let filter = SlugFilter::new(8, true);
+
+    // Unicode char is stripped, leaving "aaaaaaa-" which becomes "aaaaaaa" after trim
+    let result = filter.filter(Cow::Borrowed("aaaaaaa世"));
+    assert!(result.chars().count() <= 8);
+    assert_eq!(result, "aaaaaaa");
+
+    // Test with a long string that needs actual truncation
+    let filter = SlugFilter::new(5, true);
+    let result = filter.filter(Cow::Borrowed("hello_world_123"));
+    assert!(result.chars().count() <= 5);
+    assert_eq!(result, "hello");
   }
 
   #[test]
