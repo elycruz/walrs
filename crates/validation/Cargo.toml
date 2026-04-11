@@ -23,7 +23,6 @@ rustdoc-args = ["--cfg", "docsrs"]
 default = ["serde_json_bridge"]
 async = []
 serde_json_bridge = ["dep:serde_json"]
-indexmap = []
 chrono = ["dep:chrono"]
 jiff = ["dep:jiff"]
 
