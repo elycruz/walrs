@@ -196,10 +196,10 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
             any_passed = true;
             break;
           }
-          any_violations.extend(rule_violations.into_iter());
+          any_violations.extend(rule_violations);
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
 
@@ -246,9 +246,21 @@ impl Validate<bool> for Rule<bool> {
   }
 }
 
+impl ValidateRef<bool> for Rule<bool> {
+  fn validate_ref(&self, value: &bool) -> crate::traits::ValidatorResult {
+    self.validate_scalar(*value)
+  }
+}
+
 impl Validate<char> for Rule<char> {
   fn validate(&self, value: char) -> crate::traits::ValidatorResult {
     self.validate_scalar(value)
+  }
+}
+
+impl ValidateRef<char> for Rule<char> {
+  fn validate_ref(&self, value: &char) -> crate::traits::ValidatorResult {
+    self.validate_scalar(*value)
   }
 }
 
@@ -288,6 +300,177 @@ impl ValidateRef<Option<char>> for Rule<char> {
       None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
       Some(v) => self.validate(*v),
+    }
+  }
+}
+
+// ============================================================================
+// Async Scalar Validation (bool / char)
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl<T: ScalarValue + IsEmpty + Send + Sync> Rule<T> {
+  /// Validates a scalar value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_scalar_async(&self, value: T) -> RuleResult {
+    self.validate_scalar_async_inner(value, None).await
+  }
+
+  /// Internal async validation with inherited locale.
+  fn validate_scalar_async_inner<'a>(
+    &'a self,
+    value: T,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>>
+  where
+    T: 'a,
+  {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(&value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule
+              .validate_scalar_async_inner(value, inherited_locale)
+              .await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule
+              .validate_scalar_async_inner(value, inherited_locale)
+              .await
+            {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner
+            .validate_scalar_async_inner(value, inherited_locale)
+            .await
+          {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(&value) {
+            then_rule
+              .validate_scalar_async_inner(value, inherited_locale)
+              .await
+          } else {
+            match else_rule {
+              Some(rule) => {
+                rule
+                  .validate_scalar_async_inner(value, inherited_locale)
+                  .await
+              }
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(
+            rule.validate_scalar_async_inner(value, eff).await,
+            &value,
+            eff,
+          )
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_scalar_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<bool> for Rule<bool> {
+  async fn validate_async(&self, value: bool) -> crate::ValidatorResult {
+    self.validate_scalar_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<bool> for Rule<bool> {
+  async fn validate_ref_async(&self, value: &bool) -> crate::ValidatorResult {
+    self.validate_scalar_async(*value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<bool>> for Rule<bool> {
+  async fn validate_async(&self, value: Option<bool>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_scalar_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<bool>> for Rule<bool> {
+  async fn validate_ref_async(&self, value: &Option<bool>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_scalar_async(*v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<char> for Rule<char> {
+  async fn validate_async(&self, value: char) -> crate::ValidatorResult {
+    self.validate_scalar_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<char> for Rule<char> {
+  async fn validate_ref_async(&self, value: &char) -> crate::ValidatorResult {
+    self.validate_scalar_async(*value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<char>> for Rule<char> {
+  async fn validate_async(&self, value: Option<char>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_scalar_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<char>> for Rule<char> {
+  async fn validate_ref_async(&self, value: &Option<char>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_scalar_async(*v).await,
     }
   }
 }
@@ -373,7 +556,7 @@ mod tests {
   fn test_validate_scalar_not() {
     let rule = Rule::<i32>::Min(0).not();
     assert!(rule.validate_scalar(-1).is_ok()); // fails Min(0) → NOT passes
-    assert!(rule.validate_scalar(0).is_err());  // passes Min(0) → NOT fails
+    assert!(rule.validate_scalar(0).is_err()); // passes Min(0) → NOT fails
   }
 
   // ==========================================================================
@@ -388,9 +571,9 @@ mod tests {
       then_rule: Box::new(Rule::Max(10)),
       else_rule: None,
     };
-    assert!(rule.validate_scalar(0).is_ok());    // condition false → skip
-    assert!(rule.validate_scalar(5).is_ok());    // condition true, 5 <= 10
-    assert!(rule.validate_scalar(11).is_err());  // condition true, 11 > 10
+    assert!(rule.validate_scalar(0).is_ok()); // condition false → skip
+    assert!(rule.validate_scalar(5).is_ok()); // condition true, 5 <= 10
+    assert!(rule.validate_scalar(11).is_err()); // condition true, 11 > 10
   }
 
   #[test]
@@ -402,7 +585,7 @@ mod tests {
       else_rule: Some(Box::new(Rule::Equals(0))),
     };
     assert!(rule.validate_scalar(100).is_ok()); // then branch passes
-    assert!(rule.validate_scalar(0).is_ok());   // else branch passes
+    assert!(rule.validate_scalar(0).is_ok()); // else branch passes
     assert!(rule.validate_scalar(50).is_err()); // else branch: 50 ≠ 0
     assert!(rule.validate_scalar(75).is_err()); // then branch: 75 ≠ 100
   }
@@ -602,5 +785,113 @@ mod tests {
     let rule = Rule::<char>::Equals('a');
     assert!(Validate::<Option<char>>::validate(&rule, Some('b')).is_err());
     assert!(ValidateRef::<Option<char>>::validate_ref(&rule, &Some('b')).is_err());
+  }
+
+  // ==========================================================================
+  // ValidateRef<T> (non-Option) for bool / char
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_ref_bool() {
+    use crate::ValidateRef;
+    let rule = Rule::<bool>::Equals(true);
+    assert!(ValidateRef::<bool>::validate_ref(&rule, &true).is_ok());
+    assert!(ValidateRef::<bool>::validate_ref(&rule, &false).is_err());
+  }
+
+  #[test]
+  fn test_validate_ref_char() {
+    use crate::ValidateRef;
+    let rule = Rule::<char>::Range { min: 'a', max: 'z' };
+    assert!(ValidateRef::<char>::validate_ref(&rule, &'m').is_ok());
+    assert!(ValidateRef::<char>::validate_ref(&rule, &'A').is_err());
+  }
+
+  // ==========================================================================
+  // Async tests for bool / char
+  // ==========================================================================
+
+  #[cfg(feature = "async")]
+  mod async_scalar_tests {
+    use crate::rule::Rule;
+    use crate::{ValidateAsync, ValidateRefAsync};
+
+    // --- bool ---
+
+    #[tokio::test]
+    async fn test_async_validate_bool() {
+      let rule = Rule::<bool>::Equals(true);
+      assert!(rule.validate_async(true).await.is_ok());
+      assert!(rule.validate_async(false).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_validate_ref_bool() {
+      let rule = Rule::<bool>::Equals(true);
+      assert!(rule.validate_ref_async(&true).await.is_ok());
+      assert!(rule.validate_ref_async(&false).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_bool_none_required() {
+      let rule = Rule::<bool>::Required;
+      assert!(rule.validate_async(None::<bool>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<bool>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_bool_none_not_required() {
+      let rule = Rule::<bool>::Equals(true);
+      assert!(rule.validate_async(None::<bool>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<bool>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_bool_some() {
+      let rule = Rule::<bool>::Equals(true);
+      assert!(rule.validate_async(Some(true)).await.is_ok());
+      assert!(rule.validate_ref_async(&Some(true)).await.is_ok());
+      assert!(rule.validate_async(Some(false)).await.is_err());
+      assert!(rule.validate_ref_async(&Some(false)).await.is_err());
+    }
+
+    // --- char ---
+
+    #[tokio::test]
+    async fn test_async_validate_char() {
+      let rule = Rule::<char>::Range { min: 'a', max: 'z' };
+      assert!(rule.validate_async('m').await.is_ok());
+      assert!(rule.validate_async('A').await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_validate_ref_char() {
+      let rule = Rule::<char>::Range { min: 'a', max: 'z' };
+      assert!(rule.validate_ref_async(&'m').await.is_ok());
+      assert!(rule.validate_ref_async(&'A').await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_char_none_required() {
+      let rule = Rule::<char>::Required;
+      assert!(rule.validate_async(None::<char>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<char>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_char_none_not_required() {
+      let rule = Rule::<char>::Equals('a');
+      assert!(rule.validate_async(None::<char>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<char>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_char_some() {
+      let rule = Rule::<char>::Equals('a');
+      assert!(rule.validate_async(Some('a')).await.is_ok());
+      assert!(rule.validate_ref_async(&Some('a')).await.is_ok());
+      assert!(rule.validate_async(Some('b')).await.is_err());
+      assert!(rule.validate_ref_async(&Some('b')).await.is_err());
+    }
   }
 }

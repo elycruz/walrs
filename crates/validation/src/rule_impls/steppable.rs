@@ -101,10 +101,14 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_step_inner(value, eff), &value, eff)
-      },
+      }
       // String rules don't apply to numbers - pass through
       Rule::MinLength(_)
       | Rule::MaxLength(_)
@@ -142,10 +146,7 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
 
   /// Validates an optional numeric value and collects all violations.
   #[allow(dead_code)] // Reserved for a future `validate_option_all` public API
-  pub(crate) fn validate_option_step_all(
-    &self,
-    value: Option<T>,
-  ) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_option_step_all(&self, value: Option<T>) -> Result<(), crate::Violations> {
     match value {
       Some(v) => self.validate_step_all(v),
       None => Err(crate::Violations::from(Violation::value_missing())),
@@ -153,7 +154,12 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
   }
 
   /// Helper to collect all violations recursively.
-  fn collect_violations(&self, value: T, inherited_locale: Option<&str>, violations: &mut crate::Violations) {
+  fn collect_violations(
+    &self,
+    value: T,
+    inherited_locale: Option<&str>,
+    violations: &mut crate::Violations,
+  ) {
     match self {
       Rule::All(rules) => {
         for rule in rules {
@@ -170,10 +176,10 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
             any_passed = true;
             break;
           }
-          any_violations.extend(rule_violations.into_iter());
+          any_violations.extend(rule_violations);
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
       Rule::When {
@@ -188,7 +194,11 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
           rule.collect_violations(value, inherited_locale, violations);
         }
       }
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         let mut inner_violations = crate::Violations::default();
         rule.collect_violations(value, eff, &mut inner_violations);
@@ -216,6 +226,12 @@ impl<T: SteppableValue + IsEmpty + Clone> Validate<Option<T>> for Rule<T> {
       None => Ok(()),
       Some(v) => self.validate(v),
     }
+  }
+}
+
+impl<T: SteppableValue + IsEmpty + Clone> ValidateRef<T> for Rule<T> {
+  fn validate_ref(&self, value: &T) -> crate::ValidatorResult {
+    self.validate(*value)
   }
 }
 
@@ -258,7 +274,9 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
 
         Rule::All(rules) => {
           for rule in rules {
-            rule.validate_step_async_inner(value, inherited_locale).await?;
+            rule
+              .validate_step_async_inner(value, inherited_locale)
+              .await?;
           }
           Ok(())
         }
@@ -268,7 +286,10 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
           }
           let mut last_err = None;
           for rule in rules {
-            match rule.validate_step_async_inner(value, inherited_locale).await {
+            match rule
+              .validate_step_async_inner(value, inherited_locale)
+              .await
+            {
               Ok(()) => return Ok(()),
               Err(e) => last_err = Some(e),
             }
@@ -276,7 +297,10 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
           Err(last_err.unwrap())
         }
         Rule::Not(inner) => {
-          match inner.validate_step_async_inner(value, inherited_locale).await {
+          match inner
+            .validate_step_async_inner(value, inherited_locale)
+            .await
+          {
             Ok(()) => Err(Violation::negation_failed()),
             Err(_) => Ok(()),
           }
@@ -287,17 +311,31 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
           else_rule,
         } => {
           if condition.evaluate(&value) {
-            then_rule.validate_step_async_inner(value, inherited_locale).await
+            then_rule
+              .validate_step_async_inner(value, inherited_locale)
+              .await
           } else {
             match else_rule {
-              Some(rule) => rule.validate_step_async_inner(value, inherited_locale).await,
+              Some(rule) => {
+                rule
+                  .validate_step_async_inner(value, inherited_locale)
+                  .await
+              }
               None => Ok(()),
             }
           }
         }
-        Rule::WithMessage { rule, message, locale } => {
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(rule.validate_step_async_inner(value, eff).await, &value, eff)
+          message.wrap_result(
+            rule.validate_step_async_inner(value, eff).await,
+            &value,
+            eff,
+          )
         }
 
         // All sync rules — delegate to sync validation
@@ -315,7 +353,9 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> 
 }
 
 #[cfg(feature = "async")]
-impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<Option<T>> for Rule<T> {
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<Option<T>>
+  for Rule<T>
+{
   async fn validate_async(&self, value: Option<T>) -> crate::ValidatorResult {
     match value {
       None if self.requires_value() => Err(Violation::value_missing()),
@@ -326,7 +366,16 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<Opt
 }
 
 #[cfg(feature = "async")]
-impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateRefAsync<Option<T>> for Rule<T> {
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateRefAsync<T> for Rule<T> {
+  async fn validate_ref_async(&self, value: &T) -> crate::ValidatorResult {
+    self.validate_step_async(*value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateRefAsync<Option<T>>
+  for Rule<T>
+{
   async fn validate_ref_async(&self, value: &Option<T>) -> crate::ValidatorResult {
     match value {
       None if self.requires_value() => Err(Violation::value_missing()),
@@ -511,6 +560,34 @@ mod tests {
   }
 
   // ========================================================================
+  // ValidateRef<T> (non-Option) Tests
+  // ========================================================================
+
+  #[test]
+  fn test_validate_ref_i32() {
+    let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+    assert!(rule.validate_ref(&50).is_ok());
+    assert!(rule.validate_ref(&0).is_ok());
+    assert!(rule.validate_ref(&(-1)).is_err());
+    assert!(rule.validate_ref(&101).is_err());
+  }
+
+  #[test]
+  fn test_validate_ref_f64() {
+    let rule = Rule::<f64>::Min(0.0).and(Rule::Max(1.0));
+    assert!(rule.validate_ref(&0.5).is_ok());
+    assert!(rule.validate_ref(&(-0.1)).is_err());
+    assert!(rule.validate_ref(&1.1).is_err());
+  }
+
+  #[test]
+  fn test_validate_ref_u64() {
+    let rule = Rule::<u64>::Min(10).and(Rule::Max(20));
+    assert!(rule.validate_ref(&15).is_ok());
+    assert!(rule.validate_ref(&5).is_err());
+  }
+
+  // ========================================================================
   // Option<T> Validation (Numeric)
   // ========================================================================
 
@@ -593,6 +670,27 @@ mod tests {
       assert!(rule.validate_async(Some(5)).await.is_ok());
       assert!(rule.validate_ref_async(&Some(5)).await.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_async_validate_ref_i32() {
+      let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+      assert!(rule.validate_ref_async(&50).await.is_ok());
+      assert!(rule.validate_ref_async(&(-1)).await.is_err());
+      assert!(rule.validate_ref_async(&101).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_validate_ref_f64() {
+      let rule = Rule::<f64>::Min(0.0).and(Rule::Max(1.0));
+      assert!(rule.validate_ref_async(&0.5).await.is_ok());
+      assert!(rule.validate_ref_async(&(-0.1)).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_validate_i32() {
+      let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+      assert!(rule.validate_async(50).await.is_ok());
+      assert!(rule.validate_async(-1).await.is_err());
+    }
   }
 }
-
