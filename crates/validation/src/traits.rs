@@ -128,6 +128,25 @@ impl<T> IsEmpty for Vec<T> {
   fn is_empty(&self) -> bool { self.is_empty() }
 }
 
+/// Implements [`IsEmpty`] for collection types that provide `.is_empty()`.
+macro_rules! impl_is_empty_collection {
+  ($type_:ty) => { impl_is_empty_collection!($type_,); };
+  ($type_:ty, $($generic:ident),* $(,)?) => {
+    impl<$($generic),*> IsEmpty for $type_ {
+      fn is_empty(&self) -> bool { self.is_empty() }
+    }
+  };
+}
+
+impl_is_empty_collection!([T], T);
+impl_is_empty_collection!(BTreeSet<T>, T);
+impl_is_empty_collection!(BTreeMap<K, V>, K, V);
+impl_is_empty_collection!(HashSet<T, S>, T, S);
+impl_is_empty_collection!(HashMap<K, V, S>, K, V, S);
+impl_is_empty_collection!(VecDeque<T>, T);
+impl_is_empty_collection!(IndexMap<K, V, S>, K, V, S);
+impl_is_empty_collection!(IndexSet<T, S>, T, S);
+
 impl<T> IsEmpty for Option<T> {
   fn is_empty(&self) -> bool { self.is_none() }
 }
@@ -260,6 +279,77 @@ mod tests {
     let empty: Vec<i32> = vec![];
     assert!(IsEmpty::is_empty(&empty));
     assert!(!IsEmpty::is_empty(&vec![1]));
+  }
+
+  #[test]
+  fn test_is_empty_slice() {
+    let empty: &[i32] = &[];
+    assert!(IsEmpty::is_empty(empty));
+    let non_empty: &[i32] = &[1, 2];
+    assert!(!IsEmpty::is_empty(non_empty));
+  }
+
+  #[test]
+  fn test_is_empty_hashmap() {
+    let empty: HashMap<String, i32> = HashMap::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut map = HashMap::new();
+    map.insert("a".to_string(), 1);
+    assert!(!IsEmpty::is_empty(&map));
+  }
+
+  #[test]
+  fn test_is_empty_hashset() {
+    let empty: HashSet<i32> = HashSet::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut set = HashSet::new();
+    set.insert(1);
+    assert!(!IsEmpty::is_empty(&set));
+  }
+
+  #[test]
+  fn test_is_empty_btreemap() {
+    let empty: BTreeMap<String, i32> = BTreeMap::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut map = BTreeMap::new();
+    map.insert("a".to_string(), 1);
+    assert!(!IsEmpty::is_empty(&map));
+  }
+
+  #[test]
+  fn test_is_empty_btreeset() {
+    let empty: BTreeSet<i32> = BTreeSet::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut set = BTreeSet::new();
+    set.insert(1);
+    assert!(!IsEmpty::is_empty(&set));
+  }
+
+  #[test]
+  fn test_is_empty_vecdeque() {
+    let empty: VecDeque<i32> = VecDeque::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut deque = VecDeque::new();
+    deque.push_back(1);
+    assert!(!IsEmpty::is_empty(&deque));
+  }
+
+  #[test]
+  fn test_is_empty_indexmap() {
+    let empty: IndexMap<String, i32> = IndexMap::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut map = IndexMap::new();
+    map.insert("a".to_string(), 1);
+    assert!(!IsEmpty::is_empty(&map));
+  }
+
+  #[test]
+  fn test_is_empty_indexset() {
+    let empty: IndexSet<i32> = IndexSet::new();
+    assert!(IsEmpty::is_empty(&empty));
+    let mut set = IndexSet::new();
+    set.insert(1);
+    assert!(!IsEmpty::is_empty(&set));
   }
 
   #[test]
