@@ -275,11 +275,20 @@ mod test {
   #[test]
   fn test_slug_truncation_multibyte_no_panic() {
     // Regression: byte-based truncation panicked on multi-byte char boundary.
-    // '世' is 3 bytes (bytes 7..10); truncating at byte 8 panicked.
+    // With ASCII-only regex, Unicode chars are replaced with '-' and trimmed.
+    // This test ensures char-based truncation works correctly without panic.
     let filter = SlugFilter::new(8, true);
+
+    // Unicode char is stripped, leaving "aaaaaaa-" which becomes "aaaaaaa" after trim
     let result = filter.filter(Cow::Borrowed("aaaaaaa世"));
     assert!(result.chars().count() <= 8);
-    assert_eq!(result, "aaaaaaa世");
+    assert_eq!(result, "aaaaaaa");
+
+    // Test with a long string that needs actual truncation
+    let filter = SlugFilter::new(5, true);
+    let result = filter.filter(Cow::Borrowed("hello_world_123"));
+    assert!(result.chars().count() <= 5);
+    assert_eq!(result, "hello");
   }
 
   #[test]
