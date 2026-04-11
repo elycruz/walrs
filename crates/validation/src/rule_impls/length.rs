@@ -281,6 +281,51 @@ mod tests {
   }
 
   #[test]
+  fn test_validate_len_indexmap() {
+    use indexmap::IndexMap;
+
+    let rule = Rule::<IndexMap<String, i32>>::MinLength(1).and(Rule::MaxLength(3));
+
+    let mut map = IndexMap::new();
+    map.insert("a".to_string(), 1);
+    assert!(rule.validate_len(&map).is_ok());
+
+    map.insert("b".to_string(), 2);
+    map.insert("c".to_string(), 3);
+    assert!(rule.validate_len(&map).is_ok());
+
+    map.insert("d".to_string(), 4);
+    assert!(rule.validate_len(&map).is_err());
+
+    let empty_map: IndexMap<String, i32> = IndexMap::new();
+    assert!(rule.validate_len(&empty_map).is_err());
+  }
+
+  #[test]
+  fn test_validate_len_indexset() {
+    use indexmap::IndexSet;
+
+    let rule = Rule::<IndexSet<String>>::MinLength(2).and(Rule::MaxLength(4));
+
+    let mut set = IndexSet::new();
+    set.insert("a".to_string());
+    assert!(rule.validate_len(&set).is_err()); // too short
+
+    set.insert("b".to_string());
+    assert!(rule.validate_len(&set).is_ok());
+
+    set.insert("c".to_string());
+    set.insert("d".to_string());
+    assert!(rule.validate_len(&set).is_ok());
+
+    set.insert("e".to_string());
+    assert!(rule.validate_len(&set).is_err()); // too long
+
+    let empty_set: IndexSet<String> = IndexSet::new();
+    assert!(rule.validate_len(&empty_set).is_err());
+  }
+
+  #[test]
   fn test_validate_len_all_violations() {
     // Contradictory rule - will always fail
     let rule = Rule::<Vec<i32>>::MinLength(3).and(Rule::MaxLength(2));
