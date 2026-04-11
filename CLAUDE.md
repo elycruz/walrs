@@ -1,9 +1,17 @@
 ## Git
 
-- Do not commit code directly to 'main' branch.
-- Ensure you are on a feature branch before committing any work.
-- Ensure a github issue ticket is already created before you carry out any work, unless asked otherwise.
-- Include github issue ticket number in commit messages (e.g., `feat(ez-button): #7-hello-world ....`) and feature branch name.  If the issue is not known ask the user if they would like you to create an issue ticket for the changes.
+- Use local `gh` tool for working with github issues.
+- Do not commit code directly to 'main' branch, ensure you are in a git worktree branch, before committing any work, instead.
+- Ensure an issue ticket is already created before you carry out any work, unless asked otherwise.
+- Include issue ticket number in commit messages (e.g., `feat(ez-button): #7-hello-world ....`) and feature branch name.  If the issue ticket doesn't yet exist, ask the user if they would like you to create one.
+- Before committing code ensure the following, on your branch:
+  - fmt and clippy (with fix flag) are run.
+  - Build, and Tests pass.
+  - Code is covered above 80% coverage.
+
+### Worktrees
+
+- When creating a new git worktree, place it in '.local/git-worktrees/'.
 
 ## After Changing Code
 
