@@ -1,6 +1,8 @@
+use std::cmp::Ordering;
+
 use crate::rule::{Rule, RuleResult};
 use crate::traits::{IsEmpty, Validate, ValidateRef};
-use crate::{SteppableValue, Violation};
+use crate::{SteppableValue, Violation, ViolationType};
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {
   /// Validates a numeric value against this rule.
@@ -15,29 +17,37 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         // Numeric values are always "present"
         Ok(())
       }
-      Rule::Min(min) => {
-        if value < *min {
-          Err(Violation::range_underflow(min))
-        } else {
-          Ok(())
-        }
-      }
-      Rule::Max(max) => {
-        if value > *max {
-          Err(Violation::range_overflow(max))
-        } else {
-          Ok(())
-        }
-      }
-      Rule::Range { min, max } => {
-        if value < *min {
-          Err(Violation::range_underflow(min))
-        } else if value > *max {
-          Err(Violation::range_overflow(max))
-        } else {
-          Ok(())
-        }
-      }
+      Rule::Min(min) => match value.partial_cmp(min) {
+        Some(Ordering::Less) => Err(Violation::range_underflow(min)),
+        Some(_) => Ok(()),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+      },
+      Rule::Max(max) => match value.partial_cmp(max) {
+        Some(Ordering::Greater) => Err(Violation::range_overflow(max)),
+        Some(_) => Ok(()),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+      },
+      Rule::Range { min, max } => match value.partial_cmp(min) {
+        Some(Ordering::Less) => Err(Violation::range_underflow(min)),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+        _ => match value.partial_cmp(max) {
+          Some(Ordering::Greater) => Err(Violation::range_overflow(max)),
+          Some(_) => Ok(()),
+          None => Err(Violation::new(
+            ViolationType::TypeMismatch,
+            "Value is not a valid number.",
+          )),
+        },
+      },
       Rule::Step(step) => {
         if value.rem_check(*step) {
           Ok(())
@@ -440,6 +450,69 @@ mod tests {
     assert!(rule.validate_step(0.5).is_ok());
     assert!(rule.validate_step(1.0).is_ok());
     assert!(rule.validate_step(0.3).is_err());
+  }
+
+  // ========================================================================
+  // NaN Validation Tests (f32 / f64)
+  // ========================================================================
+
+  #[test]
+  fn test_validate_nan_f64_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f64_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f64_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_violation_type() {
+    use crate::ViolationType;
+    let rule = Rule::<f64>::Min(0.0);
+    let err = rule.validate(f64::NAN).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::TypeMismatch);
   }
 
   #[test]
