@@ -307,6 +307,26 @@ impl ValidateRef<Date> for Rule<Date> {
   }
 }
 
+impl Validate<Option<Date>> for Rule<Date> {
+  fn validate(&self, value: Option<Date>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date(&v),
+    }
+  }
+}
+
+impl ValidateRef<Option<Date>> for Rule<Date> {
+  fn validate_ref(&self, value: &Option<Date>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date(v),
+    }
+  }
+}
+
 // ============================================================================
 // Native Type Validation: Rule<DateTime>
 // ============================================================================
@@ -412,6 +432,26 @@ impl Validate<DateTime> for Rule<DateTime> {
 impl ValidateRef<DateTime> for Rule<DateTime> {
   fn validate_ref(&self, value: &DateTime) -> crate::ValidatorResult {
     self.validate_datetime(value)
+  }
+}
+
+impl Validate<Option<DateTime>> for Rule<DateTime> {
+  fn validate(&self, value: Option<DateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime(&v),
+    }
+  }
+}
+
+impl ValidateRef<Option<DateTime>> for Rule<DateTime> {
+  fn validate_ref(&self, value: &Option<DateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime(v),
+    }
   }
 }
 
@@ -721,5 +761,79 @@ mod tests {
     let err = result.unwrap_err();
     assert_eq!(err.violation_type(), ViolationType::CustomError);
     assert!(err.message().contains("Invalid min date bound"));
+  }
+
+  // ========================================================================
+  // Option<Date> Validation
+  // ========================================================================
+
+  #[test]
+  fn test_option_date_none_required() {
+    let rule = Rule::<Date>::Required;
+    assert!(rule.validate(None::<Date>).is_err());
+    assert!(rule.validate_ref(&None::<Date>).is_err());
+  }
+
+  #[test]
+  fn test_option_date_none_not_required() {
+    let d = jiff::civil::date(2024, 1, 1);
+    let rule = Rule::<Date>::Min(d);
+    assert!(rule.validate(None::<Date>).is_ok());
+    assert!(rule.validate_ref(&None::<Date>).is_ok());
+  }
+
+  #[test]
+  fn test_option_date_some_valid() {
+    let min = jiff::civil::date(2024, 1, 1);
+    let val = jiff::civil::date(2024, 6, 15);
+    let rule = Rule::<Date>::Min(min);
+    assert!(rule.validate(Some(val)).is_ok());
+    assert!(rule.validate_ref(&Some(val)).is_ok());
+  }
+
+  #[test]
+  fn test_option_date_some_invalid() {
+    let min = jiff::civil::date(2024, 6, 1);
+    let val = jiff::civil::date(2024, 1, 15);
+    let rule = Rule::<Date>::Min(min);
+    assert!(rule.validate(Some(val)).is_err());
+    assert!(rule.validate_ref(&Some(val)).is_err());
+  }
+
+  // ========================================================================
+  // Option<DateTime> Validation
+  // ========================================================================
+
+  #[test]
+  fn test_option_datetime_none_required() {
+    let rule = Rule::<DateTime>::Required;
+    assert!(rule.validate(None::<DateTime>).is_err());
+    assert!(rule.validate_ref(&None::<DateTime>).is_err());
+  }
+
+  #[test]
+  fn test_option_datetime_none_not_required() {
+    let dt = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+    let rule = Rule::<DateTime>::Min(dt);
+    assert!(rule.validate(None::<DateTime>).is_ok());
+    assert!(rule.validate_ref(&None::<DateTime>).is_ok());
+  }
+
+  #[test]
+  fn test_option_datetime_some_valid() {
+    let min = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+    let val = jiff::civil::date(2024, 6, 15).at(12, 0, 0, 0);
+    let rule = Rule::<DateTime>::Min(min);
+    assert!(rule.validate(Some(val)).is_ok());
+    assert!(rule.validate_ref(&Some(val)).is_ok());
+  }
+
+  #[test]
+  fn test_option_datetime_some_invalid() {
+    let min = jiff::civil::date(2024, 6, 1).at(0, 0, 0, 0);
+    let val = jiff::civil::date(2024, 1, 15).at(12, 0, 0, 0);
+    let rule = Rule::<DateTime>::Min(min);
+    assert!(rule.validate(Some(val)).is_err());
+    assert!(rule.validate_ref(&Some(val)).is_err());
   }
 }

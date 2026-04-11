@@ -1,5 +1,5 @@
 use crate::rule::{Rule, RuleResult};
-use crate::traits::{IsEmpty, Validate};
+use crate::traits::{IsEmpty, Validate, ValidateRef};
 use crate::{SteppableValue, Violation};
 
 impl<T: SteppableValue + IsEmpty> Rule<T> {
@@ -218,6 +218,26 @@ impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T> {
   }
 }
 
+impl<T: SteppableValue + IsEmpty + Clone> Validate<Option<T>> for Rule<T> {
+  fn validate(&self, value: Option<T>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(v),
+    }
+  }
+}
+
+impl<T: SteppableValue + IsEmpty + Clone> ValidateRef<Option<T>> for Rule<T> {
+  fn validate_ref(&self, value: &Option<T>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(*v),
+    }
+  }
+}
+
 // ============================================================================
 // Async Numeric Validation
 // ============================================================================
@@ -309,6 +329,28 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> 
   }
 }
 
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<Option<T>> for Rule<T> {
+  async fn validate_async(&self, value: Option<T>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_step_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateRefAsync<Option<T>> for Rule<T> {
+  async fn validate_ref_async(&self, value: &Option<T>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_step_async(*v).await,
+    }
+  }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -316,6 +358,7 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> crate::ValidateAsync<T> 
 #[cfg(test)]
 mod tests {
   use crate::rule::{Condition, Rule};
+  use crate::{Validate, ValidateRef};
 
   // ========================================================================
   // Numeric Validation Tests
@@ -480,6 +523,91 @@ mod tests {
     let eq = Condition::<i32>::Equals(42);
     assert!(eq.evaluate(&42));
     assert!(!eq.evaluate(&0));
+  }
+
+  // ========================================================================
+  // Option<T> Validation (Numeric)
+  // ========================================================================
+
+  #[test]
+  fn test_option_none_required_i32() {
+    let rule = Rule::<i32>::Required;
+    assert!(rule.validate(None::<i32>).is_err());
+    assert!(rule.validate_ref(&None::<i32>).is_err());
+  }
+
+  #[test]
+  fn test_option_none_not_required_i32() {
+    let rule = Rule::<i32>::Min(0);
+    assert!(rule.validate(None::<i32>).is_ok());
+    assert!(rule.validate_ref(&None::<i32>).is_ok());
+  }
+
+  #[test]
+  fn test_option_some_valid_i32() {
+    let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+    assert!(rule.validate(Some(50)).is_ok());
+    assert!(rule.validate_ref(&Some(50)).is_ok());
+  }
+
+  #[test]
+  fn test_option_some_invalid_i32() {
+    let rule = Rule::<i32>::Min(0);
+    assert!(rule.validate(Some(-1)).is_err());
+    assert!(rule.validate_ref(&Some(-1)).is_err());
+  }
+
+  #[test]
+  fn test_option_none_all_with_required() {
+    let rule = Rule::<i32>::Required.and(Rule::Min(0));
+    assert!(rule.validate(None::<i32>).is_err());
+  }
+
+  #[test]
+  fn test_option_none_all_without_required() {
+    let rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+    assert!(rule.validate(None::<i32>).is_ok());
+  }
+
+  #[test]
+  fn test_option_some_valid_f64() {
+    let rule = Rule::<f64>::Min(0.0).and(Rule::Max(1.0));
+    assert!(rule.validate(Some(0.5)).is_ok());
+    assert!(rule.validate_ref(&Some(0.5)).is_ok());
+  }
+
+  #[test]
+  fn test_option_some_invalid_f64() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate(Some(-0.1)).is_err());
+    assert!(rule.validate_ref(&Some(-0.1)).is_err());
+  }
+
+  #[cfg(feature = "async")]
+  mod async_option_tests {
+    use crate::rule::Rule;
+    use crate::{ValidateAsync, ValidateRefAsync};
+
+    #[tokio::test]
+    async fn test_async_option_none_required() {
+      let rule = Rule::<i32>::Required;
+      assert!(rule.validate_async(None::<i32>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<i32>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_none_not_required() {
+      let rule = Rule::<i32>::Min(0);
+      assert!(rule.validate_async(None::<i32>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<i32>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_option_some_valid() {
+      let rule = Rule::<i32>::Min(0);
+      assert!(rule.validate_async(Some(5)).await.is_ok());
+      assert!(rule.validate_ref_async(&Some(5)).await.is_ok());
+    }
   }
 }
 

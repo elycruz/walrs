@@ -307,6 +307,26 @@ impl ValidateRef<NaiveDate> for Rule<NaiveDate> {
   }
 }
 
+impl Validate<Option<NaiveDate>> for Rule<NaiveDate> {
+  fn validate(&self, value: Option<NaiveDate>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date(&v),
+    }
+  }
+}
+
+impl ValidateRef<Option<NaiveDate>> for Rule<NaiveDate> {
+  fn validate_ref(&self, value: &Option<NaiveDate>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date(v),
+    }
+  }
+}
+
 // ============================================================================
 // Native Type Validation: Rule<NaiveDateTime>
 // ============================================================================
@@ -412,6 +432,26 @@ impl Validate<NaiveDateTime> for Rule<NaiveDateTime> {
 impl ValidateRef<NaiveDateTime> for Rule<NaiveDateTime> {
   fn validate_ref(&self, value: &NaiveDateTime) -> crate::ValidatorResult {
     self.validate_datetime(value)
+  }
+}
+
+impl Validate<Option<NaiveDateTime>> for Rule<NaiveDateTime> {
+  fn validate(&self, value: Option<NaiveDateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime(&v),
+    }
+  }
+}
+
+impl ValidateRef<Option<NaiveDateTime>> for Rule<NaiveDateTime> {
+  fn validate_ref(&self, value: &Option<NaiveDateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime(v),
+    }
   }
 }
 
@@ -733,5 +773,75 @@ mod tests {
     let err = result.unwrap_err();
     assert_eq!(err.violation_type(), ViolationType::CustomError);
     assert!(err.message().contains("Invalid min date bound"));
+  }
+
+  // ========================================================================
+  // Option<NaiveDate> / Option<NaiveDateTime> Validation (trait impls)
+  // ========================================================================
+
+  #[test]
+  fn test_option_date_none_required() {
+    let rule = Rule::<NaiveDate>::Required;
+    assert!(rule.validate(None::<NaiveDate>).is_err());
+    assert!(rule.validate_ref(&None::<NaiveDate>).is_err());
+  }
+
+  #[test]
+  fn test_option_date_none_not_required() {
+    let d = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+    let rule = Rule::<NaiveDate>::Min(d);
+    assert!(rule.validate(None::<NaiveDate>).is_ok());
+    assert!(rule.validate_ref(&None::<NaiveDate>).is_ok());
+  }
+
+  #[test]
+  fn test_option_date_some_valid() {
+    let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap();
+    let rule = Rule::<NaiveDate>::Min(min);
+    assert!(rule.validate(Some(val)).is_ok());
+    assert!(rule.validate_ref(&Some(val)).is_ok());
+  }
+
+  #[test]
+  fn test_option_date_some_invalid() {
+    let min = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap();
+    let rule = Rule::<NaiveDate>::Min(min);
+    assert!(rule.validate(Some(val)).is_err());
+    assert!(rule.validate_ref(&Some(val)).is_err());
+  }
+
+  #[test]
+  fn test_option_datetime_none_required() {
+    let rule = Rule::<NaiveDateTime>::Required;
+    assert!(rule.validate(None::<NaiveDateTime>).is_err());
+    assert!(rule.validate_ref(&None::<NaiveDateTime>).is_err());
+  }
+
+  #[test]
+  fn test_option_datetime_none_not_required() {
+    let dt = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let rule = Rule::<NaiveDateTime>::Min(dt);
+    assert!(rule.validate(None::<NaiveDateTime>).is_ok());
+    assert!(rule.validate_ref(&None::<NaiveDateTime>).is_ok());
+  }
+
+  #[test]
+  fn test_option_datetime_some_valid() {
+    let min = NaiveDate::from_ymd_opt(2024, 1, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 6, 15).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let rule = Rule::<NaiveDateTime>::Min(min);
+    assert!(rule.validate(Some(val)).is_ok());
+    assert!(rule.validate_ref(&Some(val)).is_ok());
+  }
+
+  #[test]
+  fn test_option_datetime_some_invalid() {
+    let min = NaiveDate::from_ymd_opt(2024, 6, 1).unwrap().and_hms_opt(0, 0, 0).unwrap();
+    let val = NaiveDate::from_ymd_opt(2024, 1, 15).unwrap().and_hms_opt(12, 0, 0).unwrap();
+    let rule = Rule::<NaiveDateTime>::Min(min);
+    assert!(rule.validate(Some(val)).is_err());
+    assert!(rule.validate_ref(&Some(val)).is_err());
   }
 }

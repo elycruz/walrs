@@ -311,6 +311,26 @@ impl Validate<Value> for Rule<Value> {
   }
 }
 
+impl Validate<Option<Value>> for Rule<Value> {
+  fn validate(&self, value: Option<Value>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => ValidateRef::<Value>::validate_ref(self, v),
+    }
+  }
+}
+
+impl ValidateRef<Option<Value>> for Rule<Value> {
+  fn validate_ref(&self, value: &Option<Value>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => ValidateRef::<Value>::validate_ref(self, v),
+    }
+  }
+}
+
 // ============================================================================
 // Async Value Validation
 // ============================================================================
@@ -407,6 +427,28 @@ impl crate::ValidateRefAsync<Value> for Rule<Value> {
 impl crate::ValidateAsync<Value> for Rule<Value> {
   async fn validate_async(&self, value: Value) -> crate::ValidatorResult {
     self.validate_value_async(&value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<Value>> for Rule<Value> {
+  async fn validate_async(&self, value: Option<Value>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_value_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<Value>> for Rule<Value> {
+  async fn validate_ref_async(&self, value: &Option<Value>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_value_async(v).await,
+    }
   }
 }
 
@@ -620,6 +662,60 @@ mod tests {
     let rule = Rule::<Value>::Min(value!(10));
     assert!(rule.validate_value(&value!(15)).is_ok());
     assert!(rule.validate_value(&value!(5)).is_err());
+  }
+
+  // ========================================================================
+  // Option<Value> Validation (trait impls)
+  // ========================================================================
+
+  #[test]
+  fn test_option_value_none_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::Required;
+    assert!(Validate::<Option<Value>>::validate(&rule, None).is_err());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &None).is_err());
+  }
+
+  #[test]
+  fn test_option_value_none_not_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::MinLength(3);
+    assert!(Validate::<Option<Value>>::validate(&rule, None).is_ok());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &None).is_ok());
+  }
+
+  #[test]
+  fn test_option_value_some_valid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::MinLength(3);
+    let val = Value::Str("hello".to_string());
+    assert!(Validate::<Option<Value>>::validate(&rule, Some(val.clone())).is_ok());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &Some(val)).is_ok());
+  }
+
+  #[test]
+  fn test_option_value_some_invalid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::MinLength(5);
+    let val = Value::Str("hi".to_string());
+    assert!(Validate::<Option<Value>>::validate(&rule, Some(val.clone())).is_err());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &Some(val)).is_err());
+  }
+
+  #[test]
+  fn test_option_value_none_all_with_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::Required.and(Rule::MinLength(3));
+    assert!(Validate::<Option<Value>>::validate(&rule, None).is_err());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &None).is_err());
+  }
+
+  #[test]
+  fn test_option_value_none_all_without_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<Value>::MinLength(3).and(Rule::MaxLength(10));
+    assert!(Validate::<Option<Value>>::validate(&rule, None).is_ok());
+    assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &None).is_ok());
   }
 }
 
