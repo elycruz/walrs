@@ -497,15 +497,8 @@ impl Rule<String> {
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
-        // Use this variant's locale if set, otherwise inherit from parent
-        let effective_locale = locale.as_deref().or(inherited_locale);
-        match rule.validate_str_inner(value, effective_locale) {
-          Ok(()) => Ok(()),
-          Err(violation) => {
-            let custom_msg = message.resolve_or(&value.to_string(), violation.message(), effective_locale);
-            Err(Violation::new(violation.violation_type(), custom_msg))
-          }
-        }
+        let eff = locale.as_deref().or(inherited_locale);
+        message.wrap_result(rule.validate_str_inner(value, eff), &value.to_string(), eff)
       },
       // Numeric rules don't apply to strings - pass through
       Rule::Min(_) | Rule::Max(_) | Rule::Range { .. } | Rule::Step(_) => Ok(()),
@@ -594,13 +587,10 @@ impl Rule<String> {
         }
       }
       Rule::WithMessage { rule, message, locale } => {
-        let effective_locale = locale.as_deref().or(inherited_locale);
+        let eff = locale.as_deref().or(inherited_locale);
         let mut inner_violations = crate::Violations::default();
-        rule.collect_violations_str(value, effective_locale, &mut inner_violations);
-        for violation in inner_violations {
-          let custom_msg = message.resolve_or(&value.to_string(), violation.message(), effective_locale);
-          violations.push(Violation::new(violation.violation_type(), custom_msg));
-        }
+        rule.collect_violations_str(value, eff, &mut inner_violations);
+        message.wrap_violations(inner_violations, &value.to_string(), eff, violations);
       }
       _ => {
         if let Err(v) = self.validate_str_inner(value, inherited_locale) {
@@ -701,18 +691,8 @@ impl Rule<String> {
           }
         }
         Rule::WithMessage { rule, message, locale } => {
-          let effective_locale = locale.as_deref().or(inherited_locale);
-          match rule.validate_str_async_inner(value, effective_locale).await {
-            Ok(()) => Ok(()),
-            Err(violation) => {
-              let custom_msg = message.resolve_or(
-                &value.to_string(),
-                violation.message(),
-                effective_locale,
-              );
-              Err(Violation::new(violation.violation_type(), custom_msg))
-            }
-          }
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(rule.validate_str_async_inner(value, eff).await, &value.to_string(), eff)
         }
 
         // All sync rules — delegate to sync validation

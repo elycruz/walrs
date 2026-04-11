@@ -377,6 +377,57 @@ impl<T: ?Sized> Message<T> {
     }
   }
 
+  /// Applies `WithMessage` semantics to a validation result.
+  ///
+  /// On `Ok(())`, returns `Ok(())` unchanged.
+  /// On `Err(violation)`, resolves the custom message (via [`resolve_or`](Self::resolve_or))
+  /// and returns a new [`Violation`] with the overridden message.
+  ///
+  /// # Arguments
+  ///
+  /// * `result` — the inner validation result to wrap
+  /// * `value` — the value being validated (passed to the message provider)
+  /// * `effective_locale` — locale for i18n message resolution
+  pub(crate) fn wrap_result(
+    &self,
+    result: crate::rule::RuleResult,
+    value: &T,
+    effective_locale: Option<&str>,
+  ) -> crate::rule::RuleResult {
+    match result {
+      Ok(()) => Ok(()),
+      Err(violation) => {
+        let msg = self.resolve_or(value, violation.message(), effective_locale);
+        Err(crate::Violation::new(violation.violation_type(), msg))
+      }
+    }
+  }
+
+  /// Applies `WithMessage` semantics to collected violations.
+  ///
+  /// Each violation in `inner` gets its message resolved via
+  /// [`resolve_or`](Self::resolve_or), then a new [`Violation`] with the
+  /// overridden message is pushed into `target`.
+  ///
+  /// # Arguments
+  ///
+  /// * `inner` — violations collected from the inner rule
+  /// * `value` — the value being validated (passed to the message provider)
+  /// * `effective_locale` — locale for i18n message resolution
+  /// * `target` — the accumulator to push wrapped violations into
+  pub(crate) fn wrap_violations(
+    &self,
+    inner: crate::Violations,
+    value: &T,
+    effective_locale: Option<&str>,
+    target: &mut crate::Violations,
+  ) {
+    for violation in inner {
+      let msg = self.resolve_or(value, violation.message(), effective_locale);
+      target.push(crate::Violation::new(violation.violation_type(), msg));
+    }
+  }
+
   /// Returns `true` if this is a static message.
   pub fn is_static(&self) -> bool {
     matches!(self, Message::Static(_))
@@ -793,5 +844,112 @@ mod tests {
     assert_eq!(msg.resolve("x", None), "Static message.");
     assert_eq!(msg.resolve("x", Some("es")), "Static message.");
     assert_eq!(msg.resolve("x", Some("fr")), "Static message.");
+  }
+
+  // ========================================================================
+  // wrap_result / wrap_violations tests
+  // ========================================================================
+
+  #[test]
+  fn test_wrap_result_ok_passthrough() {
+    let msg: Message<str> = Message::from("custom error");
+    let result = msg.wrap_result(Ok(()), "value", None);
+    assert!(result.is_ok());
+  }
+
+  #[test]
+  fn test_wrap_result_err_with_static_message() {
+    let msg: Message<str> = Message::from("custom error");
+    let violation = crate::Violation::new(crate::ViolationType::ValueMissing, "original");
+    let result = msg.wrap_result(Err(violation), "value", None);
+    let err = result.unwrap_err();
+    assert_eq!(err.message(), "custom error");
+    assert_eq!(err.violation_type(), crate::ViolationType::ValueMissing);
+  }
+
+  #[test]
+  fn test_wrap_result_err_with_empty_static_falls_back() {
+    let msg: Message<str> = Message::Static(String::new());
+    let violation = crate::Violation::new(crate::ViolationType::TooShort, "original msg");
+    let result = msg.wrap_result(Err(violation), "value", None);
+    let err = result.unwrap_err();
+    assert_eq!(err.message(), "original msg");
+  }
+
+  #[test]
+  fn test_wrap_result_err_with_provider() {
+    let msg: Message<i32> = Message::provider(|ctx| format!("Bad value: {}", ctx.value));
+    let violation = crate::Violation::new(crate::ViolationType::RangeOverflow, "too big");
+    let result = msg.wrap_result(Err(violation), &42, None);
+    let err = result.unwrap_err();
+    assert_eq!(err.message(), "Bad value: 42");
+    assert_eq!(err.violation_type(), crate::ViolationType::RangeOverflow);
+  }
+
+  #[test]
+  fn test_wrap_result_with_locale() {
+    let msg: Message<str> = Message::provider(|ctx| match ctx.locale {
+      Some("es") => "Error personalizado".to_string(),
+      _ => "Custom error".to_string(),
+    });
+    let violation = crate::Violation::new(crate::ViolationType::ValueMissing, "original");
+
+    let result = msg.wrap_result(Err(violation), "x", Some("es"));
+    assert_eq!(result.unwrap_err().message(), "Error personalizado");
+  }
+
+  #[test]
+  fn test_wrap_violations_empty() {
+    let msg: Message<str> = Message::from("custom");
+    let inner = crate::Violations::default();
+    let mut target = crate::Violations::default();
+    msg.wrap_violations(inner, "value", None, &mut target);
+    assert!(target.is_empty());
+  }
+
+  #[test]
+  fn test_wrap_violations_maps_messages() {
+    let msg: Message<str> = Message::from("overridden");
+    let inner = crate::Violations::new(vec![
+      crate::Violation::new(crate::ViolationType::TooShort, "too short"),
+      crate::Violation::new(crate::ViolationType::TooLong, "too long"),
+    ]);
+    let mut target = crate::Violations::default();
+    msg.wrap_violations(inner, "value", None, &mut target);
+
+    assert_eq!(target.len(), 2);
+    assert_eq!(target[0].message(), "overridden");
+    assert_eq!(target[0].violation_type(), crate::ViolationType::TooShort);
+    assert_eq!(target[1].message(), "overridden");
+    assert_eq!(target[1].violation_type(), crate::ViolationType::TooLong);
+  }
+
+  #[test]
+  fn test_wrap_violations_empty_static_preserves_originals() {
+    let msg: Message<str> = Message::Static(String::new());
+    let inner = crate::Violations::new(vec![
+      crate::Violation::new(crate::ViolationType::TooShort, "original short"),
+    ]);
+    let mut target = crate::Violations::default();
+    msg.wrap_violations(inner, "value", None, &mut target);
+
+    assert_eq!(target.len(), 1);
+    assert_eq!(target[0].message(), "original short");
+  }
+
+  #[test]
+  fn test_wrap_violations_with_locale_provider() {
+    let msg: Message<str> = Message::provider(|ctx| match ctx.locale {
+      Some("fr") => format!("Erreur pour '{}'", ctx.value),
+      _ => format!("Error for '{}'", ctx.value),
+    });
+    let inner = crate::Violations::new(vec![
+      crate::Violation::new(crate::ViolationType::ValueMissing, "missing"),
+    ]);
+    let mut target = crate::Violations::default();
+    msg.wrap_violations(inner, "test", Some("fr"), &mut target);
+
+    assert_eq!(target.len(), 1);
+    assert_eq!(target[0].message(), "Erreur pour 'test'");
   }
 }

@@ -285,15 +285,8 @@ impl Rule<Value> {
         message,
         locale,
       } => {
-        let effective_locale = locale.as_deref().or(inherited_locale);
-        match rule.validate_value_inner(value, effective_locale) {
-          Ok(()) => Ok(()),
-          Err(violation) => {
-            let custom_msg =
-              message.resolve_or(value, violation.message(), effective_locale);
-            Err(Violation::new(violation.violation_type(), custom_msg))
-          }
-        }
+        let eff = locale.as_deref().or(inherited_locale);
+        message.wrap_result(rule.validate_value_inner(value, eff), value, eff)
       }
     }
   }
@@ -395,18 +388,8 @@ impl Rule<Value> {
           }
         }
         Rule::WithMessage { rule, message, locale } => {
-          let effective_locale = locale.as_deref().or(inherited_locale);
-          match rule.validate_value_async_inner(value, effective_locale).await {
-            Ok(()) => Ok(()),
-            Err(violation) => {
-              let custom_msg = message.resolve_or(
-                value,
-                violation.message(),
-                effective_locale,
-              );
-              Err(Violation::new(violation.violation_type(), custom_msg))
-            }
-          }
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(rule.validate_value_async_inner(value, eff).await, value, eff)
         }
 
         // All sync rules — delegate to sync validation

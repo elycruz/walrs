@@ -281,14 +281,8 @@ impl Rule<Date> {
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
-        let effective_locale = locale.as_deref().or(inherited_locale);
-        match rule.validate_date_inner(value, effective_locale) {
-          Ok(()) => Ok(()),
-          Err(violation) => {
-            let custom_msg = message.resolve_or(value, violation.message(), effective_locale);
-            Err(Violation::new(violation.violation_type(), custom_msg))
-          }
-        }
+        let eff = locale.as_deref().or(inherited_locale);
+        message.wrap_result(rule.validate_date_inner(value, eff), value, eff)
       }
       _ => Ok(()),
     }
@@ -409,14 +403,8 @@ impl Rule<DateTime> {
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
       Rule::WithMessage { rule, message, locale } => {
-        let effective_locale = locale.as_deref().or(inherited_locale);
-        match rule.validate_datetime_inner(value, effective_locale) {
-          Ok(()) => Ok(()),
-          Err(violation) => {
-            let custom_msg = message.resolve_or(value, violation.message(), effective_locale);
-            Err(Violation::new(violation.violation_type(), custom_msg))
-          }
-        }
+        let eff = locale.as_deref().or(inherited_locale);
+        message.wrap_result(rule.validate_datetime_inner(value, eff), value, eff)
       }
       _ => Ok(()),
     }
