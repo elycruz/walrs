@@ -1,4 +1,5 @@
 use crate::{Violation};
+use indexmap::{IndexMap, IndexSet};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Result type for validation operations.
@@ -193,6 +194,8 @@ impl_with_length_len!(HashSet<T, S>, T, S);
 impl_with_length_len!(HashMap<K, V, S>, K, V, S);
 impl_with_length_len!(Vec<T>, T);
 impl_with_length_len!(VecDeque<T>, T);
+impl_with_length_len!(IndexMap<K, V, S>, K, V, S);
+impl_with_length_len!(IndexSet<T, S>, T, S);
 
 // ============================================================================
 // Async Validation Traits
@@ -309,6 +312,27 @@ mod tests {
     map.insert("a", 1);
     map.insert("b", 2);
     assert_eq!(map.length(), 2);
+  }
+
+  #[test]
+  fn test_with_length_indexmap() {
+    let mut map = IndexMap::new();
+    assert_eq!(map.length(), 0);
+    map.insert("a", 1);
+    map.insert("b", 2);
+    map.insert("c", 3);
+    assert_eq!(map.length(), 3);
+  }
+
+  #[test]
+  fn test_with_length_indexset() {
+    let mut set = IndexSet::new();
+    assert_eq!(set.length(), 0);
+    set.insert("x");
+    set.insert("y");
+    assert_eq!(set.length(), 2);
+    set.insert("x"); // duplicate — no change
+    assert_eq!(set.length(), 2);
   }
 
   // ==========================================================================
