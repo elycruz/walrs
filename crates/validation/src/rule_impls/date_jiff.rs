@@ -10,8 +10,24 @@ use jiff::civil::DateTime;
 
 use crate::options::{DateFormat, DateOptions, DateRangeOptions};
 use crate::rule::{Rule, RuleResult};
-use crate::traits::{Validate, ValidateRef};
+use crate::traits::{IsEmpty, Validate, ValidateRef};
 use crate::{Violation, ViolationType};
+
+// ============================================================================
+// IsEmpty Implementations
+// ============================================================================
+
+impl IsEmpty for Date {
+  fn is_empty(&self) -> bool {
+    false
+  }
+}
+
+impl IsEmpty for DateTime {
+  fn is_empty(&self) -> bool {
+    false
+  }
+}
 
 // ============================================================================
 // String Parsing Helpers
@@ -44,28 +60,17 @@ pub(crate) fn parse_date_str(value: &str, format: &DateFormat) -> Result<Date, (
 }
 
 /// Parses a datetime string using the given `DateFormat`, returning a `jiff::civil::DateTime`.
-pub(crate) fn parse_datetime_str(
-  value: &str,
-  format: &DateFormat,
-) -> Result<DateTime, ()> {
+pub(crate) fn parse_datetime_str(value: &str, format: &DateFormat) -> Result<DateTime, ()> {
   match format {
-    DateFormat::Iso8601 => {
-      DateTime::strptime("%Y-%m-%dT%H:%M:%S", value)
-        .or_else(|_| DateTime::strptime("%Y-%m-%d %H:%M:%S", value))
-        .map_err(|_| ())
-    }
-    DateFormat::UsDate => {
-      DateTime::strptime(US_DATETIME_FMT, value).map_err(|_| ())
-    }
-    DateFormat::EuDate => {
-      DateTime::strptime(EU_DATETIME_FMT, value).map_err(|_| ())
-    }
-    DateFormat::Rfc2822 => {
-      value
-        .parse::<jiff::Timestamp>()
-        .map(|ts| ts.to_zoned(jiff::tz::TimeZone::UTC).datetime())
-        .map_err(|_| ())
-    }
+    DateFormat::Iso8601 => DateTime::strptime("%Y-%m-%dT%H:%M:%S", value)
+      .or_else(|_| DateTime::strptime("%Y-%m-%d %H:%M:%S", value))
+      .map_err(|_| ()),
+    DateFormat::UsDate => DateTime::strptime(US_DATETIME_FMT, value).map_err(|_| ()),
+    DateFormat::EuDate => DateTime::strptime(EU_DATETIME_FMT, value).map_err(|_| ()),
+    DateFormat::Rfc2822 => value
+      .parse::<jiff::Timestamp>()
+      .map(|ts| ts.to_zoned(jiff::tz::TimeZone::UTC).datetime())
+      .map_err(|_| ()),
     DateFormat::Custom(fmt) => DateTime::strptime(fmt, value).map_err(|_| ()),
   }
 }
@@ -119,7 +124,10 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           // Misconfigured min bound: non-empty but unparseable
           return Err(Violation::new(
             ViolationType::CustomError,
-            format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+            format!(
+              "Invalid min date bound: '{}' cannot be parsed in the configured format.",
+              min_str
+            ),
           ));
         }
       }
@@ -137,7 +145,10 @@ pub(crate) fn validate_date_range_str(value: &str, opts: &DateRangeOptions) -> R
           // Misconfigured max bound: non-empty but unparseable
           return Err(Violation::new(
             ViolationType::CustomError,
-            format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+            format!(
+              "Invalid max date bound: '{}' cannot be parsed in the configured format.",
+              max_str
+            ),
           ));
         }
       }
@@ -174,7 +185,10 @@ fn check_date_bounds(
         // Misconfigured min bound: non-empty but unparseable
         return Err(Violation::new(
           ViolationType::CustomError,
-          format!("Invalid min date bound: '{}' cannot be parsed in the configured format.", min_str),
+          format!(
+            "Invalid min date bound: '{}' cannot be parsed in the configured format.",
+            min_str
+          ),
         ));
       }
       _ => {}
@@ -194,7 +208,10 @@ fn check_date_bounds(
         // Misconfigured max bound: non-empty but unparseable
         return Err(Violation::new(
           ViolationType::CustomError,
-          format!("Invalid max date bound: '{}' cannot be parsed in the configured format.", max_str),
+          format!(
+            "Invalid max date bound: '{}' cannot be parsed in the configured format.",
+            max_str
+          ),
         ));
       }
       _ => {}
@@ -280,7 +297,11 @@ impl Rule<Date> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_date_inner(value, eff), value, eff)
       }
@@ -317,6 +338,133 @@ impl ValidateRef<Option<Date>> for Rule<Date> {
       None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
       Some(v) => self.validate_date(v),
+    }
+  }
+}
+
+// ============================================================================
+// Async Date Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<Date> {
+  /// Validates a `jiff::civil::Date` value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_date_async(&self, value: &Date) -> RuleResult {
+    self.validate_date_async_inner(value, None).await
+  }
+
+  fn validate_date_async_inner<'a>(
+    &'a self,
+    value: &'a Date,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await
+            {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner
+            .validate_date_async_inner(value, inherited_locale)
+            .await
+          {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(value) {
+            then_rule
+              .validate_date_async_inner(value, inherited_locale)
+              .await
+          } else {
+            match else_rule {
+              Some(rule) => {
+                rule
+                  .validate_date_async_inner(value, inherited_locale)
+                  .await
+              }
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff)
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_date_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Date> for Rule<Date> {
+  async fn validate_async(&self, value: Date) -> crate::ValidatorResult {
+    self.validate_date_async(&value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Date> for Rule<Date> {
+  async fn validate_ref_async(&self, value: &Date) -> crate::ValidatorResult {
+    self.validate_date_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<Date>> for Rule<Date> {
+  async fn validate_async(&self, value: Option<Date>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_date_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<Date>> for Rule<Date> {
+  async fn validate_ref_async(&self, value: &Option<Date>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_date_async(v).await,
     }
   }
 }
@@ -402,7 +550,11 @@ impl Rule<DateTime> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_datetime_inner(value, eff), value, eff)
       }
@@ -439,6 +591,137 @@ impl ValidateRef<Option<DateTime>> for Rule<DateTime> {
       None if self.requires_value() => Err(Violation::value_missing()),
       None => Ok(()),
       Some(v) => self.validate_datetime(v),
+    }
+  }
+}
+
+// ============================================================================
+// Async DateTime Validation
+// ============================================================================
+
+#[cfg(feature = "async")]
+impl Rule<DateTime> {
+  /// Validates a `jiff::civil::DateTime` value asynchronously.
+  ///
+  /// Runs all rules: sync rules execute inline, `CustomAsync` rules are awaited.
+  pub(crate) async fn validate_datetime_async(&self, value: &DateTime) -> RuleResult {
+    self.validate_datetime_async_inner(value, None).await
+  }
+
+  fn validate_datetime_async_inner<'a>(
+    &'a self,
+    value: &'a DateTime,
+    inherited_locale: Option<&'a str>,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + 'a>> {
+    Box::pin(async move {
+      match self {
+        Rule::CustomAsync(f) => f(value).await,
+
+        Rule::All(rules) => {
+          for rule in rules {
+            rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await?;
+          }
+          Ok(())
+        }
+        Rule::Any(rules) => {
+          if rules.is_empty() {
+            return Ok(());
+          }
+          let mut last_err = None;
+          for rule in rules {
+            match rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await
+            {
+              Ok(()) => return Ok(()),
+              Err(e) => last_err = Some(e),
+            }
+          }
+          Err(last_err.unwrap())
+        }
+        Rule::Not(inner) => {
+          match inner
+            .validate_datetime_async_inner(value, inherited_locale)
+            .await
+          {
+            Ok(()) => Err(Violation::negation_failed()),
+            Err(_) => Ok(()),
+          }
+        }
+        Rule::When {
+          condition,
+          then_rule,
+          else_rule,
+        } => {
+          if condition.evaluate(value) {
+            then_rule
+              .validate_datetime_async_inner(value, inherited_locale)
+              .await
+          } else {
+            match else_rule {
+              Some(rule) => {
+                rule
+                  .validate_datetime_async_inner(value, inherited_locale)
+                  .await
+              }
+              None => Ok(()),
+            }
+          }
+        }
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
+          let eff = locale.as_deref().or(inherited_locale);
+          message.wrap_result(
+            rule.validate_datetime_async_inner(value, eff).await,
+            value,
+            eff,
+          )
+        }
+
+        // All sync rules — delegate to sync validation
+        other => other.validate_datetime_inner(value, inherited_locale),
+      }
+    })
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<DateTime> for Rule<DateTime> {
+  async fn validate_async(&self, value: DateTime) -> crate::ValidatorResult {
+    self.validate_datetime_async(&value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<DateTime> for Rule<DateTime> {
+  async fn validate_ref_async(&self, value: &DateTime) -> crate::ValidatorResult {
+    self.validate_datetime_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<DateTime>> for Rule<DateTime> {
+  async fn validate_async(&self, value: Option<DateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_datetime_async(v).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<DateTime>> for Rule<DateTime> {
+  async fn validate_ref_async(&self, value: &Option<DateTime>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_datetime_async(v).await,
     }
   }
 }
@@ -525,11 +808,15 @@ mod tests {
     };
     assert!(validate_date_range_str("2025-06-15", &opts).is_ok());
     assert_eq!(
-      validate_date_range_str("2019-12-31", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     assert_eq!(
-      validate_date_range_str("2031-01-01", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -553,12 +840,16 @@ mod tests {
     assert!(validate_date_range_str("2025-06-15T12:00:00", &opts).is_ok());
     // datetime before min date
     assert_eq!(
-      validate_date_range_str("2019-12-31T23:59:59", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31T23:59:59", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     // datetime after max date
     assert_eq!(
-      validate_date_range_str("2031-01-01T00:00:00", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01T00:00:00", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -574,11 +865,15 @@ mod tests {
     };
     assert!(validate_date_range_str("2025-06-15", &opts).is_ok());
     assert_eq!(
-      validate_date_range_str("2019-12-31", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2019-12-31", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeUnderflow,
     );
     assert_eq!(
-      validate_date_range_str("2031-01-01", &opts).unwrap_err().violation_type(),
+      validate_date_range_str("2031-01-01", &opts)
+        .unwrap_err()
+        .violation_type(),
       ViolationType::RangeOverflow,
     );
   }
@@ -823,5 +1118,139 @@ mod tests {
     let rule = Rule::<DateTime>::Min(min);
     assert!(rule.validate(Some(val)).is_err());
     assert!(rule.validate_ref(&Some(val)).is_err());
+  }
+
+  // ========================================================================
+  // IsEmpty Tests
+  // ========================================================================
+
+  #[test]
+  fn test_is_empty_date() {
+    let d = jiff::civil::date(2024, 6, 15);
+    assert!(!IsEmpty::is_empty(&d));
+  }
+
+  #[test]
+  fn test_is_empty_datetime() {
+    let dt = jiff::civil::date(2024, 6, 15).at(12, 0, 0, 0);
+    assert!(!IsEmpty::is_empty(&dt));
+  }
+
+  // ========================================================================
+  // Async Date Validation
+  // ========================================================================
+
+  #[cfg(feature = "async")]
+  mod async_date_tests {
+    use crate::rule::Rule;
+    use crate::{ValidateAsync, ValidateRefAsync};
+    use jiff::civil::{Date, DateTime};
+
+    #[tokio::test]
+    async fn test_async_date_min() {
+      let min = jiff::civil::date(2024, 1, 1);
+      let rule = Rule::<Date>::Min(min);
+      assert!(
+        rule
+          .validate_async(jiff::civil::date(2024, 6, 15))
+          .await
+          .is_ok()
+      );
+      assert!(
+        rule
+          .validate_async(jiff::civil::date(2023, 6, 15))
+          .await
+          .is_err()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_date_ref() {
+      let min = jiff::civil::date(2024, 1, 1);
+      let rule = Rule::<Date>::Min(min);
+      let val = jiff::civil::date(2024, 6, 15);
+      assert!(rule.validate_ref_async(&val).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_date_option_none_required() {
+      let rule = Rule::<Date>::Required;
+      assert!(rule.validate_async(None::<Date>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<Date>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_date_option_none_not_required() {
+      let rule = Rule::<Date>::Min(jiff::civil::date(2024, 1, 1));
+      assert!(rule.validate_async(None::<Date>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<Date>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_date_option_some_valid() {
+      let rule = Rule::<Date>::Min(jiff::civil::date(2024, 1, 1));
+      assert!(
+        rule
+          .validate_async(Some(jiff::civil::date(2024, 6, 15)))
+          .await
+          .is_ok()
+      );
+      assert!(
+        rule
+          .validate_ref_async(&Some(jiff::civil::date(2024, 6, 15)))
+          .await
+          .is_ok()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_datetime_min() {
+      let min = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+      let rule = Rule::<DateTime>::Min(min);
+      assert!(
+        rule
+          .validate_async(jiff::civil::date(2024, 6, 15).at(12, 0, 0, 0))
+          .await
+          .is_ok()
+      );
+      assert!(
+        rule
+          .validate_async(jiff::civil::date(2023, 6, 15).at(12, 0, 0, 0))
+          .await
+          .is_err()
+      );
+    }
+
+    #[tokio::test]
+    async fn test_async_datetime_ref() {
+      let min = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+      let rule = Rule::<DateTime>::Min(min);
+      let val = jiff::civil::date(2024, 6, 15).at(12, 0, 0, 0);
+      assert!(rule.validate_ref_async(&val).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_datetime_option_none_required() {
+      let rule = Rule::<DateTime>::Required;
+      assert!(rule.validate_async(None::<DateTime>).await.is_err());
+      assert!(rule.validate_ref_async(&None::<DateTime>).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_async_datetime_option_none_not_required() {
+      let min = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+      let rule = Rule::<DateTime>::Min(min);
+      assert!(rule.validate_async(None::<DateTime>).await.is_ok());
+      assert!(rule.validate_ref_async(&None::<DateTime>).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_async_datetime_option_some_valid() {
+      let min = jiff::civil::date(2024, 1, 1).at(0, 0, 0, 0);
+      let rule = Rule::<DateTime>::Min(min);
+      let val = jiff::civil::date(2024, 6, 15).at(12, 0, 0, 0);
+      assert!(rule.validate_async(Some(val)).await.is_ok());
+      assert!(rule.validate_ref_async(&Some(val)).await.is_ok());
+    }
   }
 }

@@ -30,4 +30,6 @@
 **/htmlReport/
 
 # Worktrees
+.claude/worktrees/
+.github/worktrees/
 claude/worktrees/
