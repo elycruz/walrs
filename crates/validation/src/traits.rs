@@ -1,4 +1,5 @@
 use crate::{Violation};
+use indexmap::{IndexMap, IndexSet};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
 /// Result type for validation operations.
@@ -191,6 +192,8 @@ impl_with_length_len!(BTreeSet<T>, T);
 impl_with_length_len!(BTreeMap<K, V>, K, V);
 impl_with_length_len!(HashSet<T, S>, T, S);
 impl_with_length_len!(HashMap<K, V, S>, K, V, S);
+impl_with_length_len!(IndexMap<K, V, S>, K, V, S);
+impl_with_length_len!(IndexSet<T, S>, T, S);
 impl_with_length_len!(Vec<T>, T);
 impl_with_length_len!(VecDeque<T>, T);
 
@@ -309,6 +312,22 @@ mod tests {
     map.insert("a", 1);
     map.insert("b", 2);
     assert_eq!(map.length(), 2);
+  }
+
+  #[test]
+  fn test_with_length_indexmap() {
+    let mut map = IndexMap::new();
+    map.insert("a", 1);
+    map.insert("b", 2);
+    assert_eq!(map.length(), 2);
+  }
+
+  #[test]
+  fn test_with_length_indexset() {
+    let mut set = IndexSet::new();
+    set.insert("a");
+    set.insert("b");
+    assert_eq!(set.length(), 2);
   }
 
   // ==========================================================================
