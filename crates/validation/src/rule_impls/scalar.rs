@@ -1,6 +1,8 @@
+use std::cmp::Ordering;
+
 use crate::rule::{Rule, RuleResult};
 use crate::traits::{IsEmpty, Validate, ValidateRef};
-use crate::{ScalarValue, Violation, Violations};
+use crate::{ScalarValue, Violation, ViolationType, Violations};
 
 impl<T: ScalarValue + IsEmpty> Rule<T> {
   /// Validates a scalar value against this rule.
@@ -17,31 +19,39 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
       // Scalar values are always present — Required is a no-op here.
       Rule::Required => Ok(()),
 
-      Rule::Min(min) => {
-        if value < *min {
-          Err(Violation::range_underflow(min))
-        } else {
-          Ok(())
-        }
-      }
+      Rule::Min(min) => match value.partial_cmp(min) {
+        Some(Ordering::Less) => Err(Violation::range_underflow(min)),
+        Some(_) => Ok(()),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+      },
 
-      Rule::Max(max) => {
-        if value > *max {
-          Err(Violation::range_overflow(max))
-        } else {
-          Ok(())
-        }
-      }
+      Rule::Max(max) => match value.partial_cmp(max) {
+        Some(Ordering::Greater) => Err(Violation::range_overflow(max)),
+        Some(_) => Ok(()),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+      },
 
-      Rule::Range { min, max } => {
-        if value < *min {
-          Err(Violation::range_underflow(min))
-        } else if value > *max {
-          Err(Violation::range_overflow(max))
-        } else {
-          Ok(())
-        }
-      }
+      Rule::Range { min, max } => match value.partial_cmp(min) {
+        Some(Ordering::Less) => Err(Violation::range_underflow(min)),
+        None => Err(Violation::new(
+          ViolationType::TypeMismatch,
+          "Value is not a valid number.",
+        )),
+        _ => match value.partial_cmp(max) {
+          Some(Ordering::Greater) => Err(Violation::range_overflow(max)),
+          Some(_) => Ok(()),
+          None => Err(Violation::new(
+            ViolationType::TypeMismatch,
+            "Value is not a valid number.",
+          )),
+        },
+      },
 
       Rule::Equals(expected) => {
         if value == *expected {
@@ -641,6 +651,60 @@ mod tests {
     let rule = Rule::<i32>::Required;
     assert!(rule.validate_scalar(0).is_ok());
     assert!(rule.validate_scalar(-1).is_ok());
+  }
+
+  // ==========================================================================
+  // NaN Validation Tests (scalar path)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_nan_f64_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_violation_type() {
+    use crate::ViolationType;
+    let rule = Rule::<f64>::Min(0.0);
+    let err = rule.validate_scalar(f64::NAN).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::TypeMismatch);
   }
 
   // ==========================================================================
