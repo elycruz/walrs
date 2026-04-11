@@ -21,7 +21,7 @@ To enable optional features:
 
 ```toml
 [dependencies]
-walrs_validation = { version = "0.1", features = ["async", "chrono", "indexmap"] }
+walrs_validation = { version = "0.1", features = ["async", "chrono"] }
 ```
 
 ## Validation Rules
@@ -180,7 +180,7 @@ The `serde_json_bridge` feature (enabled by default) provides `From<serde_json::
 
 ### `indexmap` Support
 
-The `indexmap` feature provides `From<IndexMap<String, V>> for Value` for constructing `Value::Object` from an `IndexMap`.
+`indexmap` is a required dependency. `From<IndexMap<String, V>> for Value` is always available for constructing `Value::Object` from an `IndexMap`. The crate also re-exports `indexmap` for convenience.
 
 ### Date Validation (`chrono` / `jiff`)
 
