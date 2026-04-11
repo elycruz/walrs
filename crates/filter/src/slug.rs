@@ -79,8 +79,13 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
     .trim_matches('-')
     .to_string();
 
-  if rslt.len() > max_length {
-    Cow::Owned(rslt[..max_length].to_string())
+  if rslt.chars().count() > max_length {
+    let byte_idx = rslt
+      .char_indices()
+      .nth(max_length)
+      .map(|(i, _)| i)
+      .unwrap_or(rslt.len());
+    Cow::Owned(rslt[..byte_idx].to_string())
   } else {
     Cow::Owned(rslt)
   }
@@ -265,6 +270,15 @@ mod test {
     let input = "hello-world".to_string();
     let result = filter.filter(Cow::Owned(input));
     assert_eq!(result, "hello-world");
+  }
+
+  #[test]
+  fn test_slug_truncation_multibyte_no_panic() {
+    // Regression: byte-based truncation panicked on multi-byte char boundary.
+    // '世' is 3 bytes (bytes 7..10); truncating at byte 8 panicked.
+    let filter = SlugFilter::new(8, true);
+    let result = filter.filter(Cow::Borrowed("aaaaaaa世"));
+    assert!(result.chars().count() <= 8);
   }
 
   #[cfg(feature = "fn_traits")]
