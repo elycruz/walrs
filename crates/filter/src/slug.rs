@@ -79,7 +79,7 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
     .trim_matches('-')
     .to_string();
 
-  if rslt.chars().count() > max_length {
+  if rslt.chars().take(max_length + 1).count() > max_length {
     let byte_idx = rslt
       .char_indices()
       .nth(max_length)
@@ -279,6 +279,7 @@ mod test {
     let filter = SlugFilter::new(8, true);
     let result = filter.filter(Cow::Borrowed("aaaaaaa世"));
     assert!(result.chars().count() <= 8);
+    assert_eq!(result, "aaaaaaa世");
   }
 
   #[cfg(feature = "fn_traits")]
