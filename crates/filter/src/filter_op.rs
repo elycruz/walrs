@@ -14,6 +14,23 @@ use crate::{Filter, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
 #[cfg(feature = "validation")]
 use walrs_validation::Value;
 
+/// Iteratively flatten nested `Chain` variants into a list of non-chain operation references.
+///
+/// Prevents stack overflow when deeply nested `FilterOp::Chain(vec![FilterOp::Chain(…)])`
+/// values are applied.
+fn flatten_chain<T>(filters: &[FilterOp<T>]) -> Vec<&FilterOp<T>> {
+  let mut flat = Vec::new();
+  let mut stack: Vec<&FilterOp<T>> = filters.iter().rev().collect();
+  while let Some(op) = stack.pop() {
+    if let FilterOp::Chain(inner) = op {
+      stack.extend(inner.iter().rev());
+    } else {
+      flat.push(op);
+    }
+  }
+  flat
+}
+
 /// A composable, serializable value transformer.
 ///
 /// `FilterOp` provides a way to define filter operations that can be serialized
@@ -261,15 +278,16 @@ impl FilterOp<String> {
       }
       FilterOp::Clamp { .. } => Cow::Borrowed(value), // Clamp doesn't apply to strings
       FilterOp::Chain(filters) => {
-        if filters.is_empty() {
+        let flat = flatten_chain(filters);
+        if flat.is_empty() {
           return Cow::Borrowed(value);
         }
-        let first_result = filters[0].apply_ref(value);
-        if filters.len() == 1 {
+        let first_result = flat[0].apply_ref(value);
+        if flat.len() == 1 {
           return first_result;
         }
         let mut result = first_result.into_owned();
-        for f in &filters[1..] {
+        for f in &flat[1..] {
           match f.apply_ref(&result) {
             Cow::Borrowed(_) => {} // No change, keep result as-is
             Cow::Owned(s) => result = s,
@@ -396,8 +414,9 @@ impl FilterOp<Value> {
         }
       }
       FilterOp::Chain(filters) => {
+        let flat = flatten_chain(filters);
         let mut result = value.clone();
-        for f in filters {
+        for f in flat {
           result = f.apply_ref(&result);
         }
         result
@@ -432,7 +451,8 @@ macro_rules! impl_numeric_filter_op {
                             value.clamp(*min, *max)
                         }
                         FilterOp::Chain(filters) => {
-                            filters.iter().fold(value, |v, f| f.apply(v))
+                            let flat = flatten_chain(filters);
+                            flat.iter().fold(value, |v, f| f.apply(v))
                         }
                         FilterOp::Custom(f) => f(value),
                         // String/other filters don't apply to numeric types
@@ -1101,5 +1121,60 @@ mod tests {
     };
     let value = Value::Str("Hello World".to_string());
     assert_eq!(filter.apply_ref(&value), Value::Str("Hello Rust".to_string()));
+  }
+
+  // ====================================================================
+  // Deep nesting tests — flatten_chain prevents stack overflow
+  // ====================================================================
+
+  #[test]
+  fn test_deeply_nested_chain_string() {
+    let mut chain = FilterOp::<String>::Trim;
+    for _ in 0..10_000 {
+      chain = FilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.apply("  hello  ".to_string()), "hello");
+  }
+
+  #[test]
+  fn test_deeply_nested_chain_string_apply_ref() {
+    let mut chain = FilterOp::<String>::Trim;
+    for _ in 0..10_000 {
+      chain = FilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.apply_ref("  hello  "), "hello");
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_deeply_nested_chain_value() {
+    let mut chain = FilterOp::<Value>::Trim;
+    for _ in 0..10_000 {
+      chain = FilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(
+      chain.apply(Value::Str("  hello  ".to_string())),
+      Value::Str("hello".to_string())
+    );
+  }
+
+  #[test]
+  fn test_deeply_nested_chain_numeric() {
+    let mut chain = FilterOp::<i32>::Clamp { min: 0, max: 100 };
+    for _ in 0..10_000 {
+      chain = FilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.apply(150), 100);
+  }
+
+  #[test]
+  fn test_nested_chain_with_multiple_ops() {
+    // Build a chain of chains where the inner chains have multiple operations
+    let inner = FilterOp::<String>::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
+    let mut chain = inner;
+    for _ in 0..1_000 {
+      chain = FilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.apply("  HELLO  ".to_string()), "hello");
   }
 }

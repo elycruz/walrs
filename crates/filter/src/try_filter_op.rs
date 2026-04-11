@@ -15,6 +15,23 @@ use crate::{FilterError, FilterOp};
 #[cfg(feature = "validation")]
 use walrs_validation::Value;
 
+/// Iteratively flatten nested `Chain` variants into a list of non-chain operation references.
+///
+/// Prevents stack overflow when deeply nested `TryFilterOp::Chain(vec![TryFilterOp::Chain(…)])`
+/// values are applied.
+fn flatten_try_chain<T>(ops: &[TryFilterOp<T>]) -> Vec<&TryFilterOp<T>> {
+  let mut flat = Vec::new();
+  let mut stack: Vec<&TryFilterOp<T>> = ops.iter().rev().collect();
+  while let Some(op) = stack.pop() {
+    if let TryFilterOp::Chain(inner) = op {
+      stack.extend(inner.iter().rev());
+    } else {
+      flat.push(op);
+    }
+  }
+  flat
+}
+
 /// A composable, fallible value transformer.
 ///
 /// `TryFilterOp` provides a way to define fallible filter operations that can
@@ -117,15 +134,16 @@ impl TryFilterOp<String> {
     match self {
       TryFilterOp::Infallible(op) => Ok(op.apply_ref(value)),
       TryFilterOp::Chain(ops) => {
-        if ops.is_empty() {
+        let flat = flatten_try_chain(ops);
+        if flat.is_empty() {
           return Ok(Cow::Borrowed(value));
         }
-        let first_result = ops[0].try_apply_ref(value)?;
-        if ops.len() == 1 {
+        let first_result = flat[0].try_apply_ref(value)?;
+        if flat.len() == 1 {
           return Ok(first_result);
         }
         let mut result = first_result.into_owned();
-        for op in &ops[1..] {
+        for op in &flat[1..] {
           result = op.try_apply(result)?;
         }
         Ok(Cow::Owned(result))
@@ -153,8 +171,9 @@ impl TryFilterOp<Value> {
     match self {
       TryFilterOp::Infallible(op) => Ok(op.apply_ref(value)),
       TryFilterOp::Chain(ops) => {
+        let flat = flatten_try_chain(ops);
         let mut result = value.clone();
-        for op in ops {
+        for op in flat {
           result = op.try_apply_ref(&result)?;
         }
         Ok(result)
@@ -182,7 +201,8 @@ macro_rules! impl_numeric_try_filter_op {
                     match self {
                         TryFilterOp::Infallible(op) => Ok(op.apply(value)),
                         TryFilterOp::Chain(ops) => {
-                            ops.iter().try_fold(value, |v, op| op.try_apply(v))
+                            let flat = flatten_try_chain(ops);
+                            flat.iter().try_fold(value, |v, op| op.try_apply(v))
                         }
                         TryFilterOp::TryCustom(f) => f(value),
                     }
@@ -526,5 +546,52 @@ mod tests {
       op.try_filter(Value::Str("  hello  ".to_string())).unwrap(),
       Value::Str("hello".to_string())
     );
+  }
+
+  // ====================================================================
+  // Deep nesting tests — flatten_try_chain prevents stack overflow
+  // ====================================================================
+
+  #[test]
+  fn test_deeply_nested_try_chain_string() {
+    let mut chain: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+    for _ in 0..10_000 {
+      chain = TryFilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.try_apply("  hello  ".to_string()).unwrap(), "hello");
+  }
+
+  #[test]
+  fn test_deeply_nested_try_chain_string_apply_ref() {
+    let mut chain: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
+    for _ in 0..10_000 {
+      chain = TryFilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.try_apply_ref("  hello  ").unwrap(), "hello");
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_deeply_nested_try_chain_value() {
+    let mut chain: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
+    for _ in 0..10_000 {
+      chain = TryFilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(
+      chain
+        .try_apply(Value::Str("  hello  ".to_string()))
+        .unwrap(),
+      Value::Str("hello".to_string())
+    );
+  }
+
+  #[test]
+  fn test_deeply_nested_try_chain_numeric() {
+    let mut chain: TryFilterOp<i32> =
+      TryFilterOp::Infallible(FilterOp::Clamp { min: 0, max: 100 });
+    for _ in 0..10_000 {
+      chain = TryFilterOp::Chain(vec![chain]);
+    }
+    assert_eq!(chain.try_apply(150).unwrap(), 100);
   }
 }
