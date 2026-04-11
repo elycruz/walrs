@@ -74,6 +74,40 @@ assert!(range_rule.validate(50).is_ok());
 assert!(range_rule.validate(-1).is_err());
 ```
 
+## `Option<T>` Validation
+
+`Rule<T>` implements `Validate<Option<T>>` and `ValidateRef<Option<T>>`,
+allowing direct validation of optional values:
+
+- `None` with `Rule::Required` → `Err(Violation::value_missing())`
+- `None` without `Required` → `Ok(())`
+- `Some(v)` → delegates to the inner `Validate<T>` / `ValidateRef<T>` impl
+
+```rust
+use walrs_validation::{Rule, Validate, ValidateRef};
+
+let rule = Rule::<String>::Required.and(Rule::MinLength(3));
+
+// None fails because the rule includes Required
+assert!(rule.validate(None::<String>).is_err());
+
+// Some delegates to inner validation
+assert!(rule.validate(Some("hello".to_string())).is_ok());
+assert!(rule.validate(Some("hi".to_string())).is_err());
+
+// ValidateRef works with references
+assert!(rule.validate_ref(&None::<String>).is_err());
+assert!(rule.validate_ref(&Some("hello".to_string())).is_ok());
+
+// Without Required, None is accepted
+let optional_rule = Rule::<i32>::Min(0).and(Rule::Max(100));
+assert!(optional_rule.validate(None::<i32>).is_ok());
+assert!(optional_rule.validate(Some(50)).is_ok());
+```
+
+Async variants (`ValidateAsync<Option<T>>`, `ValidateRefAsync<Option<T>>`) are
+also available when the `async` feature is enabled.
+
 ## Validation Traits
 
 The crate provides two main validation traits:

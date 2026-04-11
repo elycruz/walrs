@@ -1,5 +1,5 @@
 use crate::rule::{Rule, RuleResult};
-use crate::traits::{IsEmpty, Validate};
+use crate::traits::{IsEmpty, Validate, ValidateRef};
 use crate::{ScalarValue, Violation, Violations};
 
 impl<T: ScalarValue + IsEmpty> Rule<T> {
@@ -263,6 +263,46 @@ impl Validate<char> for Rule<char> {
   }
 }
 
+impl Validate<Option<bool>> for Rule<bool> {
+  fn validate(&self, value: Option<bool>) -> crate::traits::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(v),
+    }
+  }
+}
+
+impl ValidateRef<Option<bool>> for Rule<bool> {
+  fn validate_ref(&self, value: &Option<bool>) -> crate::traits::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(*v),
+    }
+  }
+}
+
+impl Validate<Option<char>> for Rule<char> {
+  fn validate(&self, value: Option<char>) -> crate::traits::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(v),
+    }
+  }
+}
+
+impl ValidateRef<Option<char>> for Rule<char> {
+  fn validate_ref(&self, value: &Option<char>) -> crate::traits::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate(*v),
+    }
+  }
+}
+
 // ============================================================================
 // Tests
 // ============================================================================
@@ -505,5 +545,73 @@ mod tests {
     assert!(rule.validate_scalar('a').is_ok());
     assert!(rule.validate_scalar('z').is_ok());
     assert!(rule.validate_scalar('A').is_err());
+  }
+
+  // ==========================================================================
+  // Option<bool> / Option<char> Validation (trait impls)
+  // ==========================================================================
+
+  #[test]
+  fn test_option_bool_none_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<bool>::Required;
+    assert!(Validate::<Option<bool>>::validate(&rule, None).is_err());
+    assert!(ValidateRef::<Option<bool>>::validate_ref(&rule, &None).is_err());
+  }
+
+  #[test]
+  fn test_option_bool_none_not_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<bool>::Equals(true);
+    assert!(Validate::<Option<bool>>::validate(&rule, None).is_ok());
+    assert!(ValidateRef::<Option<bool>>::validate_ref(&rule, &None).is_ok());
+  }
+
+  #[test]
+  fn test_option_bool_some_valid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<bool>::Equals(true);
+    assert!(Validate::<Option<bool>>::validate(&rule, Some(true)).is_ok());
+    assert!(ValidateRef::<Option<bool>>::validate_ref(&rule, &Some(true)).is_ok());
+  }
+
+  #[test]
+  fn test_option_bool_some_invalid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<bool>::Equals(true);
+    assert!(Validate::<Option<bool>>::validate(&rule, Some(false)).is_err());
+    assert!(ValidateRef::<Option<bool>>::validate_ref(&rule, &Some(false)).is_err());
+  }
+
+  #[test]
+  fn test_option_char_none_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<char>::Required;
+    assert!(Validate::<Option<char>>::validate(&rule, None).is_err());
+    assert!(ValidateRef::<Option<char>>::validate_ref(&rule, &None).is_err());
+  }
+
+  #[test]
+  fn test_option_char_none_not_required() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<char>::Equals('a');
+    assert!(Validate::<Option<char>>::validate(&rule, None).is_ok());
+    assert!(ValidateRef::<Option<char>>::validate_ref(&rule, &None).is_ok());
+  }
+
+  #[test]
+  fn test_option_char_some_valid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<char>::Equals('a');
+    assert!(Validate::<Option<char>>::validate(&rule, Some('a')).is_ok());
+    assert!(ValidateRef::<Option<char>>::validate_ref(&rule, &Some('a')).is_ok());
+  }
+
+  #[test]
+  fn test_option_char_some_invalid() {
+    use crate::{Validate, ValidateRef};
+    let rule = Rule::<char>::Equals('a');
+    assert!(Validate::<Option<char>>::validate(&rule, Some('b')).is_err());
+    assert!(ValidateRef::<Option<char>>::validate_ref(&rule, &Some('b')).is_err());
   }
 }

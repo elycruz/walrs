@@ -1,6 +1,6 @@
 use crate::rule::{Rule, RuleResult};
 use crate::Violation;
-use crate::traits::ValidateRef;
+use crate::traits::{Validate, ValidateRef};
 use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
@@ -617,6 +617,26 @@ impl ValidateRef<str> for Rule<String> {
   }
 }
 
+impl Validate<Option<String>> for Rule<String> {
+  fn validate(&self, value: Option<String>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_ref(v.as_str()),
+    }
+  }
+}
+
+impl ValidateRef<Option<String>> for Rule<String> {
+  fn validate_ref(&self, value: &Option<String>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => ValidateRef::<str>::validate_ref(self, v.as_str()),
+    }
+  }
+}
+
 // ============================================================================
 // Async String Validation
 // ============================================================================
@@ -706,6 +726,28 @@ impl Rule<String> {
 impl crate::ValidateRefAsync<str> for Rule<String> {
   async fn validate_ref_async(&self, value: &str) -> crate::ValidatorResult {
     self.validate_str_async(value).await
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateAsync<Option<String>> for Rule<String> {
+  async fn validate_async(&self, value: Option<String>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(ref v) => self.validate_str_async(v.as_str()).await,
+    }
+  }
+}
+
+#[cfg(feature = "async")]
+impl crate::ValidateRefAsync<Option<String>> for Rule<String> {
+  async fn validate_ref_async(&self, value: &Option<String>) -> crate::ValidatorResult {
+    match value {
+      None if self.requires_value() => Err(Violation::value_missing()),
+      None => Ok(()),
+      Some(v) => self.validate_str_async(v.as_str()).await,
+    }
   }
 }
 
