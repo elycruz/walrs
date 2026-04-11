@@ -637,58 +637,6 @@ impl ValidateRef<Option<String>> for Rule<String> {
   }
 }
 
-#[cfg(test)]
-mod tests {
-  use super::*;
-
-  #[test]
-  fn validate_option_string_none_is_ok_when_not_required() {
-    let rule = Rule::<String>::default();
-
-    assert!(Validate::<Option<String>>::validate(&rule, None).is_ok());
-  }
-
-  #[test]
-  fn validate_option_string_none_errors_when_required() {
-    let rule = Rule::<String>::default().required();
-
-    let result = Validate::<Option<String>>::validate(&rule, None);
-    assert_eq!(result, Err(Violation::value_missing()));
-  }
-
-  #[test]
-  fn validate_option_string_some_delegates_to_string_validation() {
-    let rule = Rule::<String>::default().email(EmailOptions::default());
-
-    assert!(Validate::<Option<String>>::validate(&rule, Some("user@example.com".to_owned())).is_ok());
-    assert!(Validate::<Option<String>>::validate(&rule, Some("not-an-email".to_owned())).is_err());
-  }
-
-  #[test]
-  fn validate_ref_option_string_none_is_ok_when_not_required() {
-    let rule = Rule::<String>::default();
-
-    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &None).is_ok());
-  }
-
-  #[test]
-  fn validate_ref_option_string_none_errors_when_required() {
-    let rule = Rule::<String>::default().required();
-
-    let result = ValidateRef::<Option<String>>::validate_ref(&rule, &None);
-    assert_eq!(result, Err(Violation::value_missing()));
-  }
-
-  #[test]
-  fn validate_ref_option_string_some_delegates_to_string_validation() {
-    let rule = Rule::<String>::default().email(EmailOptions::default());
-    let valid = Some("user@example.com".to_owned());
-    let invalid = Some("not-an-email".to_owned());
-
-    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &valid).is_ok());
-    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &invalid).is_err());
-  }
-}
 // ============================================================================
 // Async String Validation
 // ============================================================================
@@ -810,6 +758,59 @@ impl crate::ValidateRefAsync<Option<String>> for Rule<String> {
 #[cfg(test)]
 mod tests {
   use crate::rule::{Condition, Rule};
+  use crate::{EmailOptions, Validate, ValidateRef, Violation};
+
+  // ========================================================================
+  // Option<String> Validation Tests
+  // ========================================================================
+
+  #[test]
+  fn validate_option_string_none_is_ok_when_not_required() {
+    let rule = Rule::<String>::All(vec![]);
+
+    assert!(Validate::<Option<String>>::validate(&rule, None).is_ok());
+  }
+
+  #[test]
+  fn validate_option_string_none_errors_when_required() {
+    let rule = Rule::<String>::Required;
+
+    let result = Validate::<Option<String>>::validate(&rule, None);
+    assert_eq!(result, Err(Violation::value_missing()));
+  }
+
+  #[test]
+  fn validate_option_string_some_delegates_to_string_validation() {
+    let rule = Rule::<String>::Email(EmailOptions::default());
+
+    assert!(Validate::<Option<String>>::validate(&rule, Some("user@example.com".to_owned())).is_ok());
+    assert!(Validate::<Option<String>>::validate(&rule, Some("not-an-email".to_owned())).is_err());
+  }
+
+  #[test]
+  fn validate_ref_option_string_none_is_ok_when_not_required() {
+    let rule = Rule::<String>::All(vec![]);
+
+    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &None).is_ok());
+  }
+
+  #[test]
+  fn validate_ref_option_string_none_errors_when_required() {
+    let rule = Rule::<String>::Required;
+
+    let result = ValidateRef::<Option<String>>::validate_ref(&rule, &None);
+    assert_eq!(result, Err(Violation::value_missing()));
+  }
+
+  #[test]
+  fn validate_ref_option_string_some_delegates_to_string_validation() {
+    let rule = Rule::<String>::Email(EmailOptions::default());
+    let valid = Some("user@example.com".to_owned());
+    let invalid = Some("not-an-email".to_owned());
+
+    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &valid).is_ok());
+    assert!(ValidateRef::<Option<String>>::validate_ref(&rule, &invalid).is_err());
+  }
 
   // ========================================================================
   // String Validation Tests
