@@ -150,8 +150,8 @@ impl<T: Serialize> ToAttributesList for Rule<T> {
 
 #[cfg(test)]
 mod tests {
-  use crate::rule::{Condition, Rule};
   use crate::message::Message;
+  use crate::rule::{Condition, Rule};
   use crate::traits::ToAttributesList;
 
   #[test]
@@ -348,4 +348,3 @@ mod tests {
     assert_eq!(attrs[0].1, serde_json::Value::from(0.1));
   }
 }
-

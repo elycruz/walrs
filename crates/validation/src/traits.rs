@@ -1,4 +1,4 @@
-use crate::{Violation};
+use crate::Violation;
 use indexmap::{IndexMap, IndexSet};
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet, VecDeque};
 
@@ -113,19 +113,27 @@ pub trait IsEmpty {
 }
 
 impl IsEmpty for String {
-  fn is_empty(&self) -> bool { self.trim().is_empty() }
+  fn is_empty(&self) -> bool {
+    self.trim().is_empty()
+  }
 }
 
 impl IsEmpty for str {
-  fn is_empty(&self) -> bool { self.trim().is_empty() }
+  fn is_empty(&self) -> bool {
+    self.trim().is_empty()
+  }
 }
 
 impl IsEmpty for &str {
-  fn is_empty(&self) -> bool { self.trim().is_empty() }
+  fn is_empty(&self) -> bool {
+    self.trim().is_empty()
+  }
 }
 
 impl<T> IsEmpty for Vec<T> {
-  fn is_empty(&self) -> bool { self.is_empty() }
+  fn is_empty(&self) -> bool {
+    self.is_empty()
+  }
 }
 
 /// Implements [`IsEmpty`] for collection types that provide `.is_empty()`.
@@ -148,7 +156,9 @@ impl_is_empty_collection!(IndexMap<K, V, S>, K, V, S);
 impl_is_empty_collection!(IndexSet<T, S>, T, S);
 
 impl<T> IsEmpty for Option<T> {
-  fn is_empty(&self) -> bool { self.is_none() }
+  fn is_empty(&self) -> bool {
+    self.is_none()
+  }
 }
 
 impl IsEmpty for crate::Value {
@@ -166,9 +176,7 @@ macro_rules! impl_is_empty_never {
 }
 
 impl_is_empty_never!(
-  i8, i16, i32, i64, i128, isize,
-  u8, u16, u32, u64, u128, usize,
-  f32, f64, bool, char
+  i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, bool, char
 );
 
 // ============================================================================
@@ -187,7 +195,9 @@ pub trait WithLength {
 macro_rules! impl_with_length_chars {
   ($type_:ty) => {
     impl WithLength for $type_ {
-      fn length(&self) -> usize { self.chars().count() }
+      fn length(&self) -> usize {
+        self.chars().count()
+      }
     }
   };
 }
@@ -237,7 +247,10 @@ pub trait ValidateAsync<T: Send> {
 /// rules (e.g., `Rule::CustomAsync`) are awaited.
 #[cfg(feature = "async")]
 pub trait ValidateRefAsync<T: ?Sized + Sync> {
-  fn validate_ref_async(&self, value: &T) -> impl std::future::Future<Output = ValidatorResult> + Send;
+  fn validate_ref_async(
+    &self,
+    value: &T,
+  ) -> impl std::future::Future<Output = ValidatorResult> + Send;
 }
 
 // ============================================================================
@@ -449,4 +462,3 @@ mod tests {
     assert!(!2.0_f32.rem_check(0.0));
   }
 }
-

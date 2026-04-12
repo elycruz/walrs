@@ -37,9 +37,11 @@ use std::sync::Arc;
 #[cfg(feature = "async")]
 use std::pin::Pin;
 
-use crate::{Message, MessageContext, Violation};
-use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UrlOptions, UriOptions};
+use crate::options::{
+  DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UriOptions, UrlOptions,
+};
 use crate::traits::IsEmpty;
+use crate::{Message, MessageContext, Violation};
 
 // ============================================================================
 // CompiledPattern — pre-compiled regex wrapper
@@ -74,7 +76,9 @@ impl CompiledPattern {
 
 impl Debug for CompiledPattern {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    f.debug_tuple("CompiledPattern").field(&self.0.as_str()).finish()
+    f.debug_tuple("CompiledPattern")
+      .field(&self.0.as_str())
+      .finish()
   }
 }
 
@@ -227,7 +231,6 @@ impl Condition<String> {
     }
   }
 }
-
 
 // ============================================================================
 // Rule Enum
@@ -418,7 +421,11 @@ impl<T: Debug> Debug for Rule<T> {
       #[cfg(feature = "async")]
       Self::CustomAsync(_) => write!(f, "CustomAsync(<async fn>)"),
       Self::Ref(name) => f.debug_tuple("Ref").field(name).finish(),
-      Self::WithMessage { rule, message, locale } => f
+      Self::WithMessage {
+        rule,
+        message,
+        locale,
+      } => f
         .debug_struct("WithMessage")
         .field("rule", rule)
         .field("message", message)
@@ -883,7 +890,6 @@ impl<T> Rule<T> {
 
 // Rule<Numeric> implementation moved to rule_impls/steppable.rs
 
-
 // Trait implementations moved to rule_impls modules
 
 // ToAttributesList implementation moved to rule_impls/attributes.rs
@@ -1064,8 +1070,8 @@ mod tests {
 
   #[test]
   fn test_rule_with_message_provider() {
-    let rule =
-      Rule::<i32>::Min(0).with_message_provider(|ctx| format!("Got {}, expected >= 0.", ctx.value), None);
+    let rule = Rule::<i32>::Min(0)
+      .with_message_provider(|ctx| format!("Got {}, expected >= 0.", ctx.value), None);
 
     match rule {
       Rule::WithMessage {
@@ -1143,7 +1149,10 @@ mod tests {
   fn test_e2e_only_rule_and_validators() {
     let slug = Rule::<String>::pattern(r"(?i)^[\w\-]{1,108}$").unwrap();
     let screen_name = Rule::<String>::pattern(r"(?i)^[a-z][\w\-]{7,55}$").unwrap();
-    let numeric_id = Rule::<usize>::Range { min: 1, max: usize::MAX };
+    let numeric_id = Rule::<usize>::Range {
+      min: 1,
+      max: usize::MAX,
+    };
 
     assert!(slug.validate_ref("hello-world").is_ok());
     assert!(slug.validate_ref("").is_err());

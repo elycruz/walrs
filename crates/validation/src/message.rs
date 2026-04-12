@@ -786,7 +786,10 @@ mod tests {
     // Test English (default)
     let params_en = MessageParams::new("Custom");
     let ctx_en = MessageContext::with_locale("test", params_en, None);
-    assert_eq!(msg.resolve_with_context(&ctx_en), "Value 'test' is invalid.");
+    assert_eq!(
+      msg.resolve_with_context(&ctx_en),
+      "Value 'test' is invalid."
+    );
 
     // Test Spanish
     let params_es = MessageParams::new("Custom");
@@ -927,9 +930,10 @@ mod tests {
   #[test]
   fn test_wrap_violations_empty_static_preserves_originals() {
     let msg: Message<str> = Message::Static(String::new());
-    let inner = crate::Violations::new(vec![
-      crate::Violation::new(crate::ViolationType::TooShort, "original short"),
-    ]);
+    let inner = crate::Violations::new(vec![crate::Violation::new(
+      crate::ViolationType::TooShort,
+      "original short",
+    )]);
     let mut target = crate::Violations::default();
     msg.wrap_violations(inner, "value", None, &mut target);
 
@@ -943,9 +947,10 @@ mod tests {
       Some("fr") => format!("Erreur pour '{}'", ctx.value),
       _ => format!("Error for '{}'", ctx.value),
     });
-    let inner = crate::Violations::new(vec![
-      crate::Violation::new(crate::ViolationType::ValueMissing, "missing"),
-    ]);
+    let inner = crate::Violations::new(vec![crate::Violation::new(
+      crate::ViolationType::ValueMissing,
+      "missing",
+    )]);
     let mut target = crate::Violations::default();
     msg.wrap_violations(inner, "test", Some("fr"), &mut target);
 

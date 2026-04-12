@@ -283,9 +283,7 @@ impl From<serde_json::Value> for Value {
         }
       }
       serde_json::Value::String(s) => Value::Str(s),
-      serde_json::Value::Array(arr) => {
-        Value::Array(arr.into_iter().map(Value::from).collect())
-      }
+      serde_json::Value::Array(arr) => Value::Array(arr.into_iter().map(Value::from).collect()),
       serde_json::Value::Object(map) => {
         Value::Object(map.into_iter().map(|(k, v)| (k, Value::from(v))).collect())
       }
@@ -558,10 +556,7 @@ mod tests {
       obj.as_object().unwrap().get("name"),
       Some(&Value::Str("test".to_string()))
     );
-    assert_eq!(
-      obj.as_object().unwrap().get("age"),
-      Some(&Value::I64(42))
-    );
+    assert_eq!(obj.as_object().unwrap().get("age"), Some(&Value::I64(42)));
   }
 
   #[cfg(feature = "serde_json_bridge")]

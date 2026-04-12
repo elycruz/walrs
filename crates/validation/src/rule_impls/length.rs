@@ -1,6 +1,6 @@
+use crate::Violation;
 use crate::rule::{Rule, RuleResult};
 use crate::traits::WithLength;
-use crate::Violation;
 
 impl<T: WithLength> Rule<T> {
   /// Validates a collection's length against this rule.
@@ -170,10 +170,10 @@ impl<T: WithLength> Rule<T> {
             any_passed = true;
             break;
           }
-          any_violations.extend(rule_violations.into_iter());
+          any_violations.extend(rule_violations);
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
       Rule::When {
@@ -424,8 +424,7 @@ mod tests {
 
   #[test]
   fn test_validate_len_with_message_static() {
-    let rule = Rule::<Vec<i32>>::MinLength(3)
-      .with_message("Too few items");
+    let rule = Rule::<Vec<i32>>::MinLength(3).with_message("Too few items");
 
     let result = rule.validate_len(&vec![1]);
     assert!(result.is_err());
@@ -437,15 +436,17 @@ mod tests {
 
   #[test]
   fn test_validate_len_with_message_provider_and_locale() {
-    let rule = Rule::<Vec<i32>>::MinLength(2)
-      .with_message_provider(
-        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
-          Some("es") => format!("Se requieren al menos 2 elementos, recibidos: {}", ctx.value.len()),
-          Some("fr") => format!("Au moins 2 éléments requis, reçu : {}", ctx.value.len()),
-          _ => format!("At least 2 items required, got: {}", ctx.value.len()),
-        },
-        Some("es"),
-      );
+    let rule = Rule::<Vec<i32>>::MinLength(2).with_message_provider(
+      |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+        Some("es") => format!(
+          "Se requieren al menos 2 elementos, recibidos: {}",
+          ctx.value.len()
+        ),
+        Some("fr") => format!("Au moins 2 éléments requis, reçu : {}", ctx.value.len()),
+        _ => format!("At least 2 items required, got: {}", ctx.value.len()),
+      },
+      Some("es"),
+    );
 
     let result = rule.validate_len(&vec![1]);
     assert!(result.is_err());
@@ -457,14 +458,13 @@ mod tests {
 
   #[test]
   fn test_validate_len_with_message_provider_default_locale() {
-    let rule = Rule::<Vec<i32>>::MinLength(2)
-      .with_message_provider(
-        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
-          Some("es") => "Muy pocos".to_string(),
-          _ => format!("Need at least 2, got {}", ctx.value.len()),
-        },
-        None,
-      );
+    let rule = Rule::<Vec<i32>>::MinLength(2).with_message_provider(
+      |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+        Some("es") => "Muy pocos".to_string(),
+        _ => format!("Need at least 2, got {}", ctx.value.len()),
+      },
+      None,
+    );
 
     // No locale set → default arm
     let result = rule.validate_len(&vec![1]);
@@ -500,30 +500,25 @@ mod tests {
   #[test]
   fn test_validate_len_nested_with_message_locale_inheritance() {
     // Inner WithMessage has a locale-aware provider, outer sets the locale
-    let inner = Rule::<Vec<i32>>::MinLength(2)
-      .with_message_provider(
-        |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
-          Some("fr") => format!("Besoin d'au moins 2, reçu {}", ctx.value.len()),
-          _ => format!("Need at least 2, got {}", ctx.value.len()),
-        },
-        None,
-      );
+    let inner = Rule::<Vec<i32>>::MinLength(2).with_message_provider(
+      |ctx: &crate::MessageContext<Vec<i32>>| match ctx.locale {
+        Some("fr") => format!("Besoin d'au moins 2, reçu {}", ctx.value.len()),
+        _ => format!("Need at least 2, got {}", ctx.value.len()),
+      },
+      None,
+    );
 
     let outer = inner.with_locale("fr".to_string());
 
     let result = outer.validate_len(&vec![1]);
     assert!(result.is_err());
-    assert_eq!(
-      result.unwrap_err().message(),
-      "Besoin d'au moins 2, reçu 1"
-    );
+    assert_eq!(result.unwrap_err().message(), "Besoin d'au moins 2, reçu 1");
   }
 
   #[test]
   fn test_validate_len_with_message_empty_static_uses_default() {
     // Empty static message should fall back to the default violation message
-    let rule = Rule::<Vec<i32>>::MinLength(3)
-      .with_locale("en".to_string());
+    let rule = Rule::<Vec<i32>>::MinLength(3).with_locale("en".to_string());
 
     let result = rule.validate_len(&vec![1]);
     assert!(result.is_err());
