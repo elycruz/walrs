@@ -35,8 +35,7 @@ fn main() {
       Ok(s.to_uppercase())
     } else {
       Err(
-        FilterError::new(format!("'{}' contains non-hex characters", s))
-          .with_name("HexNormalize"),
+        FilterError::new(format!("'{}' contains non-hex characters", s)).with_name("HexNormalize"),
       )
     }
   }));
