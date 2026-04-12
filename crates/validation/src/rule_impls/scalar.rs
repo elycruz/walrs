@@ -872,6 +872,212 @@ mod tests {
   }
 
   // ==========================================================================
+  // NaN Validation Tests — Step, Equals, OneOf (scalar path)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_nan_f64_step() {
+    let rule = Rule::<f64>::Step(5.0);
+    // Step is a pass-through in scalar validation
+    assert!(rule.validate_scalar(f64::NAN).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_step() {
+    let rule = Rule::<f32>::Step(5.0);
+    assert!(rule.validate_scalar(f32::NAN).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_equals() {
+    let rule = Rule::<f64>::Equals(42.0);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_equals() {
+    let rule = Rule::<f32>::Equals(42.0);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_one_of() {
+    let rule = Rule::<f64>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_one_of() {
+    let rule = Rule::<f32>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  // ==========================================================================
+  // INFINITY Validation Tests (scalar path)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_inf_f64_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_scalar(f64::INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f64_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f64_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f64_step() {
+    let rule = Rule::<f64>::Step(5.0);
+    // Step is a pass-through in scalar validation
+    assert!(rule.validate_scalar(f64::INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f64_equals() {
+    let rule = Rule::<f64>::Equals(42.0);
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f64_one_of() {
+    let rule = Rule::<f64>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_step() {
+    let rule = Rule::<f32>::Step(5.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_equals() {
+    let rule = Rule::<f32>::Equals(42.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_inf_f32_one_of() {
+    let rule = Rule::<f32>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+  }
+
+  // ==========================================================================
+  // NEG_INFINITY Validation Tests (scalar path)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_step() {
+    let rule = Rule::<f64>::Step(5.0);
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_equals() {
+    let rule = Rule::<f64>::Equals(42.0);
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f64_one_of() {
+    let rule = Rule::<f64>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_step() {
+    let rule = Rule::<f32>::Step(5.0);
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_equals() {
+    let rule = Rule::<f32>::Equals(42.0);
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_neg_inf_f32_one_of() {
+    let rule = Rule::<f32>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  // ==========================================================================
   // Rule::Ref tests (#143)
   // ==========================================================================
 

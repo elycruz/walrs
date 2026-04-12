@@ -87,10 +87,10 @@
 pub use indexmap;
 
 pub mod attributes;
-pub(crate) mod rule_impls;
 pub mod message;
 pub mod options;
 pub mod rule;
+pub(crate) mod rule_impls;
 pub mod traits;
 pub mod value;
 pub mod violation;
