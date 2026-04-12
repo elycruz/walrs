@@ -11,7 +11,7 @@
 
 ### Worktrees
 
-- When creating a new git worktree, place it in '.local/git-worktrees/'.  
+- When creating a new git worktree, place it in '.claude/worktrees/'.  
 
 ## After Changing Code
 
