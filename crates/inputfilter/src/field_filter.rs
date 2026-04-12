@@ -102,12 +102,15 @@ impl FieldFilter {
   /// early return is deterministic and corresponds to the order in which fields
   /// were added.
   pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
+    let null = Value::Null;
     let mut violations = FormViolations::new();
 
-    // Validate individual fields
+    // Validate individual fields.
+    // Missing fields are treated as `Value::Null`, which causes `Rule::Required`
+    // to report a violation.
     for (field_name, field) in &self.fields {
-      let value = data.get(field_name).cloned().unwrap_or(Value::Null);
-      if let Err(field_violations) = field.validate_ref(&value) {
+      let value = data.get(field_name).unwrap_or(&null);
+      if let Err(field_violations) = field.validate_ref(value) {
         violations.add_field_violations(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
@@ -136,7 +139,8 @@ impl FieldFilter {
     let mut result = data;
     for (field_name, field) in &self.fields {
       if let Some(value) = result.get_mut(field_name) {
-        *value = field.filter(value.clone());
+        let taken = std::mem::replace(value, Value::Null);
+        *value = field.filter(taken);
       }
     }
     result
@@ -154,10 +158,11 @@ impl FieldFilter {
     let mut violations = FormViolations::new();
 
     for (field_name, field) in &self.fields {
-      if let Some(value) = result.get(field_name).cloned() {
-        match field.try_filter(value) {
+      if let Some(slot) = result.get_mut(field_name) {
+        let taken = std::mem::replace(slot, Value::Null);
+        match field.try_filter(taken) {
           Ok(filtered) => {
-            result.insert(field_name.clone(), filtered);
+            *slot = filtered;
           }
           Err(field_violations) => {
             violations.add_field_violations(field_name, field_violations);
