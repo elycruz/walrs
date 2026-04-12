@@ -51,8 +51,8 @@ impl XmlEntitiesFilter<'_> {
   }
 }
 
-impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
-  type Output = Cow<'static, str>;
+impl<'a> Filter<Cow<'a, str>> for XmlEntitiesFilter<'_> {
+  type Output = Cow<'a, str>;
 
   /// Uses contained character association map to encode characters matching contained characters as
   /// xml entities.
@@ -76,10 +76,10 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
   ///   assert_eq!(filter.filter(incoming_src.into()), expected_src.to_string());
   /// }
   ///```
-  fn filter(&self, input: Cow<'_, str>) -> Self::Output {
-    // Fast path: if no characters need encoding, return input as-is
+  fn filter(&self, input: Cow<'a, str>) -> Self::Output {
+    // Fast path: if no characters need encoding, return input as-is (zero-copy)
     if !input.chars().any(|c| self.chars_assoc_map.contains_key(&c)) {
-      return Cow::Owned(input.into_owned());
+      return input;
     }
 
     let mut output = String::with_capacity(input.len() + input.len() / 5 * 3);
@@ -101,24 +101,24 @@ impl Default for XmlEntitiesFilter<'_> {
 }
 
 #[cfg(feature = "fn_traits")]
-impl FnOnce<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
-  type Output = Cow<'static, str>;
+impl<'a> FnOnce<(Cow<'a, str>,)> for XmlEntitiesFilter<'_> {
+  type Output = Cow<'a, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, str>,)) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(&self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl FnMut<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, str>,)) -> Self::Output {
+impl<'a> FnMut<(Cow<'a, str>,)> for XmlEntitiesFilter<'_> {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl Fn<(Cow<'_, str>,)> for XmlEntitiesFilter<'_> {
-  extern "rust-call" fn call(&self, args: (Cow<'_, str>,)) -> Self::Output {
+impl<'a> Fn<(Cow<'a, str>,)> for XmlEntitiesFilter<'_> {
+  extern "rust-call" fn call(&self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(self, args.0)
   }
 }
@@ -157,11 +157,16 @@ mod test {
   fn test_noop_no_encodable_chars() {
     let filter = super::XmlEntitiesFilter::new();
 
-    // These inputs have no encodable characters — should be no-op
+    // These inputs have no encodable characters — should be zero-copy no-op
     for input in ["Hello", "Hello World", "abc123", "", " "] {
       let cow_input = std::borrow::Cow::Borrowed(input);
       let result = filter.filter(cow_input);
       assert_eq!(result, input);
+      assert!(
+        matches!(result, std::borrow::Cow::Borrowed(_)),
+        "Expected Cow::Borrowed for no-op input {:?}",
+        input
+      );
     }
   }
 
@@ -173,6 +178,7 @@ mod test {
     let input = "Hello World".to_string();
     let result = filter.filter(std::borrow::Cow::Owned(input));
     assert_eq!(result, "Hello World");
+    assert!(matches!(result, std::borrow::Cow::Owned(_)));
   }
 
   #[test]
