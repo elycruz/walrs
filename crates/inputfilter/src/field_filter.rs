@@ -249,6 +249,7 @@ pub enum CrossFieldRuleType {
 
   /// Custom validation (not serializable).
   #[serde(skip)]
+  #[allow(clippy::type_complexity)]
   Custom(Arc<dyn Fn(&IndexMap<String, Value>) -> RuleResult + Send + Sync>),
 
   /// Async custom validation (not serializable).
@@ -807,7 +808,7 @@ mod tests {
 
   #[test]
   fn test_field_filter_try_filter_success() {
-    use walrs_filter::{FilterError, TryFilterOp};
+    use walrs_filter::TryFilterOp;
 
     let mut filter = FieldFilter::new();
     filter.add_field(
