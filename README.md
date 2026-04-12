@@ -69,4 +69,8 @@ Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
 
 ## License
 
-MIT + Apache 2.0
+[Elastic License 2.0 (ELv2)](./LICENSE)
+
+Free to use, modify, and distribute for personal or internal use. Commercial
+resale and managed-service offerings require explicit permission from the
+copyright holder. See [NOTICE](./NOTICE) for AI-assisted development disclosure.

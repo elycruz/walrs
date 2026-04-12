@@ -5,10 +5,10 @@
 //!
 //! Run with: `cargo run --example json_serialization`
 
-use walrs_validation::Value;
-use walrs_inputfilter::field::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
+use walrs_inputfilter::field::{Field, FieldBuilder};
 use walrs_validation::Rule;
+use walrs_validation::Value;
 
 fn main() {
   println!("=== JSON Serialization Examples ===\n");
@@ -69,7 +69,10 @@ fn main() {
 
   // Example 5: Serialize Rule::Any
   println!("\n5. Serialize Rule::Any:");
-  let any_rule = Rule::<String>::Any(vec![Rule::Email(Default::default()), Rule::pattern(r"^\d{10}$").unwrap()]);
+  let any_rule = Rule::<String>::Any(vec![
+    Rule::Email(Default::default()),
+    Rule::pattern(r"^\d{10}$").unwrap(),
+  ]);
 
   let json = serde_json::to_string_pretty(&any_rule).unwrap();
   println!("{}", json);

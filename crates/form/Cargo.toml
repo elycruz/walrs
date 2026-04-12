@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
 description = "Form elements and structure for walrs form ecosystem"
-license = "MIT OR Apache-2.0"
+license = "Elastic-2.0"
 
 [dependencies]
 walrs_inputfilter = { path = "../inputfilter" }

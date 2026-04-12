@@ -6,9 +6,9 @@
 //! Run with: `cargo run --example field_filter`
 
 use indexmap::IndexMap;
-use walrs_validation::Value;
 use walrs_inputfilter::field::FieldBuilder;
 use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
+use walrs_validation::Value;
 use walrs_validation::{Rule, Rule::*};
 
 fn main() {
@@ -23,12 +23,17 @@ fn main() {
       "email",
       FieldBuilder::<Value>::default()
         .name("email")
-          // Note: Rules that match html attributes will be exported when serializing to JSON;
-          // E.g., json output will resemble:
-          // { "type": "email", "name": "email", "required": true, "minlength": 5, "maxlength": 128 }
-          // Allows rules to be sent to front-end clients so that they're shared
-          // instead of isolated.
-        .rule(All(vec![Required, MinLength(5), MaxLength(128), Email(Default::default())]))
+        // Note: Rules that match html attributes will be exported when serializing to JSON;
+        // E.g., json output will resemble:
+        // { "type": "email", "name": "email", "required": true, "minlength": 5, "maxlength": 128 }
+        // Allows rules to be sent to front-end clients so that they're shared
+        // instead of isolated.
+        .rule(All(vec![
+          Required,
+          MinLength(5),
+          MaxLength(128),
+          Email(Default::default()),
+        ]))
         .build()
         .unwrap(),
     )
