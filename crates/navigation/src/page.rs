@@ -310,6 +310,11 @@ impl Page {
 
   /// Returns the full URI including fragment if present.
   ///
+  /// If both `uri` and `fragment` are set, returns `"uri#fragment"`.
+  /// If only `uri` is set, returns the URI.
+  /// If only `fragment` is set, returns `"#fragment"`.
+  /// If neither is set, returns `None`.
+  ///
   /// # Examples
   ///
   /// ```
@@ -320,15 +325,17 @@ impl Page {
   ///     .fragment("team")
   ///     .build();
   /// assert_eq!(page.href(), Some("/about#team".to_string()));
+  ///
+  /// let fragment_only = Page::builder().fragment("section1").build();
+  /// assert_eq!(fragment_only.href(), Some("#section1".to_string()));
   /// ```
   pub fn href(&self) -> Option<String> {
-    self.uri.as_ref().map(|uri| {
-      if let Some(fragment) = &self.fragment {
-        format!("{}#{}", uri, fragment)
-      } else {
-        uri.clone()
-      }
-    })
+    match (&self.uri, &self.fragment) {
+      (Some(uri), Some(fragment)) => Some(format!("{}#{}", uri, fragment)),
+      (Some(uri), None) => Some(uri.clone()),
+      (None, Some(fragment)) => Some(format!("#{}", fragment)),
+      (None, None) => None,
+    }
   }
 
   /// Checks whether this page or any descendant is active.
@@ -1207,7 +1214,11 @@ mod tests {
     let page = Page::builder().uri("/about").build();
     assert_eq!(page.href(), Some("/about".to_string()));
 
-    // No URI
+    // Fragment only (no URI)
+    let page = Page::builder().fragment("section1").build();
+    assert_eq!(page.href(), Some("#section1".to_string()));
+
+    // Neither URI nor fragment
     let page = Page::new();
     assert_eq!(page.href(), None);
   }
