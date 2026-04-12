@@ -958,4 +958,211 @@ mod tests {
       assert!(rule.validate_ref_async(&Some('b')).await.is_err());
     }
   }
+
+  // ==========================================================================
+  // Issue #143 — Rule::Ref tests (scalar)
+  // ==========================================================================
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_i32() {
+    use crate::ViolationType;
+    let rule = Rule::<i32>::Ref("scalar_ref".into());
+    let err = rule.validate_scalar(42).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("scalar_ref"));
+    assert_eq!(err.message(), "Unresolved rule reference: scalar_ref.");
+  }
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_f64() {
+    use crate::ViolationType;
+    let rule = Rule::<f64>::Ref("float_ref".into());
+    let err = rule.validate_scalar(3.14).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("float_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_all_scalar() {
+    let rule = Rule::<i32>::All(vec![Rule::Min(0), Rule::Ref("nested_ref".into())]);
+    let err = rule.validate_scalar(10).unwrap_err();
+    assert!(err.message().contains("nested_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_any_scalar() {
+    let rule = Rule::<i32>::Any(vec![Rule::Ref("ref_a".into()), Rule::Ref("ref_b".into())]);
+    assert!(rule.validate_scalar(10).is_err());
+  }
+
+  #[test]
+  fn test_ref_inside_not_scalar() {
+    let rule = Rule::<i32>::Not(Box::new(Rule::Ref("neg_ref".into())));
+    // Not(Ref) -> Ref returns Err, so Not succeeds
+    assert!(rule.validate_scalar(10).is_ok());
+  }
+
+  #[test]
+  fn test_ref_inside_when_scalar() {
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(0),
+      then_rule: Box::new(Rule::Ref("when_ref".into())),
+      else_rule: None,
+    };
+    let err = rule.validate_scalar(5).unwrap_err();
+    assert!(err.message().contains("when_ref"));
+  }
+
+  // ==========================================================================
+  // Issue #144 — NaN / Infinity assertion tests (scalar)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_f64_infinity_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_scalar(f64::INFINITY).is_ok());
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_f64_infinity_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_f64_infinity_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f64::INFINITY).is_err());
+    assert!(rule.validate_scalar(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_f32_infinity_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_ok());
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_f32_infinity_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_f32_infinity_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_scalar(f32::INFINITY).is_err());
+    assert!(rule.validate_scalar(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_step() {
+    // Step is not validated in the scalar path (only in steppable), so this returns Ok
+    let rule = Rule::<f64>::Step(0.5);
+    assert!(rule.validate_scalar(f64::NAN).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_equals() {
+    let rule = Rule::<f64>::Equals(1.0);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f64_one_of() {
+    let rule = Rule::<f64>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_step() {
+    // Step is not validated in the scalar path (only in steppable), so this returns Ok
+    let rule = Rule::<f32>::Step(0.5);
+    assert!(rule.validate_scalar(f32::NAN).is_ok());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_equals() {
+    let rule = Rule::<f32>::Equals(1.0);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_nan_f32_one_of() {
+    let rule = Rule::<f32>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_scalar(f32::NAN).is_err());
+  }
+
+  // ==========================================================================
+  // Issue #145 — Deeply nested combinator tests (scalar)
+  // ==========================================================================
+
+  #[test]
+  fn test_nested_all_all_any_depth_2_scalar() {
+    let rule = Rule::<i32>::All(vec![
+      Rule::All(vec![Rule::Min(0), Rule::Max(100)]),
+      Rule::Any(vec![Rule::Equals(50), Rule::Equals(75)]),
+    ]);
+    assert!(rule.validate_scalar(50).is_ok());
+    assert!(rule.validate_scalar(75).is_ok());
+    assert!(rule.validate_scalar(10).is_err());
+  }
+
+  #[test]
+  fn test_nested_when_all_any_depth_2_scalar() {
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(0),
+      then_rule: Box::new(Rule::All(vec![Rule::Min(1), Rule::Max(100)])),
+      else_rule: Some(Box::new(Rule::Any(vec![Rule::Equals(0), Rule::Equals(-1)]))),
+    };
+    assert!(rule.validate_scalar(50).is_ok());
+    assert!(rule.validate_scalar(0).is_ok());
+    assert!(rule.validate_scalar(-1).is_ok());
+    assert!(rule.validate_scalar(-5).is_err());
+  }
+
+  #[test]
+  fn test_nested_not_all_any_depth_3_scalar() {
+    // Not(All([Any([Equals(999)])])) — 50 fails Any(Equals(999)), so All fails, so Not succeeds
+    let rule = Rule::<i32>::Not(Box::new(Rule::All(vec![Rule::Any(vec![Rule::Equals(
+      999,
+    )])])));
+    assert!(rule.validate_scalar(50).is_ok());
+  }
+
+  #[test]
+  fn test_nested_any_not_all_depth_2_scalar() {
+    let rule = Rule::<i32>::Any(vec![
+      Rule::Not(Box::new(Rule::Equals(0))),
+      Rule::All(vec![Rule::Min(1), Rule::Max(10)]),
+    ]);
+    assert!(rule.validate_scalar(5).is_ok());
+    assert!(rule.validate_scalar(0).is_err());
+  }
+
+  #[test]
+  fn test_nested_all_all_all_depth_3_scalar() {
+    let rule = Rule::<i32>::All(vec![Rule::All(vec![Rule::All(vec![
+      Rule::Min(0),
+      Rule::Max(100),
+    ])])]);
+    assert!(rule.validate_scalar(50).is_ok());
+    assert!(rule.validate_scalar(-1).is_err());
+  }
+
+  #[test]
+  fn test_empty_any_returns_ok_scalar() {
+    let rule = Rule::<i32>::Any(vec![]);
+    assert!(rule.validate_scalar(42).is_ok());
+  }
 }

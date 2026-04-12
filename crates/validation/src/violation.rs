@@ -58,7 +58,10 @@ impl Violation {
   pub fn too_short(min: usize, actual: usize) -> Self {
     Self::new(
       ViolationType::TooShort,
-      format!("Value length must be at least {};  Received {}.", min, actual),
+      format!(
+        "Value length must be at least {};  Received {}.",
+        min, actual
+      ),
     )
   }
 
@@ -74,7 +77,10 @@ impl Violation {
   pub fn exact_length(expected: usize, actual: usize) -> Self {
     Self::new(
       ViolationType::TooShort,
-      format!("Value length must be exactly {} (got {}).", expected, actual),
+      format!(
+        "Value length must be exactly {} (got {}).",
+        expected, actual
+      ),
     )
   }
 
@@ -166,7 +172,10 @@ impl Violation {
 
   /// Value is not one of the allowed values.
   pub fn not_one_of() -> Self {
-    Self::new(ViolationType::NotEqual, "Value must be one of the allowed values.")
+    Self::new(
+      ViolationType::NotEqual,
+      "Value must be one of the allowed values.",
+    )
   }
 
   /// A named rule reference could not be resolved.
@@ -179,7 +188,10 @@ impl Violation {
 
   /// The negated rule unexpectedly passed.
   pub fn negation_failed() -> Self {
-    Self::new(ViolationType::CustomError, "Value must not satisfy the negated rule.")
+    Self::new(
+      ViolationType::CustomError,
+      "Value must not satisfy the negated rule.",
+    )
   }
 }
 

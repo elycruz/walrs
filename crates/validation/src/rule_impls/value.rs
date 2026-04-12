@@ -5,11 +5,11 @@
 
 use std::cmp::Ordering;
 
+use crate::Violation;
+use crate::ViolationType;
 use crate::rule::{Condition, Rule, RuleResult};
 use crate::traits::{IsEmpty, Validate, ValidateRef};
 use crate::value::{Value, ValueExt};
-use crate::Violation;
-use crate::ViolationType;
 
 // ============================================================================
 // Condition<Value> evaluation
@@ -22,12 +22,8 @@ impl Condition<Value> {
       Condition::IsEmpty => value.is_empty_value(),
       Condition::IsNotEmpty => !value.is_empty_value(),
       Condition::Equals(expected) => value == expected,
-      Condition::GreaterThan(threshold) => {
-        value.partial_cmp(threshold) == Some(Ordering::Greater)
-      }
-      Condition::LessThan(threshold) => {
-        value.partial_cmp(threshold) == Some(Ordering::Less)
-      }
+      Condition::GreaterThan(threshold) => value.partial_cmp(threshold) == Some(Ordering::Greater),
+      Condition::LessThan(threshold) => value.partial_cmp(threshold) == Some(Ordering::Less),
       Condition::Matches(cp) => match value {
         Value::Str(s) => cp.0.is_match(s),
         _ => false,
@@ -104,9 +100,7 @@ impl Rule<Value> {
 
       // ---- String rules ----
       Rule::Pattern(cp) => match value {
-        Value::Str(s) => {
-          Rule::<String>::Pattern(cp.clone()).validate_str(s.as_str())
-        }
+        Value::Str(s) => Rule::<String>::Pattern(cp.clone()).validate_str(s.as_str()),
         _ => Err(Violation::new(
           ViolationType::TypeMismatch,
           "Expected a string for Pattern.",
@@ -186,7 +180,7 @@ impl Rule<Value> {
             return Err(Violation::new(
               ViolationType::TypeMismatch,
               "Incompatible types for Range.",
-            ))
+            ));
           }
           _ => {}
         }
@@ -203,14 +197,12 @@ impl Rule<Value> {
         let ok = match (value, step) {
           (Value::I64(v), Value::I64(s)) => (*s != 0) && (*v % *s == 0),
           (Value::U64(v), Value::U64(s)) => (*s != 0) && (*v % *s == 0),
-          (Value::F64(v), Value::F64(s)) => {
-            (*s != 0.0) && ((*v % *s).abs() < f64::EPSILON)
-          }
+          (Value::F64(v), Value::F64(s)) => (*s != 0.0) && ((*v % *s).abs() < f64::EPSILON),
           _ => {
             return Err(Violation::new(
               ViolationType::TypeMismatch,
               "Incompatible types for Step.",
-            ))
+            ));
           }
         };
         if ok {
@@ -350,7 +342,9 @@ impl Rule<Value> {
 
         Rule::All(rules) => {
           for rule in rules {
-            rule.validate_value_async_inner(value, inherited_locale).await?;
+            rule
+              .validate_value_async_inner(value, inherited_locale)
+              .await?;
           }
           Ok(())
         }
@@ -360,7 +354,10 @@ impl Rule<Value> {
           }
           let mut last_err = None;
           for rule in rules {
-            match rule.validate_value_async_inner(value, inherited_locale).await {
+            match rule
+              .validate_value_async_inner(value, inherited_locale)
+              .await
+            {
               Ok(()) => return Ok(()),
               Err(e) => last_err = Some(e),
             }
@@ -368,7 +365,10 @@ impl Rule<Value> {
           Err(last_err.unwrap())
         }
         Rule::Not(inner) => {
-          match inner.validate_value_async_inner(value, inherited_locale).await {
+          match inner
+            .validate_value_async_inner(value, inherited_locale)
+            .await
+          {
             Ok(()) => Err(Violation::negation_failed()),
             Err(_) => Ok(()),
           }
@@ -379,17 +379,31 @@ impl Rule<Value> {
           else_rule,
         } => {
           if condition.evaluate_value(value) {
-            then_rule.validate_value_async_inner(value, inherited_locale).await
+            then_rule
+              .validate_value_async_inner(value, inherited_locale)
+              .await
           } else {
             match else_rule {
-              Some(rule) => rule.validate_value_async_inner(value, inherited_locale).await,
+              Some(rule) => {
+                rule
+                  .validate_value_async_inner(value, inherited_locale)
+                  .await
+              }
               None => Ok(()),
             }
           }
         }
-        Rule::WithMessage { rule, message, locale } => {
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(rule.validate_value_async_inner(value, eff).await, value, eff)
+          message.wrap_result(
+            rule.validate_value_async_inner(value, eff).await,
+            value,
+            eff,
+          )
         }
 
         // All sync rules — delegate to sync validation
@@ -459,7 +473,11 @@ mod tests {
   #[test]
   fn test_required_non_empty_string() {
     let rule = Rule::<Value>::Required;
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
   }
 
   #[test]
@@ -472,7 +490,11 @@ mod tests {
   fn test_min_length_str() {
     let rule = Rule::<Value>::MinLength(3);
     assert!(rule.validate_value(&Value::Str("hi".to_string())).is_err());
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
   }
 
   #[test]
@@ -480,20 +502,31 @@ mod tests {
     let rule = Rule::<Value>::MinLength(3);
     let result = rule.validate_value(&Value::I64(42));
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().violation_type(), ViolationType::TypeMismatch);
+    assert_eq!(
+      result.unwrap_err().violation_type(),
+      ViolationType::TypeMismatch
+    );
   }
 
   #[test]
   fn test_max_length_str() {
     let rule = Rule::<Value>::MaxLength(5);
     assert!(rule.validate_value(&Value::Str("hi".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("hello world".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello world".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
   fn test_exact_length_str() {
     let rule = Rule::<Value>::ExactLength(5);
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
     assert!(rule.validate_value(&Value::Str("hi".to_string())).is_err());
   }
 
@@ -507,15 +540,31 @@ mod tests {
   #[test]
   fn test_email() {
     let rule = Rule::<Value>::Email(Default::default());
-    assert!(rule.validate_value(&Value::Str("test@example.com".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("invalid".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("test@example.com".to_string()))
+        .is_ok()
+    );
+    assert!(
+      rule
+        .validate_value(&Value::Str("invalid".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
   fn test_url() {
     let rule = Rule::<Value>::Url(Default::default());
-    assert!(rule.validate_value(&Value::Str("https://example.com".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("not-a-url".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("https://example.com".to_string()))
+        .is_ok()
+    );
+    assert!(
+      rule
+        .validate_value(&Value::Str("not-a-url".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
@@ -549,7 +598,10 @@ mod tests {
     let rule = Rule::<Value>::Min(Value::I64(10));
     let result = rule.validate_value(&Value::Str("hello".to_string()));
     assert!(result.is_err());
-    assert_eq!(result.unwrap_err().violation_type(), ViolationType::TypeMismatch);
+    assert_eq!(
+      result.unwrap_err().violation_type(),
+      ViolationType::TypeMismatch
+    );
   }
 
   #[test]
@@ -569,8 +621,16 @@ mod tests {
   #[test]
   fn test_equals() {
     let rule = Rule::<Value>::Equals(Value::Str("hello".to_string()));
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("world".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
+    assert!(
+      rule
+        .validate_value(&Value::Str("world".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
@@ -585,11 +645,12 @@ mod tests {
 
   #[test]
   fn test_all() {
-    let rule = Rule::<Value>::All(vec![
-      Rule::Required,
-      Rule::MinLength(3),
-    ]);
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
+    let rule = Rule::<Value>::All(vec![Rule::Required, Rule::MinLength(3)]);
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
     assert!(rule.validate_value(&Value::Str("hi".to_string())).is_err());
   }
 
@@ -599,16 +660,32 @@ mod tests {
       Rule::Email(Default::default()),
       Rule::Url(Default::default()),
     ]);
-    assert!(rule.validate_value(&Value::Str("test@example.com".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("https://example.com".to_string())).is_ok());
-    assert!(rule.validate_value(&Value::Str("plain".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("test@example.com".to_string()))
+        .is_ok()
+    );
+    assert!(
+      rule
+        .validate_value(&Value::Str("https://example.com".to_string()))
+        .is_ok()
+    );
+    assert!(
+      rule
+        .validate_value(&Value::Str("plain".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
   fn test_not() {
     let rule = Rule::<Value>::Not(Box::new(Rule::Required));
     assert!(rule.validate_value(&Value::Null).is_ok());
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_err());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_err()
+    );
   }
 
   #[test]
@@ -621,7 +698,11 @@ mod tests {
     // Non-empty, short string → should fail
     assert!(rule.validate_value(&Value::Str("hi".to_string())).is_err());
     // Non-empty, long enough → should pass
-    assert!(rule.validate_value(&Value::Str("hello".to_string())).is_ok());
+    assert!(
+      rule
+        .validate_value(&Value::Str("hello".to_string()))
+        .is_ok()
+    );
     // Empty → condition false, no else → pass
     assert!(rule.validate_value(&Value::Str("".to_string())).is_ok());
   }
@@ -700,5 +781,140 @@ mod tests {
     assert!(Validate::<Option<Value>>::validate(&rule, None).is_ok());
     assert!(ValidateRef::<Option<Value>>::validate_ref(&rule, &None).is_ok());
   }
-}
 
+  // ==========================================================================
+  // Issue #143 — Rule::Ref tests (Value)
+  // ==========================================================================
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_value_i64() {
+    let rule = Rule::<Value>::Ref("value_ref".into());
+    let err = rule.validate_value(&Value::I64(42)).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("value_ref"));
+    assert_eq!(err.message(), "Unresolved rule reference: value_ref.");
+  }
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_value_str() {
+    let rule = Rule::<Value>::Ref("str_ref".into());
+    let err = rule
+      .validate_value(&Value::Str("hello".into()))
+      .unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("str_ref"));
+  }
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_value_f64() {
+    let rule = Rule::<Value>::Ref("f64_ref".into());
+    let err = rule.validate_value(&Value::F64(3.14)).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("f64_ref"));
+  }
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_value_null() {
+    let rule = Rule::<Value>::Ref("null_ref".into());
+    let err = rule.validate_value(&Value::Null).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("null_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_all_value() {
+    let rule = Rule::<Value>::All(vec![Rule::MinLength(1), Rule::Ref("all_ref".into())]);
+    let err = rule
+      .validate_value(&Value::Str("hello".into()))
+      .unwrap_err();
+    assert!(err.message().contains("all_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_any_value() {
+    let rule = Rule::<Value>::Any(vec![
+      Rule::Ref("any_ref_a".into()),
+      Rule::Ref("any_ref_b".into()),
+    ]);
+    assert!(rule.validate_value(&Value::I64(10)).is_err());
+  }
+
+  #[test]
+  fn test_ref_inside_not_value() {
+    let rule = Rule::<Value>::Not(Box::new(Rule::Ref("not_ref".into())));
+    assert!(rule.validate_value(&Value::I64(10)).is_ok());
+  }
+
+  #[test]
+  fn test_ref_inside_when_value() {
+    let rule = Rule::<Value>::When {
+      condition: Condition::IsNotEmpty,
+      then_rule: Box::new(Rule::Ref("when_ref".into())),
+      else_rule: None,
+    };
+    let err = rule
+      .validate_value(&Value::Str("non_empty".into()))
+      .unwrap_err();
+    assert!(err.message().contains("when_ref"));
+  }
+
+  // ==========================================================================
+  // Issue #145 — Deeply nested combinator tests (Value)
+  // ==========================================================================
+
+  #[test]
+  fn test_nested_all_all_any_depth_2_value() {
+    let rule = Rule::<Value>::All(vec![
+      Rule::All(vec![Rule::MinLength(1), Rule::MaxLength(20)]),
+      Rule::Any(vec![Rule::MinLength(3), Rule::MaxLength(5)]),
+    ]);
+    assert!(rule.validate_value(&Value::Str("hello".into())).is_ok());
+    assert!(rule.validate_value(&Value::Str("".into())).is_err());
+  }
+
+  #[test]
+  fn test_nested_when_all_any_depth_2_value() {
+    let rule = Rule::<Value>::When {
+      condition: Condition::IsNotEmpty,
+      then_rule: Box::new(Rule::All(vec![Rule::MinLength(2), Rule::MaxLength(10)])),
+      else_rule: Some(Box::new(Rule::Any(vec![Rule::MinLength(0)]))),
+    };
+    assert!(rule.validate_value(&Value::Str("hello".into())).is_ok());
+    assert!(rule.validate_value(&Value::Str("x".into())).is_err());
+    // Null is empty, so else branch fires with MinLength(0); Null has no meaningful length — verify behavior
+    assert!(rule.validate_value(&Value::Null).is_err());
+  }
+
+  #[test]
+  fn test_nested_not_all_any_depth_3_value() {
+    let rule = Rule::<Value>::Not(Box::new(Rule::All(vec![Rule::Any(vec![Rule::MinLength(
+      100,
+    )])])));
+    assert!(rule.validate_value(&Value::Str("hello".into())).is_ok());
+  }
+
+  #[test]
+  fn test_nested_any_not_all_depth_2_value() {
+    let rule = Rule::<Value>::Any(vec![
+      Rule::Not(Box::new(Rule::MinLength(100))),
+      Rule::All(vec![Rule::MinLength(1), Rule::MaxLength(10)]),
+    ]);
+    assert!(rule.validate_value(&Value::Str("hello".into())).is_ok());
+  }
+
+  #[test]
+  fn test_nested_all_all_all_depth_3_value() {
+    let rule = Rule::<Value>::All(vec![Rule::All(vec![Rule::All(vec![
+      Rule::MinLength(1),
+      Rule::MaxLength(50),
+    ])])]);
+    assert!(rule.validate_value(&Value::Str("hello".into())).is_ok());
+    assert!(rule.validate_value(&Value::Str("".into())).is_err());
+  }
+
+  #[test]
+  fn test_empty_any_returns_ok_value() {
+    let rule = Rule::<Value>::Any(vec![]);
+    assert!(rule.validate_value(&Value::I64(42)).is_ok());
+  }
+}

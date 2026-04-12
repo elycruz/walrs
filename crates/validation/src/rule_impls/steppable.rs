@@ -766,4 +766,245 @@ mod tests {
       assert!(rule.validate_async(-1).await.is_err());
     }
   }
+
+  // ==========================================================================
+  // Issue #143 — Rule::Ref tests (steppable)
+  // ==========================================================================
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_i32_step() {
+    use crate::ViolationType;
+    let rule = Rule::<i32>::Ref("step_ref".into());
+    let err = rule.validate_step(42).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("step_ref"));
+    assert_eq!(err.message(), "Unresolved rule reference: step_ref.");
+  }
+
+  #[test]
+  fn test_ref_returns_unresolved_ref_f64_step() {
+    use crate::ViolationType;
+    let rule = Rule::<f64>::Ref("float_step_ref".into());
+    let err = rule.validate_step(1.5).unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("float_step_ref"));
+  }
+
+  #[test]
+  fn test_ref_via_validate_trait() {
+    let rule = Rule::<i32>::Ref("trait_ref".into());
+    let err = rule.validate(42).unwrap_err();
+    assert!(err.message().contains("trait_ref"));
+  }
+
+  #[test]
+  fn test_ref_via_validate_ref_trait() {
+    let rule = Rule::<i32>::Ref("validate_ref_ref".into());
+    let err = rule.validate_ref(&42).unwrap_err();
+    assert!(err.message().contains("validate_ref_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_all_steppable() {
+    let rule = Rule::<i32>::All(vec![Rule::Min(0), Rule::Ref("all_ref".into())]);
+    let err = rule.validate_step(10).unwrap_err();
+    assert!(err.message().contains("all_ref"));
+  }
+
+  #[test]
+  fn test_ref_inside_any_steppable() {
+    let rule = Rule::<i32>::Any(vec![
+      Rule::Ref("any_ref_a".into()),
+      Rule::Ref("any_ref_b".into()),
+    ]);
+    assert!(rule.validate_step(10).is_err());
+  }
+
+  #[test]
+  fn test_ref_inside_not_steppable() {
+    let rule = Rule::<i32>::Not(Box::new(Rule::Ref("not_ref".into())));
+    assert!(rule.validate_step(10).is_ok());
+  }
+
+  #[test]
+  fn test_ref_inside_when_steppable() {
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(0),
+      then_rule: Box::new(Rule::Ref("when_ref".into())),
+      else_rule: None,
+    };
+    let err = rule.validate_step(5).unwrap_err();
+    assert!(err.message().contains("when_ref"));
+  }
+
+  // ==========================================================================
+  // Issue #144 — NaN / Infinity assertion tests (steppable)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_f64_infinity_min() {
+    let rule = Rule::<f64>::Min(0.0);
+    assert!(rule.validate_step(f64::INFINITY).is_ok());
+    assert!(rule.validate(f64::INFINITY).is_ok());
+    assert!(rule.validate_step(f64::NEG_INFINITY).is_err());
+    assert!(rule.validate(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_f64_infinity_max() {
+    let rule = Rule::<f64>::Max(100.0);
+    assert!(rule.validate_step(f64::INFINITY).is_err());
+    assert!(rule.validate(f64::INFINITY).is_err());
+    assert!(rule.validate_step(f64::NEG_INFINITY).is_ok());
+    assert!(rule.validate(f64::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_f64_infinity_range() {
+    let rule = Rule::<f64>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_step(f64::INFINITY).is_err());
+    assert!(rule.validate(f64::INFINITY).is_err());
+    assert!(rule.validate_step(f64::NEG_INFINITY).is_err());
+    assert!(rule.validate(f64::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_f32_infinity_min() {
+    let rule = Rule::<f32>::Min(0.0);
+    assert!(rule.validate_step(f32::INFINITY).is_ok());
+    assert!(rule.validate(f32::INFINITY).is_ok());
+    assert!(rule.validate_step(f32::NEG_INFINITY).is_err());
+    assert!(rule.validate(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_f32_infinity_max() {
+    let rule = Rule::<f32>::Max(100.0);
+    assert!(rule.validate_step(f32::INFINITY).is_err());
+    assert!(rule.validate(f32::INFINITY).is_err());
+    assert!(rule.validate_step(f32::NEG_INFINITY).is_ok());
+    assert!(rule.validate(f32::NEG_INFINITY).is_ok());
+  }
+
+  #[test]
+  fn test_validate_f32_infinity_range() {
+    let rule = Rule::<f32>::Range {
+      min: 0.0,
+      max: 100.0,
+    };
+    assert!(rule.validate_step(f32::INFINITY).is_err());
+    assert!(rule.validate(f32::INFINITY).is_err());
+    assert!(rule.validate_step(f32::NEG_INFINITY).is_err());
+    assert!(rule.validate(f32::NEG_INFINITY).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f64_step() {
+    let rule = Rule::<f64>::Step(0.5);
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f64_equals() {
+    let rule = Rule::<f64>::Equals(1.0);
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f64_one_of() {
+    let rule = Rule::<f64>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_step(f64::NAN).is_err());
+    assert!(rule.validate(f64::NAN).is_err());
+    assert!(rule.validate_ref(&f64::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_step() {
+    let rule = Rule::<f32>::Step(0.5);
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_equals() {
+    let rule = Rule::<f32>::Equals(1.0);
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  #[test]
+  fn test_validate_nan_f32_one_of() {
+    let rule = Rule::<f32>::OneOf(vec![1.0, 2.0, 3.0]);
+    assert!(rule.validate_step(f32::NAN).is_err());
+    assert!(rule.validate(f32::NAN).is_err());
+  }
+
+  // ==========================================================================
+  // Issue #145 — Deeply nested combinator tests (steppable)
+  // ==========================================================================
+
+  #[test]
+  fn test_nested_all_all_any_depth_2_step() {
+    let rule = Rule::<i32>::All(vec![
+      Rule::All(vec![Rule::Min(0), Rule::Max(100)]),
+      Rule::Any(vec![Rule::Step(5), Rule::Step(10)]),
+    ]);
+    assert!(rule.validate_step(50).is_ok());
+    assert!(rule.validate_step(7).is_err());
+  }
+
+  #[test]
+  fn test_nested_when_all_any_depth_2_step() {
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(0),
+      then_rule: Box::new(Rule::All(vec![Rule::Min(1), Rule::Step(2)])),
+      else_rule: Some(Box::new(Rule::Any(vec![Rule::Equals(0), Rule::Equals(-2)]))),
+    };
+    assert!(rule.validate_step(4).is_ok());
+    assert!(rule.validate_step(3).is_err());
+    assert!(rule.validate_step(0).is_ok());
+    assert!(rule.validate_step(-2).is_ok());
+    assert!(rule.validate_step(-3).is_err());
+  }
+
+  #[test]
+  fn test_nested_not_all_any_depth_3_step() {
+    let rule = Rule::<i32>::Not(Box::new(Rule::All(vec![Rule::Any(vec![Rule::Equals(
+      999,
+    )])])));
+    assert!(rule.validate_step(50).is_ok());
+  }
+
+  #[test]
+  fn test_nested_any_not_all_depth_2_step() {
+    let rule = Rule::<i32>::Any(vec![
+      Rule::Not(Box::new(Rule::Equals(0))),
+      Rule::All(vec![Rule::Min(1), Rule::Max(10)]),
+    ]);
+    assert!(rule.validate_step(5).is_ok());
+    assert!(rule.validate_step(0).is_err());
+  }
+
+  #[test]
+  fn test_nested_all_all_all_depth_3_step() {
+    let rule = Rule::<i32>::All(vec![Rule::All(vec![Rule::All(vec![
+      Rule::Min(0),
+      Rule::Step(5),
+    ])])]);
+    assert!(rule.validate_step(10).is_ok());
+    assert!(rule.validate_step(3).is_err());
+  }
+
+  #[test]
+  fn test_empty_any_returns_ok_step() {
+    let rule = Rule::<i32>::Any(vec![]);
+    assert!(rule.validate_step(42).is_ok());
+  }
 }

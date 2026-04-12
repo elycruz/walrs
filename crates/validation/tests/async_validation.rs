@@ -1,9 +1,7 @@
 #![cfg(feature = "async")]
 
 use std::sync::Arc;
-use walrs_validation::{
-  Rule, ValidateAsync, ValidateRefAsync, Violation, ViolationType,
-};
+use walrs_validation::{Rule, ValidateAsync, ValidateRefAsync, Violation, ViolationType};
 
 // ---------------------------------------------------------------------------
 // Helper: a simple async validator closure
@@ -106,7 +104,10 @@ mod value_tests {
     Rule::custom_async(Arc::new(|value: &Value| {
       Box::pin(async move {
         if value.is_null() {
-          Err(Violation::new(ViolationType::CustomError, "must not be null"))
+          Err(Violation::new(
+            ViolationType::CustomError,
+            "must not be null",
+          ))
         } else {
           Ok(())
         }
@@ -117,7 +118,12 @@ mod value_tests {
   #[tokio::test]
   async fn custom_async_value_passes() {
     let rule = async_value_not_null();
-    assert!(rule.validate_ref_async(&Value::Str("hi".into())).await.is_ok());
+    assert!(
+      rule
+        .validate_ref_async(&Value::Str("hi".into()))
+        .await
+        .is_ok()
+    );
   }
 
   #[tokio::test]
@@ -166,9 +172,7 @@ async fn not_with_async_child() {
 
 #[tokio::test]
 async fn when_with_async_then_branch() {
-  let rule = async_str_is_not_banned("bad").when(
-    walrs_validation::Condition::IsNotEmpty,
-  );
+  let rule = async_str_is_not_banned("bad").when(walrs_validation::Condition::IsNotEmpty);
   // Non-empty triggers then_rule (async)
   assert!(rule.validate_ref_async("good").await.is_ok());
   assert!(rule.validate_ref_async("bad").await.is_err());
@@ -194,10 +198,7 @@ async fn all_mixed_sync_and_async() {
 
 #[tokio::test]
 async fn any_mixed_sync_and_async() {
-  let rule = Rule::<String>::Any(vec![
-    Rule::ExactLength(3),
-    async_str_is_not_banned("bad"),
-  ]);
+  let rule = Rule::<String>::Any(vec![Rule::ExactLength(3), async_str_is_not_banned("bad")]);
   assert!(rule.validate_ref_async("hi").await.is_ok()); // fails length, passes async
   assert!(rule.validate_ref_async("bad").await.is_ok()); // passes length (3 chars)
 }
