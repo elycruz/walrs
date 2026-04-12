@@ -93,7 +93,7 @@ where
   pub fn adj(&self, symbol_name: &str) -> Result<Vec<&T>, String> {
     if let Some(i) = self.index(symbol_name) {
       let indices = self._graph.adj(i)?;
-      Ok(self.vertices(&indices))
+      Ok(self.vertices(indices))
     } else {
       Err(format!(
         "Symbol \"{}\" doesn't exist in symbol graph",
@@ -180,9 +180,7 @@ where
         let v2 = self.add_vertex(w);
 
         // Add edges
-        if let Err(err) = self._graph.add_edge(v1, v2) {
-          return Err(err);
-        }
+        self._graph.add_edge(v1, v2)?;
       }
     }
 

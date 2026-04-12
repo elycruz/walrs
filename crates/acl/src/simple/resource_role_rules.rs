@@ -14,6 +14,12 @@ pub struct ResourceRoleRules {
   pub by_resource_id: HashMap<Resource, RolePrivilegeRules>,
 }
 
+impl Default for ResourceRoleRules {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl ResourceRoleRules {
   pub fn new() -> Self {
     ResourceRoleRules {

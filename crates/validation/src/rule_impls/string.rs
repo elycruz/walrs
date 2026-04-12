@@ -82,16 +82,14 @@ fn validate_ip(value: &str, opts: &IpOptions) -> RuleResult {
   }
 
   // Try IPv4
-  if opts.allow_ipv4
-    && inner.parse::<std::net::Ipv4Addr>().is_ok() {
-      return Ok(());
-    }
+  if opts.allow_ipv4 && inner.parse::<std::net::Ipv4Addr>().is_ok() {
+    return Ok(());
+  }
 
   // Try IPv6
-  if opts.allow_ipv6
-    && inner.parse::<std::net::Ipv6Addr>().is_ok() {
-      return Ok(());
-    }
+  if opts.allow_ipv6 && inner.parse::<std::net::Ipv6Addr>().is_ok() {
+    return Ok(());
+  }
 
   Err(Violation::invalid_ip())
 }

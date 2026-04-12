@@ -9,7 +9,7 @@ use walrs_digraph::DisymGraph;
 
 // Convenience method.
 fn _is_empty(list: &Option<&[&str]>) -> bool {
-  list.map_or(true, |xs| xs.is_empty())
+  list.is_none_or(|xs| xs.is_empty())
 }
 
 /// Builder for constructing `Acl` instances with a fluent interface.
@@ -316,12 +316,11 @@ impl AclBuilder {
         }
         // If only `role` is None, consider it the "received roles are empty" signal and
         // clear the 'by_role_id' map for this visiting resource
-        else if role.is_none() {
-          if let Some(resource_id) = resource {
-            if let Some(res_rules) = self._rules.by_resource_id.get_mut(resource_id) {
-              res_rules.by_role_id = None;
-            }
-          }
+        else if role.is_none()
+          && let Some(resource_id) = resource
+          && let Some(res_rules) = self._rules.by_resource_id.get_mut(resource_id)
+        {
+          res_rules.by_role_id = None;
         }
 
         // Get role rules for resource (will either be "for all roles" or specific role based on Some/None args passed in)
@@ -340,10 +339,10 @@ impl AclBuilder {
           if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
             for privilege in privilege_list {
               // Remove the privilege entry if it has the opposite rule
-              if let Some(existing_rule) = p_map.get(*privilege) {
-                if existing_rule == &opposite_rule {
-                  p_map.remove(*privilege);
-                }
+              if let Some(existing_rule) = p_map.get(*privilege)
+                && existing_rule == &opposite_rule
+              {
+                p_map.remove(*privilege);
               }
             }
           }
@@ -391,7 +390,7 @@ impl AclBuilder {
     keys_to_filter.map_or(vec![None], |keys| {
       keys
         .iter()
-        .filter(|key| graph.contains(*key))
+        .filter(|key| graph.contains(key))
         .map(|key| Some(key.to_string()))
         .collect()
     })
@@ -704,7 +703,7 @@ impl TryFrom<&AclBuilder> for AclData {
         .for_all_roles
         .by_privilege_id
         .as_ref()
-        .map_or(true, |m| m.is_empty());
+        .is_none_or(|m| m.is_empty());
 
       if !by_priv_is_empty {
         if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
@@ -730,7 +729,7 @@ impl TryFrom<&AclBuilder> for AclData {
           let role_by_priv_is_empty = priv_rules
             .by_privilege_id
             .as_ref()
-            .map_or(true, |m| m.is_empty());
+            .is_none_or(|m| m.is_empty());
 
           if !role_by_priv_is_empty {
             if let Some(ref by_priv) = priv_rules.by_privilege_id {

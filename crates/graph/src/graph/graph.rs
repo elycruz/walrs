@@ -138,9 +138,7 @@ impl Graph {
 
   /// Removes a vertex from the graph.
   pub fn remove_vertex(&mut self, v: usize) -> Result<&mut Self, String> {
-    if let Err(err) = self.validate_vertex(v) {
-      return Err(err);
-    }
+    self.validate_vertex(v)?;
 
     let target_v_adj = self.adj(v).unwrap();
 
@@ -227,17 +225,14 @@ impl Graph {
     if len == 0 || v >= len || w >= len {
       return false;
     }
-    self._adj_lists[v].binary_search(&w).map_or(false, |_| true)
+    self._adj_lists[v].binary_search(&w).is_ok_and(|_| true)
   }
 
   /// Removes edge `v` to `w` from graph.
   pub fn remove_edge(&mut self, v: usize, w: usize) -> Result<usize, String> {
-    if let Err(err) = self
+    self
       .validate_vertex(v)
-      .and_then(|_| self.validate_vertex(w))
-    {
-      return Err(err);
-    }
+      .and_then(|_| self.validate_vertex(w))?;
     let adj = &mut self._adj_lists;
 
     let adj_v = &mut adj[v];
@@ -268,10 +263,7 @@ impl Graph {
   pub fn validate_vertex(&self, v: usize) -> Result<usize, String> {
     let len = self._adj_lists.len();
     if v >= len {
-      return Err(format!(
-        "{}",
-        invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 })
-      ));
+      return Err(invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 }).to_string());
     }
     Ok(v)
   }

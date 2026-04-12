@@ -388,10 +388,11 @@ impl Acl {
 
       let mut inherited = Vec::new();
       for i in 0..self._roles.vert_count() {
-        if i != role_idx && dfs.marked(i).unwrap_or(false) {
-          if let Some(name) = self._roles.name_as_ref(i) {
-            inherited.push(name);
-          }
+        if i != role_idx
+          && dfs.marked(i).unwrap_or(false)
+          && let Some(name) = self._roles.name_as_ref(i)
+        {
+          inherited.push(name);
         }
       }
 
@@ -409,10 +410,11 @@ impl Acl {
 
       let mut inherited = Vec::new();
       for i in 0..self._resources.vert_count() {
-        if i != resource_idx && dfs.marked(i).unwrap_or(false) {
-          if let Some(name) = self._resources.name_as_ref(i) {
-            inherited.push(name);
-          }
+        if i != resource_idx
+          && dfs.marked(i).unwrap_or(false)
+          && let Some(name) = self._resources.name_as_ref(i)
+        {
+          inherited.push(name);
         }
       }
 
