@@ -1,0 +1,21 @@
+NOTICE
+
+walrs - Web Application Library for Rust
+Copyright 2020-2026 elycruz - Ely De La Cruz
+
+This software is licensed under the Elastic License 2.0 (ELv2).
+See the LICENSE file at the root of this repository for the full license text,
+or visit: https://www.elastic.co/licensing/elastic-license
+
+-------------------------------------------------------------------------------
+
+AI-Assisted Development Disclosure
+
+Portions of this software were developed with the assistance of AI-powered
+tools, including but not limited to large language model (LLM) code generation
+tools (e.g., GitHub Copilot, ChatGPT). The authors make no representations
+about the suitability, correctness, or fitness for purpose of AI-generated
+code and accept no additional liability arising from its use.
+
+Use of this software is at your own risk. See the "No Liability" section of
+the LICENSE file for the full disclaimer.

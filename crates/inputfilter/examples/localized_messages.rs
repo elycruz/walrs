@@ -21,24 +21,27 @@ fn main() {
   // may not contain them depending on how the rule is composed.
   let username_rule = Rule::<String>::MinLength(3)
     .and(Rule::MaxLength(20))
-    .with_message_provider(|ctx| {
-      let (min, max) = (3, 20); // Hardcode the constraint values
-      match ctx.locale {
-        Some("es") => format!(
-          "El nombre de usuario debe tener entre {} y {} caracteres",
-          min, max
-        ),
-        Some("fr") => format!(
-          "Le nom d'utilisateur doit contenir entre {} et {} caractères",
-          min, max
-        ),
-        Some("de") => format!(
-          "Der Benutzername muss zwischen {} und {} Zeichen lang sein",
-          min, max
-        ),
-        _ => format!("Username must be between {} and {} characters", min, max),
-      }
-    }, None);
+    .with_message_provider(
+      |ctx| {
+        let (min, max) = (3, 20); // Hardcode the constraint values
+        match ctx.locale {
+          Some("es") => format!(
+            "El nombre de usuario debe tener entre {} y {} caracteres",
+            min, max
+          ),
+          Some("fr") => format!(
+            "Le nom d'utilisateur doit contenir entre {} et {} caractères",
+            min, max
+          ),
+          Some("de") => format!(
+            "Der Benutzername muss zwischen {} und {} Zeichen lang sein",
+            min, max
+          ),
+          _ => format!("Username must be between {} and {} characters", min, max),
+        }
+      },
+      None,
+    );
 
   // Test with different locales
   let test_value = "ab".to_string(); // Too short
@@ -109,33 +112,49 @@ fn main() {
   println!("\n--- Example 2: Password Field with Multiple Rules ---\n");
 
   let password_rule = Rule::<String>::Required
-    .with_message_provider(|ctx| match ctx.locale {
-      Some("es") => "La contraseña es obligatoria".to_string(),
-      Some("fr") => "Le mot de passe est requis".to_string(),
-      _ => "Password is required".to_string(),
-    }, None)
-    .and(Rule::<String>::MinLength(8).with_message_provider(|ctx| {
-      // Hardcode constraint value for the message
-      let min = 8;
-      match ctx.locale {
-        Some("es") => format!("La contraseña debe tener al menos {} caracteres", min),
-        Some("fr") => format!("Le mot de passe doit contenir au moins {} caractères", min),
-        _ => format!("Password must be at least {} characters", min),
-      }
-    }, None))
+    .with_message_provider(
+      |ctx| match ctx.locale {
+        Some("es") => "La contraseña es obligatoria".to_string(),
+        Some("fr") => "Le mot de passe est requis".to_string(),
+        _ => "Password is required".to_string(),
+      },
+      None,
+    )
+    .and(Rule::<String>::MinLength(8).with_message_provider(
+      |ctx| {
+        // Hardcode constraint value for the message
+        let min = 8;
+        match ctx.locale {
+          Some("es") => format!("La contraseña debe tener al menos {} caracteres", min),
+          Some("fr") => format!("Le mot de passe doit contenir au moins {} caractères", min),
+          _ => format!("Password must be at least {} characters", min),
+        }
+      },
+      None,
+    ))
     .and(
-      Rule::<String>::pattern(r"[A-Z]").unwrap().with_message_provider(|ctx| match ctx.locale {
-        Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
-        Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
-        _ => "Password must contain at least one uppercase letter".to_string(),
-      }, None),
+      Rule::<String>::pattern(r"[A-Z]")
+        .unwrap()
+        .with_message_provider(
+          |ctx| match ctx.locale {
+            Some("es") => "La contraseña debe contener al menos una letra mayúscula".to_string(),
+            Some("fr") => "Le mot de passe doit contenir au moins une lettre majuscule".to_string(),
+            _ => "Password must contain at least one uppercase letter".to_string(),
+          },
+          None,
+        ),
     )
     .and(
-      Rule::<String>::pattern(r"[0-9]").unwrap().with_message_provider(|ctx| match ctx.locale {
-        Some("es") => "La contraseña debe contener al menos un número".to_string(),
-        Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),
-        _ => "Password must contain at least one number".to_string(),
-      }, None),
+      Rule::<String>::pattern(r"[0-9]")
+        .unwrap()
+        .with_message_provider(
+          |ctx| match ctx.locale {
+            Some("es") => "La contraseña debe contener al menos un número".to_string(),
+            Some("fr") => "Le mot de passe doit contenir au moins un chiffre".to_string(),
+            _ => "Password must contain at least one number".to_string(),
+          },
+          None,
+        ),
     );
 
   // Test with a weak password
@@ -194,7 +213,10 @@ fn main() {
 
   let email_rule = Rule::<String>::Required
     .with_message_provider(|ctx| translate("email.required", ctx.locale), None)
-    .and(Rule::<String>::Email(Default::default()).with_message_provider(|ctx| translate("email.invalid", ctx.locale), None));
+    .and(
+      Rule::<String>::Email(Default::default())
+        .with_message_provider(|ctx| translate("email.invalid", ctx.locale), None),
+    );
 
   let invalid_email = "not-an-email".to_string();
 
@@ -226,12 +248,16 @@ fn main() {
   // without creating new fields. You can use Rule::with_locale to set the
   // locale on the rule, then validate via the ValidateRef trait.
 
-  let age_rule =
-    Rule::<String>::pattern(r"^\d+$").unwrap().with_message_provider(|ctx| match ctx.locale {
-      Some("es") => format!("'{}' no es un número válido", ctx.value),
-      Some("fr") => format!("'{}' n'est pas un nombre valide", ctx.value),
-      _ => format!("'{}' is not a valid number", ctx.value),
-    }, None);
+  let age_rule = Rule::<String>::pattern(r"^\d+$")
+    .unwrap()
+    .with_message_provider(
+      |ctx| match ctx.locale {
+        Some("es") => format!("'{}' no es un número válido", ctx.value),
+        Some("fr") => format!("'{}' n'est pas un nombre valide", ctx.value),
+        _ => format!("'{}' is not a valid number", ctx.value),
+      },
+      None,
+    );
 
   let invalid_age = "twenty";
 

@@ -4,8 +4,8 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_validation::Attributes;
 use walrs_inputfilter::{FieldFilter, FormViolations};
+use walrs_validation::Attributes;
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FormMethod {

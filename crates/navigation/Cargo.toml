@@ -3,7 +3,7 @@ name = "walrs_navigation"
 version = "0.1.0"
 edition = "2024"
 description = "A navigation component for managing trees of pointers to web pages"
-license = "BSD-3-Clause"
+license = "Elastic-2.0"
 
 [features]
 default = ["json"]

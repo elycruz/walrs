@@ -52,8 +52,11 @@ fn main() {
 
   // Example 6: Chain filter (multiple filters in sequence)
   println!("\n6. Chain filter (Trim -> Lowercase -> StripTags):");
-  let chain_filter =
-    FilterOp::<String>::Chain(vec![FilterOp::Trim, FilterOp::Lowercase, FilterOp::StripTags]);
+  let chain_filter = FilterOp::<String>::Chain(vec![
+    FilterOp::Trim,
+    FilterOp::Lowercase,
+    FilterOp::StripTags,
+  ]);
   let input = "  <B>HELLO</B> World  ";
   let result = chain_filter.apply_ref(input);
   println!("   Input:  '{}'", input);

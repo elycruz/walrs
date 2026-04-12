@@ -5,8 +5,8 @@
 //!
 //! Run with: `cargo run --example field_basics`
 
-use walrs_inputfilter::field::FieldBuilder;
 use walrs_filter::FilterOp;
+use walrs_inputfilter::field::FieldBuilder;
 use walrs_validation::Rule;
 
 fn main() {

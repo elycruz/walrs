@@ -3,7 +3,7 @@ name = "walrs_rbac"
 version = "0.1.0"
 edition = "2024"
 description = "Role-Based Access Control (RBAC) permissions management"
-license = "Apache-2.0 AND GPL-3.0-only"
+license = "Elastic-2.0"
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -68,8 +68,8 @@ pub use indexmap::IndexMap;
 
 // Re-export types from walrs_validation
 pub use walrs_validation::{
-  Attributes, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,
-  Violation, ViolationMessage, ViolationType, Violations,
+  Attributes, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt, Violation,
+  ViolationMessage, ViolationType, Violations,
 };
 
 #[cfg(feature = "async")]

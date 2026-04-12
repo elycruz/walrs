@@ -1,10 +1,10 @@
 #![cfg(feature = "async")]
 
-use std::sync::Arc;
 use indexmap::IndexMap;
+use std::sync::Arc;
 use walrs_inputfilter::{
-  CrossFieldRule, CrossFieldRuleType, Field, FieldBuilder, FieldFilter,
-  Value, Violation, ViolationType,
+  CrossFieldRule, CrossFieldRuleType, Field, FieldBuilder, FieldFilter, Value, Violation,
+  ViolationType,
 };
 use walrs_validation::Rule;
 
@@ -59,13 +59,19 @@ async fn string_field_with_custom_async_rule() {
   let rule = Rule::<String>::custom_async(Arc::new(|value: &String| {
     Box::pin(async move {
       if value == "forbidden" {
-        Err(Violation::new(ViolationType::CustomError, "forbidden value"))
+        Err(Violation::new(
+          ViolationType::CustomError,
+          "forbidden value",
+        ))
       } else {
         Ok(())
       }
     })
   }));
-  let field = FieldBuilder::<String>::default().rule(rule).build().unwrap();
+  let field = FieldBuilder::<String>::default()
+    .rule(rule)
+    .build()
+    .unwrap();
 
   assert!(field.validate_ref_async("ok").await.is_ok());
   assert!(field.validate_ref_async("forbidden").await.is_err());
@@ -208,15 +214,9 @@ async fn field_filter_with_async_cross_field_rule() {
     fields: vec!["email".to_string()],
     rule: CrossFieldRuleType::CustomAsync(Arc::new(|data| {
       Box::pin(async move {
-        let email = data
-          .get("email")
-          .and_then(|v| v.as_str())
-          .unwrap_or("");
+        let email = data.get("email").and_then(|v| v.as_str()).unwrap_or("");
         if email.contains("@blocked.com") {
-          Err(Violation::new(
-            ViolationType::CustomError,
-            "blocked domain",
-          ))
+          Err(Violation::new(ViolationType::CustomError, "blocked domain"))
         } else {
           Ok(())
         }
@@ -284,10 +284,7 @@ async fn field_filter_mixed_sync_and_async_rules() {
   ff.add_cross_field_rule(CrossFieldRule {
     name: Some("one_required".into()),
     fields: vec!["age".to_string(), "username".to_string()],
-    rule: CrossFieldRuleType::OneOfRequired(vec![
-      "age".to_string(),
-      "username".to_string(),
-    ]),
+    rule: CrossFieldRuleType::OneOfRequired(vec!["age".to_string(), "username".to_string()]),
   });
 
   let data = make_data(&[

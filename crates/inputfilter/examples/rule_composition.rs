@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example rule_composition`
 
-use walrs_validation::{Condition, Rule, Validate, ValidateRef, UriOptions, IpOptions};
+use walrs_validation::{Condition, IpOptions, Rule, UriOptions, Validate, ValidateRef};
 
 fn main() {
   println!("=== Rule<T> Composition Examples ===\n");
@@ -20,10 +20,7 @@ fn main() {
     "   Required rule on 'hello': {:?}",
     required.validate_ref("hello")
   );
-  println!(
-    "   Required rule on '': {:?}",
-    required.validate_ref("")
-  );
+  println!("   Required rule on '': {:?}", required.validate_ref(""));
   println!(
     "   MinLength(3) on 'hi': {:?}",
     min_length.validate_ref("hi")
@@ -72,26 +69,21 @@ fn main() {
 
   // Example 4: Using .or() combinator (Any must pass)
   println!("\n4. Using .or() combinator (Any must pass):");
-  let contact_rule = Rule::<String>::Email(Default::default()).or(Rule::pattern(r"^\d{3}-\d{4}$").unwrap());
+  let contact_rule =
+    Rule::<String>::Email(Default::default()).or(Rule::pattern(r"^\d{3}-\d{4}$").unwrap());
 
   println!(
     "   'user@example.com': {:?}",
     contact_rule.validate_ref("user@example.com")
   );
-  println!(
-    "   '555-1234': {:?}",
-    contact_rule.validate_ref("555-1234")
-  );
-  println!(
-    "   'invalid': {:?}",
-    contact_rule.validate_ref("invalid")
-  );
+  println!("   '555-1234': {:?}", contact_rule.validate_ref("555-1234"));
+  println!("   'invalid': {:?}", contact_rule.validate_ref("invalid"));
 
   // Example 5: Using Rule::Any directly
   println!("\n5. Using Rule::Any directly:");
   let flexible_id = Rule::<String>::Any(vec![
     Rule::Email(Default::default()),
-    Rule::pattern(r"^\d{5,10}$").unwrap(), // Numeric ID
+    Rule::pattern(r"^\d{5,10}$").unwrap(),      // Numeric ID
     Rule::pattern(r"^[A-Z]{2}\d{6}$").unwrap(), // Code format
   ]);
 
@@ -99,18 +91,9 @@ fn main() {
     "   'user@example.com': {:?}",
     flexible_id.validate_ref("user@example.com")
   );
-  println!(
-    "   '123456': {:?}",
-    flexible_id.validate_ref("123456")
-  );
-  println!(
-    "   'AB123456': {:?}",
-    flexible_id.validate_ref("AB123456")
-  );
-  println!(
-    "   'invalid': {:?}",
-    flexible_id.validate_ref("invalid")
-  );
+  println!("   '123456': {:?}", flexible_id.validate_ref("123456"));
+  println!("   'AB123456': {:?}", flexible_id.validate_ref("AB123456"));
+  println!("   'invalid': {:?}", flexible_id.validate_ref("invalid"));
 
   // Example 6: Negation with .not()
   println!("\n6. Negation with .not():");
@@ -205,18 +188,9 @@ fn main() {
   let pin_code = Rule::<String>::ExactLength(4);
   let zip_code = Rule::<String>::ExactLength(5);
 
-  println!(
-    "   PIN(4) on '123': {:?}",
-    pin_code.validate_ref("123")
-  );
-  println!(
-    "   PIN(4) on '1234': {:?}",
-    pin_code.validate_ref("1234")
-  );
-  println!(
-    "   ZIP(5) on '12345': {:?}",
-    zip_code.validate_ref("12345")
-  );
+  println!("   PIN(4) on '123': {:?}", pin_code.validate_ref("123"));
+  println!("   PIN(4) on '1234': {:?}", pin_code.validate_ref("1234"));
+  println!("   ZIP(5) on '12345': {:?}", zip_code.validate_ref("12345"));
 
   // Example 12: OneOf for enum-like values
   println!("\n12. OneOf for enum-like values:");
@@ -250,8 +224,16 @@ fn main() {
   println!("\n14. Validating with combined rules:");
   let strict_rule = Rule::<String>::Required
     .and(Rule::MinLength(8))
-    .and(Rule::pattern(r"[0-9]").unwrap().with_message("Must contain a number"))
-    .and(Rule::pattern(r"[A-Z]").unwrap().with_message("Must contain uppercase"));
+    .and(
+      Rule::pattern(r"[0-9]")
+        .unwrap()
+        .with_message("Must contain a number"),
+    )
+    .and(
+      Rule::pattern(r"[A-Z]")
+        .unwrap()
+        .with_message("Must contain uppercase"),
+    );
 
   match strict_rule.validate_ref("abc") {
     Ok(()) => println!("   All rules passed!"),
@@ -298,10 +280,7 @@ fn main() {
   );
 
   let all_ip = Rule::<String>::Ip(IpOptions::default());
-  println!(
-    "   Ip(default) on '::1': {:?}",
-    all_ip.validate_ref("::1")
-  );
+  println!("   Ip(default) on '::1': {:?}", all_ip.validate_ref("::1"));
   println!(
     "   Ip(default) on '[::1]': {:?}",
     all_ip.validate_ref("[::1]")
