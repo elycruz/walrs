@@ -12,7 +12,7 @@
 | Step | Component | Status |
 |------|-----------|--------|
 | Step 1 | `walrs_form_core` crate | ✅ Complete |
-| Step 2 | `Field<T>` in `walrs_inputfilter` | ✅ Complete |
+| Step 2 | `Field<T>` in `walrs_fieldfilter` | ✅ Complete |
 | Step 3 | `FieldFilter` multi-field validation | ✅ Complete |
 | Step 4 | `walrs_form` crate | ✅ Complete |
 | Step 5 | `walrs_form_serde` crate | ⏳ Not Implemented |
@@ -59,7 +59,7 @@ This plan outlines the implementation of the ECMS form ecosystem, replacing the 
 │              │                    │                    │                      │
 │              ▼                    ▼                    ▼                      │
 │  ┌───────────────────┐   ┌───────────────┐    ┌───────────────┐              │
-│  │  walrs_inputfilter │   │walrs_form_    │    │walrs_form_    │              │
+│  │  walrs_fieldfilter │   │walrs_form_    │    │walrs_form_    │              │
 │  │  (Field<T>,        │   │serde          │    │core           │              │
 │  │   FieldFilter,     │   │(JSON/YAML     │    │(Value,        │              │
 │  │   Filter<T> enum)  │   │ loading)      │    │ Attributes)   │              │
@@ -84,7 +84,7 @@ This plan outlines the implementation of the ECMS form ecosystem, replacing the 
 | `walrs_form_core` | Shared types, re-exports | `Value` (re-export of `serde_json::Value`), `ValueExt`, `Attributes` |
 | `walrs_validation` | Individual validator implementations | `Rule<T>` enum with validation logic |
 | `walrs_filter` | Individual filter implementations | `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` |
-| `walrs_inputfilter` | Field-level validation & filtering | `Field<T>`, `FieldFilter`, `Filter<T>` enum, cross-field rules |
+| `walrs_fieldfilter` | Field-level validation & filtering | `Field<T>`, `FieldFilter`, `Filter<T>` enum, cross-field rules |
 | `walrs_form` | Form structure and elements | `Form`, `Fieldset`, `Element` enum, `FormData`, element structs |
 | `walrs_form_serde` | Serialization/deserialization | YAML/JSON loading, JSON Schema, TypeScript generation |
 
@@ -173,7 +173,7 @@ pub use attributes::Attributes;
 
 ---
 
-### Step 2: Refactor `walrs_inputfilter` to New Unified `Field<T>` Design
+### Step 2: Refactor `walrs_fieldfilter` to New Unified `Field<T>` Design
 
 **Purpose:** Replace old `Input`/`RefInput` with new `Field<T>` struct using `Rule<T>` enum.
 
@@ -304,7 +304,7 @@ pub use field_filter::*;
 
 ---
 
-### Step 3: Implement `Filter<T>` Enum in `walrs_inputfilter`
+### Step 3: Implement `Filter<T>` Enum in `walrs_fieldfilter`
 
 **Purpose:** Serializable filter enum that delegates to existing `walrs_filter` implementations.
 
@@ -383,7 +383,7 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 walrs_form_core = { path = "../form_core" }
-walrs_inputfilter = { path = "../inputfilter" }
+walrs_fieldfilter = { path = "../inputfilter" }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
@@ -1172,7 +1172,7 @@ match form.validate(&data) {
 **`walrs/inputfilter/benches/field_vs_input_benchmark.rs`:**
 ```rust
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use walrs_inputfilter::{Field, FieldBuilder, Rule, Input, InputBuilder};
+use walrs_fieldfilter::{Field, FieldBuilder, Rule, Input, InputBuilder};
 
 fn bench_field_validation(c: &mut Criterion) {
     let field = FieldBuilder::default()
@@ -1413,10 +1413,10 @@ pub fn parse_path(path: &str) -> Result<Vec<PathSegment>, PathError> {
 
 **Options:**
 - `walrs_validation`: Shared infrastructure (alongside `Violations`)
-- `walrs_inputfilter`: With `FieldFilter` 
+- `walrs_fieldfilter`: With `FieldFilter` 
 - `walrs_form`: Form-specific
 
-**Recommendation:** Place in `walrs_inputfilter` since it's used by `FieldFilter` and represents multi-field validation errors.
+**Recommendation:** Place in `walrs_fieldfilter` since it's used by `FieldFilter` and represents multi-field validation errors.
 
 ```rust
 // walrs/inputfilter/src/violations.rs

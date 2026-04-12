@@ -5,7 +5,7 @@
 //!
 //! Run with: `cargo run --example form_violations`
 
-use walrs_inputfilter::form_violations::FormViolations;
+use walrs_fieldfilter::form_violations::FormViolations;
 use walrs_validation::{Violation, ViolationType, Violations};
 
 fn main() {

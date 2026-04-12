@@ -5,8 +5,8 @@
 //!
 //! Run with: `cargo run --example json_serialization`
 
+use walrs_fieldfilter::field::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
-use walrs_inputfilter::field::{Field, FieldBuilder};
 use walrs_validation::Rule;
 use walrs_validation::Value;
 
@@ -134,7 +134,7 @@ fn main() {
   // Example 9: FieldFilter serialization
   println!("\n9. FieldFilter serialization:");
   use indexmap::IndexMap;
-  use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
+  use walrs_fieldfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 
   let mut field_filter = FieldFilter::new();
 

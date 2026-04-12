@@ -14,7 +14,7 @@ walrs = "0.1"
 Then import any sub-crate as a module:
 
 ```rust
-use walrs::inputfilter::{Field, FieldBuilder};
+use walrs::fieldfilter::{Field, FieldBuilder};
 use walrs::validation::Rule;
 use walrs::filter::FilterOp;
 ```
@@ -25,12 +25,12 @@ All sub-crates are enabled by default. Disable features you don't need to reduce
 
 ```toml
 [dependencies]
-walrs = { version = "0.1", default-features = false, features = ["inputfilter", "validation", "filter"] }
+walrs = { version = "0.1", default-features = false, features = ["fieldfilter", "validation", "filter"] }
 ```
 
-Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `inputfilter`, `navigation`, `rbac`, `validation`.
+Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `fieldfilter`, `navigation`, `rbac`, `validation`.
 
-You can also depend on individual sub-crates directly (e.g., `walrs_inputfilter = "0.1"`).
+You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter = "0.1"`).
 
 ## Sub-crates
 
@@ -41,7 +41,7 @@ You can also depend on individual sub-crates directly (e.g., `walrs_inputfilter 
 | `walrs_filter` | Input value transformation/sanitization filters |
 | `walrs_form` | Form elements and structure for web frameworks |
 | `walrs_graph` | Undirected graph structures |
-| `walrs_inputfilter` | Field-level validation and filtering for form processing |
+| `walrs_fieldfilter` | Field-level validation and filtering for form processing |
 | `walrs_navigation` | Web page link graph / navigation structures |
 | `walrs_rbac` | Role-Based Access Control |
 | `walrs_validation` | Composable validation rules |

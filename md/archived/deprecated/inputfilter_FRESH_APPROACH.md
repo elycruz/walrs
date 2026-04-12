@@ -356,7 +356,7 @@ Both are valid patterns - the Fresh Approach is better suited for:
 ## Example Usage (Proposed)
 
 ```rust
-use walrs_inputfilter::{Rule, FieldRule, FormRules};
+use walrs_fieldfilter::{Rule, FieldRule, FormRules};
 
 // Simple field validation
 let username_rules = FieldRule::new("username")

@@ -1,4 +1,4 @@
-//! # walrs_inputfilter
+//! # walrs_fieldfilter
 //!
 //! Field-level validation and filtering for form processing.
 //!
@@ -14,7 +14,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use walrs_inputfilter::{Field, FieldBuilder, FieldFilter, TryFilterOp, FilterError};
+//! use walrs_fieldfilter::{Field, FieldBuilder, FieldFilter, TryFilterOp, FilterError};
 //! use walrs_filter::FilterOp;
 //! use walrs_validation::Rule;
 //! use walrs_validation::Value;

@@ -1,12 +1,12 @@
-# walrs_inputfilter
+# walrs_fieldfilter
 Field-level validation and filtering for the walrs form ecosystem.
 ## Overview
-`walrs_inputfilter` provides the core validation and filtering infrastructure for form processing. It includes the new unified `Field<T>` API that replaces the older `Input`/`RefInput` approach, plus multi-field validation with `FieldFilter`.
+`walrs_fieldfilter` provides the core validation and filtering infrastructure for form processing. It includes the new unified `Field<T>` API that replaces the older `Input`/`RefInput` approach, plus multi-field validation with `FieldFilter`.
 ## Key Types
 ### Field<T>
 Unified field configuration for validation and filtering:
 ```rust
-use walrs_inputfilter::{Field, FieldBuilder};
+use walrs_fieldfilter::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
 use walrs_validation::Rule;
 use walrs_validation::Value;
@@ -53,9 +53,9 @@ Available filter operations:
 ### FieldFilter
 Multi-field validation with cross-field rules:
 ```rust
-use walrs_inputfilter::FieldFilter;
-use walrs_inputfilter::field::FieldBuilder;
-use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
+use walrs_fieldfilter::FieldFilter;
+use walrs_fieldfilter::field::FieldBuilder;
+use walrs_fieldfilter::field_filter::{CrossFieldRule, CrossFieldRuleType};
 use walrs_validation::Value;
 use walrs_validation::Rule;
 use indexmap::IndexMap;
@@ -96,7 +96,7 @@ Built-in rules for multi-field validation:
 ### FormViolations
 Aggregate validation errors:
 ```rust
-use walrs_inputfilter::FormViolations;
+use walrs_fieldfilter::FormViolations;
 use walrs_validation::{Violations, Violation, ViolationType};
 let mut violations = FormViolations::new();
 // Add field-specific violations
@@ -114,12 +114,12 @@ if !violations.is_empty() {
 ## Installation
 ```toml
 [dependencies]
-walrs_inputfilter = { path = "../inputfilter" }
+walrs_fieldfilter = { path = "../fieldfilter" }
 ```
 ## Architecture
 This crate sits between `walrs_validation` and `walrs_form`:
 ```
-walrs_validation    → walrs_filter      → walrs_inputfilter → walrs_form
+walrs_validation    → walrs_filter      → walrs_fieldfilter → walrs_form
 (Rule<T> enum)       (Filter trait,       (Field<T>,          (Form,
                       FilterOp<T> enum)    FieldFilter)        Element)
 ```

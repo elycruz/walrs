@@ -15,7 +15,7 @@ use walrs_validation::Violations;
 /// # Example
 ///
 /// ```rust
-/// use walrs_inputfilter::form_violations::FormViolations;
+/// use walrs_fieldfilter::form_violations::FormViolations;
 /// use walrs_validation::{Violation, ViolationType, Violations};
 ///
 /// let mut form_violations = FormViolations::new();

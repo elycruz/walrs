@@ -11,7 +11,7 @@
 4. [Crate 1: walrs_form_core (Shared Foundation)](#crate-1-walrs_form_core-shared-foundation)
 5. [Crate 2: walrs_validation (Validator Structs)](#crate-2-walrs_validation-validator-structs)
 6. [Crate 3: walrs_filter (Filter Structs)](#crate-3-walrs_filter-filter-structs)
-7. [Crate 4: walrs_inputfilter (Composition Layer)](#crate-4-walrs_inputfilter-composition-layer)
+7. [Crate 4: walrs_fieldfilter (Composition Layer)](#crate-4-walrs_fieldfilter-composition-layer)
 8. [Crate 5: walrs_form (Form Elements & Structure)](#crate-5-walrs_form-form-elements--structure)
 9. [Crate 6: walrs_form_view (Rendering)](#crate-6-walrs_form_view-rendering)
 10. [Crate 7: walrs_form_serde (Serialization)](#crate-7-walrs_form_serde-serialization)
@@ -72,7 +72,7 @@ laminas-validator/
 | Class inheritance | Enum variants + traits |
 | laminas-validator | `walrs_validation` crate (validator structs) |
 | laminas-filter | `walrs_filter` crate (filter structs) |
-| laminas-inputfilter | `walrs_inputfilter` crate (`Rule<T>` enum + `Input`/`InputFilter`) |
+| laminas-inputfilter | `walrs_fieldfilter` crate (`Rule<T>` enum + `Input`/`InputFilter`) |
 | Element classes | `Element` enum in `walrs_form` |
 | Fieldset | `Fieldset` struct with `Vec<Element>` |
 | Factory | `serde` deserialization + builders |
@@ -91,7 +91,7 @@ laminas-validator/
 │              │                    │                    │                      │
 │              ▼                    ▼                    ▼                      │
 │  ┌───────────────────┐   ┌───────────────┐    ┌───────────────┐              │
-│  │  walrs_inputfilter │   │walrs_form_    │    │walrs_form_    │              │
+│  │  walrs_fieldfilter │   │walrs_form_    │    │walrs_form_    │              │
 │  │  (Rule<T> enum,    │   │view           │    │serde          │              │
 │  │   Input, InputFil- │   │(HTML render)  │    │(JSON/YAML)    │              │
 │  │   ter composition) │   └───────────────┘    └───────────────┘              │
@@ -125,7 +125,7 @@ walrs_form_core         (no dependencies - shared types, traits)
     │
     ├── walrs_filter         (filter structs - TrimFilter, SlugFilter, etc.)
     │
-    ├── walrs_inputfilter    (Rule<T> enum, Input<T>, InputFilter - depends on validator & filter)
+    ├── walrs_fieldfilter    (Rule<T> enum, Input<T>, InputFilter - depends on validator & filter)
     │
     ├── walrs_form           (Form, Fieldset, Element - depends on inputfilter)
     │       │
@@ -143,7 +143,7 @@ walrs_form_core         (no dependencies - shared types, traits)
 | `walrs_form_core` | Shared types, traits, error types | `Value`, `Violation`, `Violations`, `Validate` trait, `Filter` trait |
 | `walrs_validation` | Individual validator implementations | `LengthValidator`, `PatternValidator`, `RangeValidator`, `EqualityValidator` |
 | `walrs_filter` | Individual filter implementations | `TrimFilter`, `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` |
-| `walrs_inputfilter` | Composition layer - rules as data | `Rule<T>` enum, `Input<T>`, `InputFilter`, combinators |
+| `walrs_fieldfilter` | Composition layer - rules as data | `Rule<T>` enum, `Input<T>`, `InputFilter`, combinators |
 | `walrs_form` | Form structure and element types | `Form`, `Fieldset`, `Element` enum, `Attributes` |
 | `walrs_form_view` | HTML rendering | `Render` trait, `Html`, theme support |
 | `walrs_form_serde` | Serialization/deserialization | YAML/JSON loading, JSON Schema generation |
@@ -164,7 +164,7 @@ pub struct LengthValidator<'a, T: ?Sized> {
     pub too_long_msg: &'a dyn Fn(&Self, &T) -> String,
 }
 
-// walrs_inputfilter - Serializable rule enum
+// walrs_fieldfilter - Serializable rule enum
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Rule<T> {
     MinLength(usize),
@@ -447,7 +447,7 @@ impl FilterConfig {
 }
 ```
 ---
-## Crate 4: walrs_inputfilter (Composition Layer)
+## Crate 4: walrs_fieldfilter (Composition Layer)
 *Implements the Fresh Approach from [FRESH_APPROACH.md](./FRESH_APPROACH.md)*
 ### Core Types
 ```rust
@@ -1329,7 +1329,7 @@ let schema = form.to_json_schema();
 ```
 ### Strategy 2: WASM Compilation
 ```rust
-// Compile walrs_inputfilter to WASM
+// Compile walrs_fieldfilter to WASM
 #[wasm_bindgen]
 pub fn validate_form(form_json: &str, data_json: &str) -> JsValue {
     let form: Form = serde_json::from_str(form_json).unwrap();
@@ -1367,7 +1367,7 @@ impl ToTypeScript for Form {
 ```
 ---
 ## Implementation Roadmap
-### Phase 1: Core Foundation (walrs_form_core + walrs_inputfilter v2)
+### Phase 1: Core Foundation (walrs_form_core + walrs_fieldfilter v2)
 - [ ] \`Value\` enum for dynamic typing
 - [ ] \`Rule<T>\` enum with all variants
 - [ ] \`Filter<T>\` enum with all variants

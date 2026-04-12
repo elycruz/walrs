@@ -10,11 +10,11 @@ What is the strategy for making the root `walrs` crate export all sub-crates fro
 
 - The workspace has **9 sub-crates**: `acl`, `digraph`, `filter`, `form`, `graph`, `inputfilter`, `navigation`, `rbac`, `validation`.
 - The root `walrs` crate only depends on **5 of 9** sub-crates (`acl`, `graph`, `inputfilter`, `navigation`, `rbac`).
-- `src/lib.rs` only re-exports two items from `walrs_inputfilter`:
+- `src/lib.rs` only re-exports two items from `walrs_fieldfilter`:
 
 ```rust
-pub use walrs_inputfilter::filters;
-pub use walrs_inputfilter::validators;
+pub use walrs_fieldfilter::filters;
+pub use walrs_fieldfilter::validators;
 ```
 
 ---
@@ -44,7 +44,7 @@ walrs_digraph     = { path = "crates/digraph" }
 walrs_filter      = { path = "crates/filter" }
 walrs_form        = { path = "crates/form" }
 walrs_graph       = { path = "crates/graph" }
-walrs_inputfilter = { path = "crates/inputfilter" }
+walrs_fieldfilter = { path = "crates/inputfilter" }
 walrs_navigation  = { path = "crates/navigation" }
 walrs_rbac        = { path = "crates/rbac" }
 walrs_validation  = { path = "crates/validation" }
@@ -62,7 +62,7 @@ pub use walrs_digraph     as digraph;
 pub use walrs_filter      as filter;
 pub use walrs_form        as form;
 pub use walrs_graph       as graph;
-pub use walrs_inputfilter as inputfilter;
+pub use walrs_fieldfilter as inputfilter;
 pub use walrs_navigation  as navigation;
 pub use walrs_rbac        as rbac;
 pub use walrs_validation  as validation;
@@ -73,7 +73,7 @@ Users then write: `walrs::inputfilter::Field<String>`.
 #### B) Flatten specific public items
 
 ```rust
-pub use walrs_inputfilter::Field;
+pub use walrs_fieldfilter::Field;
 pub use walrs_validation::Rule;
 // ...etc.
 ```
@@ -87,7 +87,7 @@ Users write: `walrs::Field<String>` — flatter API, but harder to maintain and 
 default = ["inputfilter", "validation", "filter"]
 full    = ["inputfilter", "validation", "filter", "form", "acl", "rbac", "navigation", "graph", "digraph"]
 
-inputfilter = ["dep:walrs_inputfilter"]
+inputfilter = ["dep:walrs_fieldfilter"]
 validation  = ["dep:walrs_validation"]
 filter      = ["dep:walrs_filter"]
 form        = ["dep:walrs_form"]
@@ -103,7 +103,7 @@ walrs_digraph     = { path = "crates/digraph",     optional = true }
 walrs_filter      = { path = "crates/filter",      optional = true }
 walrs_form        = { path = "crates/form",        optional = true }
 walrs_graph       = { path = "crates/graph",       optional = true }
-walrs_inputfilter = { path = "crates/inputfilter", optional = true }
+walrs_fieldfilter = { path = "crates/inputfilter", optional = true }
 walrs_navigation  = { path = "crates/navigation",  optional = true }
 walrs_rbac        = { path = "crates/rbac",        optional = true }
 walrs_validation  = { path = "crates/validation",  optional = true }

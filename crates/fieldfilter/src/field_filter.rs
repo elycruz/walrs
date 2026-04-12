@@ -23,8 +23,8 @@ use walrs_validation::{Value, ValueExt};
 /// # Example
 ///
 /// ```rust
-/// use walrs_inputfilter::field_filter::{FieldFilter, CrossFieldRule, CrossFieldRuleType};
-/// use walrs_inputfilter::field::FieldBuilder;
+/// use walrs_fieldfilter::field_filter::{FieldFilter, CrossFieldRule, CrossFieldRuleType};
+/// use walrs_fieldfilter::field::FieldBuilder;
 /// use walrs_validation::Value;
 /// use walrs_validation::Rule;
 /// use serde_json::json;

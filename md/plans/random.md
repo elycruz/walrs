@@ -107,7 +107,7 @@ Simple and succinct just for displaying [validation] messages however front-end 
 ## Filter<{Numeric}> support
 
 ```rust
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_fieldfilter::filter_enum::Filter;
     
 fn main() {
   let filter = Filter::<i32>::Clamp { min: 0, max: 100 };

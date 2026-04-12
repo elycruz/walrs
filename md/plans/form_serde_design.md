@@ -57,7 +57,7 @@ However, round-tripping a complex `Form` through JSON requires careful
 handling of the `Element` enum (tagged union), and additional capabilities
 like JSON Schema and TypeScript generation are not covered by serde alone.
 
-The old `inputfilter_additions_and_refactor_plan.md` (Step 5) outlined a
+The old `fieldfilter_additions_and_refactor_plan.md` (Step 5) outlined a
 `walrs_form_serde` crate. This document refines that design.
 
 ---
@@ -578,7 +578,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 3. **Validation metadata in schema** — Should the JSON Schema include
    `minLength`, `maxLength`, `pattern`, `minimum`, `maximum` etc. that come
    from `Filterable` validation rules? If so, the form serde crate would need
-   to understand `walrs_inputfilter` types, creating a dependency. Alternative:
+   to understand `walrs_fieldfilter` types, creating a dependency. Alternative:
    a separate `walrs_form_schema` integration crate.
 
 4. **Form versioning** — Should the JSON/YAML format include a `version` field
@@ -592,7 +592,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
    HTML. Rendering is handled by template engines or frontend frameworks.
 2. **Database storage** — Persisting forms to a database is outside this crate's
    scope.
-3. **Runtime validation** — Validation is handled by `walrs_inputfilter` /
+3. **Runtime validation** — Validation is handled by `walrs_fieldfilter` /
    `Filterable`. This crate only generates _schemas_ that describe validation
    constraints.
 4. **Custom schema extensions** — OpenAPI / Swagger integration is a separate

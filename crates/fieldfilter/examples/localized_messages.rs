@@ -3,9 +3,9 @@
 //! This example demonstrates how to create validation rules with
 //! internationalized (i18n) error messages that change based on locale.
 //!
-//! Run with: `cargo run --example localized_messages -p walrs_inputfilter`
+//! Run with: `cargo run --example localized_messages -p walrs_fieldfilter`
 
-use walrs_inputfilter::field::FieldBuilder;
+use walrs_fieldfilter::field::FieldBuilder;
 use walrs_validation::{Rule, ValidateRef};
 
 fn main() {

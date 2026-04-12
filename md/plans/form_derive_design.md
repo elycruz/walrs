@@ -447,7 +447,7 @@ The `Fieldset` derive and `Filterable` derive are **independent** but
 ### 6.1 Both Derives Together
 
 ```rust
-use walrs_inputfilter_derive::Filterable;
+use walrs_fieldfilter_derive::Filterable;
 use walrs_form_derive::Fieldset;
 
 #[derive(Filterable, Fieldset)]
@@ -519,7 +519,7 @@ fn passwords_match(r: &UserRegistration) -> walrs_validation::ValidatorResult {
 
 ```rust
 use walrs_form::Form;
-use walrs_inputfilter::Filterable;
+use walrs_fieldfilter::Filterable;
 use walrs_form::IntoFieldset;
 
 // Build the form structure from the struct definition

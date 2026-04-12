@@ -2,7 +2,7 @@
 
 **Date:** February 19, 2026  
 **Status:** ✅ Complete (implemented February 23, 2026)  
-**Crates affected:** `walrs_validation`, `walrs_inputfilter`, `walrs_form`
+**Crates affected:** `walrs_validation`, `walrs_fieldfilter`, `walrs_form`
 
 ---
 
@@ -61,14 +61,14 @@ There are currently two such paths in `rule.rs`:
 | `impl ValidateRef<str> for Rule<String>` | hardcoded `String` | String rules: `Required`, `MinLength`, `Email`, `Pattern`, … |
 | `impl<T: SteppableValue + IsEmpty + Clone> Validate<T> for Rule<T>` | `SteppableValue + IsEmpty + Copy` | Numeric rules: `Min`, `Max`, `Range`, `Step`, … |
 
-A **third dedicated path** is added in `walrs_inputfilter`:
+A **third dedicated path** is added in `walrs_fieldfilter`:
 
 ```
 impl ValidateRef<Value> for Rule<Value>   →  inputfilter/src/value_impls.rs
 impl Validate<Value>    for Rule<Value>   →  inputfilter/src/value_impls.rs
 ```
 
-`walrs_inputfilter` already depends on both `walrs_form_core` and `walrs_validation`,
+`walrs_fieldfilter` already depends on both `walrs_form_core` and `walrs_validation`,
 satisfying the orphan rule.
 
 ### Dispatch inside `impl ValidateRef<Value> for Rule<Value>`
@@ -123,7 +123,7 @@ for mixed-type comparisons (treated as false).
 
 Introduce a **custom `form_core::Value` enum** with distinct numeric variants
 (`I64`, `U64`, `F64`), then implement `Validate<Value>` and `ValidateRef<Value>`
-for `Rule<Value>` as a dedicated impl block in `walrs_inputfilter`.
+for `Rule<Value>` as a dedicated impl block in `walrs_fieldfilter`.
 
 ---
 
@@ -221,9 +221,9 @@ impl From<Value> for serde_json::Value {
 > `TryFrom` should also be provided for conversions that can fail (e.g., a
 > `serde_json` integer outside `i64` range going to `Value::I64`).
 
-### Step 3 — Add `value_impls.rs` to `walrs_inputfilter`
+### Step 3 — Add `value_impls.rs` to `walrs_fieldfilter`
 
-Create `inputfilter/src/value_impls.rs`. All impls live here because `walrs_inputfilter`
+Create `inputfilter/src/value_impls.rs`. All impls live here because `walrs_fieldfilter`
 depends on both `walrs_form_core` and `walrs_validation`, satisfying the orphan rule.
 
 #### 3a — `IsEmpty for Value`
@@ -441,7 +441,7 @@ impl Field<Value> {
 
 - Add `pub mod value_impls;` to `inputfilter/src/lib.rs`.
 - Add `indexmap = "2"` to `form_core/Cargo.toml` (for the `Object` variant).
-- Fix any downstream call sites in `walrs_form`, `walrs_inputfilter`, etc. that used
+- Fix any downstream call sites in `walrs_form`, `walrs_fieldfilter`, etc. that used
   `serde_json::Value`-specific APIs (e.g., `Value::Number(...)`, `.as_i64()`).
 - Run `cargo test --workspace` and fix failures.
 
@@ -501,7 +501,7 @@ pub enum Scalar {
 ```
 
 Because every inner type is `Copy`, `Scalar` itself derives `Copy`. Add a dedicated impl in
-`walrs_inputfilter`:
+`walrs_fieldfilter`:
 
 ```rust
 impl Validate<Scalar> for Rule<Scalar> { … }

@@ -2,7 +2,7 @@
 
 use indexmap::IndexMap;
 use std::sync::Arc;
-use walrs_inputfilter::{
+use walrs_fieldfilter::{
   CrossFieldRule, CrossFieldRuleType, Field, FieldBuilder, FieldFilter, Value, Violation,
   ViolationType,
 };

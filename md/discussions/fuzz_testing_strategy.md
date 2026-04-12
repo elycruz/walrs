@@ -70,7 +70,7 @@ What is the best approach for integrating fuzz testing into the walrs workspace?
 - **Key types:** `FilterOp<T>`, `TryFilterOp<T>`, `Filter` trait.
 - **Targets:** `StripTagsFilter::apply`, `SlugFilter::apply`, chained `FilterOp::Chain` sequences.
 
-### 🔴 High — walrs_inputfilter
+### 🔴 High — walrs_fieldfilter
 
 - **Why:** Combines `FilterOp` + `Rule` validation on untrusted form input; fallible filter pipelines.
 - **Key types:** `Field<T>`, `FieldFilter`, `FormViolations`.
@@ -145,7 +145,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        target: [validation_rules, filter_ops, inputfilter_fields, ...]
+        target: [validation_rules, filter_ops, fieldfilter_fields, ...]
     steps:
       - run: cargo fuzz run ${{ matrix.target }} -- -max_total_time=3600
       # Optionally commit new corpus entries via bot PR
