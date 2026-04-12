@@ -80,5 +80,5 @@ pub use select_option::{SelectOption, SelectOptionBuilder};
 pub use select_type::SelectType;
 pub use textarea_element::{TextareaElement, TextareaElementBuilder};
 // Re-export core types
-pub use walrs_validation::{Attributes, Value, ValueExt};
 pub use walrs_inputfilter::{Field, FieldBuilder, FieldFilter, FormViolations, IndexMap};
+pub use walrs_validation::{Attributes, Value, ValueExt};

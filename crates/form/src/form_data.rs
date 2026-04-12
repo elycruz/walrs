@@ -167,7 +167,10 @@ mod tests {
   fn test_dot_notation_get() {
     let mut data = FormData::new();
     let mut user = HashMap::new();
-    user.insert("email".to_string(), Value::Str("test@example.com".to_string()));
+    user.insert(
+      "email".to_string(),
+      Value::Str("test@example.com".to_string()),
+    );
     data.insert("user", Value::Object(user));
     assert_eq!(
       data.get("user.email").unwrap().as_str(),

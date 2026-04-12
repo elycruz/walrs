@@ -6,13 +6,13 @@
 
 use crate::field::Field;
 use crate::form_violations::FormViolations;
+use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use indexmap::IndexMap;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
-use walrs_validation::{Value, ValueExt};
 use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
+use walrs_validation::{Value, ValueExt};
 
 /// Multi-field validation configuration.
 ///
@@ -513,10 +513,7 @@ impl FieldFilter {
   ///
   /// Works like [`validate`](Self::validate) but supports `Rule::CustomAsync`
   /// in field rules and `CrossFieldRuleType::CustomAsync` in cross-field rules.
-  pub async fn validate_async(
-    &self,
-    data: &IndexMap<String, Value>,
-  ) -> Result<(), FormViolations> {
+  pub async fn validate_async(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
     let mut violations = FormViolations::new();
 
     // Validate individual fields (async)
@@ -712,7 +709,10 @@ mod tests {
     let data = make_data(&[("email", Value::Str("  TEST@EXAMPLE.COM  ".to_string()))]);
     let filtered = field_filter.filter(data);
 
-    assert_eq!(filtered.get("email").unwrap(), &Value::Str("test@example.com".to_string()));
+    assert_eq!(
+      filtered.get("email").unwrap(),
+      &Value::Str("test@example.com".to_string())
+    );
   }
 
   #[test]

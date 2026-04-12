@@ -4,8 +4,8 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_validation::Attributes;
 use walrs_inputfilter::{FieldFilter, FormViolations};
+use walrs_validation::Attributes;
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FormMethod {
@@ -62,10 +62,10 @@ impl Form {
   pub fn bind_data(&mut self, data: FormData) -> &mut Self {
     if let Some(ref mut elements) = self.elements {
       for element in elements.iter_mut() {
-        if let Some(name) = element.name() {
-          if let Some(value) = data.get(name) {
-            Self::set_element_value(element, value.clone());
-          }
+        if let Some(name) = element.name()
+          && let Some(value) = data.get(name)
+        {
+          Self::set_element_value(element, value.clone());
         }
       }
     }

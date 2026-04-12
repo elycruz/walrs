@@ -16,9 +16,9 @@ use crate::input_type::InputType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_validation::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validation::Violations;
+use walrs_validation::{Attributes, Value};
 /// HTML input element.
 ///
 /// Represents the structure of an HTML `<input>` element with optional

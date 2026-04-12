@@ -18,7 +18,7 @@ pub struct AclData {
 }
 
 #[cfg(feature = "std")]
-impl<'a> TryFrom<&'a mut File> for AclData {
+impl TryFrom<&mut File> for AclData {
   type Error = serde_json::Error;
 
   fn try_from(file: &mut File) -> Result<Self, Self::Error> {

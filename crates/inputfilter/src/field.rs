@@ -4,9 +4,9 @@
 //! rules for a single form field. It replaces the old `Input`/`RefInput` API with
 //! a unified, serializable design.
 
-use walrs_filter::{FilterOp, TryFilterOp};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use walrs_filter::{FilterOp, TryFilterOp};
 use walrs_validation::Value;
 use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
@@ -209,7 +209,10 @@ impl Field<String> {
         // Apply locale to rule if set, then validate via trait method
         // @todo `locale` should be set directly on `rule`.
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_ref(value)
+          rule
+            .clone()
+            .with_locale(locale.as_ref())
+            .validate_ref(value)
         } else {
           rule.validate_ref(value)
         };
@@ -310,7 +313,10 @@ impl Field<Value> {
     match &self.rule {
       Some(rule) => {
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_ref(value)
+          rule
+            .clone()
+            .with_locale(locale.as_ref())
+            .validate_ref(value)
         } else {
           rule.validate_ref(value)
         };
@@ -333,7 +339,10 @@ impl Field<Value> {
     match &self.rule {
       Some(rule) => {
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_value(value)
+          rule
+            .clone()
+            .with_locale(locale.as_ref())
+            .validate_value(value)
         } else {
           rule.validate_value(value)
         };
@@ -374,7 +383,11 @@ impl Field<String> {
       Some(rule) => {
         use walrs_validation::ValidateRefAsync;
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_ref_async(value).await
+          rule
+            .clone()
+            .with_locale(locale.as_ref())
+            .validate_ref_async(value)
+            .await
         } else {
           rule.validate_ref_async(value).await
         };
@@ -412,7 +425,11 @@ impl Field<Value> {
       Some(rule) => {
         use walrs_validation::ValidateRefAsync;
         let result = if let Some(locale) = &self.locale {
-          rule.clone().with_locale(locale.as_ref()).validate_ref_async(value).await
+          rule
+            .clone()
+            .with_locale(locale.as_ref())
+            .validate_ref_async(value)
+            .await
         } else {
           rule.validate_ref_async(value).await
         };
@@ -705,10 +722,7 @@ mod tests {
       .unwrap();
 
     // Happy path: trim -> try_filter passes -> validation passes
-    assert_eq!(
-      field.process("  hello  ".to_string()).unwrap(),
-      "hello"
-    );
+    assert_eq!(field.process("  hello  ".to_string()).unwrap(), "hello");
 
     // Try filter fails (empty after trim)
     let err = field.process("     ".to_string()).unwrap_err();
@@ -724,9 +738,7 @@ mod tests {
   fn test_string_field_process_try_filter_short_circuits() {
     let field = FieldBuilder::<String>::default()
       .try_filters(vec![
-        TryFilterOp::TryCustom(Arc::new(|_| {
-          Err(FilterError::new("first fails"))
-        })),
+        TryFilterOp::TryCustom(Arc::new(|_| Err(FilterError::new("first fails")))),
         TryFilterOp::TryCustom(Arc::new(|_| {
           panic!("should not reach second filter");
         })),
@@ -767,12 +779,8 @@ mod tests {
       .build()
       .unwrap();
 
-    assert!(field
-      .try_filter(Value::Str("hello".to_string()))
-      .is_ok());
-    assert!(field
-      .try_filter(Value::Str("".to_string()))
-      .is_err());
+    assert!(field.try_filter(Value::Str("hello".to_string())).is_ok());
+    assert!(field.try_filter(Value::Str("".to_string())).is_err());
   }
 
   #[test]

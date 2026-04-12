@@ -19,9 +19,9 @@ use crate::select_type::SelectType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_validation::{Attributes, Value};
 use walrs_inputfilter::Field;
 use walrs_validation::Violations;
+use walrs_validation::{Attributes, Value};
 /// HTML select element.
 ///
 /// Represents a `<select>` element with options. Supports both single and
