@@ -82,7 +82,7 @@ impl Filter<Cow<'_, str>> for XmlEntitiesFilter<'_> {
       return Cow::Owned(input.into_owned());
     }
 
-    let mut output = String::with_capacity(input.len());
+    let mut output = String::with_capacity(input.len() + input.len() / 5 * 3);
     for c in input.chars() {
       match self.chars_assoc_map.get(&c) {
         Some(entity) => output.push_str(entity),
@@ -173,6 +173,21 @@ mod test {
     let input = "Hello World".to_string();
     let result = filter.filter(std::borrow::Cow::Owned(input));
     assert_eq!(result, "Hello World");
+  }
+
+  #[test]
+  fn test_entity_heavy_string() {
+    let filter = super::XmlEntitiesFilter::new();
+
+    // Every character requires entity expansion
+    let input = "<>&'\"<>&'\"";
+    let expected = "&lt;&gt;&amp;&apos;&quot;&lt;&gt;&amp;&apos;&quot;";
+    assert_eq!(filter.filter(input.into()), expected);
+
+    // All ampersands
+    let input = "&&&&&";
+    let expected = "&amp;&amp;&amp;&amp;&amp;";
+    assert_eq!(filter.filter(input.into()), expected);
   }
 
   #[cfg(feature = "fn_traits")]

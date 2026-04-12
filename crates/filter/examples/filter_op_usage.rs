@@ -24,10 +24,7 @@ fn main() {
     ("StripTags", FilterOp::StripTags),
     ("HtmlEntities", FilterOp::HtmlEntities),
     ("Slug", FilterOp::Slug { max_length: None }),
-    (
-      "Truncate(10)",
-      FilterOp::Truncate { max_length: 10 },
-    ),
+    ("Truncate(10)", FilterOp::Truncate { max_length: 10 }),
     (
       "Replace(hello→hi)",
       FilterOp::Replace {
@@ -107,10 +104,7 @@ fn main() {
     );
   }
 
-  let clamp_f64 = FilterOp::<f64>::Clamp {
-    min: 0.0,
-    max: 1.0,
-  };
+  let clamp_f64 = FilterOp::<f64>::Clamp { min: 0.0, max: 1.0 };
   for value in [-0.5_f64, 0.0, 0.5, 1.0, 1.5] {
     println!(
       "  Clamp<f64>(0.0..=1.0): {:4} -> {}",
@@ -142,7 +136,9 @@ fn main() {
   let chain: FilterOp<String> = FilterOp::Chain(vec![
     FilterOp::Trim,
     FilterOp::Lowercase,
-    FilterOp::Slug { max_length: Some(50) },
+    FilterOp::Slug {
+      max_length: Some(50),
+    },
   ]);
 
   let json = serde_json::to_string_pretty(&chain).unwrap();

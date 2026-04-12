@@ -18,7 +18,8 @@ pub fn get_dash_filter_regex() -> &'static Regex {
   DASH_FILTER_REGEX.get_or_init(|| Regex::new(DASH_FILTER_REGEX_STR).unwrap())
 }
 
-/// Normalizes given string into a slug - e.g., a string matching /^[a-z0-9_][a-z0-9_\-]{0,198}[a-z0-9_]?$/
+/// Normalizes given string into a slug — a lowercase, ASCII-only string
+/// matching `[a-z0-9_]([a-z0-9_-]*[a-z0-9_])?` with a configurable max length.
 ///
 /// ```rust
 /// use std::borrow::Cow;
@@ -30,7 +31,7 @@ pub fn to_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
   _to_slug(get_slug_filter_regex(), 200, xs)
 }
 
-/// Same as `to_slug` method but removes duplicate '-' symbols.
+/// Same as [`to_slug`] but collapses consecutive dashes into a single dash.
 ///
 /// ```rust
 /// use std::borrow::Cow;
@@ -107,7 +108,7 @@ fn _to_pretty_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<
     .into()
 }
 
-/// Configurable version of `to_slug()` - allows for setting the max_length.
+/// Configurable slug filter — produces a lowercase, ASCII-only slug with a settable max length.
 #[must_use]
 #[derive(Clone, Debug, Default, Builder)]
 pub struct SlugFilter {

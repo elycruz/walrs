@@ -234,14 +234,20 @@ impl FilterOp<String> {
         }
       }
       FilterOp::Lowercase => {
-        if value.chars().all(|c| c.is_lowercase() || !c.is_alphabetic()) {
+        if value
+          .chars()
+          .all(|c| c.is_lowercase() || !c.is_alphabetic())
+        {
           Cow::Borrowed(value)
         } else {
           Cow::Owned(value.to_lowercase())
         }
       }
       FilterOp::Uppercase => {
-        if value.chars().all(|c| c.is_uppercase() || !c.is_alphabetic()) {
+        if value
+          .chars()
+          .all(|c| c.is_uppercase() || !c.is_alphabetic())
+        {
           Cow::Borrowed(value)
         } else {
           Cow::Owned(value.to_uppercase())
@@ -399,22 +405,23 @@ impl FilterOp<Value> {
           value.clone()
         }
       }
-      FilterOp::Clamp { min, max } => {
-        match (value, min, max) {
-          (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
-            Value::I64((*v).clamp(*min_v, *max_v))
-          }
-          (Value::U64(v), Value::U64(min_v), Value::U64(max_v)) => {
-            Value::U64((*v).clamp(*min_v, *max_v))
-          }
-          (Value::F64(v), Value::F64(min_v), Value::F64(max_v)) => {
-            Value::F64((*v).clamp(*min_v, *max_v))
-          }
-          _ => value.clone(),
+      FilterOp::Clamp { min, max } => match (value, min, max) {
+        (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
+          Value::I64((*v).clamp(*min_v, *max_v))
         }
-      }
+        (Value::U64(v), Value::U64(min_v), Value::U64(max_v)) => {
+          Value::U64((*v).clamp(*min_v, *max_v))
+        }
+        (Value::F64(v), Value::F64(min_v), Value::F64(max_v)) => {
+          Value::F64((*v).clamp(*min_v, *max_v))
+        }
+        _ => value.clone(),
+      },
       FilterOp::Chain(filters) => {
         let flat = flatten_chain(filters);
+        if flat.is_empty() {
+          return value.clone();
+        }
         let mut result = value.clone();
         for f in flat {
           result = f.apply_ref(&result);
@@ -709,10 +716,15 @@ mod tests {
   fn test_chain_value_apply_ref() {
     let filter: FilterOp<Value> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
     let value = Value::Str("  HELLO  ".to_string());
-    assert_eq!(
-      filter.apply_ref(&value),
-      Value::Str("hello".to_string())
-    );
+    assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_chain_value_empty_returns_original() {
+    let filter: FilterOp<Value> = FilterOp::Chain(vec![]);
+    let value = Value::Str("hello".to_string());
+    assert_eq!(filter.apply_ref(&value), value);
   }
 
   #[cfg(feature = "validation")]
@@ -1012,9 +1024,15 @@ mod tests {
   #[test]
   fn test_slug_max_length_truncation() {
     // "hello-world-this-is-a-long-title" is 32 chars
-    let filter = FilterOp::<String>::Slug { max_length: Some(11) };
+    let filter = FilterOp::<String>::Slug {
+      max_length: Some(11),
+    };
     let result = filter.apply("Hello World This Is A Long Title".to_string());
-    assert!(result.len() <= 11, "slug length {} exceeds max 11", result.len());
+    assert!(
+      result.len() <= 11,
+      "slug length {} exceeds max 11",
+      result.len()
+    );
   }
 
   // ====================================================================
@@ -1031,7 +1049,9 @@ mod tests {
 
   #[test]
   fn test_serde_roundtrip_slug() {
-    let op = FilterOp::<String>::Slug { max_length: Some(50) };
+    let op = FilterOp::<String>::Slug {
+      max_length: Some(50),
+    };
     let json = serde_json::to_string(&op).unwrap();
     let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
     assert_eq!(op, deserialized);
@@ -1079,8 +1099,7 @@ mod tests {
   #[test]
   fn test_custom_serde_skip_direct() {
     // A standalone Custom variant cannot be serialized — returns an error.
-    let op: FilterOp<String> =
-      FilterOp::Custom(Arc::new(|s: String| s.to_uppercase()));
+    let op: FilterOp<String> = FilterOp::Custom(Arc::new(|s: String| s.to_uppercase()));
     let result = serde_json::to_string(&op);
     assert!(result.is_err(), "Custom variant should fail serialization");
   }
@@ -1120,7 +1139,10 @@ mod tests {
       to: "Rust".to_string(),
     };
     let value = Value::Str("Hello World".to_string());
-    assert_eq!(filter.apply_ref(&value), Value::Str("Hello Rust".to_string()));
+    assert_eq!(
+      filter.apply_ref(&value),
+      Value::Str("Hello Rust".to_string())
+    );
   }
 
   // ====================================================================
