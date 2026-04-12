@@ -307,7 +307,6 @@ pub enum DateFormat {
   Custom(String),
 }
 
-
 /// Options for date validation (`Rule::Date`).
 ///
 /// Controls the expected date format and whether a time component is accepted.
