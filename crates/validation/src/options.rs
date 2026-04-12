@@ -292,8 +292,10 @@ impl Default for EmailOptions {
 /// ```
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "type", content = "value", rename_all = "snake_case")]
+#[derive(Default)]
 pub enum DateFormat {
   /// ISO 8601 date: `2026-02-23` or datetime: `2026-02-23T18:00:00`
+  #[default]
   Iso8601,
   /// US-style date: `02/23/2026`
   UsDate,
@@ -305,11 +307,6 @@ pub enum DateFormat {
   Custom(String),
 }
 
-impl Default for DateFormat {
-  fn default() -> Self {
-    Self::Iso8601
-  }
-}
 
 /// Options for date validation (`Rule::Date`).
 ///

@@ -82,18 +82,16 @@ fn validate_ip(value: &str, opts: &IpOptions) -> RuleResult {
   }
 
   // Try IPv4
-  if opts.allow_ipv4 {
-    if let Ok(_) = inner.parse::<std::net::Ipv4Addr>() {
+  if opts.allow_ipv4
+    && inner.parse::<std::net::Ipv4Addr>().is_ok() {
       return Ok(());
     }
-  }
 
   // Try IPv6
-  if opts.allow_ipv6 {
-    if let Ok(_) = inner.parse::<std::net::Ipv6Addr>() {
+  if opts.allow_ipv6
+    && inner.parse::<std::net::Ipv6Addr>().is_ok() {
       return Ok(());
     }
-  }
 
   Err(Violation::invalid_ip())
 }
@@ -574,7 +572,7 @@ impl Rule<String> {
           any_violations.extend(rule_violations.into_iter());
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
       Rule::When {
@@ -1081,7 +1079,7 @@ mod tests {
     let result = rule.validate_str_all("ab");
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.len() >= 1); // At least TooShort
+    assert!(!violations.is_empty()); // At least TooShort
   }
 
   // ========================================================================

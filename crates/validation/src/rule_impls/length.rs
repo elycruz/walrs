@@ -173,7 +173,7 @@ impl<T: WithLength> Rule<T> {
           any_violations.extend(rule_violations.into_iter());
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
       Rule::When {
