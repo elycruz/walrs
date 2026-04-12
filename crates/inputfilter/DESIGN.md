@@ -1,92 +1,71 @@
-# `inputfilter` package design
+# `walrs_inputfilter` Design
 
-## Implementation Goals
+## Purpose
 
-Controls here should:
-
-- not be stateful - In the sense of 'changing' state;  E.g., should not hold on to/mutate values.
-- Should only work with primitive values;  E.g., scalars, array, vector, hash_map, etc., to limit implementation complexity (note we can support arbitrary structures (later) via derive macros, etc.).
+Simplify HTML form handling on the backend by combining serializable validation
+rules (`Rule<T>` from `walrs_validation`) and filter operations (`FilterOp<T>`
+from `walrs_filter`) into per-field and multi-field pipelines.
 
 ## Inspiration
 
-Original inspiration comes from:
+- [laminas-inputfilter](https://docs.laminas.dev/laminas-inputfilter/)
+- [fjl-validator](https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-validator)
+- [fjl-inputfilter](https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-inputfilter)
 
-- https://docs.laminas.dev/laminas-inputfilter/
-- https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-validator
-- https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-inputfilter
+Unlike laminas-inputfilter, Rust web frameworks (e.g., actix-web) handle type
+coercion automatically, so this crate focuses on value-level filtering and
+validation rather than type conversion.
 
-**Note:** In comparison to laminas-inputfilter we don't need to convert string values to numbers, etc., when using a web-framework like actix-web, as they automatically do this for us (see https://actix.rs/docs/extractors, for more).  
+## Architecture
 
-Due to the above, in this library, we'll require less Validator, and Filter, structs since type coercion is handled for us.
-
-## Where and how would we use `*Input`/`*Constraint` controls
-
-- In action handlers where we might need to instantiate a constraints object, or optionally, retrieve a globally instantiated/stored one.
-- In a terminal application where we might want to reuse the same functionality stored (though in this instance rust's built-in facilities for working with command line flags might be more appropriate (possibly less memory overhead, et al.?)).
-
-## Design:
-
-### Current:
-
-- `./input`, `./ref_input` - Structs with validation methods, validation properties, and filter methods used for validating/filtering given value(s).
-- `./filters` - Structs that implement `Fn` traits that transform incoming values.
-- [tentative] `./validators` - `Fn` structs that validate a given value against some inherent configuration.
-
-### Multi trait implementations approach
-
-One Input struct with multiple implementations of the `InputConstraints` trait.
-
-The Input Constraints trait itself needs to accept the validator and filter types themselves.
-
-## Questions
-
-### General
-
-- Do function references need to be wrapped in `Arc<...>` to be shared across threads safely?  No - If the owning struct is itself wrapped in `Arc<...>` then all members that can satisfy `Send + Sync` automatically become shareable (across threads).
-
-### `Cow<T>` vs `&T` vs `T` in `validate` method calls 
-
-| Type     | PROs                           | CONs                                                            |
-|----------|--------------------------------|-----------------------------------------------------------------|
-| `Cow<T>` | Allows better type flexibility | More complex when types that are not `Cow` safe are used.       |
-| `&T`     | Simplifies APIs                | Can cause overhead when requiring `Copy` types.                 |
-| `T`      | Simplifies APIs                | Offsets API complexity elsewhere but can cause lifetime errors. |
-
-~~Here we're going with `&T` for simplicity's sake.~~
-
-For supporting the above types, we're going with two trait implementations for Validator validation functions:
- 
-```rust
-trait Validate<T: Copy> {
-    fn validate(&self, value: T) -> ValidatorResult;
-}
-
-trait ValidateRef<T: ?Sized> {
-  fn validate_ref(&self, value: &T) -> ValidatorResult;
-}
+```
+walrs_validation → walrs_filter      → walrs_inputfilter → walrs_form
+(Rule<T>, Value)   (Filter trait,      (Field<T>,          (Form, Elements,
+                    FilterOp<T>,        FieldFilter,         FormData)
+                    TryFilterOp<T>)     CrossFieldRule)
 ```
 
-This allows validators to exist for both `Sized`, and Un-sized (`?Sized`) types.
+### Core Types
 
-### Other
+- **`Field<T>`** — Single-field configuration combining optional `FilterOp<T>`
+  filters, optional `TryFilterOp<T>` fallible filters, and an optional
+  `Rule<T>` validation rule. Built via `FieldBuilder<T>` (derive_builder).
+  Specialised impls exist for `T = String` and `T = Value`.
 
-- Do scalars, and `str`, implement:
-  - [x] Debug
-  - [x] Display
-  - [x] PartialOrd
-  - [x] PartialEq
+- **`FieldFilter`** — Multi-field form-level pipeline. Holds an
+  `IndexMap<String, Field<Value>>` plus a list of `CrossFieldRule`s.
+  Provides `filter()`, `try_filter()`, `validate()`, and `process()`.
 
-## TODOs
+- **`CrossFieldRule` / `CrossFieldRuleType`** — Serializable cross-field
+  validation (FieldsEqual, RequiredIf, RequiredUnless, OneOfRequired,
+  MutuallyExclusive, DependentRequired) plus a non-serializable `Custom`
+  variant for arbitrary logic.
 
-- [x] Add constraint `FT: From<T>`
-- [x] ~~Change `validator*` methods to accept `&T`.~~ - No longer required as we're only supporting 'Copy', and/or Scalar, types.
-- [ ] Question: Do we need `Debug`, and `Display`, traits on `InputConstraints` type?
-- [x] Consider making `ValueMissingCallback` types accept Constraints/Input type as first param. - In 'Input' struct we will support this.
+- **`FormViolations`** — Aggregate error container with per-field
+  `Violations` and form-level `Violation` lists.
 
-## Scratch
+### Processing Pipeline
 
-Easy Lambda for validation:
+`FieldFilter.process(data)` runs:
 
-Approach 1: Functional approach
+1. **`filter(data)`** — applies each field's `FilterOp` filters in order.
+2. **`try_filter(data)`** — applies each field's `TryFilterOp` filters;
+   collects errors into `FormViolations`.
+3. **`validate(&data)`** — runs each field's `Rule<T>` plus all
+   `CrossFieldRule`s; collects errors into `FormViolations`.
 
-Functions can contain the validation rule
+### Design Decisions
+
+- **`Value` for dynamic form data** — `FieldFilter.fields` uses
+  `Field<Value>` so that heterogeneous form payloads (strings, numbers,
+  booleans, arrays) can be handled with a single `IndexMap<String, Value>`.
+
+- **`IndexMap` for deterministic ordering** — field iteration follows
+  insertion order, making validation error output predictable.
+
+- **Serializable rules and filters** — Both `Rule<T>` and `FilterOp<T>`
+  derive `Serialize`/`Deserialize`, enabling server-to-client rule
+  transport for client-side pre-validation.
+
+- **Stateless** — `Field<T>` and `FieldFilter` are configuration objects
+  that do not mutate internal state during processing.

@@ -90,6 +90,11 @@ impl FieldFilter {
   /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
   /// the collected field- and form-level violations.
   ///
+  /// **Missing fields are treated as `Value::Null`.**  If `data` does not
+  /// contain a key for a configured field, the field is validated against
+  /// `Value::Null`.  This means `Rule::Required` will report a violation for
+  /// any missing field.
+  ///
   /// If a field has `break_on_failure` set to `true` and fails validation,
   /// the method returns immediately with the violations collected so far,
   /// without checking the remaining fields or any cross-field rules. In that
@@ -102,12 +107,15 @@ impl FieldFilter {
   /// early return is deterministic and corresponds to the order in which fields
   /// were added.
   pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
+    let null = Value::Null;
     let mut violations = FormViolations::new();
 
-    // Validate individual fields
+    // Validate individual fields.
+    // Missing fields are treated as `Value::Null`, which causes `Rule::Required`
+    // to report a violation.
     for (field_name, field) in &self.fields {
-      let value = data.get(field_name).cloned().unwrap_or(Value::Null);
-      if let Err(field_violations) = field.validate_ref(&value) {
+      let value = data.get(field_name).unwrap_or(&null);
+      if let Err(field_violations) = field.validate_ref(value) {
         violations.add_field_violations(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
@@ -136,7 +144,24 @@ impl FieldFilter {
     let mut result = data;
     for (field_name, field) in &self.fields {
       if let Some(value) = result.get_mut(field_name) {
-        *value = field.filter(value.clone());
+        let taken = std::mem::replace(value, Value::Null);
+        *value = field.filter(taken);
+      }
+    }
+    result
+  }
+
+  /// Filters all field values without consuming the data.
+  ///
+  /// Returns a new `IndexMap` containing only the fields that appear in both
+  /// `data` and `self.fields`, with each value run through the field's
+  /// infallible filters.  Fields present in `data` but not in `self.fields`
+  /// are **not** included in the result.
+  pub fn filter_ref(&self, data: &IndexMap<String, Value>) -> IndexMap<String, Value> {
+    let mut result = IndexMap::with_capacity(self.fields.len());
+    for (field_name, field) in &self.fields {
+      if let Some(value) = data.get(field_name) {
+        result.insert(field_name.clone(), field.filter_ref(value));
       }
     }
     result
@@ -154,10 +179,11 @@ impl FieldFilter {
     let mut violations = FormViolations::new();
 
     for (field_name, field) in &self.fields {
-      if let Some(value) = result.get(field_name).cloned() {
-        match field.try_filter(value) {
+      if let Some(slot) = result.get_mut(field_name) {
+        let taken = std::mem::replace(slot, Value::Null);
+        match field.try_filter(taken) {
           Ok(filtered) => {
-            result.insert(field_name.clone(), filtered);
+            *slot = filtered;
           }
           Err(field_violations) => {
             violations.add_field_violations(field_name, field_violations);
@@ -249,6 +275,7 @@ pub enum CrossFieldRuleType {
 
   /// Custom validation (not serializable).
   #[serde(skip)]
+  #[allow(clippy::type_complexity)]
   Custom(Arc<dyn Fn(&IndexMap<String, Value>) -> RuleResult + Send + Sync>),
 
   /// Async custom validation (not serializable).
@@ -807,7 +834,7 @@ mod tests {
 
   #[test]
   fn test_field_filter_try_filter_success() {
-    use walrs_filter::{FilterError, TryFilterOp};
+    use walrs_filter::TryFilterOp;
 
     let mut filter = FieldFilter::new();
     filter.add_field(
@@ -943,5 +970,106 @@ mod tests {
       result.get("name").unwrap(),
       &Value::Str("  hello  ".to_string())
     );
+  }
+
+  // ====================================================================
+  // filter_ref tests
+  // ====================================================================
+
+  #[test]
+  fn test_field_filter_filter_ref() {
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "name",
+      FieldBuilder::<Value>::default()
+        .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[("name", Value::Str("  HELLO  ".to_string()))]);
+    let result = filter.filter_ref(&data);
+    assert_eq!(
+      result.get("name").unwrap(),
+      &Value::Str("hello".to_string())
+    );
+    // Original data is untouched
+    assert_eq!(
+      data.get("name").unwrap(),
+      &Value::Str("  HELLO  ".to_string())
+    );
+  }
+
+  #[test]
+  fn test_field_filter_filter_ref_excludes_unknown_fields() {
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "name",
+      FieldBuilder::<Value>::default()
+        .filters(vec![FilterOp::Trim])
+        .build()
+        .unwrap(),
+    );
+
+    let data = make_data(&[
+      ("name", Value::Str("  hello  ".to_string())),
+      ("extra", Value::Str("not in filter".to_string())),
+    ]);
+    let result = filter.filter_ref(&data);
+    assert!(result.get("name").is_some());
+    assert!(result.get("extra").is_none());
+  }
+
+  #[test]
+  fn test_field_filter_filter_ref_no_filters() {
+    let mut filter = FieldFilter::new();
+    filter.add_field("name", FieldBuilder::<Value>::default().build().unwrap());
+
+    let data = make_data(&[("name", Value::Str("unchanged".to_string()))]);
+    let result = filter.filter_ref(&data);
+    assert_eq!(
+      result.get("name").unwrap(),
+      &Value::Str("unchanged".to_string())
+    );
+  }
+
+  // ====================================================================
+  // validate missing-field-as-null tests
+  // ====================================================================
+
+  #[test]
+  fn test_validate_missing_field_treated_as_null() {
+    let mut filter = FieldFilter::new();
+    filter.add_field(
+      "required_field",
+      FieldBuilder::<Value>::default()
+        .rule(Rule::Required)
+        .build()
+        .unwrap(),
+    );
+
+    // Empty data — missing field should be treated as Null → Required fails
+    let data: IndexMap<String, Value> = IndexMap::new();
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(violations.for_field("required_field").is_some());
+  }
+
+  #[test]
+  fn test_validate_missing_field_optional_passes() {
+    let mut filter = FieldFilter::new();
+    // Field with no rule — missing field should pass
+    filter.add_field(
+      "optional_field",
+      FieldBuilder::<Value>::default()
+        .filters(vec![FilterOp::Trim])
+        .build()
+        .unwrap(),
+    );
+
+    let data: IndexMap<String, Value> = IndexMap::new();
+    let result = filter.validate(&data);
+    assert!(result.is_ok());
   }
 }

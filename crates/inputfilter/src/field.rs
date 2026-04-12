@@ -124,6 +124,24 @@ where
   }
 }
 
+impl<T: Clone> Field<T> {
+  /// Bakes the stored locale into the rule so that subsequent
+  /// [`validate_ref`] calls avoid cloning the rule.
+  ///
+  /// After this call `locale` is `None` and the rule carries the locale
+  /// internally via [`Rule::WithMessage`].
+  ///
+  /// This is an opt-in performance optimisation — calling code that never
+  /// sets a locale is unaffected.
+  pub fn apply_locale(&mut self) {
+    if self.locale.is_some()
+      && let (Some(locale), Some(rule)) = (self.locale.take(), self.rule.take())
+    {
+      self.rule = Some(rule.with_locale(locale.as_ref()));
+    }
+  }
+}
+
 // ============================================================================
 // String Field Implementation
 // ============================================================================
@@ -191,7 +209,19 @@ impl Field<String> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter(&self, value: String) -> Result<String, Violations> {
-    self.try_filter_ref(&value)
+    match &self.try_filters {
+      Some(try_filters) => {
+        let mut result = value;
+        for f in try_filters {
+          result = f.try_apply(result).map_err(|e| -> Violations {
+            let violation: Violation = e.into();
+            Violations::new(vec![violation])
+          })?;
+        }
+        Ok(result)
+      }
+      None => Ok(value),
+    }
   }
 
   /// Validate the value against the rule, short-circuiting on the first violation.
@@ -237,6 +267,17 @@ impl Field<String> {
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
   pub fn process(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
+    let filtered = self.try_filter(filtered)?;
+    self.validate_ref(&filtered)?;
+    Ok(filtered)
+  }
+
+  /// Filter a `&str` and then validate the result.
+  ///
+  /// Like [`process`](Self::process) but starts from a `&str` reference,
+  /// avoiding the need for the caller to allocate a `String` up-front.
+  pub fn process_ref(&self, value: &str) -> Result<String, Violations> {
+    let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
     Ok(filtered)
@@ -301,7 +342,19 @@ impl Field<Value> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter(&self, value: Value) -> Result<Value, Violations> {
-    self.try_filter_ref(&value)
+    match &self.try_filters {
+      Some(try_filters) => {
+        let mut result = value;
+        for f in try_filters {
+          result = f.try_apply(result).map_err(|e| -> Violations {
+            let violation: Violation = e.into();
+            Violations::new(vec![violation])
+          })?;
+        }
+        Ok(result)
+      }
+      None => Ok(value),
+    }
   }
 
   /// Validate a `&Value` reference against the rule.
@@ -411,6 +464,14 @@ impl Field<String> {
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
   pub async fn process_async(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
+    let filtered = self.try_filter(filtered)?;
+    self.validate_ref_async(&filtered).await?;
+    Ok(filtered)
+  }
+
+  /// Like [`process_async`](Self::process_async) but starts from a `&str` reference.
+  pub async fn process_ref_async(&self, value: &str) -> Result<String, Violations> {
+    let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
     Ok(filtered)
@@ -848,5 +909,95 @@ mod tests {
 
     assert!(field.try_filters.is_some());
     assert_eq!(field.try_filters.as_ref().map(|f| f.len()), Some(1));
+  }
+
+  // ====================================================================
+  // process_ref tests — Field<String>
+  // ====================================================================
+
+  #[test]
+  fn test_string_field_process_ref() {
+    let field = FieldBuilder::<String>::default()
+      .filters(vec![FilterOp::Trim])
+      .rule(Rule::MinLength(3))
+      .build()
+      .unwrap();
+
+    // Happy path: starts from &str
+    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
+
+    // Validation fails
+    assert!(field.process_ref("  hi  ").is_err());
+  }
+
+  #[test]
+  fn test_string_field_process_ref_with_try_filters() {
+    let field = FieldBuilder::<String>::default()
+      .filters(vec![FilterOp::Trim])
+      .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
+        if s.is_empty() {
+          Err(FilterError::new("empty after trim"))
+        } else {
+          Ok(s)
+        }
+      }))])
+      .rule(Rule::MinLength(3))
+      .build()
+      .unwrap();
+
+    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
+    assert!(field.process_ref("     ").is_err()); // empty after trim
+    assert!(field.process_ref("  hi  ").is_err()); // too short
+  }
+
+  #[test]
+  fn test_string_field_process_ref_no_filters_no_rule() {
+    let field = FieldBuilder::<String>::default().build().unwrap();
+    assert_eq!(field.process_ref("hello").unwrap(), "hello");
+  }
+
+  // ====================================================================
+  // apply_locale tests
+  // ====================================================================
+
+  #[test]
+  fn test_apply_locale_bakes_into_rule() {
+    let mut field = FieldBuilder::<String>::default()
+      .locale("es")
+      .rule(Rule::Required)
+      .build()
+      .unwrap();
+
+    assert!(field.locale.is_some());
+    field.apply_locale();
+    assert!(field.locale.is_none());
+    // Rule still validates correctly
+    assert!(field.validate_ref("").is_err());
+    assert!(field.validate_ref("hello").is_ok());
+  }
+
+  #[test]
+  fn test_apply_locale_no_op_without_locale() {
+    let mut field = FieldBuilder::<String>::default()
+      .rule(Rule::Required)
+      .build()
+      .unwrap();
+
+    let rule_before = field.rule.clone();
+    field.apply_locale();
+    assert_eq!(field.rule, rule_before);
+  }
+
+  #[test]
+  fn test_apply_locale_no_op_without_rule() {
+    let mut field = FieldBuilder::<String>::default()
+      .locale("es")
+      .build()
+      .unwrap();
+
+    field.apply_locale();
+    // locale consumed, rule still None
+    assert!(field.locale.is_none());
+    assert!(field.rule.is_none());
   }
 }

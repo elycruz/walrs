@@ -111,10 +111,6 @@ if !violations.is_empty() {
     }
 }
 ```
-## Legacy Types
-The following types are still available but deprecated:
-- `Input<T>` - Use `Field<T>` instead
-- `RefInput<T>` - Use `Field<T>` instead
 ## Installation
 ```toml
 [dependencies]
@@ -128,4 +124,4 @@ walrs_validation    → walrs_filter      → walrs_inputfilter → walrs_form
                       FilterOp<T> enum)    FieldFilter)        Element)
 ```
 ## License
-MIT OR Apache-2.0
+Elastic-2.0

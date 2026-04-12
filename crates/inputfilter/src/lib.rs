@@ -61,7 +61,6 @@ pub mod field_filter;
 pub mod form_violations;
 
 pub mod rule;
-pub mod traits;
 
 // Re-export IndexMap for consumers
 pub use indexmap::IndexMap;

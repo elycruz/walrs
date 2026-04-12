@@ -2148,14 +2148,10 @@ dependencies = [
 name = "walrs_inputfilter"
 version = "0.1.0"
 dependencies = [
- "ammonia",
- "bytes",
  "derive_builder",
  "indexmap",
- "regex",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "walrs_filter",
  "walrs_validation",
