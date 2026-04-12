@@ -429,6 +429,19 @@ mod tests {
   }
 
   #[test]
+  fn test_render_menu_fragment_only() {
+    let mut nav = Container::new();
+    nav.add_page(
+      Page::builder()
+        .label("Section")
+        .fragment("section1")
+        .build(),
+    );
+    let html = render_menu(&nav);
+    assert!(html.contains("href=\"#section1\""));
+  }
+
+  #[test]
   fn test_render_menu_no_label() {
     let mut nav = Container::new();
     nav.add_page(Page::builder().uri("/").build());

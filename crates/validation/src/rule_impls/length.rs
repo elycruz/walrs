@@ -549,4 +549,36 @@ mod tests {
     assert_eq!(violations[0].message(), "Error de longitud (3)");
     assert_eq!(violations[1].message(), "Error de longitud (3)");
   }
+
+  // ========================================================================
+  // Rule::Ref tests (#143)
+  // ========================================================================
+
+  #[test]
+  fn test_validate_len_ref_returns_err() {
+    let rule = Rule::<Vec<i32>>::Ref("len_ref".into());
+    let result = rule.validate_len(&vec![1, 2, 3]);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("len_ref"));
+  }
+
+  #[test]
+  fn test_validate_len_ref_inside_all() {
+    let rule = Rule::<Vec<i32>>::All(vec![Rule::MinLength(1), Rule::Ref("len_ref".into())]);
+    assert!(rule.validate_len(&vec![1, 2]).is_err());
+  }
+
+  #[test]
+  fn test_validate_len_ref_inside_any() {
+    let rule = Rule::<Vec<i32>>::Any(vec![Rule::Ref("len_ref".into()), Rule::MinLength(1)]);
+    assert!(rule.validate_len(&vec![1, 2]).is_ok());
+  }
+
+  #[test]
+  fn test_validate_len_ref_inside_not() {
+    let rule = Rule::<Vec<i32>>::Not(Box::new(Rule::Ref("len_ref".into())));
+    assert!(rule.validate_len(&vec![1, 2]).is_ok());
+  }
 }

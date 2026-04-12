@@ -1078,6 +1078,130 @@ mod tests {
   }
 
   // ==========================================================================
+  // Rule::Ref tests (#143)
+  // ==========================================================================
+
+  #[test]
+  fn test_validate_scalar_ref_returns_err() {
+    let rule = Rule::<i32>::Ref("my_ref".into());
+    let result = rule.validate_scalar(42);
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("my_ref"));
+  }
+
+  #[test]
+  fn test_validate_scalar_ref_inside_all() {
+    let rule = Rule::<i32>::All(vec![Rule::Min(0), Rule::Ref("my_ref".into())]);
+    assert!(rule.validate_scalar(42).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_ref_inside_any() {
+    // One branch passes → overall passes
+    let rule = Rule::<i32>::Any(vec![Rule::Ref("my_ref".into()), Rule::Min(0)]);
+    assert!(rule.validate_scalar(42).is_ok());
+
+    // All branches fail → overall fails
+    let rule_all_fail = Rule::<i32>::Any(vec![Rule::Ref("my_ref".into()), Rule::Min(100)]);
+    assert!(rule_all_fail.validate_scalar(42).is_err());
+  }
+
+  #[test]
+  fn test_validate_scalar_ref_inside_not() {
+    // Not(Ref) → Ref fails → Not succeeds
+    let rule = Rule::<i32>::Not(Box::new(Rule::Ref("my_ref".into())));
+    assert!(rule.validate_scalar(42).is_ok());
+  }
+
+  // ==========================================================================
+  // Deeply nested combinator tests (#145)
+  // ==========================================================================
+
+  #[test]
+  fn test_nested_depth2_all_containing_all_and_any() {
+    // All([All([Min(0), Max(100)]), Any([Equals(50), Equals(75)])])
+    let rule = Rule::<i32>::All(vec![
+      Rule::All(vec![Rule::Min(0), Rule::Max(100)]),
+      Rule::Any(vec![Rule::Equals(50), Rule::Equals(75)]),
+    ]);
+    assert!(rule.validate_scalar(50).is_ok());
+    assert!(rule.validate_scalar(75).is_ok());
+    assert!(rule.validate_scalar(25).is_err()); // Any fails
+    assert!(rule.validate_scalar(150).is_err()); // Max fails
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_nested_all_then() {
+    // When { condition: GreaterThan(0), then: All([Min(1), Max(10)]), else: None }
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(0),
+      then_rule: Box::new(Rule::All(vec![Rule::Min(1), Rule::Max(10)])),
+      else_rule: None,
+    };
+    assert!(rule.validate_scalar(5).is_ok());
+    assert!(rule.validate_scalar(11).is_err());
+    assert!(rule.validate_scalar(0).is_ok()); // condition false → pass
+  }
+
+  #[test]
+  fn test_nested_depth3_not_all_any() {
+    // Not(All([Any([Equals(1), Equals(2)]), Min(0)]))
+    // Value 1: Any passes, Min passes → All passes → Not fails
+    // Value 5: Any fails → All fails → Not passes
+    let rule = Rule::<i32>::Not(Box::new(Rule::All(vec![
+      Rule::Any(vec![Rule::Equals(1), Rule::Equals(2)]),
+      Rule::Min(0),
+    ])));
+    assert!(rule.validate_scalar(1).is_err());
+    assert!(rule.validate_scalar(2).is_err());
+    assert!(rule.validate_scalar(5).is_ok());
+  }
+
+  #[test]
+  fn test_nested_any_with_not_and_all() {
+    // Any([Not(Min(0)), All([Min(0), Max(10)])])
+    // -1: Not(Min(0)) → Min fails → Not passes → Any passes
+    // 5: Not fails, All passes → Any passes
+    // 15: Not fails, All fails → Any fails
+    let rule = Rule::<i32>::Any(vec![
+      Rule::Not(Box::new(Rule::Min(0))),
+      Rule::All(vec![Rule::Min(0), Rule::Max(10)]),
+    ]);
+    assert!(rule.validate_scalar(-1).is_ok());
+    assert!(rule.validate_scalar(5).is_ok());
+    assert!(rule.validate_scalar(15).is_err());
+  }
+
+  #[test]
+  fn test_nested_depth3_when_else_any_not() {
+    // When { condition: GreaterThan(50), then: Max(100),
+    //        else: Any([Not(Min(0)), Equals(25)]) }
+    let rule = Rule::<i32>::When {
+      condition: Condition::GreaterThan(50),
+      then_rule: Box::new(Rule::Max(100)),
+      else_rule: Some(Box::new(Rule::Any(vec![
+        Rule::Not(Box::new(Rule::Min(0))),
+        Rule::Equals(25),
+      ]))),
+    };
+    // > 50 → then: Max(100)
+    assert!(rule.validate_scalar(75).is_ok());
+    assert!(rule.validate_scalar(101).is_err());
+    // <= 50 → else: Any([Not(Min(0)), Equals(25)])
+    assert!(rule.validate_scalar(25).is_ok()); // Equals(25) passes
+    assert!(rule.validate_scalar(-1).is_ok()); // Not(Min(0)) passes
+    assert!(rule.validate_scalar(10).is_err()); // Neither passes
+  }
+
+  #[test]
+  fn test_empty_any_passes() {
+    let rule = Rule::<i32>::Any(vec![]);
+    assert!(rule.validate_scalar(42).is_ok());
+  }
+
+  // ==========================================================================
   // Async tests for bool / char
   // ==========================================================================
 

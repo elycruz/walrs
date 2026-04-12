@@ -1645,4 +1645,133 @@ mod tests {
     let rule = Rule::<String>::hostname(opts.clone());
     assert_eq!(rule, Rule::Hostname(opts));
   }
+
+  // ========================================================================
+  // Rule::Ref tests (#143)
+  // ========================================================================
+
+  #[test]
+  fn test_validate_str_ref_returns_err() {
+    let rule = Rule::<String>::Ref("some_ref".into());
+    let result = rule.validate_ref("test");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("some_ref"));
+  }
+
+  #[test]
+  fn test_validate_str_ref_via_validate_trait() {
+    let rule = Rule::<String>::Ref("some_ref".into());
+    let result: Result<(), Violation> = Validate::validate(&rule, Some("test".to_string()));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("some_ref"));
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_all() {
+    let rule = Rule::<String>::All(vec![Rule::MinLength(1), Rule::Ref("some_ref".into())]);
+    assert!(rule.validate_ref("test").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_any() {
+    // Any: if one branch passes, the overall passes
+    let rule = Rule::<String>::Any(vec![Rule::Ref("some_ref".into()), Rule::MinLength(1)]);
+    assert!(rule.validate_ref("test").is_ok());
+
+    // Any: if all branches fail, the overall fails
+    let rule_all_fail =
+      Rule::<String>::Any(vec![Rule::Ref("some_ref".into()), Rule::MinLength(100)]);
+    assert!(rule_all_fail.validate_ref("test").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_not() {
+    // Not(Ref) → Ref fails → Not succeeds
+    let rule = Rule::<String>::Not(Box::new(Rule::Ref("some_ref".into())));
+    assert!(rule.validate_ref("test").is_ok());
+  }
+
+  // ========================================================================
+  // Deeply nested combinator tests (#145)
+  // ========================================================================
+
+  #[test]
+  fn test_nested_depth2_all_containing_all_and_pattern() {
+    let rule = Rule::<String>::All(vec![
+      Rule::All(vec![Rule::MinLength(2), Rule::MaxLength(10)]),
+      Rule::pattern("^[a-z]+$").unwrap(),
+    ]);
+    assert!(rule.validate_ref("hello").is_ok());
+    assert!(rule.validate_ref("a").is_err()); // too short
+    assert!(rule.validate_ref("Hello").is_err()); // pattern mismatch
+    assert!(rule.validate_ref("abcdefghijk").is_err()); // too long
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_combinator_then() {
+    let rule = Rule::<String>::When {
+      condition: Condition::IsNotEmpty,
+      then_rule: Box::new(Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(10)])),
+      else_rule: None,
+    };
+    assert!(rule.validate_ref("hello").is_ok());
+    assert!(rule.validate_ref("ab").is_err()); // too short
+    assert!(rule.validate_ref("").is_ok()); // empty → condition false → pass
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_combinator_else() {
+    let rule = Rule::<String>::When {
+      condition: Condition::Matches(crate::CompiledPattern::try_from("^[A-Z]").unwrap()),
+      then_rule: Box::new(Rule::MinLength(5)),
+      else_rule: Some(Box::new(Rule::All(vec![
+        Rule::MinLength(1),
+        Rule::MaxLength(3),
+      ]))),
+    };
+    // Starts with uppercase → then: MinLength(5)
+    assert!(rule.validate_ref("Hello").is_ok());
+    assert!(rule.validate_ref("Hi").is_err());
+    // Lowercase → else: length 1..3
+    assert!(rule.validate_ref("abc").is_ok());
+    assert!(rule.validate_ref("abcd").is_err());
+  }
+
+  #[test]
+  fn test_nested_depth3_not_all_any() {
+    // Not(All([Any([MinLength(3), MaxLength(1)]), Pattern(...)]))
+    // "ab" → Any fails (len 2: MinLength(3) fail, MaxLength(1) fail) → All fails → Not passes
+    // "abc" → Any passes (MinLength(3) ok) and Pattern passes → All passes → Not fails
+    let rule = Rule::<String>::Not(Box::new(Rule::All(vec![
+      Rule::Any(vec![Rule::MinLength(3), Rule::MaxLength(1)]),
+      Rule::pattern("^[a-z]+$").unwrap(),
+    ])));
+    assert!(rule.validate_ref("ab").is_ok()); // inner All fails → Not passes
+    assert!(rule.validate_ref("abc").is_err()); // inner All passes → Not fails
+  }
+
+  #[test]
+  fn test_nested_any_with_not_and_all() {
+    // Any([Not(MinLength(3)), All([MinLength(3), MaxLength(6)])])
+    let rule = Rule::<String>::Any(vec![
+      Rule::Not(Box::new(Rule::MinLength(3))),
+      Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(6)]),
+    ]);
+    // "ab": Not(MinLength(3)) → MinLength(3) fails → Not passes → Any passes
+    assert!(rule.validate_ref("ab").is_ok());
+    // "hello": Not fails (MinLength passes), All passes → Any passes
+    assert!(rule.validate_ref("hello").is_ok());
+    // "abcdefghij": Not fails, All fails (MaxLength) → Any fails
+    assert!(rule.validate_ref("abcdefghij").is_err());
+  }
+
+  #[test]
+  fn test_empty_any_passes() {
+    let rule = Rule::<String>::Any(vec![]);
+    assert!(rule.validate_ref("anything").is_ok());
+  }
 }
