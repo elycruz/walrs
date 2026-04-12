@@ -139,6 +139,30 @@ mod value_tests {
     assert!(rule.validate_async(Value::Str("hi".into())).await.is_ok());
     assert!(rule.validate_async(Value::Null).await.is_err());
   }
+
+  #[tokio::test]
+  async fn when_with_async_else_branch_value() {
+    let rule = Rule::<Value>::MinLength(3).when_else(
+      walrs_validation::Condition::IsNotEmpty,
+      async_value_not_null(),
+    );
+    // "hello" (not empty) → condition true → then_rule: len 5 ≥ 3 → Ok
+    assert!(
+      rule
+        .validate_ref_async(&Value::Str("hello".into()))
+        .await
+        .is_ok()
+    );
+    // Null (empty) → condition false → else_rule: null → Err
+    assert!(rule.validate_ref_async(&Value::Null).await.is_err());
+    // "" (empty string) → condition false → else_rule: not null → Ok
+    assert!(
+      rule
+        .validate_ref_async(&Value::Str("".into()))
+        .await
+        .is_ok()
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -223,4 +247,64 @@ fn custom_async_numeric_in_sync_context_is_skipped() {
   // CustomAsync is skipped in sync context — always Ok
   assert!(rule.validate(4i64).is_ok());
   assert!(rule.validate(3i64).is_ok());
+}
+
+// ---------------------------------------------------------------------------
+// When with async else_rule branch
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn when_with_async_else_branch_string_passes() {
+  // condition: IsNotEmpty, value "" → false → else_rule runs
+  let rule = Rule::<String>::MinLength(3).when_else(
+    walrs_validation::Condition::IsNotEmpty,
+    async_str_is_not_banned("bad"),
+  );
+  // Empty string → condition false → else_rule: "bad" check → "" ≠ "bad" → Ok
+  assert!(rule.validate_ref_async("").await.is_ok());
+}
+
+#[tokio::test]
+async fn when_with_async_else_branch_string_with_equals_condition() {
+  let rule = Rule::<String>::MinLength(100).when_else(
+    walrs_validation::Condition::Equals("trigger".to_string()),
+    async_str_is_not_banned("forbidden"),
+  );
+  // "hello" → condition false → else_rule: "hello" ≠ "forbidden" → Ok
+  assert!(rule.validate_ref_async("hello").await.is_ok());
+  // "forbidden" → condition false → else_rule: "forbidden" = "forbidden" → Err
+  assert!(rule.validate_ref_async("forbidden").await.is_err());
+  // "trigger" → condition true → then_rule: len 7 < 100 → Err
+  assert!(rule.validate_ref_async("trigger").await.is_err());
+}
+
+#[tokio::test]
+async fn when_with_async_else_branch_numeric() {
+  let rule = Rule::<i64>::Max(200).when_else(
+    walrs_validation::Condition::GreaterThan(100),
+    async_is_even(),
+  );
+  // 50 (≤ 100, even) → else branch → Ok
+  assert!(rule.validate_async(50i64).await.is_ok());
+  // 51 (≤ 100, odd) → else branch → Err
+  assert!(rule.validate_async(51i64).await.is_err());
+  // 150 (> 100) → then branch: 150 ≤ 200 → Ok
+  assert!(rule.validate_async(150i64).await.is_ok());
+  // 250 (> 100, > 200) → then branch: 250 > 200 → Err
+  assert!(rule.validate_async(250i64).await.is_err());
+}
+
+#[tokio::test]
+async fn nested_async_else_in_all() {
+  let when_rule = Rule::<String>::MinLength(100).when_else(
+    walrs_validation::Condition::IsNotEmpty,
+    async_str_is_not_banned("bad"),
+  );
+  let rule = Rule::<String>::All(vec![when_rule, Rule::MinLength(1)]);
+  // "good" → condition true → then_rule: len 4 < 100 → Err (All short-circuits)
+  assert!(rule.validate_ref_async("good").await.is_err());
+  // "" → condition false → else_rule: "" ≠ "bad" → Ok, but MinLength(1) → Err
+  assert!(rule.validate_ref_async("").await.is_err());
+  // "ok" → condition true → then_rule: len 2 < 100 → Err
+  assert!(rule.validate_ref_async("ok").await.is_err());
 }

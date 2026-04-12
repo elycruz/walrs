@@ -172,6 +172,9 @@ impl TryFilterOp<Value> {
       TryFilterOp::Infallible(op) => Ok(op.apply_ref(value)),
       TryFilterOp::Chain(ops) => {
         let flat = flatten_try_chain(ops);
+        if flat.is_empty() {
+          return Ok(value.clone());
+        }
         let mut result = value.clone();
         for op in flat {
           result = op.try_apply_ref(&result)?;
@@ -264,9 +267,8 @@ mod tests {
 
   #[test]
   fn test_try_custom_success() {
-    let op: TryFilterOp<String> = TryFilterOp::TryCustom(Arc::new(|s: String| {
-      Ok(s.to_uppercase())
-    }));
+    let op: TryFilterOp<String> =
+      TryFilterOp::TryCustom(Arc::new(|s: String| Ok(s.to_uppercase())));
     assert_eq!(op.try_apply("hello".to_string()).unwrap(), "HELLO");
   }
 
@@ -296,9 +298,7 @@ mod tests {
   fn test_chain_short_circuits_on_error() {
     let op: TryFilterOp<String> = TryFilterOp::Chain(vec![
       TryFilterOp::Infallible(FilterOp::Trim),
-      TryFilterOp::TryCustom(Arc::new(|_| {
-        Err(FilterError::new("always fails"))
-      })),
+      TryFilterOp::TryCustom(Arc::new(|_| Err(FilterError::new("always fails")))),
       TryFilterOp::Infallible(FilterOp::Lowercase), // should not execute
     ]);
     let err = op.try_apply("  HELLO  ".to_string()).unwrap_err();
@@ -313,8 +313,7 @@ mod tests {
 
   #[test]
   fn test_chain_single() {
-    let op: TryFilterOp<String> =
-      TryFilterOp::Chain(vec![TryFilterOp::Infallible(FilterOp::Trim)]);
+    let op: TryFilterOp<String> = TryFilterOp::Chain(vec![TryFilterOp::Infallible(FilterOp::Trim)]);
     assert_eq!(op.try_apply("  hello  ".to_string()).unwrap(), "hello");
   }
 
@@ -394,9 +393,7 @@ mod tests {
   #[test]
   fn test_infallible_value_trim() {
     let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
-    let result = op
-      .try_apply(Value::Str("  hello  ".to_string()))
-      .unwrap();
+    let result = op.try_apply(Value::Str("  hello  ".to_string())).unwrap();
     assert_eq!(result, Value::Str("hello".to_string()));
   }
 
@@ -430,10 +427,17 @@ mod tests {
       TryFilterOp::Infallible(FilterOp::Trim),
       TryFilterOp::Infallible(FilterOp::Lowercase),
     ]);
-    let result = op
-      .try_apply(Value::Str("  HELLO  ".to_string()))
-      .unwrap();
+    let result = op.try_apply(Value::Str("  HELLO  ".to_string())).unwrap();
     assert_eq!(result, Value::Str("hello".to_string()));
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_chain_value_empty() {
+    let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![]);
+    let value = Value::Str("hello".to_string());
+    let result = op.try_apply_ref(&value).unwrap();
+    assert_eq!(result, value);
   }
 
   // ---- apply_ref tests ----
@@ -531,10 +535,7 @@ mod tests {
   fn test_try_filter_trait_string() {
     use crate::TryFilter;
     let op: TryFilterOp<String> = TryFilterOp::Infallible(FilterOp::Trim);
-    assert_eq!(
-      op.try_filter("  hello  ".to_string()).unwrap(),
-      "hello"
-    );
+    assert_eq!(op.try_filter("  hello  ".to_string()).unwrap(), "hello");
   }
 
   #[cfg(feature = "validation")]
@@ -587,8 +588,7 @@ mod tests {
 
   #[test]
   fn test_deeply_nested_try_chain_numeric() {
-    let mut chain: TryFilterOp<i32> =
-      TryFilterOp::Infallible(FilterOp::Clamp { min: 0, max: 100 });
+    let mut chain: TryFilterOp<i32> = TryFilterOp::Infallible(FilterOp::Clamp { min: 0, max: 100 });
     for _ in 0..10_000 {
       chain = TryFilterOp::Chain(vec![chain]);
     }

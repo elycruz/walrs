@@ -1047,6 +1047,243 @@ mod tests {
   }
 
   // ========================================================================
+  // Edge-case tests: leap years, impossible dates, boundaries, formats
+  // ========================================================================
+
+  // --- Leap year tests ---
+
+  #[test]
+  fn test_leap_year_feb29_valid() {
+    // 2024 is a leap year (divisible by 4)
+    assert!(parse_date_str("2024-02-29", &DateFormat::Iso8601).is_ok());
+    assert!(validate_date_str("2024-02-29", &DateOptions::default()).is_ok());
+  }
+
+  #[test]
+  fn test_leap_year_divisible_by_400_valid() {
+    // 2000 is a leap year (divisible by 400)
+    assert!(parse_date_str("2000-02-29", &DateFormat::Iso8601).is_ok());
+    assert!(validate_date_str("2000-02-29", &DateOptions::default()).is_ok());
+  }
+
+  #[test]
+  fn test_non_leap_year_feb29_invalid() {
+    // 2023 is not a leap year
+    assert!(parse_date_str("2023-02-29", &DateFormat::Iso8601).is_err());
+    assert!(validate_date_str("2023-02-29", &DateOptions::default()).is_err());
+  }
+
+  #[test]
+  fn test_century_non_leap_year_feb29_invalid() {
+    // 1900 is not a leap year (divisible by 100 but not 400)
+    assert!(parse_date_str("1900-02-29", &DateFormat::Iso8601).is_err());
+    assert!(validate_date_str("1900-02-29", &DateOptions::default()).is_err());
+  }
+
+  // --- Impossible date tests ---
+
+  #[test]
+  fn test_impossible_feb30() {
+    assert!(parse_date_str("2024-02-30", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_apr31() {
+    assert!(parse_date_str("2024-04-31", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_jun31() {
+    assert!(parse_date_str("2024-06-31", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_sep31() {
+    assert!(parse_date_str("2024-09-31", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_nov31() {
+    assert!(parse_date_str("2024-11-31", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_month_13() {
+    assert!(parse_date_str("2024-13-01", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_month_00() {
+    assert!(parse_date_str("2024-00-01", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_day_32() {
+    assert!(parse_date_str("2024-01-32", &DateFormat::Iso8601).is_err());
+  }
+
+  #[test]
+  fn test_impossible_day_00() {
+    assert!(parse_date_str("2024-01-00", &DateFormat::Iso8601).is_err());
+  }
+
+  // --- Year boundary / DateRange boundary tests ---
+
+  #[test]
+  fn test_date_range_at_exact_min_boundary() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2024-01-01".into()),
+      max: Some("2024-12-31".into()),
+    };
+    assert!(validate_date_range_str("2024-01-01", &opts).is_ok());
+  }
+
+  #[test]
+  fn test_date_range_at_exact_max_boundary() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2024-01-01".into()),
+      max: Some("2024-12-31".into()),
+    };
+    assert!(validate_date_range_str("2024-12-31", &opts).is_ok());
+  }
+
+  #[test]
+  fn test_date_range_day_before_min() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2024-01-01".into()),
+      max: Some("2024-12-31".into()),
+    };
+    assert_eq!(
+      validate_date_range_str("2023-12-31", &opts)
+        .unwrap_err()
+        .violation_type(),
+      ViolationType::RangeUnderflow,
+    );
+  }
+
+  #[test]
+  fn test_date_range_day_after_max() {
+    let opts = DateRangeOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+      min: Some("2024-01-01".into()),
+      max: Some("2024-12-31".into()),
+    };
+    assert_eq!(
+      validate_date_range_str("2025-01-01", &opts)
+        .unwrap_err()
+        .violation_type(),
+      ViolationType::RangeOverflow,
+    );
+  }
+
+  // --- Format variant tests ---
+
+  #[test]
+  fn test_format_iso8601_valid_and_invalid() {
+    let opts = DateOptions {
+      format: DateFormat::Iso8601,
+      allow_time: false,
+    };
+    assert!(validate_date_str("2024-06-15", &opts).is_ok());
+    assert!(validate_date_str("15/06/2024", &opts).is_err());
+  }
+
+  #[test]
+  fn test_format_us_date_valid_and_invalid() {
+    let opts = DateOptions {
+      format: DateFormat::UsDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("06/15/2024", &opts).is_ok());
+    assert!(validate_date_str("2024-06-15", &opts).is_err());
+  }
+
+  #[test]
+  fn test_format_eu_date_valid_and_invalid() {
+    let opts = DateOptions {
+      format: DateFormat::EuDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("15/06/2024", &opts).is_ok());
+    // month 15 is invalid
+    assert!(validate_date_str("06/15/2024", &opts).is_err());
+  }
+
+  #[test]
+  fn test_format_rfc2822_valid_and_invalid() {
+    // jiff's Rfc2822 path uses Timestamp::parse which accepts RFC 3339
+    let opts = DateOptions {
+      format: DateFormat::Rfc2822,
+      allow_time: true,
+    };
+    assert!(validate_date_str("2024-06-15T12:00:00Z", &opts).is_ok());
+    assert!(validate_date_str("not-a-date", &opts).is_err());
+  }
+
+  #[test]
+  fn test_format_custom_valid_and_invalid() {
+    let opts = DateOptions {
+      format: DateFormat::Custom("%d %B %Y".into()),
+      allow_time: false,
+    };
+    assert!(validate_date_str("15 June 2024", &opts).is_ok());
+    assert!(validate_date_str("2024-06-15", &opts).is_err());
+  }
+
+  // --- Leap year tests with non-ISO formats ---
+
+  #[test]
+  fn test_leap_year_us_date_format() {
+    let opts = DateOptions {
+      format: DateFormat::UsDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("02/29/2024", &opts).is_ok());
+    assert!(validate_date_str("02/29/2023", &opts).is_err());
+  }
+
+  #[test]
+  fn test_leap_year_eu_date_format() {
+    let opts = DateOptions {
+      format: DateFormat::EuDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("29/02/2024", &opts).is_ok());
+    assert!(validate_date_str("29/02/2023", &opts).is_err());
+  }
+
+  // --- Impossible dates with non-ISO formats ---
+
+  #[test]
+  fn test_impossible_dates_us_format() {
+    let opts = DateOptions {
+      format: DateFormat::UsDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("02/30/2024", &opts).is_err());
+    assert!(validate_date_str("04/31/2024", &opts).is_err());
+    assert!(validate_date_str("06/31/2024", &opts).is_err());
+  }
+
+  #[test]
+  fn test_impossible_dates_eu_format() {
+    let opts = DateOptions {
+      format: DateFormat::EuDate,
+      allow_time: false,
+    };
+    assert!(validate_date_str("30/02/2024", &opts).is_err());
+    assert!(validate_date_str("31/04/2024", &opts).is_err());
+    assert!(validate_date_str("31/06/2024", &opts).is_err());
+  }
+
+  // ========================================================================
   // Option<Date> Validation
   // ========================================================================
 

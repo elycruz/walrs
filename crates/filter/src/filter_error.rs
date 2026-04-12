@@ -73,7 +73,10 @@ impl std::error::Error for FilterError {}
 #[cfg(feature = "validation")]
 impl From<FilterError> for walrs_validation::Violation {
   fn from(err: FilterError) -> Self {
-    walrs_validation::Violation::new(walrs_validation::ViolationType::CustomError, err.to_string())
+    walrs_validation::Violation::new(
+      walrs_validation::ViolationType::CustomError,
+      err.to_string(),
+    )
   }
 }
 

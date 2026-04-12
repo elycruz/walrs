@@ -265,7 +265,11 @@ fn bench_try_filter_op(c: &mut Criterion) {
   let try_custom: TryFilterOp<String> =
     TryFilterOp::TryCustom(Arc::new(|s: String| Ok(s.to_uppercase())));
   group.bench_function("try_custom_success", |b| {
-    b.iter(|| try_custom.try_apply(black_box("hello".to_string())).unwrap())
+    b.iter(|| {
+      try_custom
+        .try_apply(black_box("hello".to_string()))
+        .unwrap()
+    })
   });
 
   // Chain with infallible ops
@@ -275,11 +279,7 @@ fn bench_try_filter_op(c: &mut Criterion) {
     TryFilterOp::Infallible(FilterOp::StripTags),
   ]);
   group.bench_function("chain_3_infallible", |b| {
-    b.iter(|| {
-      chain
-        .try_apply_ref(black_box("  <b>HELLO</b>  "))
-        .unwrap()
-    })
+    b.iter(|| chain.try_apply_ref(black_box("  <b>HELLO</b>  ")).unwrap())
   });
 
   // Chain that short-circuits on error
@@ -360,4 +360,3 @@ criterion_group!(
 );
 
 criterion_main!(benches);
-

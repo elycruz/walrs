@@ -210,7 +210,14 @@ mod test {
     let filter = StripTagsFilter::new();
 
     // These inputs have no '<' character — should be no-op
-    for input in ["Hello", "Hello World", "abc123", "", "Socrates'", "\"Hello\""] {
+    for input in [
+      "Hello",
+      "Hello World",
+      "abc123",
+      "",
+      "Socrates'",
+      "\"Hello\"",
+    ] {
       let result = filter.filter(input.into());
       assert_eq!(result, input);
     }
