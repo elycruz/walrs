@@ -1077,6 +1077,108 @@ mod tests {
   }
 
   // ========================================================================
+  // Rule::Ref tests (#143)
+  // ========================================================================
+
+  #[test]
+  fn test_validate_value_ref_returns_err() {
+    let rule = Rule::<Value>::Ref("val_ref".into());
+    let result = rule.validate_value(&value!(42));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("val_ref"));
+  }
+
+  #[test]
+  fn test_validate_value_ref_with_string() {
+    let rule = Rule::<Value>::Ref("val_ref".into());
+    let result = rule.validate_value(&value!("hello"));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), ViolationType::CustomError);
+    assert!(err.message().contains("val_ref"));
+  }
+
+  #[test]
+  fn test_validate_value_ref_inside_all() {
+    let rule = Rule::<Value>::All(vec![Rule::MinLength(1), Rule::Ref("val_ref".into())]);
+    assert!(rule.validate_value(&value!("test")).is_err());
+  }
+
+  #[test]
+  fn test_validate_value_ref_inside_any() {
+    let rule = Rule::<Value>::Any(vec![Rule::Ref("val_ref".into()), Rule::MinLength(1)]);
+    assert!(rule.validate_value(&value!("test")).is_ok());
+
+    let rule_all_fail = Rule::<Value>::Any(vec![Rule::Ref("val_ref".into()), Rule::MinLength(100)]);
+    assert!(rule_all_fail.validate_value(&value!("test")).is_err());
+  }
+
+  #[test]
+  fn test_validate_value_ref_inside_not() {
+    let rule = Rule::<Value>::Not(Box::new(Rule::Ref("val_ref".into())));
+    assert!(rule.validate_value(&value!("test")).is_ok());
+  }
+
+  // ========================================================================
+  // Deeply nested combinator tests (#145)
+  // ========================================================================
+
+  #[test]
+  fn test_nested_depth2_all_containing_all_and_any_value() {
+    // All([All([Min(0), Max(100)]), Any([Equals(50), Equals(75)])])
+    let rule = Rule::<Value>::All(vec![
+      Rule::All(vec![Rule::Min(value!(0)), Rule::Max(value!(100))]),
+      Rule::Any(vec![Rule::Equals(value!(50)), Rule::Equals(value!(75))]),
+    ]);
+    assert!(rule.validate_value(&value!(50)).is_ok());
+    assert!(rule.validate_value(&value!(75)).is_ok());
+    assert!(rule.validate_value(&value!(25)).is_err());
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_combinator_then_value() {
+    let rule = Rule::<Value>::When {
+      condition: Condition::IsNotEmpty,
+      then_rule: Box::new(Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(10)])),
+      else_rule: None,
+    };
+    assert!(rule.validate_value(&value!("hello")).is_ok());
+    assert!(rule.validate_value(&value!("ab")).is_err());
+    assert!(rule.validate_value(&value!(null)).is_ok());
+  }
+
+  #[test]
+  fn test_nested_depth3_not_all_any_value() {
+    // Not(All([Any([Equals(1), Equals(2)]), Min(0)]))
+    let rule = Rule::<Value>::Not(Box::new(Rule::All(vec![
+      Rule::Any(vec![Rule::Equals(value!(1)), Rule::Equals(value!(2))]),
+      Rule::Min(value!(0)),
+    ])));
+    assert!(rule.validate_value(&value!(1)).is_err()); // inner passes → Not fails
+    assert!(rule.validate_value(&value!(5)).is_ok()); // Any fails → Not passes
+  }
+
+  #[test]
+  fn test_nested_any_with_not_and_all_value() {
+    // Any([Not(MinLength(3)), All([MinLength(3), MaxLength(6)])])
+    let rule = Rule::<Value>::Any(vec![
+      Rule::Not(Box::new(Rule::MinLength(3))),
+      Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(6)]),
+    ]);
+    assert!(rule.validate_value(&value!("ab")).is_ok()); // Not passes
+    assert!(rule.validate_value(&value!("hello")).is_ok()); // All passes
+    assert!(rule.validate_value(&value!("abcdefghij")).is_err()); // Both fail
+  }
+
+  #[test]
+  fn test_empty_any_passes_value() {
+    let rule = Rule::<Value>::Any(vec![]);
+    assert!(rule.validate_value(&value!("anything")).is_ok());
+  }
+
+  // ========================================================================
   // #148 — Serde round-trip tests for Rule<Value>
   // ========================================================================
 
