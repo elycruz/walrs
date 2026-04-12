@@ -1,7 +1,9 @@
-use crate::rule::{Rule, RuleResult};
 use crate::Violation;
+use crate::options::{
+  DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, IpOptions, UriOptions, UrlOptions,
+};
+use crate::rule::{Rule, RuleResult};
 use crate::traits::{Validate, ValidateRef};
-use crate::options::{DateOptions, DateRangeOptions, EmailOptions, HostnameOptions, UriOptions, UrlOptions, IpOptions};
 
 // ============================================================================
 // URI / IP Validation Helpers
@@ -33,7 +35,8 @@ fn validate_uri(value: &str, opts: &UriOptions) -> RuleResult {
       if opts.allow_relative && !value.is_empty() {
         // Validate as a relative reference using a fixed base URL.
         // This ensures syntactically invalid relative URIs are rejected.
-        let base = url::Url::parse("http://example.com/").expect("hard-coded base URL must be valid");
+        let base =
+          url::Url::parse("http://example.com/").expect("hard-coded base URL must be valid");
         match url::Url::options().base_url(Some(&base)).parse(value) {
           Ok(_) => Ok(()),
           Err(_) => Err(Violation::invalid_uri()),
@@ -80,14 +83,14 @@ fn validate_ip(value: &str, opts: &IpOptions) -> RuleResult {
 
   // Try IPv4
   if opts.allow_ipv4 {
-    if let Ok(_) = inner.parse::<std::net::Ipv4Addr>() {
+    if inner.parse::<std::net::Ipv4Addr>().is_ok() {
       return Ok(());
     }
   }
 
   // Try IPv6
   if opts.allow_ipv6 {
-    if let Ok(_) = inner.parse::<std::net::Ipv6Addr>() {
+    if inner.parse::<std::net::Ipv6Addr>().is_ok() {
       return Ok(());
     }
   }
@@ -121,10 +124,9 @@ fn is_ipvfuture(s: &str) -> bool {
   if dot_pos + 1 >= bytes.len() {
     return false;
   }
-  bytes[dot_pos + 1..].iter().all(|&b| {
-    b.is_ascii_alphanumeric()
-      || b"-._~!$&'()*+,;=:".contains(&b)
-  })
+  bytes[dot_pos + 1..]
+    .iter()
+    .all(|&b| b.is_ascii_alphanumeric() || b"-._~!$&'()*+,;=:".contains(&b))
 }
 
 // ============================================================================
@@ -178,7 +180,9 @@ fn is_valid_dns_label(label: &str) -> bool {
     return false;
   }
   // Interior characters: alphanumeric or hyphen
-  bytes.iter().all(|&b| b.is_ascii_alphanumeric() || b == b'-')
+  bytes
+    .iter()
+    .all(|&b| b.is_ascii_alphanumeric() || b == b'-')
 }
 
 /// Validates a hostname string according to the given options.
@@ -259,8 +263,7 @@ fn validate_hostname(value: &str, opts: &HostnameOptions) -> RuleResult {
 
 /// Characters allowed in the local part of an email address (RFC 5321/5322 simplified).
 fn is_valid_local_char(b: u8) -> bool {
-  b.is_ascii_alphanumeric()
-    || b"!#$%&'*+/=?^_`{|}~-.".contains(&b)
+  b.is_ascii_alphanumeric() || b"!#$%&'*+/=?^_`{|}~-.".contains(&b)
 }
 
 /// Validates an email address string according to the given options.
@@ -312,8 +315,7 @@ fn validate_email(value: &str, opts: &EmailOptions) -> RuleResult {
       allow_local: opts.allow_local,
       require_public_ipv4: false,
     };
-    validate_hostname(domain, &hostname_opts)
-      .map_err(|_| Violation::invalid_email())?;
+    validate_hostname(domain, &hostname_opts).map_err(|_| Violation::invalid_email())?;
   }
 
   Ok(())
@@ -427,12 +429,12 @@ impl Rule<String> {
         }
       }
       Rule::Pattern(cp) => {
-          if cp.0.is_match(value) {
-            Ok(())
-          } else {
-            Err(Violation::pattern_mismatch(cp.as_str()))
-          }
-      },
+        if cp.0.is_match(value) {
+          Ok(())
+        } else {
+          Err(Violation::pattern_mismatch(cp.as_str()))
+        }
+      }
       Rule::Email(opts) => validate_email(value, opts),
       Rule::Url(opts) => validate_url(value, opts),
       Rule::Uri(opts) => validate_uri(value, opts),
@@ -496,10 +498,14 @@ impl Rule<String> {
       #[cfg(feature = "async")]
       Rule::CustomAsync(_) => Ok(()),
       Rule::Ref(name) => Err(Violation::unresolved_ref(name)),
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         message.wrap_result(rule.validate_str_inner(value, eff), &value.to_string(), eff)
-      },
+      }
       // Numeric rules don't apply to strings - pass through
       Rule::Min(_) | Rule::Max(_) | Rule::Range { .. } | Rule::Step(_) => Ok(()),
     }
@@ -508,10 +514,7 @@ impl Rule<String> {
   /// Validates a string value and collects all violations.
   ///
   /// Returns `Ok(())` if validation passes, or `Err(Violations)` with all failures.
-  pub(crate) fn validate_str_all(
-    &self,
-    value: &str,
-  ) -> Result<(), crate::Violations> {
+  pub(crate) fn validate_str_all(&self, value: &str) -> Result<(), crate::Violations> {
     let mut violations = crate::Violations::default();
     self.collect_violations_str(value, None, &mut violations);
     if violations.is_empty() {
@@ -568,10 +571,10 @@ impl Rule<String> {
             any_passed = true;
             break;
           }
-          any_violations.extend(rule_violations.into_iter());
+          any_violations.extend(rule_violations);
         }
         if !any_passed && !rules.is_empty() {
-          violations.extend(any_violations.into_iter());
+          violations.extend(any_violations);
         }
       }
       Rule::When {
@@ -586,7 +589,11 @@ impl Rule<String> {
           rule.collect_violations_str(value, inherited_locale, violations);
         }
       }
-      Rule::WithMessage { rule, message, locale } => {
+      Rule::WithMessage {
+        rule,
+        message,
+        locale,
+      } => {
         let eff = locale.as_deref().or(inherited_locale);
         let mut inner_violations = crate::Violations::default();
         rule.collect_violations_str(value, eff, &mut inner_violations);
@@ -653,7 +660,9 @@ impl Rule<String> {
 
         Rule::All(rules) => {
           for rule in rules {
-            rule.validate_str_async_inner(value, inherited_locale).await?;
+            rule
+              .validate_str_async_inner(value, inherited_locale)
+              .await?;
           }
           Ok(())
         }
@@ -671,7 +680,10 @@ impl Rule<String> {
           Err(last_err.unwrap())
         }
         Rule::Not(inner) => {
-          match inner.validate_str_async_inner(value, inherited_locale).await {
+          match inner
+            .validate_str_async_inner(value, inherited_locale)
+            .await
+          {
             Ok(()) => Err(Violation::negation_failed()),
             Err(_) => Ok(()),
           }
@@ -682,7 +694,9 @@ impl Rule<String> {
           else_rule,
         } => {
           if condition.evaluate_str(value) {
-            then_rule.validate_str_async_inner(value, inherited_locale).await
+            then_rule
+              .validate_str_async_inner(value, inherited_locale)
+              .await
           } else {
             match else_rule {
               Some(rule) => rule.validate_str_async_inner(value, inherited_locale).await,
@@ -690,9 +704,17 @@ impl Rule<String> {
             }
           }
         }
-        Rule::WithMessage { rule, message, locale } => {
+        Rule::WithMessage {
+          rule,
+          message,
+          locale,
+        } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(rule.validate_str_async_inner(value, eff).await, &value.to_string(), eff)
+          message.wrap_result(
+            rule.validate_str_async_inner(value, eff).await,
+            &value.to_string(),
+            eff,
+          )
         }
 
         // All sync rules — delegate to sync validation
@@ -763,7 +785,9 @@ mod tests {
   fn validate_option_string_some_delegates_to_string_validation() {
     let rule = Rule::<String>::Email(EmailOptions::default());
 
-    assert!(Validate::<Option<String>>::validate(&rule, Some("user@example.com".to_owned())).is_ok());
+    assert!(
+      Validate::<Option<String>>::validate(&rule, Some("user@example.com".to_owned())).is_ok()
+    );
     assert!(Validate::<Option<String>>::validate(&rule, Some("not-an-email".to_owned())).is_err());
   }
 
@@ -970,15 +994,19 @@ mod tests {
   fn test_validate_str_url_compiled() {
     let rule = Rule::<String>::Url(crate::UrlOptions::default());
     assert!(rule.validate_str("http://example.com").is_ok());
-    assert!(rule.validate_str("https://example.com/path?q=1#frag").is_ok());
+    assert!(
+      rule
+        .validate_str("https://example.com/path?q=1#frag")
+        .is_ok()
+    );
     assert!(rule.validate_str("not-a-url").is_err());
     assert!(rule.validate_str("ftp://example.com").is_err());
   }
 
   #[test]
   fn test_validate_str_url_with_message() {
-    let rule = Rule::<String>::Url(crate::UrlOptions::default())
-      .with_message("Please enter a valid URL");
+    let rule =
+      Rule::<String>::Url(crate::UrlOptions::default()).with_message("Please enter a valid URL");
     let err = rule.validate_str("bad").unwrap_err();
     assert_eq!(err.message(), "Please enter a valid URL");
   }
@@ -1359,8 +1387,11 @@ mod tests {
 
   #[test]
   fn test_validate_ip_all_violations() {
-    let rule = Rule::<String>::Required
-      .and(Rule::Ip(crate::IpOptions { allow_ipv4: true, allow_ipv6: false, ..Default::default() }));
+    let rule = Rule::<String>::Required.and(Rule::Ip(crate::IpOptions {
+      allow_ipv4: true,
+      allow_ipv6: false,
+      ..Default::default()
+    }));
 
     assert!(rule.validate_str_all("192.168.1.1").is_ok());
 
@@ -1536,15 +1567,24 @@ mod tests {
     assert!(rule.validate_str(&format!("{}.com", long_label)).is_ok());
     // Label with 64 chars - too long
     let too_long_label = "a".repeat(64);
-    assert!(rule.validate_str(&format!("{}.com", too_long_label)).is_err());
+    assert!(
+      rule
+        .validate_str(&format!("{}.com", too_long_label))
+        .is_err()
+    );
   }
 
   #[test]
   fn test_validate_hostname_total_length() {
     let rule = Rule::<String>::Hostname(crate::HostnameOptions::default());
     // Total length > 253 should fail
-    let long_hostname = format!("{}.{}.{}.{}.com",
-      "a".repeat(63), "b".repeat(63), "c".repeat(63), "d".repeat(63));
+    let long_hostname = format!(
+      "{}.{}.{}.{}.com",
+      "a".repeat(63),
+      "b".repeat(63),
+      "c".repeat(63),
+      "d".repeat(63)
+    );
     assert!(long_hostname.len() > 253);
     assert!(rule.validate_str(&long_hostname).is_err());
   }
@@ -1577,8 +1617,10 @@ mod tests {
 
   #[test]
   fn test_validate_hostname_all_violations() {
-    let rule = Rule::<String>::Required
-      .and(Rule::Hostname(crate::HostnameOptions { allow_ip: false, ..Default::default() }));
+    let rule = Rule::<String>::Required.and(Rule::Hostname(crate::HostnameOptions {
+      allow_ip: false,
+      ..Default::default()
+    }));
     assert!(rule.validate_str_all("example.com").is_ok());
     let result = rule.validate_str_all("192.168.1.1");
     assert!(result.is_err());
@@ -1603,5 +1645,133 @@ mod tests {
     let rule = Rule::<String>::hostname(opts.clone());
     assert_eq!(rule, Rule::Hostname(opts));
   }
-}
 
+  // ========================================================================
+  // Rule::Ref tests (#143)
+  // ========================================================================
+
+  #[test]
+  fn test_validate_str_ref_returns_err() {
+    let rule = Rule::<String>::Ref("some_ref".into());
+    let result = rule.validate_ref("test");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("some_ref"));
+  }
+
+  #[test]
+  fn test_validate_str_ref_via_validate_trait() {
+    let rule = Rule::<String>::Ref("some_ref".into());
+    let result: Result<(), Violation> = Validate::validate(&rule, Some("test".to_string()));
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert_eq!(err.violation_type(), crate::ViolationType::CustomError);
+    assert!(err.message().contains("some_ref"));
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_all() {
+    let rule = Rule::<String>::All(vec![Rule::MinLength(1), Rule::Ref("some_ref".into())]);
+    assert!(rule.validate_ref("test").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_any() {
+    // Any: if one branch passes, the overall passes
+    let rule = Rule::<String>::Any(vec![Rule::Ref("some_ref".into()), Rule::MinLength(1)]);
+    assert!(rule.validate_ref("test").is_ok());
+
+    // Any: if all branches fail, the overall fails
+    let rule_all_fail =
+      Rule::<String>::Any(vec![Rule::Ref("some_ref".into()), Rule::MinLength(100)]);
+    assert!(rule_all_fail.validate_ref("test").is_err());
+  }
+
+  #[test]
+  fn test_validate_str_ref_inside_not() {
+    // Not(Ref) → Ref fails → Not succeeds
+    let rule = Rule::<String>::Not(Box::new(Rule::Ref("some_ref".into())));
+    assert!(rule.validate_ref("test").is_ok());
+  }
+
+  // ========================================================================
+  // Deeply nested combinator tests (#145)
+  // ========================================================================
+
+  #[test]
+  fn test_nested_depth2_all_containing_all_and_pattern() {
+    let rule = Rule::<String>::All(vec![
+      Rule::All(vec![Rule::MinLength(2), Rule::MaxLength(10)]),
+      Rule::pattern("^[a-z]+$").unwrap(),
+    ]);
+    assert!(rule.validate_ref("hello").is_ok());
+    assert!(rule.validate_ref("a").is_err()); // too short
+    assert!(rule.validate_ref("Hello").is_err()); // pattern mismatch
+    assert!(rule.validate_ref("abcdefghijk").is_err()); // too long
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_combinator_then() {
+    let rule = Rule::<String>::When {
+      condition: Condition::IsNotEmpty,
+      then_rule: Box::new(Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(10)])),
+      else_rule: None,
+    };
+    assert!(rule.validate_ref("hello").is_ok());
+    assert!(rule.validate_ref("ab").is_err()); // too short
+    assert!(rule.validate_ref("").is_ok()); // empty → condition false → pass
+  }
+
+  #[test]
+  fn test_nested_depth2_when_with_combinator_else() {
+    let rule = Rule::<String>::When {
+      condition: Condition::Matches(crate::CompiledPattern::try_from("^[A-Z]").unwrap()),
+      then_rule: Box::new(Rule::MinLength(5)),
+      else_rule: Some(Box::new(Rule::All(vec![
+        Rule::MinLength(1),
+        Rule::MaxLength(3),
+      ]))),
+    };
+    // Starts with uppercase → then: MinLength(5)
+    assert!(rule.validate_ref("Hello").is_ok());
+    assert!(rule.validate_ref("Hi").is_err());
+    // Lowercase → else: length 1..3
+    assert!(rule.validate_ref("abc").is_ok());
+    assert!(rule.validate_ref("abcd").is_err());
+  }
+
+  #[test]
+  fn test_nested_depth3_not_all_any() {
+    // Not(All([Any([MinLength(3), MaxLength(1)]), Pattern(...)]))
+    // "ab" → Any fails (len 2: MinLength(3) fail, MaxLength(1) fail) → All fails → Not passes
+    // "abc" → Any passes (MinLength(3) ok) and Pattern passes → All passes → Not fails
+    let rule = Rule::<String>::Not(Box::new(Rule::All(vec![
+      Rule::Any(vec![Rule::MinLength(3), Rule::MaxLength(1)]),
+      Rule::pattern("^[a-z]+$").unwrap(),
+    ])));
+    assert!(rule.validate_ref("ab").is_ok()); // inner All fails → Not passes
+    assert!(rule.validate_ref("abc").is_err()); // inner All passes → Not fails
+  }
+
+  #[test]
+  fn test_nested_any_with_not_and_all() {
+    // Any([Not(MinLength(3)), All([MinLength(3), MaxLength(6)])])
+    let rule = Rule::<String>::Any(vec![
+      Rule::Not(Box::new(Rule::MinLength(3))),
+      Rule::All(vec![Rule::MinLength(3), Rule::MaxLength(6)]),
+    ]);
+    // "ab": Not(MinLength(3)) → MinLength(3) fails → Not passes → Any passes
+    assert!(rule.validate_ref("ab").is_ok());
+    // "hello": Not fails (MinLength passes), All passes → Any passes
+    assert!(rule.validate_ref("hello").is_ok());
+    // "abcdefghij": Not fails, All fails (MaxLength) → Any fails
+    assert!(rule.validate_ref("abcdefghij").is_err());
+  }
+
+  #[test]
+  fn test_empty_any_passes() {
+    let rule = Rule::<String>::Any(vec![]);
+    assert!(rule.validate_ref("anything").is_ok());
+  }
+}
