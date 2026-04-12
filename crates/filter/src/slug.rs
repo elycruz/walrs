@@ -26,7 +26,7 @@ pub fn get_dash_filter_regex() -> &'static Regex {
 ///
 /// assert_eq!(to_slug(Cow::Borrowed("Hello World")), "hello-world");
 /// ```
-pub fn to_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
+pub fn to_slug<'a>(xs: Cow<'a, str>) -> Cow<'a, str> {
   _to_slug(get_slug_filter_regex(), 200, xs)
 }
 
@@ -38,7 +38,7 @@ pub fn to_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
 ///
 /// assert_eq!(to_pretty_slug(Cow::Borrowed("%$Hello@#$@#!(World$$")), "hello-world");
 /// ```
-pub fn to_pretty_slug(xs: Cow<'_, str>) -> Cow<'static, str> {
+pub fn to_pretty_slug<'a>(xs: Cow<'a, str>) -> Cow<'a, str> {
   _to_pretty_slug(get_slug_filter_regex(), 200, xs)
 }
 
@@ -67,10 +67,10 @@ fn is_valid_slug(s: &str, max_length: usize, allow_duplicate_dashes: bool) -> bo
   true
 }
 
-fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
-  // Fast path: if already a valid slug, return as-is
+fn _to_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
+  // Fast path: if already a valid slug, return as-is (zero-copy)
   if is_valid_slug(&xs, max_length, true) {
-    return Cow::Owned(xs.into_owned());
+    return xs;
   }
 
   let rslt = pattern
@@ -91,14 +91,14 @@ fn _to_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static
   }
 }
 
-fn _to_pretty_slug(pattern: &Regex, max_length: usize, xs: Cow<'_, str>) -> Cow<'static, str> {
+fn _to_pretty_slug<'a>(pattern: &Regex, max_length: usize, xs: Cow<'a, str>) -> Cow<'a, str> {
   if xs.is_empty() {
-    return Cow::Owned(String::new());
+    return xs;
   }
 
-  // Fast path: if already a valid pretty slug, return as-is
+  // Fast path: if already a valid pretty slug, return as-is (zero-copy)
   if is_valid_slug(&xs, max_length, false) {
-    return Cow::Owned(xs.into_owned());
+    return xs;
   }
 
   get_dash_filter_regex()
@@ -127,10 +127,10 @@ impl SlugFilter {
   }
 }
 
-impl Filter<Cow<'_, str>> for SlugFilter {
-  type Output = Cow<'static, str>;
+impl<'a> Filter<Cow<'a, str>> for SlugFilter {
+  type Output = Cow<'a, str>;
 
-  fn filter(&self, xs: Cow<'_, str>) -> Self::Output {
+  fn filter(&self, xs: Cow<'a, str>) -> Self::Output {
     if self.allow_duplicate_dashes {
       _to_slug(get_slug_filter_regex(), self.max_length, xs)
     } else {
@@ -140,24 +140,24 @@ impl Filter<Cow<'_, str>> for SlugFilter {
 }
 
 #[cfg(feature = "fn_traits")]
-impl FnOnce<(Cow<'_, str>,)> for SlugFilter {
-  type Output = Cow<'static, str>;
+impl<'a> FnOnce<(Cow<'a, str>,)> for SlugFilter {
+  type Output = Cow<'a, str>;
 
-  extern "rust-call" fn call_once(self, args: (Cow<'_, str>,)) -> Self::Output {
+  extern "rust-call" fn call_once(self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(&self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl Fn<(Cow<'_, str>,)> for SlugFilter {
-  extern "rust-call" fn call(&self, args: (Cow<'_, str>,)) -> Self::Output {
+impl<'a> Fn<(Cow<'a, str>,)> for SlugFilter {
+  extern "rust-call" fn call(&self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(self, args.0)
   }
 }
 
 #[cfg(feature = "fn_traits")]
-impl FnMut<(Cow<'_, str>,)> for SlugFilter {
-  extern "rust-call" fn call_mut(&mut self, args: (Cow<'_, str>,)) -> Self::Output {
+impl<'a> FnMut<(Cow<'a, str>,)> for SlugFilter {
+  extern "rust-call" fn call_mut(&mut self, args: (Cow<'a, str>,)) -> Self::Output {
     Filter::filter(self, args.0)
   }
 }
@@ -237,19 +237,29 @@ mod test {
 
   #[test]
   fn test_slug_noop_already_valid() {
-    // These are already valid slugs — should be no-op
+    // These are already valid slugs — should be zero-copy no-op
     for input in ["hello-world", "abc123", "test_slug", "a"] {
       let result = to_slug(Cow::Borrowed(input));
       assert_eq!(result, input);
+      assert!(
+        matches!(result, Cow::Borrowed(_)),
+        "Expected Cow::Borrowed for no-op slug input {:?}",
+        input
+      );
     }
   }
 
   #[test]
   fn test_pretty_slug_noop_already_valid() {
-    // These are already valid pretty slugs (no duplicate dashes)
+    // These are already valid pretty slugs (no duplicate dashes) — should be zero-copy no-op
     for input in ["hello-world", "abc123", "test_slug", "a"] {
       let result = to_pretty_slug(Cow::Borrowed(input));
       assert_eq!(result, input);
+      assert!(
+        matches!(result, Cow::Borrowed(_)),
+        "Expected Cow::Borrowed for no-op pretty slug input {:?}",
+        input
+      );
     }
   }
 
@@ -257,9 +267,10 @@ mod test {
   fn test_slug_filter_noop() {
     let filter = SlugFilter::new(200, false);
 
-    // Already a valid pretty slug
+    // Already a valid pretty slug — should be zero-copy no-op
     let result = filter.filter(Cow::Borrowed("hello-world"));
     assert_eq!(result, "hello-world");
+    assert!(matches!(result, Cow::Borrowed(_)));
   }
 
   #[test]
@@ -270,6 +281,7 @@ mod test {
     let input = "hello-world".to_string();
     let result = filter.filter(Cow::Owned(input));
     assert_eq!(result, "hello-world");
+    assert!(matches!(result, Cow::Owned(_)));
   }
 
   #[test]
