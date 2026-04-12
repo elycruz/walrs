@@ -25,8 +25,8 @@ An existing discussion document (`md/discussions/validate_return_type.md`) alrea
 | Rule `_all` (internal, fail-slow) | `Result<(), Violations>` | `walrs_validation` |
 | Validate/ValidateRef traits (public) | `ValidatorResult` = `Result<(), Violation>` | `walrs_validation` |
 | ValidateAsync/ValidateRefAsync traits | `ValidatorResult` | `walrs_validation` |
-| Field validation | `Result<(), Violations>` | `walrs_inputfilter` |
-| FieldFilter validation | `Result<(), FormViolations>` | `walrs_inputfilter` |
+| Field validation | `Result<(), Violations>` | `walrs_fieldfilter` |
+| FieldFilter validation | `Result<(), FormViolations>` | `walrs_fieldfilter` |
 | Form validation | `Result<(), FormViolations>` | `walrs_form` |
 | Rule::Custom closures | `Arc<dyn Fn(&T) -> RuleResult>` | `walrs_validation` |
 | Rule::CustomAsync closures | `... -> Pin<Box<dyn Future<Output = RuleResult>>>` | `walrs_validation` |
@@ -262,7 +262,7 @@ The main counter-argument is **cost vs. payoff**: ~344 `Ok`/`Err` flips and ~622
 - Update `Rule::CustomAsync` closure signature: `Fn(&T) -> Pin<Box<dyn Future<Output = AsyncRuleResult>>>`
 - Update validation crate tests
 
-### Phase 2: Input filter (walrs_inputfilter)
+### Phase 2: Input filter (walrs_fieldfilter)
 
 - Update `Field<String>` sync validation methods: `Result<(), Violations>` → `Option<Violations>`
 - Update `Field<Value>` sync validation methods similarly
@@ -274,7 +274,7 @@ The main counter-argument is **cost vs. payoff**: ~344 `Ok`/`Err` flips and ~622
 - Update `FieldFilter::process()` / `process_async()` bridges
 - Update `CrossFieldRule::evaluate()`: `RuleResult` → `Option<Violation>`
 - Update `CrossFieldRuleType::CustomAsync` signature
-- Update inputfilter crate tests and examples
+- Update fieldfilter crate tests and examples
 
 ### Phase 3: Form (walrs_form)
 

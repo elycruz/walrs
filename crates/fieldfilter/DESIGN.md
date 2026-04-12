@@ -1,4 +1,4 @@
-# `walrs_inputfilter` Design
+# `walrs_fieldfilter` Design
 
 ## Purpose
 
@@ -8,18 +8,18 @@ from `walrs_filter`) into per-field and multi-field pipelines.
 
 ## Inspiration
 
-- [laminas-inputfilter](https://docs.laminas.dev/laminas-inputfilter/)
+- [laminas-fieldfilter](https://docs.laminas.dev/laminas-fieldfilter/)
 - [fjl-validator](https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-validator)
-- [fjl-inputfilter](https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-inputfilter)
+- [fjl-fieldfilter](https://github.com/functional-jslib/fjl/tree/monorepo/packages/fjl-fieldfilter)
 
-Unlike laminas-inputfilter, Rust web frameworks (e.g., actix-web) handle type
+Unlike laminas-fieldfilter, Rust web frameworks (e.g., actix-web) handle type
 coercion automatically, so this crate focuses on value-level filtering and
 validation rather than type conversion.
 
 ## Architecture
 
 ```
-walrs_validation → walrs_filter      → walrs_inputfilter → walrs_form
+walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 (Rule<T>, Value)   (Filter trait,      (Field<T>,          (Form, Elements,
                     FilterOp<T>,        FieldFilter,         FormData)
                     TryFilterOp<T>)     CrossFieldRule)

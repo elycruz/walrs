@@ -2077,10 +2077,10 @@ version = "0.1.0"
 dependencies = [
  "walrs_acl",
  "walrs_digraph",
+ "walrs_fieldfilter",
  "walrs_filter",
  "walrs_form",
  "walrs_graph",
- "walrs_inputfilter",
  "walrs_navigation",
  "walrs_rbac",
  "walrs_validation",
@@ -2104,6 +2104,19 @@ dependencies = [
 [[package]]
 name = "walrs_digraph"
 version = "0.1.0"
+
+[[package]]
+name = "walrs_fieldfilter"
+version = "0.1.0"
+dependencies = [
+ "derive_builder",
+ "indexmap",
+ "serde",
+ "serde_json",
+ "tokio",
+ "walrs_filter",
+ "walrs_validation",
+]
 
 [[package]]
 name = "walrs_filter"
@@ -2130,7 +2143,7 @@ dependencies = [
  "serde-wasm-bindgen",
  "serde_json",
  "thiserror",
- "walrs_inputfilter",
+ "walrs_fieldfilter",
  "walrs_validation",
  "wasm-bindgen",
  "web-sys",
@@ -2142,19 +2155,6 @@ version = "0.1.0"
 dependencies = [
  "criterion",
  "walrs_digraph",
-]
-
-[[package]]
-name = "walrs_inputfilter"
-version = "0.1.0"
-dependencies = [
- "derive_builder",
- "indexmap",
- "serde",
- "serde_json",
- "tokio",
- "walrs_filter",
- "walrs_validation",
 ]
 
 [[package]]

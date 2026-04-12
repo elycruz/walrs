@@ -24,7 +24,7 @@ use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 /// # Example
 ///
 /// ```rust
-/// use walrs_inputfilter::field::{Field, FieldBuilder};
+/// use walrs_fieldfilter::field::{Field, FieldBuilder};
 /// use walrs_filter::{FilterOp, TryFilterOp, FilterError};
 /// use walrs_validation::Rule;
 /// use std::sync::Arc;

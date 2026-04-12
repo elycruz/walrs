@@ -8,15 +8,15 @@ license = "Elastic-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["acl", "digraph", "filter", "form", "graph", "inputfilter", "navigation", "rbac", "validation"]
-full = ["acl", "digraph", "filter", "form", "graph", "inputfilter", "navigation", "rbac", "validation"]
+default = ["acl", "digraph", "filter", "form", "graph", "fieldfilter", "navigation", "rbac", "validation"]
+full = ["acl", "digraph", "filter", "form", "graph", "fieldfilter", "navigation", "rbac", "validation"]
 
 acl = ["dep:walrs_acl"]
 digraph = ["dep:walrs_digraph"]
 filter = ["dep:walrs_filter"]
 form = ["dep:walrs_form"]
 graph = ["dep:walrs_graph"]
-inputfilter = ["dep:walrs_inputfilter"]
+fieldfilter = ["dep:walrs_fieldfilter"]
 navigation = ["dep:walrs_navigation"]
 rbac = ["dep:walrs_rbac"]
 validation = ["dep:walrs_validation"]
@@ -27,7 +27,7 @@ walrs_digraph = { path = "crates/digraph", optional = true }
 walrs_filter = { path = "crates/filter", optional = true }
 walrs_form = { path = "crates/form", optional = true }
 walrs_graph = { path = "crates/graph", optional = true }
-walrs_inputfilter = { path = "crates/inputfilter", optional = true }
+walrs_fieldfilter = { path = "crates/fieldfilter", optional = true }
 walrs_navigation = { path = "crates/navigation", optional = true }
 walrs_rbac = { path = "crates/rbac", optional = true }
 walrs_validation = { path = "crates/validation", optional = true }
@@ -39,7 +39,7 @@ members = [
     "crates/filter",
     "crates/form",
     "crates/graph",
-    "crates/inputfilter",
+    "crates/fieldfilter",
     "crates/navigation",
     "crates/validation",
     "crates/rbac"

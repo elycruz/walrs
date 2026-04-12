@@ -5,10 +5,10 @@
 
 ## Summary
 
-Move the `Filter<T>` enum from `walrs_inputfilter` into `walrs_filter`, co-locating it with the
+Move the `Filter<T>` enum from `walrs_fieldfilter` into `walrs_filter`, co-locating it with the
 filter structs (`SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter`). This mirrors how `Rule<T>`
 lives in `walrs_validation` alongside the validation logic (in `rule_impls/`), with
-`walrs_inputfilter` re-exporting it.
+`walrs_fieldfilter` re-exporting it.
 
 ## Motivation — Following the `Rule<T>` Pattern
 
@@ -18,12 +18,12 @@ The `walrs_validation` crate recently completed a refactor where:
 2. All validation logic was consolidated into the `Rule<T>` enum.
 3. Type-specific impl blocks were organized under `rule_impls/` (`string.rs`, `length.rs`,
    `scalar.rs`, `steppable.rs`), registered as `pub(crate)` modules.
-4. `walrs_inputfilter` re-exports `Rule<T>` via:
+4. `walrs_fieldfilter` re-exports `Rule<T>` via:
    `pub use walrs_validation::rule::{Condition, Rule, RuleResult};`
 
 The filter side should follow the same pattern: **the `Filter<T>` enum should live in
 `walrs_filter`** (alongside the filter structs), with type-specific `apply()` impls organized
-similarly, and `walrs_inputfilter` re-exporting it.
+similarly, and `walrs_fieldfilter` re-exporting it.
 
 ## Current State
 
@@ -53,7 +53,7 @@ Key design points:
 - `pub(crate)` modules keep impl organization internal — users only see `Rule<T>` methods
 - No separate validator structs (they were removed in the recent refactor)
 
-### Filters (`walrs_filter` + `walrs_inputfilter`) — what needs to change
+### Filters (`walrs_filter` + `walrs_fieldfilter`) — what needs to change
 
 ```
 crates/filter/src/
@@ -77,7 +77,7 @@ crates/inputfilter/src/
 ```
 
 **Problems:**
-- `Filter<T>` enum is in `walrs_inputfilter` but delegates to `walrs_filter` structs — it
+- `Filter<T>` enum is in `walrs_fieldfilter` but delegates to `walrs_filter` structs — it
   should live alongside them.
 - **Naming collision**: `Filter` trait vs `Filter<T>` enum. Currently resolved via aliasing:
   `use walrs_filter::Filter as FilterTrait` in `filter_enum.rs`.
@@ -105,10 +105,10 @@ parallels Rust's `Fn`/`FnMut`/`FnOnce` naming convention.
 
 | Concept | Validation | Filters |
 |---------|-----------|---------|
-| Composable enum | `Rule<T>` in `walrs_validation` ✅ | `Filter<T>` in `walrs_inputfilter` ❌ |
+| Composable enum | `Rule<T>` in `walrs_validation` ✅ | `Filter<T>` in `walrs_fieldfilter` ❌ |
 | Impl structs | *(removed — logic inline in `Rule<T>`)* | `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` in `walrs_filter` |
 | Trait | `Validate`/`ValidateRef` in `walrs_validation` | `Filter` in `walrs_filter` |
-| Re-export layer | `walrs_inputfilter` re-exports `Rule<T>` | *(no re-export — enum defined in wrong crate)* |
+| Re-export layer | `walrs_fieldfilter` re-exports `Rule<T>` | *(no re-export — enum defined in wrong crate)* |
 
 ### After (proposed)
 
@@ -118,7 +118,7 @@ parallels Rust's `Fn`/`FnMut`/`FnOnce` naming convention.
 | Impl structs | *(none)* | `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` in `walrs_filter` |
 | Trait | `Validate`/`ValidateRef` in `walrs_validation` | `FilterFn` in `walrs_filter` |
 | Type-specific impls | `rule_impls/` in `walrs_validation` | `filter_impls/` in `walrs_filter` |
-| Re-export layer | `walrs_inputfilter` re-exports `Rule<T>` | `walrs_inputfilter` re-exports `Filter<T>` |
+| Re-export layer | `walrs_fieldfilter` re-exports `Rule<T>` | `walrs_fieldfilter` re-exports `Filter<T>` |
 
 ## Steps
 
@@ -198,9 +198,9 @@ pub use filter::Filter;
 
 **Note:** Since `Value` is just `serde_json::Value`, the `Filter<Value>` impl can live directly
 in `walrs_filter` without introducing a dependency on `walrs_validation`. This is cleaner than
-the original plan which kept `Filter<Value>` in `walrs_inputfilter`.
+the original plan which kept `Filter<Value>` in `walrs_fieldfilter`.
 
-### Step 4: Update `walrs_inputfilter` — remove `filter_enum.rs`, update re-exports
+### Step 4: Update `walrs_fieldfilter` — remove `filter_enum.rs`, update re-exports
 
 **Delete:** `crates/inputfilter/src/filter_enum.rs` (entire module — all logic has moved)
 
@@ -211,7 +211,7 @@ the original plan which kept `Filter<Value>` in `walrs_inputfilter`.
 // Add:    pub use walrs_filter::Filter;
 ```
 
-This mirrors how `walrs_inputfilter` re-exports `Rule<T>`:
+This mirrors how `walrs_fieldfilter` re-exports `Rule<T>`:
 ```rust
 // Existing pattern (validation):
 pub use walrs_validation::rule::{Condition, Rule, RuleResult};
@@ -231,16 +231,16 @@ pub use walrs_filter::Filter;
 
 ### Step 5: Update doc examples and test references
 
-**Files with `crate::filter_enum::Filter` or `walrs_inputfilter::filter_enum::Filter` references:**
+**Files with `crate::filter_enum::Filter` or `walrs_fieldfilter::filter_enum::Filter` references:**
 
 - `crates/inputfilter/src/lib.rs` (lines 15–16) — update doc example import:
-  `use walrs_inputfilter::Filter;` (no more `filter_enum::Filter as FilterEnum`)
+  `use walrs_fieldfilter::Filter;` (no more `filter_enum::Filter as FilterEnum`)
 - `crates/inputfilter/src/field.rs` (line 27) — update doc example:
-  `use walrs_inputfilter::Filter;` or `use walrs_filter::Filter;`
+  `use walrs_fieldfilter::Filter;` or `use walrs_filter::Filter;`
 - `crates/inputfilter/src/field_filter.rs` (lines 588–589, 608) — update test code:
   `crate::filter_enum::Filter::Trim` → `crate::Filter::Trim` (or `walrs_filter::Filter::Trim`)
 - `crates/inputfilter/examples/filters.rs` (line 8) — update:
-  `use walrs_inputfilter::filter_enum::Filter;` → `use walrs_inputfilter::Filter;`
+  `use walrs_fieldfilter::filter_enum::Filter;` → `use walrs_fieldfilter::Filter;`
 - `crates/inputfilter/README.md` — update example imports
 
 **New documentation to add:**
@@ -292,13 +292,13 @@ walrs_filter
   ├── exports: FilterFn (trait), SlugFilter, StripTagsFilter, XmlEntitiesFilter, Filter<T> (enum)
   └── NO dependency on walrs_validation
        ↑
-walrs_inputfilter
+walrs_fieldfilter
   ├── dependencies: walrs_filter, walrs_validation, serde, serde_json, ...
   ├── re-exports: Filter<T> (from walrs_filter), Rule<T> (from walrs_validation)
   └── owns: Field<T>, FieldFilter, FormViolations
        ↑
 walrs_form
-  ├── dependencies: walrs_inputfilter, walrs_validation
+  ├── dependencies: walrs_fieldfilter, walrs_validation
   └── owns: Form, re-exports Field, FieldFilter, etc.
 ```
 

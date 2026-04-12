@@ -2,7 +2,7 @@
 
 **Date:** February 23, 2026
 **Status:** Design / Investigation
-**Crates affected:** `walrs_inputfilter`, `walrs_inputfilter_derive` (new), `walrs_form`, `walrs_validation`
+**Crates affected:** `walrs_fieldfilter`, `walrs_fieldfilter_derive` (new), `walrs_form`, `walrs_validation`
 
 ---
 
@@ -79,7 +79,7 @@ mismatches**.
 
 ### 3.1 `Filterable` Trait
 
-Defined in `walrs_inputfilter`:
+Defined in `walrs_fieldfilter`:
 
 ```rust
 use crate::FormViolations;
@@ -130,7 +130,7 @@ pub trait Filterable: Sized {
 
 ### 3.2 Derive Macro (`#[derive(Filterable)]`)
 
-A new proc-macro crate `walrs_inputfilter_derive` provides `#[derive(Filterable)]`.
+A new proc-macro crate `walrs_fieldfilter_derive` provides `#[derive(Filterable)]`.
 
 #### Generated code for `validate(&self)`
 
@@ -381,12 +381,12 @@ scope for the initial implementation.
 
 ## Crate Layout
 
-### New crate: `walrs_inputfilter_derive`
+### New crate: `walrs_fieldfilter_derive`
 
 ```
 crates/
 ├── inputfilter/
-│   ├── Cargo.toml          # adds `walrs_inputfilter_derive` as optional dep
+│   ├── Cargo.toml          # adds `walrs_fieldfilter_derive` as optional dep
 │   └── src/
 │       ├── lib.rs           # re-exports `Filterable` trait; conditionally
 │       │                    #   re-exports derive macro
@@ -404,22 +404,22 @@ crates/
 # crates/inputfilter/Cargo.toml
 [features]
 default = []
-derive = ["walrs_inputfilter_derive"]
+derive = ["walrs_fieldfilter_derive"]
 
 [dependencies]
-walrs_inputfilter_derive = { path = "../inputfilter_derive", optional = true }
+walrs_fieldfilter_derive = { path = "../inputfilter_derive", optional = true }
 ```
 
 Users opt in with:
 
 ```toml
-walrs_inputfilter = { version = "...", features = ["derive"] }
+walrs_fieldfilter = { version = "...", features = ["derive"] }
 ```
 
 Or use the derive crate directly:
 
 ```toml
-walrs_inputfilter_derive = "..."
+walrs_fieldfilter_derive = "..."
 ```
 
 ---
@@ -501,9 +501,9 @@ struct UserAddress {
 
 ### 4. Proc-macro crate naming
 
-**Decision: `walrs_inputfilter_derive`.**
+**Decision: `walrs_fieldfilter_derive`.**
 
-Scoped to `walrs_inputfilter` since the trait and types (`FormViolations`,
+Scoped to `walrs_fieldfilter` since the trait and types (`FormViolations`,
 `Filter`, etc.) live there. If future derive macros are needed for other crates,
 they get their own `_derive` crate.
 
@@ -514,8 +514,8 @@ they get their own `_derive` crate.
 ### Full example: User registration
 
 ```rust
-use walrs_inputfilter::{Filterable, FormViolations};
-use walrs_inputfilter::filter_enum::Filter;
+use walrs_fieldfilter::{Filterable, FormViolations};
+use walrs_fieldfilter::filter_enum::Filter;
 use walrs_validation::{Rule, Violation, ViolationType};
 
 #[derive(Filterable)]
@@ -592,13 +592,13 @@ impl Filterable for UserAddress {
 
     fn filter(self) -> Self {
         let street = {
-            let filters: Vec<walrs_inputfilter::filter_enum::Filter<String>> =
-                vec![walrs_inputfilter::filter_enum::Filter::Trim];
+            let filters: Vec<walrs_fieldfilter::filter_enum::Filter<String>> =
+                vec![walrs_fieldfilter::filter_enum::Filter::Trim];
             filters.iter().fold(self.street, |v, f| f.apply(v))
         };
         let zip = {
-            let filters: Vec<walrs_inputfilter::filter_enum::Filter<String>> =
-                vec![walrs_inputfilter::filter_enum::Filter::Trim];
+            let filters: Vec<walrs_fieldfilter::filter_enum::Filter<String>> =
+                vec![walrs_fieldfilter::filter_enum::Filter::Trim];
             filters.iter().fold(self.zip, |v, f| f.apply(v))
         };
         Self { street, zip }
@@ -684,12 +684,12 @@ impl Filterable for UserRegistration {
     }
 
     fn filter(self) -> Self {
-        let name = walrs_inputfilter::filter_enum::Filter::<String>::Trim
+        let name = walrs_fieldfilter::filter_enum::Filter::<String>::Trim
             .apply(self.name);
         let email = {
             let filters = vec![
-                walrs_inputfilter::filter_enum::Filter::<String>::Trim,
-                walrs_inputfilter::filter_enum::Filter::<String>::Lowercase,
+                walrs_fieldfilter::filter_enum::Filter::<String>::Trim,
+                walrs_fieldfilter::filter_enum::Filter::<String>::Lowercase,
             ];
             filters.iter().fold(self.email, |v, f| f.apply(v))
         };
@@ -709,7 +709,7 @@ impl Filterable for UserRegistration {
 ### Manual `Filterable` implementation (no derive)
 
 ```rust
-use walrs_inputfilter::{Filterable, FormViolations};
+use walrs_fieldfilter::{Filterable, FormViolations};
 use walrs_validation::{Rule, ValidateRef, Violation, ViolationType};
 
 struct LoginForm {
@@ -739,7 +739,7 @@ impl Filterable for LoginForm {
     }
 
     fn filter(self) -> Self {
-        let username = walrs_inputfilter::filter_enum::Filter::<String>::Trim
+        let username = walrs_fieldfilter::filter_enum::Filter::<String>::Trim
             .apply(self.username);
         Self { username, password: self.password }
     }

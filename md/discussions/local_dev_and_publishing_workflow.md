@@ -13,7 +13,7 @@ Do **not** publish first. Use path dependencies and/or the `[patch]` section for
 ```toml
 # external-project/Cargo.toml
 [dependencies]
-walrs_inputfilter = { path = "/path/to/walrs/crates/inputfilter" }
+walrs_fieldfilter = { path = "/path/to/walrs/crates/fieldfilter" }
 walrs_filter      = { path = "/path/to/walrs/crates/filter" }
 ```
 
@@ -28,10 +28,10 @@ Use published version strings normally, but override with local source during de
 ```toml
 # external-project/Cargo.toml
 [dependencies]
-walrs_inputfilter = "0.1.0"
+walrs_fieldfilter = "0.1.0"
 
 [patch.crates-io]
-walrs_inputfilter = { path = "/path/to/walrs/crates/inputfilter" }
+walrs_fieldfilter = { path = "/path/to/walrs/crates/fieldfilter" }
 walrs_filter      = { path = "/path/to/walrs/crates/filter" }
 ```
 
@@ -44,7 +44,7 @@ Remove the `[patch]` block to switch back to crates.io versions.
 All intra-workspace dependencies need **both `path` and `version`**:
 
 ```toml
-# crates/inputfilter/Cargo.toml
+# crates/fieldfilter/Cargo.toml
 walrs_filter     = { path = "../filter",     version = "0.1.0", features = ["validation"] }
 walrs_validation = { path = "../validation", version = "0.1.0" }
 ```

@@ -14,7 +14,7 @@
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_inputfilter::Field;
+use walrs_fieldfilter::Field;
 use walrs_validation::Violations;
 use walrs_validation::{Attributes, Value};
 /// HTML textarea element.

@@ -61,11 +61,11 @@ pub enum Value {
 
 | Component | File | Role of `Value` |
 |-----------|------|-----------------|
-| `Field<Value>` | `inputfilter/src/field.rs:170` | Per-field validation/filtering config |
-| `FieldFilter` | `inputfilter/src/field_filter.rs:51` | Multi-field validation: `HashMap<String, Field<Value>>` |
-| `Filter<Value>` | `inputfilter/src/filter_enum.rs:155` | Value transformation (trim, clamp, etc.) |
+| `Field<Value>` | `fieldfilter/src/field.rs:170` | Per-field validation/filtering config |
+| `FieldFilter` | `fieldfilter/src/field_filter.rs:51` | Multi-field validation: `HashMap<String, Field<Value>>` |
+| `Filter<Value>` | `fieldfilter/src/filter_enum.rs:155` | Value transformation (trim, clamp, etc.) |
 | `Rule<Value>` | `validation/src/rule_impls/value.rs:46` | Dynamic rule dispatch (526 lines) |
-| `CrossFieldRuleType` | `inputfilter/src/field_filter.rs:197` | Cross-field conditions use `Condition<Value>` |
+| `CrossFieldRuleType` | `fieldfilter/src/field_filter.rs:197` | Cross-field conditions use `Condition<Value>` |
 | `FormData` | `form/src/form_data.rs:8` | `HashMap<String, Value>` newtype |
 | `Form` | `form/src/form.rs:53` | Delegates validation to `FieldFilter` |
 
@@ -367,7 +367,7 @@ at compile time (§2). Removing it would break:
 | `Rule<Value>` impls | None (kept) | Dynamic path preserved |
 | `Form` + `FormData` | None (kept) | Dynamic path preserved |
 | New `Filterable` trait | New code | Additive — does not change existing APIs |
-| Derive macro crate | New code | `walrs_inputfilter_derive` (new crate) |
+| Derive macro crate | New code | `walrs_fieldfilter_derive` (new crate) |
 | User migration | Opt-in | Users can adopt `Filterable` incrementally |
 
 **Migration cost is zero for existing code** — the `Filterable` trait is purely
@@ -421,8 +421,8 @@ This is the recommended approach, aligned with the design in
 
 #### Implementation Priority
 
-1. **Implement `Filterable` trait** in `walrs_inputfilter` (manual impl first).
-2. **Create `walrs_inputfilter_derive`** proc-macro crate for `#[derive(Filterable)]`.
+1. **Implement `Filterable` trait** in `walrs_fieldfilter` (manual impl first).
+2. **Create `walrs_fieldfilter_derive`** proc-macro crate for `#[derive(Filterable)]`.
 3. **Resolve #87** (Filter `apply_ref` pattern) — enables efficient `&str`-based
    filtering in the `Filterable` impl.
 4. **Resolve #85** (Filter enum move) — structural cleanup, not blocking.

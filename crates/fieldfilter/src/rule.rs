@@ -7,7 +7,7 @@
 //! ## Example
 //!
 //! ```rust
-//! use walrs_inputfilter::rule::{Rule, Condition};
+//! use walrs_fieldfilter::rule::{Rule, Condition};
 //!
 //! // Simple rules
 //! let min_length = Rule::<String>::MinLength(3);

@@ -7,7 +7,7 @@ description = "Form elements and structure for walrs form ecosystem"
 license = "Elastic-2.0"
 
 [dependencies]
-walrs_inputfilter = { path = "../inputfilter" }
+walrs_fieldfilter = { path = "../fieldfilter" }
 walrs_validation = { path = "../validation" }
 indexmap = { version = "2", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }

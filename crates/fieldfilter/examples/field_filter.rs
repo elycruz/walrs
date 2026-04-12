@@ -6,8 +6,8 @@
 //! Run with: `cargo run --example field_filter`
 
 use indexmap::IndexMap;
-use walrs_inputfilter::field::FieldBuilder;
-use walrs_inputfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
+use walrs_fieldfilter::field::FieldBuilder;
+use walrs_fieldfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 use walrs_validation::Value;
 use walrs_validation::{Rule, Rule::*};
 
@@ -212,7 +212,7 @@ fn make_data(pairs: &[(&str, &str)]) -> IndexMap<String, Value> {
     .collect()
 }
 
-fn print_violations(violations: &walrs_inputfilter::FormViolations) {
+fn print_violations(violations: &walrs_fieldfilter::FormViolations) {
   println!("   ✗ Validation failed:");
   for field_name in violations.field_names() {
     if let Some(field_violations) = violations.for_field(field_name) {

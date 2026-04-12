@@ -1,9 +1,9 @@
-# Design: `Filterable` Trait & `walrs_inputfilter_derive`
+# Design: `Filterable` Trait & `walrs_fieldfilter_derive`
 
 **Date:** April 12, 2026
 **Updated:** April 12, 2026
 **Status:** Design
-**Crates affected:** `walrs_validation` (new `FieldViolations` type), `walrs_inputfilter` (trait + migration), `walrs_inputfilter_derive` (new proc-macro crate)
+**Crates affected:** `walrs_validation` (new `FieldViolations` type), `walrs_fieldfilter` (trait + migration), `walrs_fieldfilter_derive` (new proc-macro crate)
 
 ---
 
@@ -80,7 +80,7 @@ use crate::Violations;
 
 /// A key-value map of field names to their validation violations.
 ///
-/// Used consistently across `walrs_validation`, `walrs_inputfilter`, and
+/// Used consistently across `walrs_validation`, `walrs_fieldfilter`, and
 /// `walrs_form` to represent multi-field validation errors.
 ///
 /// - Keys are field names (e.g., `"email"`, `"address.street"`).
@@ -238,11 +238,11 @@ both per-field and form-level violations through a single structure.
 
 ### 3.3 Migration from `FormViolations`
 
-The existing `FormViolations` in `walrs_inputfilter` will be deprecated in
+The existing `FormViolations` in `walrs_fieldfilter` will be deprecated in
 favor of `FieldViolations` from `walrs_validation`. Migration path:
 
 1. Add `FieldViolations` to `walrs_validation`.
-2. Add a `type FormViolations = FieldViolations;` alias in `walrs_inputfilter`
+2. Add a `type FormViolations = FieldViolations;` alias in `walrs_fieldfilter`
    for backward compatibility (marked `#[deprecated]`).
 3. Update `FieldFilter` internals to use `FieldViolations`.
 4. New code (`Filterable`, derive macros) uses `FieldViolations` exclusively.
@@ -254,7 +254,7 @@ key-prefixing that `FormViolations` relied on ad-hoc logic for.
 
 ## The `Filterable` Trait
 
-Defined in `walrs_inputfilter::filterable`:
+Defined in `walrs_fieldfilter::filterable`:
 
 ```rust
 use walrs_validation::FieldViolations;
@@ -310,7 +310,7 @@ pub trait Filterable: Sized {
 
 ## Derive Macro: `#[derive(Filterable)]`
 
-A new proc-macro crate `walrs_inputfilter_derive` provides `#[derive(Filterable)]`.
+A new proc-macro crate `walrs_fieldfilter_derive` provides `#[derive(Filterable)]`.
 
 ### 5.1 Validation Annotations
 
@@ -484,7 +484,7 @@ This enables bridging between the typed `Filterable` path and the dynamic
 ### 6.1 Simple Struct
 
 ```rust
-use walrs_inputfilter::Filterable;
+use walrs_fieldfilter::Filterable;
 use walrs_filter::FilterOp;
 use walrs_validation::{Rule, CompiledPattern};
 
@@ -545,7 +545,7 @@ impl Filterable for UserAddress {
 ### 6.2 Nested Struct with Cross-Field Validation
 
 ```rust
-use walrs_inputfilter::Filterable;
+use walrs_fieldfilter::Filterable;
 use walrs_validation::{Violation, ViolationType};
 
 #[derive(Filterable)]
@@ -601,7 +601,7 @@ fn passwords_match(r: &UserRegistration) -> walrs_validation::ValidatorResult {
 Users can implement `Filterable` without the derive macro:
 
 ```rust
-use walrs_inputfilter::Filterable;
+use walrs_fieldfilter::Filterable;
 use walrs_filter::FilterOp;
 use walrs_validation::{FieldViolations, Rule, ValidateRef, Violation, ViolationType};
 
@@ -667,14 +667,14 @@ For filtering (all return `Result`):
 
 ```
 crates/
-├── inputfilter/
-│   ├── Cargo.toml           # adds `walrs_inputfilter_derive` as optional dep
+├── fieldfilter/
+│   ├── Cargo.toml           # adds `walrs_fieldfilter_derive` as optional dep
 │   └── src/
 │       ├── lib.rs            # re-exports `Filterable` trait; conditionally
 │       │                     #   re-exports derive macro
 │       ├── filterable.rs     # `Filterable` trait definition (NEW)
 │       └── ...               # existing modules unchanged
-├── inputfilter_derive/       # (NEW)
+├── fieldfilter_derive/       # (NEW)
 │   ├── Cargo.toml            # proc-macro = true
 │   └── src/
 │       ├── lib.rs            # #[proc_macro_derive(Filterable, attributes(validate, filter, cross_validate, filterable))]
@@ -687,30 +687,30 @@ crates/
 ### Cargo feature gate
 
 ```toml
-# crates/inputfilter/Cargo.toml
+# crates/fieldfilter/Cargo.toml
 [features]
 default = []
-derive = ["walrs_inputfilter_derive"]
+derive = ["walrs_fieldfilter_derive"]
 
 [dependencies]
-walrs_inputfilter_derive = { path = "../inputfilter_derive", optional = true }
+walrs_fieldfilter_derive = { path = "../fieldfilter_derive", optional = true }
 ```
 
 Users opt in with:
 
 ```toml
-walrs_inputfilter = { version = "...", features = ["derive"] }
+walrs_fieldfilter = { version = "...", features = ["derive"] }
 ```
 
-### `walrs_inputfilter_derive/Cargo.toml`
+### `walrs_fieldfilter_derive/Cargo.toml`
 
 ```toml
 [package]
-name = "walrs_inputfilter_derive"
+name = "walrs_fieldfilter_derive"
 version = "0.1.0"
 edition = "2024"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
-description = "Derive macro for walrs_inputfilter Filterable trait"
+description = "Derive macro for walrs_fieldfilter Filterable trait"
 license = "Elastic-2.0"
 
 [lib]
@@ -735,7 +735,7 @@ The `HashMap<String, Value>` / `FieldFilter` path is **preserved unchanged**:
 The struct-based `Filterable` path **supplements** the existing dynamic path.
 No existing public APIs are changed or removed.
 
-The existing `FormViolations` type in `walrs_inputfilter` is deprecated and
+The existing `FormViolations` type in `walrs_fieldfilter` is deprecated and
 replaced by a type alias to `FieldViolations` from `walrs_validation`. Existing
 code using `FormViolations` continues to compile with a deprecation warning.
 

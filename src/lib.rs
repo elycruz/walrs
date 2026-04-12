@@ -7,7 +7,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! walrs = { version = "0.1", default-features = false, features = ["inputfilter", "validation"] }
+//! walrs = { version = "0.1", default-features = false, features = ["fieldfilter", "validation"] }
 //! ```
 
 #[cfg(feature = "acl")]
@@ -25,8 +25,8 @@ pub use walrs_form as form;
 #[cfg(feature = "graph")]
 pub use walrs_graph as graph;
 
-#[cfg(feature = "inputfilter")]
-pub use walrs_inputfilter as inputfilter;
+#[cfg(feature = "fieldfilter")]
+pub use walrs_fieldfilter as fieldfilter;
 
 #[cfg(feature = "navigation")]
 pub use walrs_navigation as navigation;
