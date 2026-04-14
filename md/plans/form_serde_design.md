@@ -577,7 +577,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 3. **Validation metadata in schema** — Should the JSON Schema include
    `minLength`, `maxLength`, `pattern`, `minimum`, `maximum` etc. that come
-   from `Filterable` validation rules? If so, the form serde crate would need
+   from `Fieldset` validation rules? If so, the form serde crate would need
    to understand `walrs_fieldfilter` types, creating a dependency. Alternative:
    a separate `walrs_form_schema` integration crate.
 
@@ -593,7 +593,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 2. **Database storage** — Persisting forms to a database is outside this crate's
    scope.
 3. **Runtime validation** — Validation is handled by `walrs_fieldfilter` /
-   `Filterable`. This crate only generates _schemas_ that describe validation
+   `Fieldset`. This crate only generates _schemas_ that describe validation
    constraints.
 4. **Custom schema extensions** — OpenAPI / Swagger integration is a separate
    concern.

@@ -52,9 +52,9 @@ use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 ///     .build()
 ///     .unwrap();
 ///
-/// // process() applies infallible filters, then fallible filters, then validates
-/// assert!(field.process("  hello  ".to_string()).is_ok());
-/// assert!(field.process("  \0bad  ".to_string()).is_err());
+/// // clean() applies infallible filters, then fallible filters, then validates
+/// assert!(field.clean("  hello  ".to_string()).is_ok());
+/// assert!(field.clean("  \0bad  ".to_string()).is_err());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
@@ -265,7 +265,7 @@ impl Field<String> {
   ///
   /// Applies infallible filters first, then fallible filters, then validates.
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub fn process(&self, value: String) -> Result<String, Violations> {
+  pub fn clean(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
@@ -274,9 +274,9 @@ impl Field<String> {
 
   /// Filter a `&str` and then validate the result.
   ///
-  /// Like [`process`](Self::process) but starts from a `&str` reference,
+  /// Like [`clean`](Self::clean) but starts from a `&str` reference,
   /// avoiding the need for the caller to allocate a `String` up-front.
-  pub fn process_ref(&self, value: &str) -> Result<String, Violations> {
+  pub fn clean_ref(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
@@ -413,7 +413,7 @@ impl Field<Value> {
   ///
   /// Applies infallible filters first, then fallible filters, then validates.
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub fn process(&self, value: Value) -> Result<Value, Violations> {
+  pub fn clean(&self, value: Value) -> Result<Value, Violations> {
     let filtered = self.filter(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
@@ -462,15 +462,15 @@ impl Field<String> {
   /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
   ///
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub async fn process_async(&self, value: String) -> Result<String, Violations> {
+  pub async fn clean_async(&self, value: String) -> Result<String, Violations> {
     let filtered = self.filter(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
     Ok(filtered)
   }
 
-  /// Like [`process_async`](Self::process_async) but starts from a `&str` reference.
-  pub async fn process_ref_async(&self, value: &str) -> Result<String, Violations> {
+  /// Like [`clean_async`](Self::clean_async) but starts from a `&str` reference.
+  pub async fn clean_ref_async(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
@@ -510,7 +510,7 @@ impl Field<Value> {
   }
 
   /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
-  pub async fn process_async(&self, value: Value) -> Result<Value, Violations> {
+  pub async fn clean_async(&self, value: Value) -> Result<Value, Violations> {
     let filtered = self.filter(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
@@ -603,14 +603,14 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_process() {
+  fn test_string_field_clean() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
       .build()
       .unwrap();
 
-    let result = field.process("  hello  ".to_string());
+    let result = field.clean("  hello  ".to_string());
     assert_eq!(result.unwrap(), "hello");
   }
 
@@ -768,7 +768,7 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_process_with_try_filters() {
+  fn test_string_field_clean_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -783,20 +783,20 @@ mod tests {
       .unwrap();
 
     // Happy path: trim -> try_filter passes -> validation passes
-    assert_eq!(field.process("  hello  ".to_string()).unwrap(), "hello");
+    assert_eq!(field.clean("  hello  ".to_string()).unwrap(), "hello");
 
     // Try filter fails (empty after trim)
-    let err = field.process("     ".to_string()).unwrap_err();
+    let err = field.clean("     ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
     assert!(err[0].message().contains("empty after trimming"));
 
     // Try filter passes but validation fails (too short)
-    let err = field.process("  hi  ".to_string()).unwrap_err();
+    let err = field.clean("  hi  ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
   }
 
   #[test]
-  fn test_string_field_process_try_filter_short_circuits() {
+  fn test_string_field_clean_try_filter_short_circuits() {
     let field = FieldBuilder::<String>::default()
       .try_filters(vec![
         TryFilterOp::TryCustom(Arc::new(|_| Err(FilterError::new("first fails")))),
@@ -807,7 +807,7 @@ mod tests {
       .build()
       .unwrap();
 
-    let err = field.process("hello".to_string()).unwrap_err();
+    let err = field.clean("hello".to_string()).unwrap_err();
     assert!(err[0].message().contains("first fails"));
   }
 
@@ -865,7 +865,7 @@ mod tests {
   }
 
   #[test]
-  fn test_value_field_process_with_try_filters() {
+  fn test_value_field_clean_with_try_filters() {
     let field = FieldBuilder::<Value>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
@@ -882,12 +882,12 @@ mod tests {
 
     // Happy path
     assert_eq!(
-      field.process(Value::Str("  hello  ".to_string())).unwrap(),
+      field.clean(Value::Str("  hello  ".to_string())).unwrap(),
       Value::Str("hello".to_string())
     );
 
     // Try filter fails
-    assert!(field.process(Value::Str("     ".to_string())).is_err());
+    assert!(field.clean(Value::Str("     ".to_string())).is_err());
   }
 
   // ====================================================================
@@ -912,11 +912,11 @@ mod tests {
   }
 
   // ====================================================================
-  // process_ref tests — Field<String>
+  // clean_ref tests — Field<String>
   // ====================================================================
 
   #[test]
-  fn test_string_field_process_ref() {
+  fn test_string_field_clean_ref() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
@@ -924,14 +924,14 @@ mod tests {
       .unwrap();
 
     // Happy path: starts from &str
-    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
+    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
 
     // Validation fails
-    assert!(field.process_ref("  hi  ").is_err());
+    assert!(field.clean_ref("  hi  ").is_err());
   }
 
   #[test]
-  fn test_string_field_process_ref_with_try_filters() {
+  fn test_string_field_clean_ref_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -945,15 +945,15 @@ mod tests {
       .build()
       .unwrap();
 
-    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
-    assert!(field.process_ref("     ").is_err()); // empty after trim
-    assert!(field.process_ref("  hi  ").is_err()); // too short
+    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
+    assert!(field.clean_ref("     ").is_err()); // empty after trim
+    assert!(field.clean_ref("  hi  ").is_err()); // too short
   }
 
   #[test]
-  fn test_string_field_process_ref_no_filters_no_rule() {
+  fn test_string_field_clean_ref_no_filters_no_rule() {
     let field = FieldBuilder::<String>::default().build().unwrap();
-    assert_eq!(field.process_ref("hello").unwrap(), "hello");
+    assert_eq!(field.clean_ref("hello").unwrap(), "hello");
   }
 
   // ====================================================================

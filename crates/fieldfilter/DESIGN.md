@@ -34,7 +34,7 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 
 - **`FieldFilter`** — Multi-field form-level pipeline. Holds an
   `IndexMap<String, Field<Value>>` plus a list of `CrossFieldRule`s.
-  Provides `filter()`, `try_filter()`, `validate()`, and `process()`.
+  Provides `filter()`, `try_filter()`, `validate()`, and `clean()`.
 
 - **`CrossFieldRule` / `CrossFieldRuleType`** — Serializable cross-field
   validation (FieldsEqual, RequiredIf, RequiredUnless, OneOfRequired,
@@ -46,7 +46,7 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 
 ### Processing Pipeline
 
-`FieldFilter.process(data)` runs:
+`FieldFilter.clean(data)` runs:
 
 1. **`filter(data)`** — applies each field's `FilterOp` filters in order.
 2. **`try_filter(data)`** — applies each field's `TryFilterOp` filters;

@@ -70,13 +70,13 @@ Every sync validation function produces either "valid" or "violation" — none c
 
 5. **`#[must_use]` already enforced** — Both `Violation` and `Violations` are marked `#[must_use]`, and `Option` is also `#[must_use]` by default. No loss of compile-time safety.
 
-6. **`impl Error` becomes optional** — `Violation`/`Violations` implement `Error` today (violation.rs:219, 356). With `Option` returns, these impls are only needed for the `process()` path where violations end up inside `Result`. They can be kept but are no longer load-bearing for the primary API.
+6. **`impl Error` becomes optional** — `Violation`/`Violations` implement `Error` today (violation.rs:219, 356). With `Option` returns, these impls are only needed for the `clean()` path where violations end up inside `Result`. They can be kept but are no longer load-bearing for the primary API.
 
 ### Cons
 
 1. **Massive refactor scope** — This is a cross-cutting change touching 3 crates, ~90 type alias usages, ~344 `Ok`/`Err` patterns, and extensive test rewrites. High risk of regressions.
 
-2. **Loss of `?` operator for early return** — 14 production call-sites use `?` on validation results for short-circuit returns (in `Rule::All` chaining and `Field::process()`). These become:
+2. **Loss of `?` operator for early return** — 14 production call-sites use `?` on validation results for short-circuit returns (in `Rule::All` chaining and `Field::clean()`). These become:
    ```rust
    // Before:
    rule.validate_str_inner(value, locale)?;
@@ -88,9 +88,9 @@ Every sync validation function produces either "valid" or "violation" — none c
    ```
    This is slightly more verbose but equally clear. A helper macro could restore conciseness if desired.
 
-3. **`process()` methods require conversion** — `Field::process()` and `FieldFilter::process()` chain `try_filter()` (genuinely fallible, returns `Result`) with validation. The validation `Option` must be converted:
+3. **`clean()` methods require conversion** — `Field::clean()` and `FieldFilter::clean()` chain `try_filter()` (genuinely fallible, returns `Result`) with validation. The validation `Option` must be converted:
    ```rust
-   // Field::process()
+   // Field::clean()
    let filtered = self.try_filter(filtered)?;          // stays Result
    if let Some(v) = self.check_ref(&filtered) {       // Option → Result bridge
      return Err(v.into());
@@ -215,8 +215,8 @@ pub type AsyncCheckResult = Result<Option<Violation>, Box<dyn Error + Send + Syn
 
 ### Neutral / Design Decisions
 
-- **`process()` / `process_async()` return type stays `Result`** — Because `try_filter` is genuinely fallible, the `process()` pipeline must remain `Result`. For sync `process()`, the `Option` from validation is bridged with `if let Some(v)`. For `process_async()`, the nested `Result<Option<Violation>, E>` needs to be mapped into the pipeline's error type.
-- **`impl Error for Violation`/`Violations`** — Keep these impls. They're still useful when violations end up inside `Result` (via `process()`) and for `Box<dyn Error>` interop.
+- **`clean()` / `clean_async()` return type stays `Result`** — Because `try_filter` is genuinely fallible, the `clean()` pipeline must remain `Result`. For sync `clean()`, the `Option` from validation is bridged with `if let Some(v)`. For `clean_async()`, the nested `Result<Option<Violation>, E>` needs to be mapped into the pipeline's error type.
+- **`impl Error for Violation`/`Violations`** — Keep these impls. They're still useful when violations end up inside `Result` (via `clean()`) and for `Box<dyn Error>` interop.
 - **Trait renaming** — This change is tightly coupled with the item 5 rename (`validate*` → `check*`). Doing both together makes sense to avoid two breaking changes.
 - **`Violations` (plural) at field/form level** — `Field::check()` returns `Option<Violations>`, `FieldFilter::check()` returns `Option<FormViolations>`. The async versions wrap these in `Result<..., Box<dyn Error + Send + Sync>>`.
 
@@ -267,11 +267,11 @@ The main counter-argument is **cost vs. payoff**: ~344 `Ok`/`Err` flips and ~622
 - Update `Field<String>` sync validation methods: `Result<(), Violations>` → `Option<Violations>`
 - Update `Field<Value>` sync validation methods similarly
 - Update `Field` async validation methods: → `Result<Option<Violations>, Box<dyn Error + Send + Sync>>`
-- Update `Field::process()` to bridge sync `Option` → `Result`
-- Update `Field::process_async()` to handle async result + bridge
+- Update `Field::clean()` to bridge sync `Option` → `Result`
+- Update `Field::clean_async()` to handle async result + bridge
 - Update `FieldFilter::validate()`: `Result<(), FormViolations>` → `Option<FormViolations>`
 - Update `FieldFilter::validate_async()`: → `Result<Option<FormViolations>, Box<dyn Error + Send + Sync>>`
-- Update `FieldFilter::process()` / `process_async()` bridges
+- Update `FieldFilter::clean()` / `clean_async()` bridges
 - Update `CrossFieldRule::evaluate()`: `RuleResult` → `Option<Violation>`
 - Update `CrossFieldRuleType::CustomAsync` signature
 - Update fieldfilter crate tests and examples
