@@ -2,7 +2,7 @@
 
 **Date:** April 8, 2026
 **Issue:** [#90](https://github.com/elycruz/walrs/issues/90) — Assess `Value` enum impedance mismatch with typed serde structs
-**Related:** [#88](https://github.com/elycruz/walrs/issues/88) (Filterable trait), [#87](https://github.com/elycruz/walrs/issues/87) (Filter apply_ref), [#85](https://github.com/elycruz/walrs/issues/85) (Filter enum move)
+**Related:** [#88](https://github.com/elycruz/walrs/issues/88) (Fieldset trait), [#87](https://github.com/elycruz/walrs/issues/87) (Filter apply_ref), [#85](https://github.com/elycruz/walrs/issues/85) (Filter enum move)
 
 ---
 
@@ -27,7 +27,7 @@ correctness risks when used to validate data that is **already statically typed*
 (e.g., `serde::Deserialize` structs in axum/actix handlers).
 
 **Recommendation: Keep dual paths** — retain `Value`-based validation for dynamic
-use cases and introduce the `Filterable` trait (as designed in
+use cases and introduce the `Fieldset` trait (as designed in
 [#88](https://github.com/elycruz/walrs/issues/88)) for compile-time-known structs.
 This is the lowest-risk, highest-value approach. See [§ Recommendation](#recommendation)
 for details.
@@ -164,7 +164,7 @@ data.insert("age".to_string(), Value::from(user.age as u64));
 let result = filter.validate(&data)?;
 
 // Step 5: Extract filtered values back (optional, 5 lines)
-let filtered = filter.process(data)?;
+let filtered = filter.clean(data)?;
 let username = filtered.get("username").unwrap().as_str().unwrap().to_string();
 let email = filtered.get("email").unwrap().as_str().unwrap().to_string();
 let age = filtered.get("age").unwrap().as_u64().unwrap() as u32;
@@ -172,10 +172,10 @@ let age = filtered.get("age").unwrap().as_u64().unwrap() as u32;
 
 **Total: ~25 lines** of boilerplate conversion code (Steps 2–5).
 
-**With proposed `Filterable` trait (from #88 design):**
+**With proposed `Fieldset` trait (from #88 design):**
 
 ```rust
-#[derive(Deserialize, Filterable)]
+#[derive(Deserialize, Fieldset)]
 struct CreateUser {
     #[validate(required, min_length = 3)]
     #[filter(trim, lowercase)]
@@ -190,7 +190,7 @@ struct CreateUser {
 }
 
 // Validate (1 line)
-let validated = user.process()?;
+let validated = user.clean()?;
 ```
 
 **Total: ~1 line** of validation code (annotations are co-located with the struct).
@@ -330,9 +330,9 @@ with `if let Value::Str(s) = value` guards.
 
 ## 4. Refactor Assessment
 
-### 4.1 Can the Filterable Trait Fully Replace Value-Based Validation for Typed Structs?
+### 4.1 Can the Fieldset Trait Fully Replace Value-Based Validation for Typed Structs?
 
-**Yes.** The `Filterable` trait design from [#88](https://github.com/elycruz/walrs/issues/88)
+**Yes.** The `Fieldset` trait design from [#88](https://github.com/elycruz/walrs/issues/88)
 can fully replace `Value`-based validation for compile-time-known structs:
 
 - **Per-field validation:** Each field gets a `Rule<T>` where `T` matches the field's
@@ -366,13 +366,13 @@ at compile time (§2). Removing it would break:
 | `FieldFilter` | None (kept) | Dynamic path preserved |
 | `Rule<Value>` impls | None (kept) | Dynamic path preserved |
 | `Form` + `FormData` | None (kept) | Dynamic path preserved |
-| New `Filterable` trait | New code | Additive — does not change existing APIs |
-| Derive macro crate | New code | `walrs_fieldfilter_derive` (new crate) |
-| User migration | Opt-in | Users can adopt `Filterable` incrementally |
+| New `Fieldset` trait | New code | Additive — does not change existing APIs |
+| Derive macro crate | New code | `walrs_fieldset_derive` (new crate) |
+| User migration | Opt-in | Users can adopt `Fieldset` incrementally |
 
-**Migration cost is zero for existing code** — the `Filterable` trait is purely
+**Migration cost is zero for existing code** — the `Fieldset` trait is purely
 additive. Users choose between the dynamic path (`FieldFilter` + `Value`) and the
-typed path (`Filterable`) based on their use case.
+typed path (`Fieldset`) based on their use case.
 
 ### 4.4 Does the Value Enum Add Maintenance Burden?
 
@@ -388,7 +388,7 @@ The `Rule<Value>` impl delegates to `Rule<String>` methods where possible (e.g.,
 `Value::Str`), which reduces some duplication. However, adding a new rule variant
 still requires updating the `Value` dispatch block.
 
-With the `Filterable` trait in place, the `Rule<Value>` path becomes a **stable
+With the `Fieldset` trait in place, the `Rule<Value>` path becomes a **stable
 maintenance surface** — it only needs updates when new `Rule` variants are added,
 and the typed path handles the common case.
 
@@ -396,7 +396,7 @@ and the typed path handles the common case.
 
 ## Recommendation
 
-### **Keep dual paths** — `Value`-based for dynamic, `Filterable` for typed
+### **Keep dual paths** — `Value`-based for dynamic, `Fieldset` for typed
 
 This is the recommended approach, aligned with the design in
 [#88](https://github.com/elycruz/walrs/issues/88).
@@ -407,13 +407,13 @@ This is the recommended approach, aligned with the design in
    `FormData` continues to work unchanged.
 
 2. **Compile-time safety for the common case:** The vast majority of Rust web
-   applications use typed structs. The `Filterable` trait eliminates all 18
+   applications use typed structs. The `Fieldset` trait eliminates all 18
    `TypeMismatch` runtime error paths for these users.
 
 3. **Dynamic use cases preserved:** Config-driven forms, WASM bridges, and
    serializable validation configs continue to use the `Value` path.
 
-4. **Incremental adoption:** Users can mix both paths — e.g., use `Filterable`
+4. **Incremental adoption:** Users can mix both paths — e.g., use `Fieldset`
    for API handlers and `FieldFilter` for admin panel forms loaded from config.
 
 5. **Reduced maintenance over time:** As the typed path becomes the primary
@@ -421,10 +421,10 @@ This is the recommended approach, aligned with the design in
 
 #### Implementation Priority
 
-1. **Implement `Filterable` trait** in `walrs_fieldfilter` (manual impl first).
-2. **Create `walrs_fieldfilter_derive`** proc-macro crate for `#[derive(Filterable)]`.
+1. **Implement `Fieldset` trait** in `walrs_fieldfilter` (manual impl first).
+2. **Create `walrs_fieldset_derive`** proc-macro crate for `#[derive(Fieldset)]`.
 3. **Resolve #87** (Filter `apply_ref` pattern) — enables efficient `&str`-based
-   filtering in the `Filterable` impl.
+   filtering in the `Fieldset` impl.
 4. **Resolve #85** (Filter enum move) — structural cleanup, not blocking.
 5. **Document migration guide** showing both paths side-by-side.
 
@@ -438,7 +438,7 @@ generation and WASM bridge use cases genuinely require runtime-typed values.
 
 Adding `TryFrom<T>` impls or making `Value` generic would add complexity without
 addressing the fundamental issue: `Value` erases type information that typed structs
-already have. The `Filterable` trait is a cleaner solution because it bypasses
+already have. The `Fieldset` trait is a cleaner solution because it bypasses
 `Value` entirely for typed use cases, rather than trying to make `Value` work better
 with types it shouldn't need to interact with.
 
@@ -446,7 +446,7 @@ with types it shouldn't need to interact with.
 
 ## Appendix: Quantitative Summary
 
-| Metric | `Value` Path | `Filterable` Path | Savings |
+| Metric | `Value` Path | `Fieldset` Path | Savings |
 |--------|-------------|-------------------|---------|
 | Allocations per 7-field form | ~13 | 0 | 13 allocations |
 | Boilerplate lines per form | ~25 | ~1 | 24 lines |

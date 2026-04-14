@@ -23,7 +23,7 @@
    - [5.1 Simple Form](#51-simple-form)
    - [5.2 Select Element with Options](#52-select-element-with-options)
    - [5.3 Nested Fieldset](#53-nested-fieldset)
-6. [Combining with `Filterable`](#combining-with-filterable)
+6. [Combining with `Fieldset`](#combining-with-fieldset)
    - [6.1 Both Derives Together](#61-both-derives-together)
    - [6.2 Full Integration Example](#62-full-integration-example)
 7. [Type Mapping: Rust Type → Element Type](#type-mapping-rust-type--element-type)
@@ -439,54 +439,54 @@ each containing `Address`'s elements with their respective legends.
 
 ---
 
-## Combining with `Filterable`
+## Combining with `Fieldset`
 
-The `Fieldset` derive and `Filterable` derive are **independent** but
+The `Fieldset` derive and `Fieldset` derive are **independent** but
 **complementary**. A struct can derive both:
 
 ### 6.1 Both Derives Together
 
 ```rust
-use walrs_fieldfilter_derive::Filterable;
+use walrs_fieldset_derive::Fieldset;
 use walrs_form_derive::Fieldset;
 
-#[derive(Filterable, Fieldset)]
+#[derive(Fieldset, Fieldset)]
 #[fieldset(legend = "User Registration")]
 #[cross_validate(passwords_match)]
 struct UserRegistration {
-    // Filterable: validate + filter
+    // Fieldset: validate + filter
     // Fieldset: generate InputElement(Text)
     #[validate(required, min_length = 2, max_length = 50)]
     #[filter(trim)]
     #[field(type = "text", label = "Full Name")]
     name: String,
 
-    // Filterable: validate + filter
+    // Fieldset: validate + filter
     // Fieldset: generate InputElement(Email)
     #[validate(required, email)]
     #[filter(trim, lowercase)]
     #[field(type = "email", label = "Email Address")]
     email: String,
 
-    // Filterable: validate
+    // Fieldset: validate
     // Fieldset: generate InputElement(Password)
     #[validate(required, min_length = 8)]
     #[field(type = "password", label = "Password")]
     password: String,
 
-    // Filterable: validate
+    // Fieldset: validate
     // Fieldset: generate InputElement(Password)
     #[validate(required)]
     #[field(type = "password", label = "Confirm Password")]
     confirm_password: String,
 
-    // Filterable: validate (numeric)
+    // Fieldset: validate (numeric)
     // Fieldset: generate InputElement(Number)
     #[validate(min = 0, max = 150)]
     #[field(type = "number", label = "Age")]
     age: i64,
 
-    // Filterable: validate (select value is one_of the options)
+    // Fieldset: validate (select value is one_of the options)
     // Fieldset: generate SelectElement with options
     #[validate(required, one_of = ["us", "ca", "uk"])]
     #[field(select, label = "Country", options(
@@ -519,7 +519,7 @@ fn passwords_match(r: &UserRegistration) -> walrs_validation::ValidatorResult {
 
 ```rust
 use walrs_form::Form;
-use walrs_fieldfilter::Filterable;
+use walrs_fieldfilter::Fieldset;
 use walrs_form::IntoFieldset;
 
 // Build the form structure from the struct definition
@@ -535,10 +535,10 @@ fn build_registration_form() -> Form {
     form
 }
 
-// Validate incoming data using Filterable
-fn handle_registration(input: UserRegistration) -> Result<UserRegistration, walrs_validation::FieldViolations> {
-    // process() = filter() + validate()
-    input.process()
+// Validate incoming data using Fieldset
+fn handle_registration(input: UserRegistration) -> Result<UserRegistration, walrs_validation::FieldsetViolations> {
+    // clean() = filter() + validate()
+    input.clean()
 }
 
 // Combined: build form for rendering, validate on submission
@@ -562,7 +562,7 @@ fn main() {
         },
     };
 
-    match registration.process() {
+    match registration.clean() {
         Ok(clean) => {
             // Filters applied: name trimmed, email trimmed+lowercased
             assert_eq!(clean.name, "Jane Doe");
