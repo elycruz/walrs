@@ -78,7 +78,7 @@ async fn string_field_with_custom_async_rule() {
 }
 
 #[tokio::test]
-async fn string_field_process_async() {
+async fn string_field_clean_async() {
   let rule = Rule::<String>::custom_async(Arc::new(|value: &String| {
     Box::pin(async move {
       if value.contains("bad") {
@@ -94,10 +94,10 @@ async fn string_field_process_async() {
     .build()
     .unwrap();
 
-  let result = field.process_async("  good  ".to_string()).await;
+  let result = field.clean_async("  good  ".to_string()).await;
   assert_eq!(result.unwrap(), "good");
 
-  let result = field.process_async("  bad  ".to_string()).await;
+  let result = field.clean_async("  bad  ".to_string()).await;
   assert!(result.is_err());
 }
 
@@ -134,16 +134,16 @@ async fn value_field_validate_ref_async_fails() {
 }
 
 #[tokio::test]
-async fn value_field_process_async() {
+async fn value_field_clean_async() {
   let field = FieldBuilder::<Value>::default()
     .rule(Rule::Required.and(async_not_banned_rule("bad")))
     .build()
     .unwrap();
 
-  let ok = field.process_async(Value::Str("good".into())).await;
+  let ok = field.clean_async(Value::Str("good".into())).await;
   assert!(ok.is_ok());
 
-  let err = field.process_async(Value::Str("bad".into())).await;
+  let err = field.clean_async(Value::Str("bad".into())).await;
   assert!(err.is_err());
 }
 
@@ -233,7 +233,7 @@ async fn field_filter_with_async_cross_field_rule() {
 }
 
 #[tokio::test]
-async fn field_filter_process_async() {
+async fn field_filter_clean_async() {
   let mut ff = FieldFilter::new();
   ff.add_field(
     "name",
@@ -245,13 +245,13 @@ async fn field_filter_process_async() {
   );
 
   let data = make_data(&[("name", Value::Str("  good  ".into()))]);
-  let result = ff.process_async(data).await;
+  let result = ff.clean_async(data).await;
   assert!(result.is_ok());
   let processed = result.unwrap();
   assert_eq!(processed["name"], Value::Str("good".into()));
 
   let data = make_data(&[("name", Value::Str("bad".into()))]);
-  assert!(ff.process_async(data).await.is_err());
+  assert!(ff.clean_async(data).await.is_err());
 }
 
 // ---------------------------------------------------------------------------

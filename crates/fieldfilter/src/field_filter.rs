@@ -203,7 +203,7 @@ impl FieldFilter {
   }
 
   /// Filters (infallible + fallible) and then validates the data.
-  pub fn process(
+  pub fn clean(
     &self,
     data: IndexMap<String, Value>,
   ) -> Result<IndexMap<String, Value>, FormViolations> {
@@ -571,7 +571,7 @@ impl FieldFilter {
   /// Filters (infallible + fallible) and then validates the data asynchronously.
   ///
   /// Filtering is synchronous (CPU-bound); validation is async.
-  pub async fn process_async(
+  pub async fn clean_async(
     &self,
     data: IndexMap<String, Value>,
   ) -> Result<IndexMap<String, Value>, FormViolations> {
@@ -743,7 +743,7 @@ mod tests {
   }
 
   #[test]
-  fn test_process() {
+  fn test_clean() {
     let mut field_filter = FieldFilter::new();
     field_filter.add_field(
       "email",
@@ -755,7 +755,7 @@ mod tests {
     );
 
     let data = make_data(&[("email", Value::Str("  test@example.com  ".to_string()))]);
-    let result = field_filter.process(data);
+    let result = field_filter.clean(data);
     assert!(result.is_ok());
     assert_eq!(
       result.unwrap().get("email").unwrap(),
@@ -918,7 +918,7 @@ mod tests {
   }
 
   #[test]
-  fn test_field_filter_process_with_try_filters() {
+  fn test_field_filter_clean_with_try_filters() {
     use std::sync::Arc;
     use walrs_filter::{FilterError, TryFilterOp};
 
@@ -942,7 +942,7 @@ mod tests {
 
     // Happy path: trim -> try_filter passes -> validation passes
     let data = make_data(&[("name", Value::Str("  hello  ".to_string()))]);
-    let result = filter.process(data).unwrap();
+    let result = filter.clean(data).unwrap();
     assert_eq!(
       result.get("name").unwrap(),
       &Value::Str("hello".to_string())
@@ -950,7 +950,7 @@ mod tests {
 
     // Try filter fails
     let data = make_data(&[("name", Value::Str("     ".to_string()))]);
-    assert!(filter.process(data).is_err());
+    assert!(filter.clean(data).is_err());
   }
 
   #[test]

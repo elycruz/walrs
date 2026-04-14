@@ -29,8 +29,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! // Process (filter + validate) a value
-//! let result = email_field.process("  TEST@EXAMPLE.COM  ".to_string());
+//! // Clean (filter + validate) a value
+//! let result = email_field.clean("  TEST@EXAMPLE.COM  ".to_string());
 //! assert!(result.is_ok());
 //! assert_eq!(result.unwrap(), "test@example.com");
 //!
@@ -49,8 +49,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! assert!(encoded_field.process("hello".to_string()).is_ok());
-//! assert!(encoded_field.process("bad\0input".to_string()).is_err());
+//! assert!(encoded_field.clean("hello".to_string()).is_ok());
+//! assert!(encoded_field.clean("bad\0input".to_string()).is_err());
 //! ```
 
 #[macro_use]
