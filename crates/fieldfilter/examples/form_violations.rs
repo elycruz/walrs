@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! FormViolations example.
 //!
 //! This example demonstrates how to work with `FormViolations` for
