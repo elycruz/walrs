@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 //! FieldFilter example for multi-field validation.
 //!
 //! This example demonstrates how to use `FieldFilter` for validating

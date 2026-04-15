@@ -2,9 +2,13 @@
 //!
 //! This module provides the `FormViolations` struct for collecting validation
 //! errors from multiple fields and cross-field validation rules.
+//!
+//! **Deprecated:** Prefer [`FieldsetViolations`](walrs_validation::FieldsetViolations)
+//! for new code. `From` conversions are provided for migration.
 
+#[allow(deprecated)]
 use indexmap::IndexMap;
-use walrs_validation::Violations;
+use walrs_validation::{FieldsetViolations, Violations};
 
 /// Collection of validation violations for a form.
 ///
@@ -34,6 +38,11 @@ use walrs_validation::Violations;
 /// assert!(!form_violations.is_empty());
 /// assert!(form_violations.for_field("email").is_some());
 /// ```
+#[deprecated(
+  since = "0.2.0",
+  note = "Use `FieldsetViolations` from `walrs_validation` instead. \
+          `From<FormViolations>` and `From<FieldsetViolations>` conversions are provided."
+)]
 #[derive(Clone, Debug, Default)]
 pub struct FormViolations {
   /// Per-field violations, keyed by field name.
@@ -43,6 +52,7 @@ pub struct FormViolations {
   pub form: Violations,
 }
 
+#[allow(deprecated)]
 impl FormViolations {
   /// Creates a new empty `FormViolations`.
   pub fn new() -> Self {
@@ -133,6 +143,7 @@ impl FormViolations {
   }
 }
 
+#[allow(deprecated)]
 impl From<FormViolations> for Result<(), FormViolations> {
   fn from(violations: FormViolations) -> Self {
     if violations.is_empty() {
@@ -143,7 +154,37 @@ impl From<FormViolations> for Result<(), FormViolations> {
   }
 }
 
+#[allow(deprecated)]
+impl From<FormViolations> for FieldsetViolations {
+  fn from(fv: FormViolations) -> Self {
+    let mut result = FieldsetViolations::new();
+    for (field, violations) in fv.fields {
+      result.add_many(field, violations);
+    }
+    if !fv.form.is_empty() {
+      result.add_many("", fv.form);
+    }
+    result
+  }
+}
+
+#[allow(deprecated)]
+impl From<FieldsetViolations> for FormViolations {
+  fn from(fv: FieldsetViolations) -> Self {
+    let mut result = FormViolations::new();
+    for (field, violations) in fv.0 {
+      if field.is_empty() {
+        result.add_form_violations(violations);
+      } else {
+        result.add_field_violations(field, violations);
+      }
+    }
+    result
+  }
+}
+
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
   use super::*;
   use walrs_validation::{Violation, ViolationType};
