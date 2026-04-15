@@ -87,6 +87,7 @@
 pub use indexmap;
 
 pub mod attributes;
+pub mod fieldset_violations;
 pub mod message;
 pub mod options;
 pub mod rule;
@@ -96,6 +97,7 @@ pub mod value;
 pub mod violation;
 
 pub use attributes::*;
+pub use fieldset_violations::*;
 pub use message::*;
 pub use options::*;
 pub use rule::{CompiledPattern, Condition, Rule, RuleResult};
