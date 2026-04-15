@@ -85,8 +85,11 @@ pub use walrs_filter::{FilterError, FilterOp, TryFilterOp};
 pub use field::{Field, FieldBuilder};
 pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 pub use fieldset::Fieldset;
+
 #[allow(deprecated)]
 pub use form_violations::FormViolations;
+#[cfg(feature = "derive")]
+pub use walrs_fieldset_derive::Fieldset as DeriveFieldset;
 
 #[cfg(feature = "async")]
 pub use fieldset::FieldsetAsync;

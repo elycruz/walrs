@@ -1,0 +1,16 @@
+[package]
+name = "walrs_fieldset_derive"
+version = "0.1.0"
+edition = "2024"
+authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
+description = "Derive macro for walrs_fieldfilter Fieldset trait"
+license = "Elastic-2.0"
+include = ["src/**/*", "Cargo.toml"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "2", features = ["full", "extra-traits"] }
+quote = "1"
+proc-macro2 = "1"
