@@ -1,0 +1,10 @@
+# Generated fuzz artifacts
+artifacts/
+
+# Generated corpus entries (keep only named seed files)
+corpus/fuzz_strip_tags/[0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+corpus/fuzz_slug/[0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+corpus/fuzz_filter_op_string/[0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+
+# Build output
+target/
