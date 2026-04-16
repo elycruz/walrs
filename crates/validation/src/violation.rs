@@ -69,7 +69,10 @@ impl Violation {
   pub fn too_long(max: usize, actual: usize) -> Self {
     Self::new(
       ViolationType::TooLong,
-      format!("Value length must be at most {};  Received {}.", max, actual),
+      format!(
+        "Value length must be at most {};  Received {}.",
+        max, actual
+      ),
     )
   }
 

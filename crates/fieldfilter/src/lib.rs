@@ -11,7 +11,6 @@
 //! - [`FilterOp`] - Serializable filter enum for value transformation (re-exported from `walrs_filter`)
 //! - [`TryFilterOp`] - Fallible filter enum for transformations that can fail (re-exported from `walrs_filter`)
 //! - [`FilterError`] - Error type for fallible filters (re-exported from `walrs_filter`)
-//! - [`FormViolations`] - (**Deprecated**: use [`FieldsetViolations`] instead)
 //!
 //! ## Example
 //!
@@ -59,11 +58,8 @@
 extern crate derive_builder;
 
 pub mod field;
-#[allow(deprecated)]
 pub mod field_filter;
 pub mod fieldset;
-#[allow(deprecated)]
-pub mod form_violations;
 
 pub mod rule;
 
@@ -85,9 +81,6 @@ pub use walrs_filter::{FilterError, FilterOp, TryFilterOp};
 pub use field::{Field, FieldBuilder};
 pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 pub use fieldset::Fieldset;
-
-#[allow(deprecated)]
-pub use form_violations::FormViolations;
 #[cfg(feature = "derive")]
 pub use walrs_fieldset_derive::Fieldset as DeriveFieldset;
 

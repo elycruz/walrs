@@ -41,8 +41,8 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
   MutuallyExclusive, DependentRequired) plus a non-serializable `Custom`
   variant for arbitrary logic.
 
-- **`FormViolations`** — Aggregate error container with per-field
-  `Violations` and form-level `Violation` lists.
+- **`FieldsetViolations`** — Aggregate error container mapping field names to
+  `Violations`. Form-level violations use the empty-string key.
 
 ### Processing Pipeline
 
@@ -50,9 +50,9 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 
 1. **`filter(data)`** — applies each field's `FilterOp` filters in order.
 2. **`try_filter(data)`** — applies each field's `TryFilterOp` filters;
-   collects errors into `FormViolations`.
+   collects errors into `FieldsetViolations`.
 3. **`validate(&data)`** — runs each field's `Rule<T>` plus all
-   `CrossFieldRule`s; collects errors into `FormViolations`.
+   `CrossFieldRule`s; collects errors into `FieldsetViolations`.
 
 ### Design Decisions
 

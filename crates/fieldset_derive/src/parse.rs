@@ -220,9 +220,10 @@ pub fn parse_cross_validate_attrs(attrs: &[Attribute]) -> CrossValidateAttrs {
 // ---------------------------------------------------------------------------
 
 pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
-  let ident = field.ident.clone().ok_or_else(|| {
-    syn::Error::new_spanned(field, "Fieldset derive only supports named fields")
-  })?;
+  let ident = field
+    .ident
+    .clone()
+    .ok_or_else(|| syn::Error::new_spanned(field, "Fieldset derive only supports named fields"))?;
   let ty = classify_type(&field.ty);
   let mut validations = Vec::new();
   let mut filters = Vec::new();

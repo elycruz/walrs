@@ -4,12 +4,12 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
+use walrs_fieldfilter::FieldFilter;
 #[cfg(feature = "async")]
 use walrs_fieldfilter::IndexMap;
-use walrs_fieldfilter::{FieldFilter, FormViolations};
-use walrs_validation::Attributes;
 #[cfg(feature = "async")]
 use walrs_validation::Value;
+use walrs_validation::{Attributes, FieldsetViolations};
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FormMethod {
@@ -99,11 +99,11 @@ impl Form {
       _ => {}
     }
   }
-  pub fn validate(&self, data: &FormData) -> Result<(), FormViolations> {
+  pub fn validate(&self, data: &FormData) -> Result<(), FieldsetViolations> {
     if let Some(ref filter) = self.field_filter {
       filter.validate(data.as_inner())
     } else {
-      let mut violations = FormViolations::new();
+      let mut violations = FieldsetViolations::new();
       if let Some(ref elements) = self.elements {
         Self::validate_recursive(elements, data, &mut violations);
       }
@@ -114,7 +114,11 @@ impl Form {
       }
     }
   }
-  fn validate_recursive(elements: &[Element], data: &FormData, violations: &mut FormViolations) {
+  fn validate_recursive(
+    elements: &[Element],
+    data: &FormData,
+    violations: &mut FieldsetViolations,
+  ) {
     for element in elements {
       match element {
         Element::Fieldset(fs) => {
@@ -135,7 +139,7 @@ impl Form {
               _ => Ok(()),
             };
             if let Err(field_violations) = result {
-              violations.add_field_violations(name, field_violations);
+              violations.add_many(name, field_violations);
             }
           }
         }
@@ -159,18 +163,17 @@ impl Form {
 }
 
 #[cfg(feature = "async")]
-#[allow(deprecated)]
 impl Form {
   /// Validates form data asynchronously.
   ///
   /// When a `field_filter` is set, delegates to
   /// [`FieldFilter::validate_async`]. Otherwise, walks the element tree
   /// and calls `validate_value_async` on each input, select, and textarea.
-  pub async fn validate_async(&self, data: &FormData) -> Result<(), FormViolations> {
+  pub async fn validate_async(&self, data: &FormData) -> Result<(), FieldsetViolations> {
     if let Some(ref filter) = self.field_filter {
       filter.validate_async(data.as_inner()).await
     } else {
-      let mut violations = FormViolations::new();
+      let mut violations = FieldsetViolations::new();
       if let Some(ref elements) = self.elements {
         Self::validate_recursive_async(elements, data, &mut violations).await;
       }
@@ -190,7 +193,7 @@ impl Form {
   pub async fn clean_async(
     &self,
     data: &FormData,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     if let Some(ref filter) = self.field_filter {
       filter.clean_async(data.as_inner().clone()).await
     } else {
@@ -202,7 +205,7 @@ impl Form {
   fn validate_recursive_async<'a>(
     elements: &'a [Element],
     data: &'a FormData,
-    violations: &'a mut FormViolations,
+    violations: &'a mut FieldsetViolations,
   ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
     Box::pin(async move {
       for element in elements {
@@ -225,7 +228,7 @@ impl Form {
                 _ => Ok(()),
               };
               if let Err(field_violations) = result {
-                violations.add_field_violations(name, field_violations);
+                violations.add_many(name, field_violations);
               }
             }
           }
@@ -350,10 +353,8 @@ mod tests {
 
 #[cfg(test)]
 #[cfg(feature = "async")]
-#[allow(deprecated)]
 mod async_tests {
   use super::*;
-  use crate::element::Element;
   use crate::fieldset_element::FieldsetElement;
   use crate::form_data::FormData;
   use crate::input_element::InputElement;

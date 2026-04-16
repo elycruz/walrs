@@ -131,37 +131,65 @@ impl Graph {
   }
 
   /// Returns a boolean indicating whether or not graph contains given vertex, `v`, or not.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let g = Graph::new(5);
+  /// assert!(g.has_vertex(0));
+  /// assert!(g.has_vertex(4));
+  /// assert!(!g.has_vertex(5));
+  /// assert!(!g.has_vertex(99));
+  ///
+  /// let empty = Graph::new(0);
+  /// assert!(!empty.has_vertex(0));
+  /// ```
   pub fn has_vertex(&self, v: usize) -> bool {
-    let len = self._adj_lists.len();
-    len > 0 && len <= v + 1
+    v < self._adj_lists.len()
   }
 
-  /// Removes a vertex from the graph.
+  /// Removes a vertex from the graph, adjusting all adjacency list indices accordingly.
+  ///
+  /// After removal, vertices with indices greater than `v` are decremented by one
+  /// across **all** adjacency lists, not just neighbors of `v`.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(4);
+  /// g.add_edge(0, 1).unwrap();
+  /// g.add_edge(2, 3).unwrap();
+  ///
+  /// g.remove_vertex(0).unwrap();
+  /// assert_eq!(g.vert_count(), 3);
+  /// // Vertex formerly at index 2 is now at 1, and formerly 3 is now 2
+  /// assert!(g.has_edge(1, 2));
+  /// ```
   pub fn remove_vertex(&mut self, v: usize) -> Result<&mut Self, String> {
     self.validate_vertex(v)?;
 
-    let target_v_adj = self.adj(v).unwrap();
+    // Remove all edges involving v
+    let neighbors: Vec<usize> = self._adj_lists[v].clone();
+    for w in neighbors {
+      self.remove_edge(v, w)?;
+    }
 
-    // Remove related edges and offset vertices greater than target, in adj lists
-    target_v_adj.to_owned().into_iter().for_each(|w| {
-      // Remove edge
-      let found_v_idx = match self.remove_edge(v, w) {
-        Ok(val) => val,
-        Err(err) => panic!("{}", err),
-      };
+    // Remove v's adjacency list
+    self._adj_lists.remove(v);
 
-      let w_adj = &mut self._adj_lists[w];
-
-      // Offset vertices greater than target
-      for i in found_v_idx..w_adj.len() {
-        let target = w_adj[i];
-        if target >= v && target > 0 {
-          w_adj[i] = target - 1;
+    // Decrement all references > v in all remaining adjacency lists
+    for adj_list in &mut self._adj_lists {
+      for idx in adj_list.iter_mut() {
+        if *idx > v {
+          *idx -= 1;
         }
       }
-    });
+    }
 
-    self._adj_lists.remove(v);
     Ok(self)
   }
 
@@ -229,6 +257,25 @@ impl Graph {
   }
 
   /// Removes edge `v` to `w` from graph.
+  ///
+  /// Returns the index where `v` was found in `w`'s adjacency list, or an error
+  /// if the edge does not exist or the vertices are invalid.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::Graph;
+  ///
+  /// let mut g = Graph::new(3);
+  /// g.add_edge(0, 1).unwrap();
+  ///
+  /// // Removing an existing edge succeeds
+  /// assert!(g.remove_edge(0, 1).is_ok());
+  /// assert!(!g.has_edge(0, 1));
+  ///
+  /// // Removing a non-existent edge returns an error
+  /// assert!(g.remove_edge(0, 2).is_err());
+  /// ```
   pub fn remove_edge(&mut self, v: usize, w: usize) -> Result<usize, String> {
     self
       .validate_vertex(v)
@@ -236,10 +283,15 @@ impl Graph {
     let adj = &mut self._adj_lists;
 
     let adj_v = &mut adj[v];
-    adj_v.remove(adj_v.binary_search(&w).unwrap());
+    let v_in_w_pos = adj_v
+      .binary_search(&w)
+      .map_err(|_| format!("Edge {} -> {} not found", v, w))?;
+    adj_v.remove(v_in_w_pos);
 
     let adj_w = &mut adj[w];
-    let found_v_idx = adj_w.binary_search(&v).unwrap();
+    let found_v_idx = adj_w
+      .binary_search(&v)
+      .map_err(|_| format!("Edge {} -> {} not found", w, v))?;
     adj_w.remove(found_v_idx);
 
     self._edge_count -= 2;
@@ -274,7 +326,7 @@ impl Graph {
     lines: Lines<&mut BufReader<R>>,
   ) -> Result<&mut Self, Box<dyn std::error::Error>> {
     // Loop through lines
-    for line in lines {
+    for (line_num, line) in lines.enumerate() {
       // For each edge definition, enter them into graph
       match line {
         // If line
@@ -282,8 +334,26 @@ impl Graph {
           // Split and parse edge values to integers
           let verts: Vec<usize> = _line
             .split_ascii_whitespace()
-            .map(|x| x.parse::<usize>().unwrap())
-            .collect();
+            .map(|x| {
+              x.parse::<usize>().map_err(|e| {
+                std::io::Error::new(
+                  std::io::ErrorKind::InvalidData,
+                  format!("Failed to parse \"{}\" as vertex index at line {}: {}", x, line_num, e),
+                )
+              })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+          if verts.len() < 2 {
+            return Err(Box::new(std::io::Error::new(
+              std::io::ErrorKind::InvalidData,
+              format!(
+                "Expected at least 2 vertex indices at line {}, found {}",
+                line_num,
+                verts.len()
+              ),
+            )));
+          }
 
           if let Err(err) = self.add_edge(verts[0], verts[1]) {
             return Err(Box::new(std::io::Error::new(
@@ -362,7 +432,7 @@ impl TryFrom<File> for Graph {
 mod test {
   use crate::graph::{Graph, invalid_vertex_msg};
   use std::fs::File;
-  use std::io::BufReader;
+  use std::io::{BufRead, BufReader};
 
   #[test]
   pub fn test_new() {
@@ -882,5 +952,138 @@ mod test {
     let _: Graph = BufReader::new(f).try_into().unwrap();
 
     Ok(())
+  }
+
+  #[test]
+  pub fn test_has_vertex() {
+    let g = Graph::new(5);
+    // Valid vertices
+    assert!(g.has_vertex(0));
+    assert!(g.has_vertex(1));
+    assert!(g.has_vertex(4));
+    // Invalid vertices
+    assert!(!g.has_vertex(5));
+    assert!(!g.has_vertex(99));
+    // Empty graph
+    let empty = Graph::new(0);
+    assert!(!empty.has_vertex(0));
+  }
+
+  #[test]
+  pub fn test_remove_vertex_disconnected_graph() {
+    // Graph {0-1, 2-3}: remove vertex 0
+    let mut g = Graph::new(4);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(2, 3).unwrap();
+
+    assert_eq!(g.vert_count(), 4);
+    assert_eq!(g.edge_count(), 4); // 2 logical edges × 2
+
+    g.remove_vertex(0).unwrap();
+
+    assert_eq!(g.vert_count(), 3);
+    // Edge 0-1 removed; vertex 2→1, vertex 3→2; edge 2-3 becomes 1-2
+    assert!(g.has_edge(1, 2), "formerly 2-3 should now be 1-2");
+    assert!(!g.has_edge(0, 1), "vertex 0 is now formerly-vertex-1 (isolated)");
+    assert_eq!(g.edge_count(), 2); // only the 2-3 edge (now 1-2) remains
+  }
+
+  #[test]
+  pub fn test_remove_vertex_middle() {
+    // 0-1, 1-2, 2-3 (chain): remove vertex 1
+    let mut g = Graph::new(4);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+    g.add_edge(2, 3).unwrap();
+
+    g.remove_vertex(1).unwrap();
+
+    assert_eq!(g.vert_count(), 3);
+    // Former vertex 2 → now 1, former 3 → now 2
+    assert!(g.has_edge(1, 2), "formerly 2-3 should now be 1-2");
+    // 0 had edge to removed vertex 1, so 0 should have no neighbors now
+    assert_eq!(g.adj(0).unwrap().len(), 0);
+  }
+
+  #[test]
+  pub fn test_remove_edge_non_existent() {
+    let mut g = Graph::new(3);
+    g.add_edge(0, 1).unwrap();
+
+    // Edge 0-2 doesn't exist
+    let result = g.remove_edge(0, 2);
+    assert!(result.is_err(), "Removing a non-existent edge should return Err");
+    assert!(
+      result.unwrap_err().contains("not found"),
+      "Error message should indicate edge not found"
+    );
+
+    // Ensure original edge is still intact
+    assert!(g.has_edge(0, 1));
+    assert_eq!(g.edge_count(), 2);
+  }
+
+  #[test]
+  pub fn test_remove_edge_invalid_vertex() {
+    let mut g = Graph::new(3);
+    let result = g.remove_edge(0, 99);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  pub fn test_self_loop() {
+    let mut g = Graph::new(3);
+    // Self-loop: add edge 0-0
+    g.add_edge(0, 0).unwrap();
+    // Should have 2 entries in adj list for vertex 0 (both directions of self-loop)
+    assert_eq!(g.adj(0).unwrap().len(), 2);
+    assert_eq!(g.edge_count(), 2);
+    assert!(g.has_edge(0, 0));
+  }
+
+  #[test]
+  pub fn test_duplicate_edge() {
+    let mut g = Graph::new(3);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(0, 1).unwrap(); // duplicate
+    // Both edges are added (multigraph behavior)
+    assert_eq!(g.adj(0).unwrap().len(), 2);
+    assert_eq!(g.edge_count(), 4);
+  }
+
+  #[test]
+  pub fn test_digest_lines_malformed_input() {
+    // Non-numeric input
+    let data = b"hello world\n";
+    let mut reader = BufReader::new(&data[..]);
+    let mut g = Graph::new(5);
+    let result = g.digest_lines((&mut reader).lines());
+    assert!(result.is_err(), "Non-numeric input should return Err");
+
+    // Single token line (< 2 vertices)
+    let data2 = b"0\n";
+    let mut reader2 = BufReader::new(&data2[..]);
+    let mut g2 = Graph::new(5);
+    let result2 = g2.digest_lines((&mut reader2).lines());
+    assert!(result2.is_err(), "Single token should return Err");
+
+    // Empty line
+    let data3 = b"\n";
+    let mut reader3 = BufReader::new(&data3[..]);
+    let mut g3 = Graph::new(5);
+    let result3 = g3.digest_lines((&mut reader3).lines());
+    assert!(result3.is_err(), "Empty line should return Err");
+  }
+
+  #[test]
+  pub fn test_digest_lines_valid_input() {
+    let data = b"0 1\n1 2\n0 2\n";
+    let mut reader = BufReader::new(&data[..]);
+    let mut g = Graph::new(3);
+    g.digest_lines((&mut reader).lines()).unwrap();
+    assert_eq!(g.edge_count(), 6);
+    assert!(g.has_edge(0, 1));
+    assert!(g.has_edge(1, 2));
+    assert!(g.has_edge(0, 2));
   }
 }
