@@ -67,6 +67,48 @@ Note: branch and functions tracking is not supported with this method (currently
 
 Reference: https://github.com/mozilla/grcov?tab=readme-ov-file#how-to-get-grcov
 
+### Fuzz testing with `cargo-fuzz`
+
+The workspace includes [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets for crates that handle untrusted input.
+
+#### Prerequisites
+
+```bash
+# cargo-fuzz requires nightly Rust
+rustup install nightly
+
+# Install cargo-fuzz
+cargo install cargo-fuzz
+```
+
+#### Running fuzz targets locally
+
+```bash
+# List available targets for a crate
+cd crates/validation
+cargo fuzz list
+
+# Run a specific target for 60 seconds
+cargo fuzz run fuzz_email -- -max_total_time=60
+
+# Run with a specific corpus directory
+cargo fuzz run fuzz_email fuzz/corpus/fuzz_email/ -- -max_total_time=60
+```
+
+#### Fuzz target crates
+
+| Crate | Targets | Focus |
+|---|---|---|
+| `walrs_validation` | `fuzz_email`, `fuzz_url`, `fuzz_ip`, `fuzz_hostname`, `fuzz_date`, `fuzz_rule_composition` | String parsers, rule composition |
+| `walrs_filter` | `fuzz_strip_tags`, `fuzz_slug`, `fuzz_filter_op_string` | HTML sanitization, slug generation, filter chains |
+| `walrs_fieldfilter` | `fuzz_field_string_clean`, `fuzz_fieldfilter_validate` | Field validation pipelines, multi-field validation |
+
+#### CI integration
+
+- **Per-PR smoke runs**: Every PR touching validation/filter/fieldfilter crates triggers 60-second fuzz runs per target.
+- **Scheduled deep runs**: Weekly 30-minute runs per target on Mondays at 3 AM UTC (also manually triggerable).
+- Crash artifacts are uploaded on failure for investigation.
+
 ## License
 
 [Elastic License 2.0 (ELv2)](./LICENSE)
