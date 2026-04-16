@@ -38,9 +38,25 @@ impl From<String> for GenericSymbol {
   }
 }
 
-/// `SymbolGraph` A Directed Acyclic Graph (B-DAG) data structure.
-/// ```rust
-/// // @todo
+/// An undirected symbol graph that maps named symbols to graph vertex indices.
+///
+/// `SymbolGraph` wraps a [`Graph`] and associates each vertex with a typed symbol `T`.
+/// Symbols are deduplicated on insertion: adding the same symbol twice returns its existing index.
+///
+/// # Examples
+///
+/// ```
+/// use walrs_graph::{SymbolGraph, GenericSymbol};
+///
+/// let mut sg: SymbolGraph<GenericSymbol> = SymbolGraph::new();
+/// sg.add_edge("A".to_string().into(), Some(vec!["B".to_string().into()])).unwrap();
+/// sg.add_edge("B".to_string().into(), Some(vec!["C".to_string().into()])).unwrap();
+///
+/// assert_eq!(sg.vert_count(), 3);
+/// assert!(sg.contains("A"));
+/// assert!(sg.contains("B"));
+/// assert!(sg.contains("C"));
+/// assert!(!sg.contains("D"));
 /// ```
 #[derive(Debug)]
 pub struct SymbolGraph<T>
@@ -53,6 +69,15 @@ where
 
 /// @todo Methods here should take an `&T` instead of an `&str` when working with vertices,
 ///   since vertices here are actually `T` - Makes methods more straight forward.
+impl<T> Default for SymbolGraph<T>
+where
+  T: Symbol,
+{
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl<T> SymbolGraph<T>
 where
   T: Symbol,
@@ -290,7 +315,41 @@ mod test {
   }
 
   #[test]
-  pub fn test_symbol_graph_builder_from_buf_reader() {}
+  pub fn test_symbol_graph_builder_from_buf_reader() {
+    use crate::graph::symbol_graph::SymbolGraph;
+    use crate::graph::GenericSymbol;
+    use std::fs::File;
+    use std::io::BufReader;
+
+    let f = File::open("./test-fixtures/acl_roles_symbol_graph.txt").unwrap();
+    let mut reader = BufReader::new(f);
+    let sg: SymbolGraph<GenericSymbol> = (&mut reader).try_into().unwrap();
+
+    // Verify vertex count matches unique symbols in fixture
+    assert!(sg.vert_count() > 0, "Symbol graph should have vertices");
+
+    // Verify known symbols from the fixture are present
+    assert!(sg.contains("guest"), "Should contain 'guest'");
+    assert!(sg.contains("user"), "Should contain 'user'");
+    assert!(sg.contains("tester"), "Should contain 'tester'");
+    assert!(sg.contains("developer"), "Should contain 'developer'");
+    assert!(sg.contains("editor"), "Should contain 'editor'");
+    assert!(sg.contains("publisher"), "Should contain 'publisher'");
+
+    // Verify known edges
+    let user_adj = sg.adj("user").unwrap();
+    let user_adj_ids: Vec<String> = user_adj.iter().map(|s| s.id()).collect();
+    assert!(
+      user_adj_ids.contains(&"guest".to_string()),
+      "user should be adjacent to guest"
+    );
+
+    // Verify non-existent symbol
+    assert!(!sg.contains("nonexistent"));
+
+    // Verify edge count is positive
+    assert!(sg.edge_count() > 0, "Should have edges");
+  }
 
   #[test]
   pub fn test_add_edge() -> Result<(), String> {
@@ -351,5 +410,98 @@ mod test {
     // println!("{:?}", &graph);
 
     Ok(())
+  }
+
+  #[test]
+  pub fn test_default() {
+    let sg: SymbolGraph<String> = SymbolGraph::default();
+    assert_eq!(sg.vert_count(), 0);
+    assert_eq!(sg.edge_count(), 0);
+  }
+
+  #[test]
+  pub fn test_adj_indices() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    sg.add_edge("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
+      .unwrap();
+
+    let indices = sg.adj_indices("a").unwrap();
+    assert_eq!(indices.len(), 2);
+
+    // Non-existent symbol
+    let err = sg.adj_indices("z");
+    assert!(err.is_err());
+  }
+
+  #[test]
+  pub fn test_adj_nonexistent() {
+    let sg: SymbolGraph<String> = SymbolGraph::new();
+    assert!(sg.adj("nonexistent").is_err());
+  }
+
+  #[test]
+  pub fn test_degree() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    sg.add_edge("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
+      .unwrap();
+
+    assert_eq!(sg.degree("a").unwrap(), 2);
+    assert_eq!(sg.degree("b").unwrap(), 1);
+    assert!(sg.degree("nonexistent").is_err());
+  }
+
+  #[test]
+  pub fn test_indices() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    sg.add_vertex("x".to_string());
+    sg.add_vertex("y".to_string());
+    sg.add_vertex("z".to_string());
+
+    let indices = sg.indices(&["x", "z", "missing"]);
+    assert_eq!(indices.len(), 2); // "missing" is skipped
+    assert_eq!(indices[0], sg.index("x").unwrap());
+    assert_eq!(indices[1], sg.index("z").unwrap());
+  }
+
+  #[test]
+  pub fn test_name_and_names() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    sg.add_vertex("alpha".to_string());
+    sg.add_vertex("beta".to_string());
+
+    assert_eq!(sg.name(0).unwrap().as_ref(), "alpha");
+    assert_eq!(sg.name(1).unwrap().as_ref(), "beta");
+    assert!(sg.name(99).is_none());
+
+    let names = sg.names(&[0, 1, 99]);
+    assert_eq!(names.len(), 2); // 99 is skipped
+    assert_eq!(names[0].as_ref(), "alpha");
+    assert_eq!(names[1].as_ref(), "beta");
+  }
+
+  #[test]
+  pub fn test_generic_symbol_from_str() {
+    use crate::graph::GenericSymbol;
+    use std::str::FromStr;
+
+    let gs = GenericSymbol::from_str("hello").unwrap();
+    assert_eq!(gs.id(), "hello");
+  }
+
+  #[test]
+  pub fn test_add_vertex_dedup() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    let i1 = sg.add_vertex("a".to_string());
+    let i2 = sg.add_vertex("a".to_string());
+    assert_eq!(i1, i2);
+    assert_eq!(sg.vert_count(), 1);
+  }
+
+  #[test]
+  pub fn test_add_edge_no_weights() {
+    let mut sg: SymbolGraph<String> = SymbolGraph::new();
+    sg.add_edge("a".to_string(), None).unwrap();
+    assert_eq!(sg.vert_count(), 1);
+    assert_eq!(sg.edge_count(), 0);
   }
 }

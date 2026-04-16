@@ -1,3 +1,4 @@
+#[allow(clippy::module_inception)]
 pub mod graph;
 pub mod shared_utils;
 pub mod single_source_dfs;

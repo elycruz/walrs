@@ -21,15 +21,79 @@ pub fn extract_vert_and_edge_counts_from_bufreader<R: std::io::Read>(
   // Extract vertices count
   reader
     .read_line(&mut s)
-    .expect("Unable to read \"vertex count\" line from buffer");
-  let vertices_count = s.trim().parse::<usize>().unwrap();
+    .map_err(|e| format!("Unable to read \"vertex count\" line from buffer: {}", e))?;
+  let vertices_count = s
+    .trim()
+    .parse::<usize>()
+    .map_err(|e| format!("Failed to parse vertex count \"{}\": {}", s.trim(), e))?;
   s.clear();
 
   // Edge count currently, not required
   reader
     .read_line(&mut s)
-    .expect("Unable to read \"edge count\" line  from buffer");
-  let edges_count = s.trim().parse::<usize>().unwrap();
+    .map_err(|e| format!("Unable to read \"edge count\" line from buffer: {}", e))?;
+  let edges_count = s
+    .trim()
+    .parse::<usize>()
+    .map_err(|e| format!("Failed to parse edge count \"{}\": {}", s.trim(), e))?;
 
   Ok((vertices_count, edges_count))
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+
+  #[test]
+  fn test_extract_valid_counts() {
+    let data = b"13\n13\n0 5\n";
+    let mut reader = BufReader::new(&data[..]);
+    let (verts, edges) = extract_vert_and_edge_counts_from_bufreader(&mut reader).unwrap();
+    assert_eq!(verts, 13);
+    assert_eq!(edges, 13);
+  }
+
+  #[test]
+  fn test_extract_malformed_vertex_line() {
+    let data = b"abc\n10\n";
+    let mut reader = BufReader::new(&data[..]);
+    let result = extract_vert_and_edge_counts_from_bufreader(&mut reader);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Failed to parse vertex count"));
+  }
+
+  #[test]
+  fn test_extract_malformed_edge_line() {
+    let data = b"10\nxyz\n";
+    let mut reader = BufReader::new(&data[..]);
+    let result = extract_vert_and_edge_counts_from_bufreader(&mut reader);
+    assert!(result.is_err());
+    assert!(result.unwrap_err().contains("Failed to parse edge count"));
+  }
+
+  #[test]
+  fn test_extract_empty_input() {
+    let data = b"";
+    let mut reader = BufReader::new(&data[..]);
+    let result = extract_vert_and_edge_counts_from_bufreader(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_extract_single_line_only() {
+    let data = b"5\n";
+    let mut reader = BufReader::new(&data[..]);
+    let result = extract_vert_and_edge_counts_from_bufreader(&mut reader);
+    // Second line is empty → parse error
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_extract_with_whitespace() {
+    let data = b"  7  \n  3  \n";
+    let mut reader = BufReader::new(&data[..]);
+    let (verts, edges) = extract_vert_and_edge_counts_from_bufreader(&mut reader).unwrap();
+    assert_eq!(verts, 7);
+    assert_eq!(edges, 3);
+  }
 }
