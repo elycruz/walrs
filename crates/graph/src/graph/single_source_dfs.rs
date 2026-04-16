@@ -57,7 +57,7 @@ impl<'a> DFS<'a> {
   }
 
   /// Runs 'depth-first-search' algorithm on contained graph and stores results on `self`.
-  pub fn dfs(&mut self, v: usize) -> &Self {
+  fn dfs(&mut self, v: usize) -> &Self {
     if let Err(err) = self._graph.validate_vertex(v) {
       panic!("{}", err);
     }
@@ -93,10 +93,26 @@ impl<'a> DFS<'a> {
     self._count
   }
 
+  /// Returns `true` if vertex `i` is reachable from the source vertex,
+  /// or `false` if `i` is out of range or not reachable.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use walrs_graph::{Graph, DFS};
+  ///
+  /// let mut g = Graph::new(3);
+  /// g.add_edge(0, 1).unwrap();
+  ///
+  /// let dfs = DFS::new(&g, 0);
+  /// assert!(dfs.marked(0));
+  /// assert!(dfs.marked(1));
+  /// assert!(!dfs.marked(2));
+  /// assert!(!dfs.marked(99)); // Out-of-range returns false
+  /// ```
   pub fn marked(&self, i: usize) -> bool {
     if i >= self._marked.len() {
-      // @todo shouldn't 'panic!' here
-      panic!("{} is out of range", i);
+      return false;
     }
     self._marked[i]
   }
@@ -194,5 +210,119 @@ mod test {
     println!("{:?}", &_dfs.has_path_to(3));
 
     Ok(())
+  }
+
+  #[test]
+  pub fn test_dfs_disconnected_graph() {
+    // Two components: {0-1-2} and {3-4}
+    let mut g = Graph::new(5);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+    g.add_edge(3, 4).unwrap();
+
+    let dfs = DFS::new(&g, 0);
+    assert!(dfs.marked(0));
+    assert!(dfs.marked(1));
+    assert!(dfs.marked(2));
+    assert!(!dfs.marked(3), "Vertex 3 is in a different component");
+    assert!(!dfs.marked(4), "Vertex 4 is in a different component");
+    assert_eq!(dfs.count(), 3);
+  }
+
+  #[test]
+  pub fn test_dfs_single_vertex() {
+    let g = Graph::new(1);
+    let dfs = DFS::new(&g, 0);
+    assert!(dfs.marked(0));
+    assert_eq!(dfs.count(), 1);
+    assert_eq!(dfs.source_vertex(), 0);
+  }
+
+  #[test]
+  pub fn test_dfs_isolated_vertices() {
+    let g = Graph::new(5);
+    // No edges — all vertices isolated
+    let dfs = DFS::new(&g, 2);
+    assert!(dfs.marked(2));
+    assert!(!dfs.marked(0));
+    assert!(!dfs.marked(1));
+    assert!(!dfs.marked(3));
+    assert!(!dfs.marked(4));
+    assert_eq!(dfs.count(), 1);
+  }
+
+  #[test]
+  pub fn test_dfs_marked_out_of_range() {
+    let g = Graph::new(3);
+    let dfs = DFS::new(&g, 0);
+    // Out-of-range should return false, not panic
+    assert!(!dfs.marked(3));
+    assert!(!dfs.marked(99));
+    assert!(!dfs.marked(usize::MAX));
+  }
+
+  #[test]
+  pub fn test_dfs_path_to_direct() {
+    let mut g = Graph::new(4);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+    g.add_edge(2, 3).unwrap();
+
+    let dfs = DFS::new(&g, 0);
+
+    // Path to source is just the source
+    let path_to_source = dfs.path_to(0).unwrap();
+    assert_eq!(path_to_source, vec![0]);
+
+    // Path to 3 should end at source 0
+    let path = dfs.path_to(3).unwrap();
+    assert_eq!(*path.last().unwrap(), 0);
+    assert_eq!(*path.first().unwrap(), 3);
+  }
+
+  #[test]
+  pub fn test_dfs_path_to_unreachable() {
+    let mut g = Graph::new(4);
+    g.add_edge(0, 1).unwrap();
+    // Vertices 2 and 3 are isolated
+
+    let dfs = DFS::new(&g, 0);
+    assert_eq!(dfs.path_to(2), None);
+    assert_eq!(dfs.path_to(3), None);
+  }
+
+  #[test]
+  pub fn test_dfs_has_path_to() {
+    let mut g = Graph::new(5);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+
+    let dfs = DFS::new(&g, 0);
+    assert!(dfs.has_path_to(0));
+    assert!(dfs.has_path_to(1));
+    assert!(dfs.has_path_to(2));
+    assert!(!dfs.has_path_to(3));
+    assert!(!dfs.has_path_to(4));
+    // Out-of-range
+    assert!(!dfs.has_path_to(99));
+  }
+
+  #[test]
+  pub fn test_dfs_graph_accessor() {
+    let mut g = Graph::new(3);
+    g.add_edge(0, 1).unwrap();
+    let dfs = DFS::new(&g, 0);
+    assert_eq!(dfs.graph().vert_count(), 3);
+  }
+
+  #[test]
+  pub fn test_dfs_count() {
+    let mut g = Graph::new(5);
+    g.add_edge(0, 1).unwrap();
+    g.add_edge(1, 2).unwrap();
+    // Vertices 3 and 4 are isolated
+
+    let dfs = DFS::new(&g, 0);
+    assert_eq!(dfs.count(), 3); // 0, 1, 2 are reachable
   }
 }
