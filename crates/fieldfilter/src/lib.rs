@@ -5,7 +5,7 @@
 //! This crate provides:
 //!
 //! - [`Fieldset`] - Typed struct validation and filtering (recommended for new code)
-//! - [`FieldsetAsync`] - Async version of `Fieldset` (behind `async` feature)
+//! - `FieldsetAsync` - Async version of `Fieldset` (behind `async` feature)
 //! - [`Field`] - Unified validation configuration
 //! - [`FieldFilter`] - Multi-field validation with cross-field rules
 //! - [`FilterOp`] - Serializable filter enum for value transformation (re-exported from `walrs_filter`)

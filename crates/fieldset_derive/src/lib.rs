@@ -115,13 +115,25 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
   // Generate FormData bridge impls if requested
   let into_form_data_impl = if struct_attrs.into_form_data {
-    gen_into_form_data(struct_name, &field_infos, &impl_generics, &ty_generics, where_clause)
+    gen_into_form_data(
+      struct_name,
+      &field_infos,
+      &impl_generics,
+      &ty_generics,
+      where_clause,
+    )
   } else {
     quote! {}
   };
 
   let try_from_form_data_impl = if struct_attrs.try_from_form_data {
-    gen_try_from_form_data(struct_name, &field_infos, &impl_generics, &ty_generics, where_clause)
+    gen_try_from_form_data(
+      struct_name,
+      &field_infos,
+      &impl_generics,
+      &ty_generics,
+      where_clause,
+    )
   } else {
     quote! {}
   };
