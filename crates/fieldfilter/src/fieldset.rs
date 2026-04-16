@@ -95,7 +95,7 @@ pub trait FieldsetAsync: Fieldset + Send {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use walrs_validation::{Violation, ViolationType, Violations};
+  use walrs_validation::{Violation, ViolationType};
 
   // --- Test struct ---
 
