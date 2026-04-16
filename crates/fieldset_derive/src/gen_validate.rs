@@ -62,6 +62,7 @@ fn gen_field_validate(field: &FieldInfo, struct_break: bool) -> TokenStream {
   if rules.is_none() {
     return quote! {};
   }
+  // SAFETY: `rules` is checked for `None` above
   let rule_expr = rules.unwrap();
 
   match &field.ty {
@@ -278,6 +279,7 @@ fn build_rules(field: &FieldInfo) -> Option<TokenStream> {
     .collect();
 
   let base_rule = if individual_rules.len() == 1 {
+    // SAFETY: length checked to be exactly 1
     individual_rules.into_iter().next().unwrap()
   } else {
     quote! {
@@ -319,9 +321,11 @@ fn attr_to_rule_token(attr: &ValidateAttr, rule_type: &TokenStream) -> TokenStre
       quote! { walrs_validation::Rule::<#rule_type>::Hostname(::core::default::Default::default()) }
     }
     ValidateAttr::Pattern(pat) => {
+      // Pattern is validated at macro expansion time in parse.rs
       quote! {
         walrs_validation::Rule::<#rule_type>::Pattern(
-          walrs_validation::CompiledPattern::try_from(#pat).unwrap()
+          walrs_validation::CompiledPattern::try_from(#pat)
+            .expect("regex validated at macro expansion time")
         )
       }
     }
