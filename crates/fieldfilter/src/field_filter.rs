@@ -5,7 +5,7 @@
 //! conditional requirements, and mutual exclusivity.
 
 use crate::field::Field;
-use crate::form_violations::FormViolations;
+use walrs_validation::FieldsetViolations;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
@@ -87,7 +87,7 @@ impl FieldFilter {
 
   /// Validates form data against all fields and cross-field rules.
   ///
-  /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
+  /// Returns `Ok(())` if all validation passes, or `Err(FieldsetViolations)` with
   /// the collected field- and form-level violations.
   ///
   /// **Missing fields are treated as `Value::Null`.**  If `data` does not
@@ -98,7 +98,7 @@ impl FieldFilter {
   /// If a field has `break_on_failure` set to `true` and fails validation,
   /// the method returns immediately with the violations collected so far,
   /// without checking the remaining fields or any cross-field rules. In that
-  /// case, the returned `FormViolations` is a partial result and does not
+  /// case, the returned `FieldsetViolations` is a partial result and does not
   /// contain violations from fields or cross-field rules that were not
   /// evaluated before the early exit.
   ///
@@ -106,9 +106,9 @@ impl FieldFilter {
   /// order. When `break_on_failure = true`, the "first" field that triggers an
   /// early return is deterministic and corresponds to the order in which fields
   /// were added.
-  pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
+  pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FieldsetViolations> {
     let null = Value::Null;
-    let mut violations = FormViolations::new();
+    let mut violations = FieldsetViolations::new();
 
     // Validate individual fields.
     // Missing fields are treated as `Value::Null`, which causes `Rule::Required`
@@ -116,7 +116,7 @@ impl FieldFilter {
     for (field_name, field) in &self.fields {
       let value = data.get(field_name).unwrap_or(&null);
       if let Err(field_violations) = field.validate_ref(value) {
-        violations.add_field_violations(field_name, field_violations);
+        violations.add_many(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
         }
@@ -169,14 +169,14 @@ impl FieldFilter {
 
   /// Applies fallible filters to all field values in the data.
   ///
-  /// Returns `Ok(data)` with filtered values, or `Err(FormViolations)` if
+  /// Returns `Ok(data)` with filtered values, or `Err(FieldsetViolations)` if
   /// any fallible filter fails. Short-circuits on fields with `break_on_failure`.
   pub fn try_filter(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let mut result = data;
-    let mut violations = FormViolations::new();
+    let mut violations = FieldsetViolations::new();
 
     for (field_name, field) in &self.fields {
       if let Some(slot) = result.get_mut(field_name) {
@@ -186,7 +186,7 @@ impl FieldFilter {
             *slot = filtered;
           }
           Err(field_violations) => {
-            violations.add_field_violations(field_name, field_violations);
+            violations.add_many(field_name, field_violations);
             if field.break_on_failure {
               return Err(violations);
             }
@@ -206,7 +206,7 @@ impl FieldFilter {
   pub fn clean(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let filtered = self.filter(data);
     let filtered = self.try_filter(filtered)?;
     self.validate(&filtered)?;
@@ -581,14 +581,14 @@ impl FieldFilter {
   ///
   /// Works like [`validate`](Self::validate) but supports `Rule::CustomAsync`
   /// in field rules and `CrossFieldRuleType::CustomAsync` in cross-field rules.
-  pub async fn validate_async(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
-    let mut violations = FormViolations::new();
+  pub async fn validate_async(&self, data: &IndexMap<String, Value>) -> Result<(), FieldsetViolations> {
+    let mut violations = FieldsetViolations::new();
 
     // Validate individual fields (async)
     for (field_name, field) in &self.fields {
       let value = data.get(field_name).cloned().unwrap_or(Value::Null);
       if let Err(field_violations) = field.validate_ref_async(&value).await {
-        violations.add_field_violations(field_name, field_violations);
+        violations.add_many(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
         }
@@ -615,7 +615,7 @@ impl FieldFilter {
   pub async fn clean_async(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let filtered = self.filter(data);
     let filtered = self.try_filter(filtered)?;
     self.validate_async(&filtered).await?;
@@ -854,8 +854,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_some());
-    assert!(violations.form.is_empty());
+    assert!(violations.get("email").is_some());
+    assert!(violations.form_violations().is_none());
 
     let data = make_data(&[
       ("email", Value::Str("test@example.com".to_string())),
@@ -865,8 +865,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_none());
-    assert!(!violations.form.is_empty());
+    assert!(violations.get("email").is_none());
+    assert!(violations.form_violations().is_some());
   }
 
   // ====================================================================
@@ -920,7 +920,7 @@ mod tests {
 
     let data = make_data(&[("encoded", Value::Str("bad\0input".to_string()))]);
     let err = filter.try_filter(data).unwrap_err();
-    assert!(err.for_field("encoded").is_some());
+    assert!(err.get("encoded").is_some());
   }
 
   #[test]
@@ -954,8 +954,8 @@ mod tests {
       ("second", Value::Str("b".to_string())),
     ]);
     let err = filter.try_filter(data).unwrap_err();
-    assert!(err.for_field("first").is_some());
-    assert!(err.for_field("second").is_none());
+    assert!(err.get("first").is_some());
+    assert!(err.get("second").is_none());
   }
 
   #[test]
@@ -1094,7 +1094,7 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("required_field").is_some());
+    assert!(violations.get("required_field").is_some());
   }
 
   #[test]
@@ -1157,8 +1157,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(!violations.form.is_empty());
-    assert!(violations.form[0].message().contains("shipping_address"));
+    assert!(violations.form_violations().is_some());
+    assert!(violations.form_violations().unwrap()[0].message().contains("shipping_address"));
   }
 
   #[test]
@@ -1300,8 +1300,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(!violations.form.is_empty());
-    assert!(violations.form[0].message().contains("email"));
+    assert!(violations.form_violations().is_some());
+    assert!(violations.form_violations().unwrap()[0].message().contains("email"));
   }
 
   #[test]

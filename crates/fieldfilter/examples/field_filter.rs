@@ -1,4 +1,3 @@
-#![allow(deprecated)]
 //! FieldFilter example for multi-field validation.
 //!
 //! This example demonstrates how to use `FieldFilter` for validating
@@ -213,17 +212,19 @@ fn make_data(pairs: &[(&str, &str)]) -> IndexMap<String, Value> {
     .collect()
 }
 
-fn print_violations(violations: &walrs_fieldfilter::FormViolations) {
+fn print_violations(violations: &walrs_validation::FieldsetViolations) {
   println!("   ✗ Validation failed:");
-  for field_name in violations.field_names() {
-    if let Some(field_violations) = violations.for_field(field_name) {
+  for field_name in violations.fields() {
+    if let Some(field_violations) = violations.get(field_name) {
       for v in field_violations.iter() {
         println!("      - {}: {}", field_name, v.message());
       }
     }
   }
-  for v in violations.form.iter() {
-    println!("      - [form]: {}", v.message());
+  if let Some(form_viols) = violations.form_violations() {
+    for v in form_viols.iter() {
+      println!("      - [form]: {}", v.message());
+    }
   }
   println!();
 }

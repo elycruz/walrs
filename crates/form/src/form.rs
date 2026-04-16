@@ -4,8 +4,8 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_fieldfilter::{FieldFilter, FormViolations};
-use walrs_validation::Attributes;
+use walrs_fieldfilter::FieldFilter;
+use walrs_validation::{Attributes, FieldsetViolations};
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FormMethod {
@@ -95,11 +95,11 @@ impl Form {
       _ => {}
     }
   }
-  pub fn validate(&self, data: &FormData) -> Result<(), FormViolations> {
+  pub fn validate(&self, data: &FormData) -> Result<(), FieldsetViolations> {
     if let Some(ref filter) = self.field_filter {
       filter.validate(data.as_inner())
     } else {
-      let mut violations = FormViolations::new();
+      let mut violations = FieldsetViolations::new();
       if let Some(ref elements) = self.elements {
         Self::validate_recursive(elements, data, &mut violations);
       }
@@ -113,7 +113,7 @@ impl Form {
   fn validate_recursive(
     elements: &[Element],
     data: &FormData,
-    violations: &mut FormViolations,
+    violations: &mut FieldsetViolations,
   ) {
     for element in elements {
       match element {
@@ -135,7 +135,7 @@ impl Form {
               _ => Ok(()),
             };
             if let Err(field_violations) = result {
-              violations.add_field_violations(name, field_violations);
+              violations.add_many(name, field_violations);
             }
           }
         }
