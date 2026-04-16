@@ -1,0 +1,37 @@
+[package]
+name = "walrs-filter-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.walrs_filter]
+path = ".."
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fuzz_strip_tags"
+path = "fuzz_targets/fuzz_strip_tags.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_slug"
+path = "fuzz_targets/fuzz_slug.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_filter_op_string"
+path = "fuzz_targets/fuzz_filter_op_string.rs"
+doc = false
