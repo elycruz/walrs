@@ -27,3 +27,7 @@ default = ["std"]
 std = []
 wasm = []
 
+[dev-dependencies]
+walrs_fieldfilter = { path = "../fieldfilter", features = ["derive"] }
+walrs_fieldset_derive = { path = "../fieldset_derive" }
+

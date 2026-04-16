@@ -1,4 +1,5 @@
 mod gen_filter;
+mod gen_form_data;
 mod gen_validate;
 mod parse;
 
@@ -7,6 +8,7 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields, parse_macro_input};
 
 use gen_filter::gen_filter;
+use gen_form_data::{gen_into_form_data, gen_try_from_form_data};
 use gen_validate::gen_validate;
 use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_attrs};
 
@@ -17,6 +19,8 @@ use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_
 /// ## Struct-level
 ///
 /// - `#[fieldset(break_on_failure)]` — stop validation after the first field with violations
+/// - `#[fieldset(into_form_data)]` — generate `impl From<&T> for walrs_form::FormData`
+/// - `#[fieldset(try_from_form_data)]` — generate `impl TryFrom<walrs_form::FormData> for T`
 /// - `#[cross_validate(fn_name)]` — call `fn_name(&self) -> RuleResult` after per-field validation
 ///
 /// ## Field-level validation (`#[validate(...)]`)
@@ -106,6 +110,19 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
   );
   let filter_fn = gen_filter(&field_infos);
 
+  // Generate FormData bridge impls if requested
+  let into_form_data_impl = if struct_attrs.into_form_data {
+    gen_into_form_data(struct_name, &field_infos, &impl_generics, &ty_generics, where_clause)
+  } else {
+    quote! {}
+  };
+
+  let try_from_form_data_impl = if struct_attrs.try_from_form_data {
+    gen_try_from_form_data(struct_name, &field_infos, &impl_generics, &ty_generics, where_clause)
+  } else {
+    quote! {}
+  };
+
   Ok(quote! {
     impl #impl_generics walrs_fieldfilter::Fieldset for #struct_name #ty_generics #where_clause {
       const BREAK_ON_FAILURE: bool = #break_on_failure;
@@ -113,5 +130,8 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
       #validate_fn
       #filter_fn
     }
+
+    #into_form_data_impl
+    #try_from_form_data_impl
   })
 }
