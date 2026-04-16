@@ -314,7 +314,7 @@ mod tests {
     let inner_rule = Rule::<String>::MinLength(5);
     let rule = Rule::WithMessage {
       rule: Box::new(inner_rule),
-      message: Message::Static("Custom message.".to_string()),
+      message: Some(Message::Static("Custom message.".to_string())),
       locale: None,
     };
     let attrs = rule.to_attributes_list().unwrap();

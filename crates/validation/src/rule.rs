@@ -372,8 +372,8 @@ pub enum Rule<T> {
   WithMessage {
     /// The wrapped rule
     rule: Box<Rule<T>>,
-    /// The custom message to use on failure
-    message: Message<T>,
+    /// The custom message to use on failure (None = pass through inner message)
+    message: Option<Message<T>>,
     /// Optional locale for i18n support (e.g., "es", "en-US", "fr", etc.)
     locale: Option<String>,
   },
@@ -695,7 +695,7 @@ impl<T> Rule<T> {
   pub fn with_message(self, msg: impl Into<String>) -> Rule<T> {
     Rule::WithMessage {
       rule: Box::new(self),
-      message: Message::Static(msg.into()),
+      message: Some(Message::Static(msg.into())),
       locale: None,
     }
   }
@@ -728,7 +728,7 @@ impl<T> Rule<T> {
   {
     Rule::WithMessage {
       rule: Box::new(self),
-      message: Message::Provider(Arc::new(f)),
+      message: Some(Message::Provider(Arc::new(f))),
       locale: locale.map(String::from),
     }
   }
@@ -736,7 +736,7 @@ impl<T> Rule<T> {
   /// Attaches a locale to this rule for internationalized error messages.
   ///
   /// If this rule is already a `WithMessage` variant, updates its locale.
-  /// Otherwise wraps the rule in a `WithMessage` with an empty static message
+  /// Otherwise wraps the rule in a `WithMessage` with `None` message
   /// (which will pass through the inner rule's violation message) and the given locale.
   ///
   /// # Example
@@ -763,7 +763,7 @@ impl<T> Rule<T> {
       },
       other => Rule::WithMessage {
         rule: Box::new(other),
-        message: Message::Static(String::new()),
+        message: None,
         locale: Some(locale_str),
       },
     }
@@ -1061,7 +1061,7 @@ mod tests {
         locale,
       } => {
         assert_eq!(*inner, Rule::MinLength(8));
-        assert_eq!(message, Message::from("Password too short."));
+        assert_eq!(message, Some(Message::from("Password too short.")));
         assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
@@ -1080,8 +1080,8 @@ mod tests {
         locale,
       } => {
         assert_eq!(*inner, Rule::Min(0));
-        assert!(message.is_provider());
-        assert_eq!(message.resolve(&-5, None), "Got -5, expected >= 0.");
+        assert!(message.as_ref().unwrap().is_provider());
+        assert_eq!(message.as_ref().unwrap().resolve(&-5, None), "Got -5, expected >= 0.");
         assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
@@ -1126,7 +1126,7 @@ mod tests {
           _ => panic!("Expected Rule::All inside WithMessage"),
         }
         assert_eq!(
-          message.resolve(&"".to_string(), None),
+          message.as_ref().unwrap().resolve(&"".to_string(), None),
           "Length must be between 3 and 10."
         );
         assert_eq!(locale, None);
