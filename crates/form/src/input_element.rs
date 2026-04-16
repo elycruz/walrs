@@ -186,7 +186,12 @@ mod async_tests {
   #[tokio::test]
   async fn test_validate_value_async_without_field() {
     let input = InputElement::new("test", InputType::Text);
-    assert!(input.validate_value_async(&Value::from("hello")).await.is_ok());
+    assert!(
+      input
+        .validate_value_async(&Value::from("hello"))
+        .await
+        .is_ok()
+    );
   }
 
   #[tokio::test]

@@ -213,7 +213,12 @@ mod async_tests {
   #[tokio::test]
   async fn test_validate_value_async_without_field() {
     let select = SelectElement::new("test");
-    assert!(select.validate_value_async(&Value::from("value")).await.is_ok());
+    assert!(
+      select
+        .validate_value_async(&Value::from("value"))
+        .await
+        .is_ok()
+    );
   }
 
   #[tokio::test]

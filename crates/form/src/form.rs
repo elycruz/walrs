@@ -4,9 +4,9 @@ use crate::form_data::FormData;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
-use walrs_fieldfilter::{FieldFilter, FormViolations};
 #[cfg(feature = "async")]
 use walrs_fieldfilter::IndexMap;
+use walrs_fieldfilter::{FieldFilter, FormViolations};
 use walrs_validation::Attributes;
 #[cfg(feature = "async")]
 use walrs_validation::Value;
@@ -114,11 +114,7 @@ impl Form {
       }
     }
   }
-  fn validate_recursive(
-    elements: &[Element],
-    data: &FormData,
-    violations: &mut FormViolations,
-  ) {
+  fn validate_recursive(elements: &[Element], data: &FormData, violations: &mut FormViolations) {
     for element in elements {
       match element {
         Element::Fieldset(fs) => {
@@ -186,12 +182,12 @@ impl Form {
     }
   }
 
-  /// Validates and processes form data asynchronously.
+  /// Cleans (filters + validates) form data asynchronously.
   ///
   /// When a `field_filter` is set, delegates to
   /// [`FieldFilter::clean_async`] (sync filter + async validate).
   /// Otherwise, validates asynchronously and returns the data.
-  pub async fn process_async(
+  pub async fn clean_async(
     &self,
     data: &FormData,
   ) -> Result<IndexMap<String, Value>, FormViolations> {
@@ -312,12 +308,8 @@ mod tests {
     data.insert("deep_field", Value::Str("deep_value".to_string()));
     form.bind_data(data);
     if let Some(Element::Fieldset(outer)) = form.elements.as_ref().and_then(|e| e.first()) {
-      if let Some(Element::Fieldset(inner)) =
-        outer.elements.as_ref().and_then(|e| e.first())
-      {
-        if let Some(Element::Input(input)) =
-          inner.elements.as_ref().and_then(|e| e.first())
-        {
+      if let Some(Element::Fieldset(inner)) = outer.elements.as_ref().and_then(|e| e.first()) {
+        if let Some(Element::Input(input)) = inner.elements.as_ref().and_then(|e| e.first()) {
           assert_eq!(input.value.as_ref().unwrap().as_str(), Some("deep_value"));
         } else {
           panic!("Expected Input element");
@@ -459,7 +451,7 @@ mod async_tests {
   }
 
   #[tokio::test]
-  async fn test_process_async() {
+  async fn test_clean_async() {
     let mut form = Form::new("test");
     let mut input = InputElement::new("name", InputType::Text);
     input.field = Some(
@@ -472,23 +464,20 @@ mod async_tests {
 
     // Invalid - should fail
     let data = FormData::new();
-    let result = form.process_async(&data).await;
+    let result = form.clean_async(&data).await;
     assert!(result.is_err());
 
     // Valid - should return data
     let mut data = FormData::new();
     data.insert("name", Value::Str("Alice".to_string()));
-    let result = form.process_async(&data).await;
+    let result = form.clean_async(&data).await;
     assert!(result.is_ok());
     let processed = result.unwrap();
-    assert_eq!(
-      processed.get("name").unwrap().as_str(),
-      Some("Alice")
-    );
+    assert_eq!(processed.get("name").unwrap().as_str(), Some("Alice"));
   }
 
   #[tokio::test]
-  async fn test_process_async_with_field_filter() {
+  async fn test_clean_async_with_field_filter() {
     let mut filter = FieldFilter::default();
     filter.fields.insert(
       "name".to_string(),
@@ -503,19 +492,16 @@ mod async_tests {
 
     // Invalid - should fail
     let data = FormData::new();
-    let result = form.process_async(&data).await;
+    let result = form.clean_async(&data).await;
     assert!(result.is_err());
 
     // Valid - should return filtered data
     let mut data = FormData::new();
     data.insert("name", Value::Str("Bob".to_string()));
-    let result = form.process_async(&data).await;
+    let result = form.clean_async(&data).await;
     assert!(result.is_ok());
     let processed = result.unwrap();
-    assert_eq!(
-      processed.get("name").unwrap().as_str(),
-      Some("Bob")
-    );
+    assert_eq!(processed.get("name").unwrap().as_str(), Some("Bob"));
   }
 
   #[tokio::test]

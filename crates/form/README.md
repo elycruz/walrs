@@ -98,7 +98,7 @@ Enable the `async` feature for async validation support:
 [dependencies]
 walrs_form = { path = "../form", features = ["async"] }
 ```
-This enables `validate_value_async` on `InputElement`, `SelectElement`, and `TextareaElement`, plus `Form::validate_async()` and `Form::process_async()`:
+This enables `validate_value_async` on `InputElement`, `SelectElement`, and `TextareaElement`, plus `Form::validate_async()` and `Form::clean_async()`:
 ```rust
 use walrs_form::{Form, InputElement, InputType, FormData, FieldBuilder};
 use walrs_validation::{Rule, Value};
@@ -120,8 +120,8 @@ data.insert("email", Value::from("user@example.com"));
 let result = form.validate_async(&data).await;
 assert!(result.is_ok());
 
-// Async process (validate + return data)
-let processed = form.process_async(&data).await.unwrap();
+// Async clean (filter + validate + return data)
+let processed = form.clean_async(&data).await.unwrap();
 ```
 The async feature is runtime-agnostic (`std::future::Future` only). Filtering remains synchronous; only validation becomes async, following the pattern from `walrs_fieldfilter`.
 ## Architecture

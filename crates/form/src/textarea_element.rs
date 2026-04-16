@@ -192,7 +192,12 @@ mod async_tests {
   #[tokio::test]
   async fn test_validate_value_async_without_field() {
     let textarea = TextareaElement::new("test");
-    assert!(textarea.validate_value_async(&Value::from("text")).await.is_ok());
+    assert!(
+      textarea
+        .validate_value_async(&Value::from("text"))
+        .await
+        .is_ok()
+    );
   }
 
   #[tokio::test]
