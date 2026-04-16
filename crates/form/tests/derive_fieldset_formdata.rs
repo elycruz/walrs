@@ -2,7 +2,7 @@
 
 use walrs_fieldfilter::DeriveFieldset as Fieldset;
 use walrs_form::FormData;
-use walrs_validation::Value;
+use walrs_validation::{Value, ViolationType};
 
 #[derive(Debug, Fieldset, PartialEq)]
 #[fieldset(into_form_data, try_from_form_data)]
@@ -215,4 +215,169 @@ fn test_numeric_type_conversions() {
   assert_eq!(data.u64_val, restored.u64_val);
   assert!((data.f32_val - restored.f32_val).abs() < 0.0001);
   assert!((data.f64_val - restored.f64_val).abs() < 0.0001);
+}
+
+#[test]
+fn test_overflow_i8_produces_violation() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct SmallInts {
+    val_i8: i8,
+    val_u8: u8,
+  }
+
+  // 200 overflows i8 (max 127)
+  let mut form_data = FormData::new();
+  form_data.insert("val_i8", Value::I64(200));
+  form_data.insert("val_u8", Value::U64(10));
+
+  let result = SmallInts::try_from(form_data);
+  assert!(result.is_err());
+  let violations = result.unwrap_err();
+  let v = violations.get("val_i8").expect("should have val_i8 violation");
+  assert_eq!(v[0].violation_type(), ViolationType::TypeMismatch);
+}
+
+#[test]
+fn test_overflow_u8_produces_violation() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct SmallUints {
+    val: u8,
+  }
+
+  // 300 overflows u8 (max 255)
+  let mut form_data = FormData::new();
+  form_data.insert("val", Value::U64(300));
+
+  let result = SmallUints::try_from(form_data);
+  assert!(result.is_err());
+  let violations = result.unwrap_err();
+  let v = violations.get("val").expect("should have val violation");
+  assert_eq!(v[0].violation_type(), ViolationType::TypeMismatch);
+}
+
+#[test]
+fn test_negative_to_unsigned_produces_violation() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct UnsignedField {
+    val: u32,
+  }
+
+  let mut form_data = FormData::new();
+  form_data.insert("val", Value::I64(-5));
+
+  let result = UnsignedField::try_from(form_data);
+  assert!(result.is_err());
+}
+
+#[test]
+fn test_i128_u128_roundtrip() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct BigInts {
+    signed: i128,
+    unsigned: u128,
+  }
+
+  let original = BigInts {
+    signed: i128::MAX,
+    unsigned: u128::MAX,
+  };
+
+  let form_data = FormData::from(&original);
+
+  // Should be stored as strings
+  assert!(matches!(
+    form_data.get_direct("signed"),
+    Some(Value::Str(_))
+  ));
+  assert!(matches!(
+    form_data.get_direct("unsigned"),
+    Some(Value::Str(_))
+  ));
+
+  let restored = BigInts::try_from(form_data).expect("Should roundtrip successfully");
+  assert_eq!(original, restored);
+}
+
+#[test]
+fn test_option_i128_u128_roundtrip() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct OptBigInts {
+    signed: Option<i128>,
+    unsigned: Option<u128>,
+  }
+
+  let original = OptBigInts {
+    signed: Some(i128::MIN),
+    unsigned: Some(u128::MAX),
+  };
+
+  let form_data = FormData::from(&original);
+  let restored = OptBigInts::try_from(form_data).expect("Should roundtrip successfully");
+  assert_eq!(original, restored);
+
+  // Test None roundtrip
+  let none_data = OptBigInts {
+    signed: None,
+    unsigned: None,
+  };
+  let form_data = FormData::from(&none_data);
+  let restored = OptBigInts::try_from(form_data).expect("Should roundtrip None successfully");
+  assert_eq!(none_data, restored);
+}
+
+#[test]
+fn test_i128_invalid_string_produces_violation() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct I128Field {
+    val: i128,
+  }
+
+  let mut form_data = FormData::new();
+  form_data.insert("val", Value::Str("not_a_number".to_string()));
+
+  let result = I128Field::try_from(form_data);
+  assert!(result.is_err());
+  let violations = result.unwrap_err();
+  assert!(violations.get("val").is_some());
+}
+
+#[test]
+fn test_i128_from_i64_value() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct I128Field {
+    val: i128,
+  }
+
+  // i128 should also accept I64 values (widening)
+  let mut form_data = FormData::new();
+  form_data.insert("val", Value::I64(42));
+
+  let result = I128Field::try_from(form_data).expect("Should accept I64 for i128");
+  assert_eq!(result.val, 42i128);
+}
+
+#[test]
+fn test_option_overflow_i16_produces_violation() {
+  #[derive(Debug, Fieldset, PartialEq)]
+  #[fieldset(into_form_data, try_from_form_data)]
+  struct OptSmall {
+    val: Option<i16>,
+  }
+
+  // 40000 overflows i16 (max 32767)
+  let mut form_data = FormData::new();
+  form_data.insert("val", Value::I64(40000));
+
+  let result = OptSmall::try_from(form_data);
+  assert!(result.is_err());
+  let violations = result.unwrap_err();
+  let v = violations.get("val").expect("should have val violation");
+  assert_eq!(v[0].violation_type(), ViolationType::TypeMismatch);
 }

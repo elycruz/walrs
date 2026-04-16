@@ -40,7 +40,7 @@ pub fn gen_into_form_data(
               data.insert(#field_name_str, walrs_validation::Value::I64(value.#field_name as i64));
             },
             "i128" => quote! {
-              data.insert(#field_name_str, walrs_validation::Value::I64(value.#field_name as i64));
+              data.insert(#field_name_str, walrs_validation::Value::Str(value.#field_name.to_string()));
             },
             "u8" | "u16" | "u32" => quote! {
               data.insert(#field_name_str, walrs_validation::Value::U64(value.#field_name as u64));
@@ -49,7 +49,7 @@ pub fn gen_into_form_data(
               data.insert(#field_name_str, walrs_validation::Value::U64(value.#field_name as u64));
             },
             "u128" => quote! {
-              data.insert(#field_name_str, walrs_validation::Value::U64(value.#field_name as u64));
+              data.insert(#field_name_str, walrs_validation::Value::Str(value.#field_name.to_string()));
             },
             "f32" => quote! {
               data.insert(#field_name_str, walrs_validation::Value::F64(value.#field_name as f64));
@@ -86,16 +86,30 @@ pub fn gen_into_form_data(
         FieldType::OptionNumeric(num_type) => {
           let num_type_str = num_type.to_string();
           match num_type_str.as_str() {
-            "i8" | "i16" | "i32" | "i64" | "isize" | "i128" => quote! {
+            "i8" | "i16" | "i32" | "i64" | "isize" => quote! {
               if let Some(val) = value.#field_name {
                 data.insert(#field_name_str, walrs_validation::Value::I64(val as i64));
               } else {
                 data.insert(#field_name_str, walrs_validation::Value::Null);
               }
             },
-            "u8" | "u16" | "u32" | "u64" | "usize" | "u128" => quote! {
+            "i128" => quote! {
+              if let Some(val) = value.#field_name {
+                data.insert(#field_name_str, walrs_validation::Value::Str(val.to_string()));
+              } else {
+                data.insert(#field_name_str, walrs_validation::Value::Null);
+              }
+            },
+            "u8" | "u16" | "u32" | "u64" | "usize" => quote! {
               if let Some(val) = value.#field_name {
                 data.insert(#field_name_str, walrs_validation::Value::U64(val as u64));
+              } else {
+                data.insert(#field_name_str, walrs_validation::Value::Null);
+              }
+            },
+            "u128" => quote! {
+              if let Some(val) = value.#field_name {
+                data.insert(#field_name_str, walrs_validation::Value::Str(val.to_string()));
               } else {
                 data.insert(#field_name_str, walrs_validation::Value::Null);
               }
@@ -341,16 +355,27 @@ fn gen_numeric_extraction(
   };
 
   match num_type_str.as_str() {
-    "i8" | "i16" | "i32" | "i64" | "i128" | "isize" => {
+    "i128" => {
       if is_option {
         quote! {
           let #field_name = match data.get_direct(#field_name_str) {
-            Some(walrs_validation::Value::I64(n)) => {
-              Some(*n as #num_type)
+            Some(walrs_validation::Value::Str(s)) => {
+              match s.parse::<i128>() {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Expected valid ", #num_type_str, " string")
+                    )
+                  );
+                  None
+                }
+              }
             }
-            Some(walrs_validation::Value::U64(n)) => {
-              Some(*n as #num_type)
-            }
+            Some(walrs_validation::Value::I64(n)) => Some(*n as i128),
+            Some(walrs_validation::Value::U64(n)) => Some(*n as i128),
             Some(walrs_validation::Value::Null) | None => None,
             Some(_) => {
               violations.add(
@@ -367,8 +392,23 @@ fn gen_numeric_extraction(
       } else {
         quote! {
           let #field_name = match data.get_direct(#field_name_str) {
-            Some(walrs_validation::Value::I64(n)) => *n as #num_type,
-            Some(walrs_validation::Value::U64(n)) => *n as #num_type,
+            Some(walrs_validation::Value::Str(s)) => {
+              match s.parse::<i128>() {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Expected valid ", #num_type_str, " string")
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
+            Some(walrs_validation::Value::I64(n)) => *n as i128,
+            Some(walrs_validation::Value::U64(n)) => *n as i128,
             Some(_) => {
               violations.add(
                 #field_name_str,
@@ -387,12 +427,40 @@ fn gen_numeric_extraction(
         }
       }
     }
-    "u8" | "u16" | "u32" | "u64" | "u128" | "usize" => {
+    "i8" | "i16" | "i32" | "i64" | "isize" => {
       if is_option {
         quote! {
           let #field_name = match data.get_direct(#field_name_str) {
-            Some(walrs_validation::Value::U64(n)) => Some(*n as #num_type),
-            Some(walrs_validation::Value::I64(n)) if *n >= 0 => Some(*n as #num_type),
+            Some(walrs_validation::Value::I64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  None
+                }
+              }
+            }
+            Some(walrs_validation::Value::U64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  None
+                }
+              }
+            }
             Some(walrs_validation::Value::Null) | None => None,
             Some(_) => {
               violations.add(
@@ -409,8 +477,206 @@ fn gen_numeric_extraction(
       } else {
         quote! {
           let #field_name = match data.get_direct(#field_name_str) {
-            Some(walrs_validation::Value::U64(n)) => *n as #num_type,
-            Some(walrs_validation::Value::I64(n)) if *n >= 0 => *n as #num_type,
+            Some(walrs_validation::Value::I64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
+            Some(walrs_validation::Value::U64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
+            Some(_) => {
+              violations.add(
+                #field_name_str,
+                walrs_validation::Violation::new(
+                  walrs_validation::ViolationType::TypeMismatch,
+                  concat!("Expected ", #num_type_str)
+                )
+              );
+              #default_value
+            }
+            None => {
+              violations.add(#field_name_str, walrs_validation::Violation::value_missing());
+              #default_value
+            }
+          };
+        }
+      }
+    }
+    "u128" => {
+      if is_option {
+        quote! {
+          let #field_name = match data.get_direct(#field_name_str) {
+            Some(walrs_validation::Value::Str(s)) => {
+              match s.parse::<u128>() {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Expected valid ", #num_type_str, " string")
+                    )
+                  );
+                  None
+                }
+              }
+            }
+            Some(walrs_validation::Value::U64(n)) => Some(*n as u128),
+            Some(walrs_validation::Value::I64(n)) if *n >= 0 => Some(*n as u128),
+            Some(walrs_validation::Value::Null) | None => None,
+            Some(_) => {
+              violations.add(
+                #field_name_str,
+                walrs_validation::Violation::new(
+                  walrs_validation::ViolationType::TypeMismatch,
+                  concat!("Expected ", #num_type_str, " or null")
+                )
+              );
+              None
+            }
+          };
+        }
+      } else {
+        quote! {
+          let #field_name = match data.get_direct(#field_name_str) {
+            Some(walrs_validation::Value::Str(s)) => {
+              match s.parse::<u128>() {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Expected valid ", #num_type_str, " string")
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
+            Some(walrs_validation::Value::U64(n)) => *n as u128,
+            Some(walrs_validation::Value::I64(n)) if *n >= 0 => *n as u128,
+            Some(_) => {
+              violations.add(
+                #field_name_str,
+                walrs_validation::Violation::new(
+                  walrs_validation::ViolationType::TypeMismatch,
+                  concat!("Expected ", #num_type_str)
+                )
+              );
+              #default_value
+            }
+            None => {
+              violations.add(#field_name_str, walrs_validation::Violation::value_missing());
+              #default_value
+            }
+          };
+        }
+      }
+    }
+    "u8" | "u16" | "u32" | "u64" | "usize" => {
+      if is_option {
+        quote! {
+          let #field_name = match data.get_direct(#field_name_str) {
+            Some(walrs_validation::Value::U64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  None
+                }
+              }
+            }
+            Some(walrs_validation::Value::I64(n)) if *n >= 0 => {
+              match #num_type::try_from(*n) {
+                Ok(v) => Some(v),
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  None
+                }
+              }
+            }
+            Some(walrs_validation::Value::Null) | None => None,
+            Some(_) => {
+              violations.add(
+                #field_name_str,
+                walrs_validation::Violation::new(
+                  walrs_validation::ViolationType::TypeMismatch,
+                  concat!("Expected ", #num_type_str, " or null")
+                )
+              );
+              None
+            }
+          };
+        }
+      } else {
+        quote! {
+          let #field_name = match data.get_direct(#field_name_str) {
+            Some(walrs_validation::Value::U64(n)) => {
+              match #num_type::try_from(*n) {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
+            Some(walrs_validation::Value::I64(n)) if *n >= 0 => {
+              match #num_type::try_from(*n) {
+                Ok(v) => v,
+                Err(_) => {
+                  violations.add(
+                    #field_name_str,
+                    walrs_validation::Violation::new(
+                      walrs_validation::ViolationType::TypeMismatch,
+                      concat!("Value out of range for ", #num_type_str)
+                    )
+                  );
+                  #default_value
+                }
+              }
+            }
             Some(_) => {
               violations.add(
                 #field_name_str,
