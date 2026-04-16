@@ -113,6 +113,7 @@ Use `#[cross_validate(fn_name)]` for validating relationships between fields:
 
 ```rust
 use walrs_fieldfilter::{DeriveFieldset, Fieldset, RuleResult};
+use walrs_validation::{Violation, ViolationType};
 
 #[derive(Debug, DeriveFieldset)]
 #[cross_validate(check_passwords_match)]
@@ -124,12 +125,14 @@ struct Registration {
     confirm_password: String,
 }
 
-impl Registration {
-    fn check_passwords_match(&self) -> RuleResult {
-        if self.password != self.confirm_password {
-            return RuleResult::invalid("Passwords do not match");
-        }
-        RuleResult::ok()
+fn check_passwords_match(reg: &Registration) -> RuleResult {
+    if reg.password == reg.confirm_password {
+        Ok(())
+    } else {
+        Err(Violation::new(
+            ViolationType::NotEqual,
+            "Passwords do not match",
+        ))
     }
 }
 ```
@@ -198,6 +201,7 @@ Provide a custom validation function:
 
 ```rust
 use walrs_fieldfilter::{DeriveFieldset, Fieldset, RuleResult};
+use walrs_validation::{Violation, ViolationType};
 
 #[derive(Debug, DeriveFieldset)]
 struct Product {
@@ -207,9 +211,12 @@ struct Product {
 
 fn validate_sku(value: &str) -> RuleResult {
     if value.len() == 8 && value.chars().all(|c| c.is_alphanumeric()) {
-        RuleResult::ok()
+        Ok(())
     } else {
-        RuleResult::invalid("SKU must be 8 alphanumeric characters")
+        Err(Violation::new(
+            ViolationType::CustomError,
+            "SKU must be 8 alphanumeric characters",
+        ))
     }
 }
 ```
