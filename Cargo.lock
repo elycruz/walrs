@@ -2114,8 +2114,18 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "walrs_fieldset_derive",
  "walrs_filter",
  "walrs_validation",
+]
+
+[[package]]
+name = "walrs_fieldset_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
 ]
 
 [[package]]
