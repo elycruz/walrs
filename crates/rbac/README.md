@@ -159,4 +159,4 @@ This crate is inspired by:
 
 ## License
 
-Apache-2.0 AND GPL-3.0-only
+Elastic-2.0

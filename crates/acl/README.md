@@ -134,4 +134,4 @@ walrs_acl = { version = "0.1.0", default-features = false, features = ["wasm"] }
 
 ## License
 
-Apache + GPL v3 Clause
+Elastic-2.0
