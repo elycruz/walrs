@@ -229,7 +229,7 @@ async fn field_filter_with_async_cross_field_rule() {
 
   let bad_data = make_data(&[("email", Value::Str("user@blocked.com".into()))]);
   let err = ff.validate_async(&bad_data).await.unwrap_err();
-  assert!(!err.form.is_empty());
+  assert!(err.form_violations().is_some_and(|v| !v.is_empty()));
 }
 
 #[tokio::test]

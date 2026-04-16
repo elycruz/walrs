@@ -5,12 +5,12 @@
 //! conditional requirements, and mutual exclusivity.
 
 use crate::field::Field;
-use walrs_validation::FieldsetViolations;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
+use walrs_validation::FieldsetViolations;
 use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 use walrs_validation::{Value, ValueExt};
 
@@ -377,7 +377,11 @@ impl CrossFieldRuleType {
         condition_field,
         condition,
       } => {
-        let cond_field = if condition_field.is_empty() { field } else { condition_field };
+        let cond_field = if condition_field.is_empty() {
+          field
+        } else {
+          condition_field
+        };
         let condition_met = data
           .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
@@ -412,7 +416,11 @@ impl CrossFieldRuleType {
         condition_field,
         condition,
       } => {
-        let cond_field = if condition_field.is_empty() { field } else { condition_field };
+        let cond_field = if condition_field.is_empty() {
+          field
+        } else {
+          condition_field
+        };
         let condition_met = data
           .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
@@ -581,7 +589,10 @@ impl FieldFilter {
   ///
   /// Works like [`validate`](Self::validate) but supports `Rule::CustomAsync`
   /// in field rules and `CrossFieldRuleType::CustomAsync` in cross-field rules.
-  pub async fn validate_async(&self, data: &IndexMap<String, Value>) -> Result<(), FieldsetViolations> {
+  pub async fn validate_async(
+    &self,
+    data: &IndexMap<String, Value>,
+  ) -> Result<(), FieldsetViolations> {
     let mut violations = FieldsetViolations::new();
 
     // Validate individual fields (async)
@@ -1158,7 +1169,11 @@ mod tests {
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert!(violations.form_violations().is_some());
-    assert!(violations.form_violations().unwrap()[0].message().contains("shipping_address"));
+    assert!(
+      violations.form_violations().unwrap()[0]
+        .message()
+        .contains("shipping_address")
+    );
   }
 
   #[test]
@@ -1301,7 +1316,11 @@ mod tests {
     assert!(result.is_err());
     let violations = result.unwrap_err();
     assert!(violations.form_violations().is_some());
-    assert!(violations.form_violations().unwrap()[0].message().contains("email"));
+    assert!(
+      violations.form_violations().unwrap()[0]
+        .message()
+        .contains("email")
+    );
   }
 
   #[test]

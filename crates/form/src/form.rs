@@ -231,12 +231,8 @@ mod tests {
     data.insert("deep_field", Value::Str("deep_value".to_string()));
     form.bind_data(data);
     if let Some(Element::Fieldset(outer)) = form.elements.as_ref().and_then(|e| e.first()) {
-      if let Some(Element::Fieldset(inner)) =
-        outer.elements.as_ref().and_then(|e| e.first())
-      {
-        if let Some(Element::Input(input)) =
-          inner.elements.as_ref().and_then(|e| e.first())
-        {
+      if let Some(Element::Fieldset(inner)) = outer.elements.as_ref().and_then(|e| e.first()) {
+        if let Some(Element::Input(input)) = inner.elements.as_ref().and_then(|e| e.first()) {
           assert_eq!(input.value.as_ref().unwrap().as_str(), Some("deep_value"));
         } else {
           panic!("Expected Input element");
