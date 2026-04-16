@@ -5,7 +5,11 @@ use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_fieldfilter::{FieldFilter, FormViolations};
+#[cfg(feature = "async")]
+use walrs_fieldfilter::IndexMap;
 use walrs_validation::Attributes;
+#[cfg(feature = "async")]
+use walrs_validation::Value;
 /// HTTP form method.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum FormMethod {
@@ -157,6 +161,83 @@ impl Form {
     self.elements.iter().flatten()
   }
 }
+
+#[cfg(feature = "async")]
+#[allow(deprecated)]
+impl Form {
+  /// Validates form data asynchronously.
+  ///
+  /// When a `field_filter` is set, delegates to
+  /// [`FieldFilter::validate_async`]. Otherwise, walks the element tree
+  /// and calls `validate_value_async` on each input, select, and textarea.
+  pub async fn validate_async(&self, data: &FormData) -> Result<(), FormViolations> {
+    if let Some(ref filter) = self.field_filter {
+      filter.validate_async(data.as_inner()).await
+    } else {
+      let mut violations = FormViolations::new();
+      if let Some(ref elements) = self.elements {
+        Self::validate_recursive_async(elements, data, &mut violations).await;
+      }
+      if violations.is_empty() {
+        Ok(())
+      } else {
+        Err(violations)
+      }
+    }
+  }
+
+  /// Validates and processes form data asynchronously.
+  ///
+  /// When a `field_filter` is set, delegates to
+  /// [`FieldFilter::clean_async`] (sync filter + async validate).
+  /// Otherwise, validates asynchronously and returns the data.
+  pub async fn process_async(
+    &self,
+    data: &FormData,
+  ) -> Result<IndexMap<String, Value>, FormViolations> {
+    if let Some(ref filter) = self.field_filter {
+      filter.clean_async(data.as_inner().clone()).await
+    } else {
+      self.validate_async(data).await?;
+      Ok(data.as_inner().clone())
+    }
+  }
+
+  fn validate_recursive_async<'a>(
+    elements: &'a [Element],
+    data: &'a FormData,
+    violations: &'a mut FormViolations,
+  ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>> {
+    Box::pin(async move {
+      for element in elements {
+        match element {
+          Element::Fieldset(fs) => {
+            if let Some(ref children) = fs.elements {
+              Self::validate_recursive_async(children, data, violations).await;
+            }
+          }
+          _ => {
+            if let Some(name) = element.name() {
+              let value = data
+                .get(name)
+                .cloned()
+                .unwrap_or(walrs_validation::Value::Null);
+              let result = match element {
+                Element::Input(el) => el.validate_value_async(&value).await,
+                Element::Select(el) => el.validate_value_async(&value).await,
+                Element::Textarea(el) => el.validate_value_async(&value).await,
+                _ => Ok(()),
+              };
+              if let Err(field_violations) = result {
+                violations.add_field_violations(name, field_violations);
+              }
+            }
+          }
+        }
+      }
+    })
+  }
+}
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -271,6 +352,213 @@ mod tests {
     let mut data = FormData::new();
     data.insert("email", Value::Str("test@example.com".to_string()));
     let result = form.validate(&data);
+    assert!(result.is_ok());
+  }
+}
+
+#[cfg(test)]
+#[cfg(feature = "async")]
+#[allow(deprecated)]
+mod async_tests {
+  use super::*;
+  use crate::element::Element;
+  use crate::fieldset_element::FieldsetElement;
+  use crate::form_data::FormData;
+  use crate::input_element::InputElement;
+  use crate::input_type::InputType;
+  use crate::select_element::SelectElement;
+  use crate::textarea_element::TextareaElement;
+  use walrs_fieldfilter::{FieldBuilder, FieldFilter};
+  use walrs_validation::{Rule, Value};
+
+  #[tokio::test]
+  async fn test_validate_async_passes() {
+    let mut form = Form::new("test");
+    let mut input = InputElement::new("name", InputType::Text);
+    input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    form.add_element(input.into());
+
+    let mut data = FormData::new();
+    data.insert("name", Value::Str("Alice".to_string()));
+    let result = form.validate_async(&data).await;
+    assert!(result.is_ok());
+  }
+
+  #[tokio::test]
+  async fn test_validate_async_fails() {
+    let mut form = Form::new("test");
+    let mut input = InputElement::new("name", InputType::Text);
+    input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    form.add_element(input.into());
+
+    let data = FormData::new();
+    let result = form.validate_async(&data).await;
+    assert!(result.is_err());
+  }
+
+  #[tokio::test]
+  async fn test_validate_async_nested_fieldset() {
+    let mut form = Form::new("test");
+    let mut email_input = InputElement::new("email", InputType::Email);
+    email_input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    let mut fieldset = FieldsetElement::new("contact");
+    fieldset.add_element(email_input.into());
+    form.add_element(fieldset.into());
+
+    // Empty data - should fail
+    let data = FormData::new();
+    let result = form.validate_async(&data).await;
+    assert!(result.is_err());
+
+    // Valid data
+    let mut data = FormData::new();
+    data.insert("email", Value::Str("test@example.com".to_string()));
+    let result = form.validate_async(&data).await;
+    assert!(result.is_ok());
+  }
+
+  #[tokio::test]
+  async fn test_validate_async_with_field_filter() {
+    let mut filter = FieldFilter::default();
+    filter.fields.insert(
+      "email".to_string(),
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+
+    let mut form = Form::new("test");
+    form.field_filter = Some(filter);
+
+    // Empty data - should fail
+    let data = FormData::new();
+    let result = form.validate_async(&data).await;
+    assert!(result.is_err());
+
+    // Valid data
+    let mut data = FormData::new();
+    data.insert("email", Value::Str("test@example.com".to_string()));
+    let result = form.validate_async(&data).await;
+    assert!(result.is_ok());
+  }
+
+  #[tokio::test]
+  async fn test_process_async() {
+    let mut form = Form::new("test");
+    let mut input = InputElement::new("name", InputType::Text);
+    input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    form.add_element(input.into());
+
+    // Invalid - should fail
+    let data = FormData::new();
+    let result = form.process_async(&data).await;
+    assert!(result.is_err());
+
+    // Valid - should return data
+    let mut data = FormData::new();
+    data.insert("name", Value::Str("Alice".to_string()));
+    let result = form.process_async(&data).await;
+    assert!(result.is_ok());
+    let processed = result.unwrap();
+    assert_eq!(
+      processed.get("name").unwrap().as_str(),
+      Some("Alice")
+    );
+  }
+
+  #[tokio::test]
+  async fn test_process_async_with_field_filter() {
+    let mut filter = FieldFilter::default();
+    filter.fields.insert(
+      "name".to_string(),
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+
+    let mut form = Form::new("test");
+    form.field_filter = Some(filter);
+
+    // Invalid - should fail
+    let data = FormData::new();
+    let result = form.process_async(&data).await;
+    assert!(result.is_err());
+
+    // Valid - should return filtered data
+    let mut data = FormData::new();
+    data.insert("name", Value::Str("Bob".to_string()));
+    let result = form.process_async(&data).await;
+    assert!(result.is_ok());
+    let processed = result.unwrap();
+    assert_eq!(
+      processed.get("name").unwrap().as_str(),
+      Some("Bob")
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_async_select_element() {
+    let mut form = Form::new("test");
+    let mut select = SelectElement::new("color");
+    select.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    form.add_element(select.into());
+
+    let data = FormData::new();
+    let result = form.validate_async(&data).await;
+    assert!(result.is_err());
+
+    let mut data = FormData::new();
+    data.insert("color", Value::Str("red".to_string()));
+    let result = form.validate_async(&data).await;
+    assert!(result.is_ok());
+  }
+
+  #[tokio::test]
+  async fn test_validate_async_textarea_element() {
+    let mut form = Form::new("test");
+    let mut textarea = TextareaElement::new("bio");
+    textarea.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    form.add_element(textarea.into());
+
+    let data = FormData::new();
+    let result = form.validate_async(&data).await;
+    assert!(result.is_err());
+
+    let mut data = FormData::new();
+    data.insert("bio", Value::Str("Hello world".to_string()));
+    let result = form.validate_async(&data).await;
     assert!(result.is_ok());
   }
 }

@@ -120,6 +120,20 @@ impl InputElement {
     }
   }
 }
+
+#[cfg(feature = "async")]
+impl InputElement {
+  /// Validates the given value asynchronously against the field configuration.
+  ///
+  /// Returns `Ok(())` if no field configuration is set or validation passes.
+  pub async fn validate_value_async(&self, value: &Value) -> Result<(), Violations> {
+    if let Some(ref field) = self.field {
+      field.validate_ref_async(value).await
+    } else {
+      Ok(())
+    }
+  }
+}
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -159,5 +173,48 @@ mod tests {
     let mut input = InputElement::new("age", InputType::Number);
     input.value = Some(Value::from(25i32));
     assert_eq!(input.value.unwrap().as_i64(), Some(25));
+  }
+}
+
+#[cfg(test)]
+#[cfg(feature = "async")]
+mod async_tests {
+  use super::*;
+  use walrs_fieldfilter::FieldBuilder;
+  use walrs_validation::Rule;
+
+  #[tokio::test]
+  async fn test_validate_value_async_without_field() {
+    let input = InputElement::new("test", InputType::Text);
+    assert!(input.validate_value_async(&Value::from("hello")).await.is_ok());
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_passes() {
+    let mut input = InputElement::new("email", InputType::Email);
+    input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(
+      input
+        .validate_value_async(&Value::Str("test@example.com".to_string()))
+        .await
+        .is_ok()
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_fails() {
+    let mut input = InputElement::new("email", InputType::Email);
+    input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(input.validate_value_async(&Value::Null).await.is_err());
   }
 }
