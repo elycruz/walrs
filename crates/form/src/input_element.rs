@@ -37,7 +37,7 @@ use walrs_validation::{Attributes, Value};
 ///
 /// assert_eq!(input.name.as_deref(), Some("username"));
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct InputElement {
   /// Element name attribute.

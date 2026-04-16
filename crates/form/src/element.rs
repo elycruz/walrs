@@ -42,7 +42,7 @@ use serde::{Deserialize, Serialize};
 ///     _ => {}
 /// }
 /// ```
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "element")]
 pub enum Element {
   /// Button element.

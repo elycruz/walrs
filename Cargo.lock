@@ -2149,7 +2149,6 @@ dependencies = [
  "derive_builder",
  "indexmap",
  "js-sys",
- "regex",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",

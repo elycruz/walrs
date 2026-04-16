@@ -33,7 +33,7 @@ use walrs_validation::{Attributes, Value};
 ///
 /// assert_eq!(textarea.rows, Some(5));
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct TextareaElement {
   /// Element name attribute.
