@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -9,7 +10,8 @@ pub fn invalid_vert_symbol_msg(v: &str) -> String {
 
 pub type DisymGraphData = Vec<(String, Option<Vec<String>>)>;
 
-/// `DisymGraph` A Directed Acyclic Graph (B-DAG) data structure.
+/// `DisymGraph` — A directed symbol graph data structure that maps
+/// string labels to vertices in an underlying `Digraph`.
 ///
 /// ```rust
 /// // TODO
@@ -17,6 +19,7 @@ pub type DisymGraphData = Vec<(String, Option<Vec<String>>)>;
 #[derive(Debug, Clone)]
 pub struct DisymGraph {
   _vertices: Vec<String>,
+  _vertex_index: HashMap<String, usize>,
   _graph: Digraph,
 }
 
@@ -25,6 +28,7 @@ impl DisymGraph {
   pub fn new() -> Self {
     DisymGraph {
       _vertices: Vec::new(),
+      _vertex_index: HashMap::new(),
       _graph: Digraph::new(0),
     }
   }
@@ -65,7 +69,7 @@ impl DisymGraph {
   /// Returns given vertex' index adjacency list - A list containing adjacent indexes.
   pub fn adj_indices(&self, symbol_name: &str) -> Option<&Vec<usize>> {
     if let Some(i) = self.index(symbol_name) {
-      self._graph.adj(i).unwrap().into()
+      Some(self._graph.adj(i).unwrap())
     } else {
       None
     }
@@ -84,7 +88,7 @@ impl DisymGraph {
 
   /// Returns the index of the given symbol name.
   pub fn index(&self, symbol_name: &str) -> Option<usize> {
-    self._vertices.iter().position(|v| v == symbol_name)
+    self._vertex_index.get(symbol_name).copied()
   }
 
   /// Returns the indices for the given symbol strings.
@@ -120,7 +124,9 @@ impl DisymGraph {
       i
     } else {
       let i = self._vertices.len();
-      self._vertices.push(v.to_string());
+      let vertex_name = v.to_string();
+      self._vertex_index.insert(vertex_name.clone(), i);
+      self._vertices.push(vertex_name);
       self._graph.add_vertex(i);
       i
     }
@@ -159,6 +165,7 @@ impl DisymGraph {
     let _graph = self._graph.reverse()?;
     Ok(DisymGraph {
       _vertices: self._vertices.clone(),
+      _vertex_index: self._vertex_index.clone(),
       _graph,
     })
   }
