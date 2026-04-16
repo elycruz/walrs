@@ -14,3 +14,7 @@ TODO
 
 - Algorithms 4th Ed. - Chapters on 'graphs' - https://algs4.cs.princeton.edu/40graphs/ - namely
   https://algs4.cs.princeton.edu/42digraph/Digraph.java.html implementation.
+
+## License
+
+Elastic-2.0

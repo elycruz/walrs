@@ -272,5 +272,5 @@ When both features are enabled, `chrono` takes precedence for string parsing.
 
 ## License
 
-MIT & Apache-2.0
+Elastic-2.0
 
