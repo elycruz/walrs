@@ -8,6 +8,9 @@ on:
       - 'crates/filter/**'
       - 'crates/fieldfilter/**'
 
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
