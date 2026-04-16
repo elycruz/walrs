@@ -338,5 +338,5 @@ Benchmark groups include:
 
 ## License
 
-MIT & Apache-2.0
+Elastic-2.0
 

@@ -9,12 +9,12 @@ static DASH_FILTER_REGEX: OnceLock<Regex> = OnceLock::new();
 static DASH_FILTER_REGEX_STR: &str = r"(?i)\-{2,}";
 
 /// Returns the static regex used for filtering a string to slug.
-pub fn get_slug_filter_regex() -> &'static Regex {
+pub(crate) fn get_slug_filter_regex() -> &'static Regex {
   SLUG_FILTER_REGEX.get_or_init(|| Regex::new(SLUG_FILTER_REGEX_STR).unwrap())
 }
 
 /// Returns the static regex used for filtering out multiple dashes for one dash.
-pub fn get_dash_filter_regex() -> &'static Regex {
+pub(crate) fn get_dash_filter_regex() -> &'static Regex {
   DASH_FILTER_REGEX.get_or_init(|| Regex::new(DASH_FILTER_REGEX_STR).unwrap())
 }
 
