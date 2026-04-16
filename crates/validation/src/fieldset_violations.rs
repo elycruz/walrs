@@ -117,7 +117,7 @@ impl FieldsetViolations {
   }
 
   /// Returns an iterator over the field names.
-  pub fn fields(&self) -> impl Iterator<Item = &String> {
+  pub fn field_names(&self) -> impl Iterator<Item = &String> {
     self.0.keys()
   }
 
@@ -332,7 +332,7 @@ mod tests {
     fv.add("email", Violation::invalid_email());
     fv.add("name", Violation::value_missing());
 
-    let fields: Vec<&String> = fv.fields().collect();
+    let fields: Vec<&String> = fv.field_names().collect();
     assert_eq!(fields.len(), 2);
     assert!(fields.contains(&&"email".to_string()));
     assert!(fields.contains(&&"name".to_string()));

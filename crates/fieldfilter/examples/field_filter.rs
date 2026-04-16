@@ -214,7 +214,7 @@ fn make_data(pairs: &[(&str, &str)]) -> IndexMap<String, Value> {
 
 fn print_violations(violations: &walrs_validation::FieldsetViolations) {
   println!("   ✗ Validation failed:");
-  for field_name in violations.fields().filter(|f| !f.is_empty()) {
+  for field_name in violations.field_names().filter(|f| !f.is_empty()) {
     if let Some(field_violations) = violations.get(field_name) {
       for v in field_violations.iter() {
         println!("      - {}: {}", field_name, v.message());
