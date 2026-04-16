@@ -1,0 +1,52 @@
+name: Fuzz Testing
+
+on:
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'crates/validation/**'
+      - 'crates/filter/**'
+      - 'crates/fieldfilter/**'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fuzz:
+    name: Fuzz ${{ matrix.crate }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        crate:
+          - validation
+          - filter
+          - fieldfilter
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-fuzz-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: List fuzz targets
+        working-directory: crates/${{ matrix.crate }}
+        run: cargo fuzz list
+
+      - name: Run fuzz targets (smoke test)
+        working-directory: crates/${{ matrix.crate }}
+        run: |
+          for target in $(cargo fuzz list); do
+            echo "::group::Fuzzing $target"
+            cargo fuzz run "$target" -- -max_total_time=60
+            echo "::endgroup::"
+          done
