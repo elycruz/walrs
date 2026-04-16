@@ -3,7 +3,7 @@
 //! This module provides the `FormViolations` struct for collecting validation
 //! errors from multiple fields and cross-field validation rules.
 //!
-//! **Deprecated:** Prefer [`FieldsetViolations`](walrs_validation::FieldsetViolations)
+//! **Deprecated:** Prefer [`FieldsetViolations`]
 //! for new code. `From` conversions are provided for migration.
 
 #[allow(deprecated)]

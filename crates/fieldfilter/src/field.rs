@@ -129,7 +129,7 @@ where
 
 impl<T: Clone> Field<T> {
   /// Bakes the stored locale into the rule so that subsequent
-  /// [`validate_ref`] calls avoid cloning the rule.
+  /// `validate_ref` calls avoid cloning the rule.
   ///
   /// After this call `locale` is `None` and the rule carries the locale
   /// internally via [`Rule::WithMessage`].
@@ -137,10 +137,11 @@ impl<T: Clone> Field<T> {
   /// This is an opt-in performance optimisation — calling code that never
   /// sets a locale is unaffected.
   pub fn apply_locale(&mut self) {
-    if self.locale.is_some()
-      && let (Some(locale), Some(rule)) = (self.locale.take(), self.rule.take())
+    if let Some(locale) = &self.locale
+      && let Some(rule) = self.rule.take()
     {
       self.rule = Some(rule.with_locale(locale.as_ref()));
+      self.locale = None;
     }
   }
 }
@@ -1058,8 +1059,8 @@ mod tests {
       .unwrap();
 
     field.apply_locale();
-    // locale consumed, rule still None
-    assert!(field.locale.is_none());
+    // locale preserved when rule is None
+    assert!(field.locale.is_some());
     assert!(field.rule.is_none());
   }
 }

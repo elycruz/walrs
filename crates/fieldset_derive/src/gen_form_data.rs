@@ -165,7 +165,7 @@ pub fn gen_try_from_form_data(
     .map(|field| {
       let field_name = &field.ident;
       let field_name_str = field_name.to_string();
-      
+
       match &field.ty {
         FieldType::String => quote! {
           let #field_name = match data.get_direct(#field_name_str) {
@@ -239,7 +239,7 @@ pub fn gen_try_from_form_data(
         },
         FieldType::Numeric(num_type) => {
           gen_numeric_extraction(field_name, &field_name_str, num_type, false)
-        },
+        }
         FieldType::OptionString => quote! {
           let #field_name = match data.get_direct(#field_name_str) {
             Some(walrs_validation::Value::Str(s)) => Some(s.clone()),
@@ -303,7 +303,7 @@ pub fn gen_try_from_form_data(
         },
         FieldType::OptionNumeric(num_type) => {
           gen_numeric_extraction(field_name, &field_name_str, num_type, true)
-        },
+        }
         FieldType::Other(_) | FieldType::OptionOther(_) => {
           // For nested types, we skip them for now
           quote! {
@@ -322,13 +322,13 @@ pub fn gen_try_from_form_data(
 
       fn try_from(data: walrs_form::FormData) -> Result<Self, Self::Error> {
         let mut violations = walrs_validation::FieldsetViolations::new();
-        
+
         #(#field_extractions)*
-        
+
         if !violations.is_empty() {
           return Err(violations);
         }
-        
+
         Ok(Self {
           #(#field_names),*
         })

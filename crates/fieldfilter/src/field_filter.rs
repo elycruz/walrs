@@ -253,14 +253,30 @@ pub enum CrossFieldRuleType {
   FieldsEqual { field_a: String, field_b: String },
 
   /// Field is required if condition on another field is met.
+  ///
+  /// `condition_field` is checked against `condition`; if the condition holds,
+  /// `field` must have a non-empty value.
   RequiredIf {
     field: String,
+    /// The field whose value is tested against `condition`. Defaults to `field`
+    /// when empty, preserving backward-compatibility with data serialized before
+    /// this field was introduced.
+    #[serde(default)]
+    condition_field: String,
     condition: Condition<Value>,
   },
 
   /// Field is required unless condition on another field is met.
+  ///
+  /// `condition_field` is checked against `condition`; if the condition does
+  /// **not** hold, `field` must have a non-empty value.
   RequiredUnless {
     field: String,
+    /// The field whose value is tested against `condition`. Defaults to `field`
+    /// when empty, preserving backward-compatibility with data serialized before
+    /// this field was introduced.
+    #[serde(default)]
+    condition_field: String,
     condition: Condition<Value>,
   },
 
@@ -300,14 +316,24 @@ impl Debug for CrossFieldRuleType {
         .field("field_a", field_a)
         .field("field_b", field_b)
         .finish(),
-      Self::RequiredIf { field, condition } => f
+      Self::RequiredIf {
+        field,
+        condition_field,
+        condition,
+      } => f
         .debug_struct("RequiredIf")
         .field("field", field)
+        .field("condition_field", condition_field)
         .field("condition", condition)
         .finish(),
-      Self::RequiredUnless { field, condition } => f
+      Self::RequiredUnless {
+        field,
+        condition_field,
+        condition,
+      } => f
         .debug_struct("RequiredUnless")
         .field("field", field)
+        .field("condition_field", condition_field)
         .field("condition", condition)
         .finish(),
       Self::OneOfRequired(fields) => f.debug_tuple("OneOfRequired").field(fields).finish(),
@@ -346,9 +372,14 @@ impl CrossFieldRuleType {
         }
       }
 
-      CrossFieldRuleType::RequiredIf { field, condition } => {
+      CrossFieldRuleType::RequiredIf {
+        field,
+        condition_field,
+        condition,
+      } => {
+        let cond_field = if condition_field.is_empty() { field } else { condition_field };
         let condition_met = data
-          .get(field)
+          .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
           .unwrap_or(false);
 
@@ -364,9 +395,10 @@ impl CrossFieldRuleType {
             Err(Violation::new(
               ViolationType::ValueMissing,
               format!(
-                "{}: {} is required when condition is met",
+                "{}: {} is required when condition is met on {}",
                 rule_name.unwrap_or("RequiredIf"),
-                field
+                field,
+                cond_field
               ),
             ))
           }
@@ -375,9 +407,14 @@ impl CrossFieldRuleType {
         }
       }
 
-      CrossFieldRuleType::RequiredUnless { field, condition } => {
+      CrossFieldRuleType::RequiredUnless {
+        field,
+        condition_field,
+        condition,
+      } => {
+        let cond_field = if condition_field.is_empty() { field } else { condition_field };
         let condition_met = data
-          .get(field)
+          .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
           .unwrap_or(false);
 
@@ -393,9 +430,10 @@ impl CrossFieldRuleType {
             Err(Violation::new(
               ViolationType::ValueMissing,
               format!(
-                "{}: {} is required unless condition is met",
+                "{}: {} is required unless condition is met on {}",
                 rule_name.unwrap_or("RequiredUnless"),
-                field
+                field,
+                cond_field
               ),
             ))
           }
@@ -475,6 +513,9 @@ impl CrossFieldRuleType {
 
       CrossFieldRuleType::Custom(f) => f(data),
 
+      // `CustomAsync` rules are silently skipped in sync context for
+      // ecosystem consistency with `walrs_validation`'s `Rule::CustomAsync`.
+      // Use `validate_async()` / `evaluate_async()` to execute async rules.
       #[cfg(feature = "async")]
       CrossFieldRuleType::CustomAsync(_) => Ok(()),
     }
@@ -1071,5 +1112,214 @@ mod tests {
     let data: IndexMap<String, Value> = IndexMap::new();
     let result = filter.validate(&data);
     assert!(result.is_ok());
+  }
+
+  // ====================================================================
+  // RequiredIf cross-field rule tests
+  // ====================================================================
+
+  #[test]
+  fn test_required_if_condition_met_and_field_present() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("shipping_required".into()),
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (is_physical=true), field present → OK
+    let data = make_data(&[
+      ("is_physical", Value::Bool(true)),
+      ("shipping_address", Value::Str("123 Main St".to_string())),
+    ]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_condition_met_and_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("shipping_required".into()),
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (is_physical=true), field missing → Error
+    let data = make_data(&[("is_physical", Value::Bool(true))]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(!violations.form.is_empty());
+    assert!(violations.form[0].message().contains("shipping_address"));
+  }
+
+  #[test]
+  fn test_required_if_condition_not_met() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (is_physical=false), field missing → OK
+    let data = make_data(&[("is_physical", Value::Bool(false))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_condition_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition field missing entirely → condition not met → OK
+    let data = make_data(&[]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_empty_condition_field_fallback() {
+    // When condition_field is empty (e.g., deserialized from old data via serde(default)),
+    // the fallback uses `field` as both condition and required field (backward compat).
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["status".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "status".to_string(),
+        condition_field: String::new(), // empty → fallback to `field`
+        condition: walrs_validation::Condition::Equals(Value::Str("active".into())),
+      },
+    });
+
+    // Field equals condition → condition met on same field, and field has value → OK
+    let data = make_data(&[("status", Value::Str("active".into()))]);
+    assert!(filter.validate(&data).is_ok());
+
+    // Field missing entirely → condition not met → OK
+    let data = make_data(&[]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_empty_condition_field_fallback() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["status".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "status".to_string(),
+        condition_field: String::new(), // empty → fallback to `field`
+        condition: walrs_validation::Condition::Equals(Value::Str("exempt".into())),
+      },
+    });
+
+    // Field is "exempt" → condition met → not required → OK
+    let data = make_data(&[("status", Value::Str("exempt".into()))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  // ====================================================================
+  // RequiredUnless cross-field rule tests
+  // ====================================================================
+
+  #[test]
+  fn test_required_unless_condition_met() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("email_unless_phone".into()),
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (has_phone=true), field missing → OK (unless satisfied)
+    let data = make_data(&[("has_phone", Value::Bool(true))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_condition_not_met_and_field_present() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (has_phone=false), field present → OK
+    let data = make_data(&[
+      ("has_phone", Value::Bool(false)),
+      ("email", Value::Str("user@example.com".to_string())),
+    ]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_condition_not_met_and_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("email_unless_phone".into()),
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (has_phone=false), field missing → Error
+    let data = make_data(&[("has_phone", Value::Bool(false))]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(!violations.form.is_empty());
+    assert!(violations.form[0].message().contains("email"));
+  }
+
+  #[test]
+  fn test_required_unless_condition_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition field missing → condition not met → email required → Error
+    let data = make_data(&[]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
   }
 }

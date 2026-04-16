@@ -234,7 +234,9 @@ fn test_overflow_i8_produces_violation() {
   let result = SmallInts::try_from(form_data);
   assert!(result.is_err());
   let violations = result.unwrap_err();
-  let v = violations.get("val_i8").expect("should have val_i8 violation");
+  let v = violations
+    .get("val_i8")
+    .expect("should have val_i8 violation");
   assert_eq!(v[0].violation_type(), ViolationType::TypeMismatch);
 }
 
