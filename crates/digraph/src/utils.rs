@@ -26,15 +26,21 @@ pub fn extract_vert_and_edge_counts_from_bufreader<R: std::io::Read>(
   // Extract vertices count
   reader
     .read_line(&mut s)
-    .expect("Unable to read \"vertex count\" line from buffer");
-  let vertices_count = s.trim().parse::<usize>().unwrap();
+    .map_err(|e| format!("Unable to read \"vertex count\" line from buffer: {}", e))?;
+  let vertices_count = s
+    .trim()
+    .parse::<usize>()
+    .map_err(|e| format!("Failed to parse vertex count '{}': {}", s.trim(), e))?;
   s.clear();
 
-  // Edge count currently, not required
+  // Extract edge count
   reader
     .read_line(&mut s)
-    .expect("Unable to read \"edge count\" line  from buffer");
-  let edges_count = s.trim().parse::<usize>().unwrap();
+    .map_err(|e| format!("Unable to read \"edge count\" line from buffer: {}", e))?;
+  let edges_count = s
+    .trim()
+    .parse::<usize>()
+    .map_err(|e| format!("Failed to parse edge count '{}': {}", s.trim(), e))?;
 
   Ok((vertices_count, edges_count))
 }

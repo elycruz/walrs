@@ -180,9 +180,7 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
   ///
   fn try_from(reader: &mut BufReader<R>) -> Result<Self, Self::Error> {
     // Extract vert count, and move cursor passed edge count line, for reader
-    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)
-      .unwrap()
-      .0;
+    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)?.0;
 
     // Construct digraph
     let mut dg = Digraph::new(vert_count);
@@ -194,10 +192,20 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
       // Split and parse edge values to integers
       let verts: Vec<usize> = _line
         .split_ascii_whitespace()
-        .map(|x| x.parse::<usize>().unwrap())
-        .collect();
+        .map(|x| x.parse::<usize>())
+        .collect::<Result<Vec<usize>, _>>()?;
 
-      // Add edge, and panic if unable to add it
+      if verts.len() < 2 {
+        return Err(
+          format!(
+            "Edge line must contain at least 2 vertices, got {}: '{}'",
+            verts.len(),
+            _line
+          )
+          .into(),
+        );
+      }
+
       dg.add_edge(verts[0], verts[1])?;
     }
 
@@ -553,5 +561,37 @@ mod test {
     let _: Digraph = BufReader::new(f).try_into().unwrap();
 
     Ok(())
+  }
+
+  #[test]
+  fn test_try_from_malformed_non_numeric_vertex_count() {
+    let data = b"abc\n5\n0 1\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_non_numeric_edge_definition() {
+    let data = b"3\n2\na b\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_single_value_edge_line() {
+    let data = b"3\n2\n0\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_empty_input() {
+    let data = b"";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
   }
 }
