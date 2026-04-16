@@ -34,7 +34,7 @@ use walrs_validation::Attributes;
 ///
 /// assert_eq!(fieldset.iter_elements().count(), 2);
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct FieldsetElement {
   /// Fieldset name.

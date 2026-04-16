@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use walrs_validation::Value;
 /// Form data transfer object.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FormData(IndexMap<String, Value>);
 impl FormData {
   pub fn new() -> Self {
@@ -87,6 +87,9 @@ impl FormData {
     &self.0
   }
 }
+/// Maximum allowed array index to prevent unbounded allocation.
+const MAX_INDEX: usize = 10_000;
+
 fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
   if segments.is_empty() {
     *current = value;
@@ -112,6 +115,9 @@ fn set_nested(current: &mut Value, segments: &[PathSegment], value: Value) {
       }
     }
     PathSegment::Index(idx) => {
+      if *idx >= MAX_INDEX {
+        return;
+      }
       if !matches!(current, Value::Array(_)) {
         *current = Value::Array(Vec::new());
       }
@@ -176,5 +182,18 @@ mod tests {
       data.get("user.email").unwrap().as_str(),
       Some("test@example.com")
     );
+  }
+  #[test]
+  fn test_set_nested_index_bounds() {
+    let mut data = FormData::new();
+    // Index within bounds should work
+    data.set("items[5]", Value::Str("ok".to_string()));
+    assert_eq!(data.get("items[5]").unwrap().as_str(), Some("ok"));
+    // Index equal to MAX_INDEX should be silently ignored (>= MAX_INDEX is out of bounds)
+    data.set("big[10000]", Value::Str("bad".to_string()));
+    assert!(data.get("big[10000]").is_none());
+    // Index exceeding MAX_INDEX should be silently ignored
+    data.set("big[99999]", Value::Str("bad".to_string()));
+    assert!(data.get("big[99999]").is_none());
   }
 }

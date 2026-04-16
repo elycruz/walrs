@@ -34,7 +34,7 @@ use serde::{Deserialize, Serialize};
 /// ]);
 /// assert!(group.options.is_some());
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct SelectOption {
   /// Option value attribute.

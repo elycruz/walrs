@@ -83,12 +83,11 @@ data.set("address.city", json!("New York"));
 Elements can have `Field<Value>` configurations for validation:
 ```rust
 use walrs_form::{InputElement, InputType, Field, FieldBuilder};
-use walrs_filter::FilterOp;
+
 let mut input = InputElement::new("email", InputType::Email);
 input.field = Some(
     FieldBuilder::default()
         .required(true)
-        .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
         .build()
         .unwrap()
 );
@@ -98,7 +97,6 @@ This crate is part of the walrs form ecosystem:
 - `walrs_validation`: Shared types (`Value`, `Attributes`) and validation rules
 - `walrs_fieldfilter`: Field-level validation (`Field<T>`, `FieldFilter`)
 - `walrs_form`: Form structure and elements (this crate)
-- `walrs_validation`: Validation rules
 - `walrs_filter`: Value transformation filters
 ## License
-MIT OR Apache-2.0
+Elastic-2.0

@@ -61,15 +61,27 @@ impl Form {
   }
   pub fn bind_data(&mut self, data: FormData) -> &mut Self {
     if let Some(ref mut elements) = self.elements {
-      for element in elements.iter_mut() {
-        if let Some(name) = element.name()
-          && let Some(value) = data.get(name)
-        {
-          Self::set_element_value(element, value.clone());
+      Self::bind_data_recursive(elements, &data);
+    }
+    self
+  }
+  fn bind_data_recursive(elements: &mut [Element], data: &FormData) {
+    for element in elements.iter_mut() {
+      match element {
+        Element::Fieldset(fs) => {
+          if let Some(ref mut children) = fs.elements {
+            Self::bind_data_recursive(children, data);
+          }
+        }
+        _ => {
+          if let Some(name) = element.name()
+            && let Some(value) = data.get(name)
+          {
+            Self::set_element_value(element, value.clone());
+          }
         }
       }
     }
-    self
   }
   fn set_element_value(element: &mut Element, value: walrs_validation::Value) {
     match element {
@@ -89,7 +101,28 @@ impl Form {
     } else {
       let mut violations = FormViolations::new();
       if let Some(ref elements) = self.elements {
-        for element in elements {
+        Self::validate_recursive(elements, data, &mut violations);
+      }
+      if violations.is_empty() {
+        Ok(())
+      } else {
+        Err(violations)
+      }
+    }
+  }
+  fn validate_recursive(
+    elements: &[Element],
+    data: &FormData,
+    violations: &mut FormViolations,
+  ) {
+    for element in elements {
+      match element {
+        Element::Fieldset(fs) => {
+          if let Some(ref children) = fs.elements {
+            Self::validate_recursive(children, data, violations);
+          }
+        }
+        _ => {
           if let Some(name) = element.name() {
             let value = data
               .get(name)
@@ -106,11 +139,6 @@ impl Form {
             }
           }
         }
-      }
-      if violations.is_empty() {
-        Ok(())
-      } else {
-        Err(violations)
       }
     }
   }
@@ -132,6 +160,7 @@ impl Form {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use crate::fieldset_element::FieldsetElement;
   use crate::input_element::InputElement;
   use crate::input_type::InputType;
   use walrs_validation::Value;
@@ -161,5 +190,87 @@ mod tests {
     } else {
       panic!("Element not found");
     }
+  }
+  #[test]
+  fn test_bind_data_nested_fieldset() {
+    let mut form = Form::new("test");
+    let mut fieldset = FieldsetElement::new("personal");
+    fieldset.add_element(InputElement::new("name", InputType::Text).into());
+    fieldset.add_element(InputElement::new("age", InputType::Number).into());
+    form.add_element(fieldset.into());
+    let mut data = FormData::new();
+    data.insert("name", Value::Str("Alice".to_string()));
+    data.insert("age", Value::from(30i32));
+    form.bind_data(data);
+    // Verify nested elements were bound
+    if let Some(Element::Fieldset(fs)) = form.elements.as_ref().and_then(|e| e.first()) {
+      let children = fs.elements.as_ref().unwrap();
+      if let Element::Input(input) = &children[0] {
+        assert_eq!(input.value.as_ref().unwrap().as_str(), Some("Alice"));
+      } else {
+        panic!("Expected Input element");
+      }
+      if let Element::Input(input) = &children[1] {
+        assert_eq!(input.value.as_ref().unwrap().as_i64(), Some(30));
+      } else {
+        panic!("Expected Input element");
+      }
+    } else {
+      panic!("Expected Fieldset element");
+    }
+  }
+  #[test]
+  fn test_bind_data_deeply_nested_fieldset() {
+    let mut form = Form::new("test");
+    let mut inner_fs = FieldsetElement::new("inner");
+    inner_fs.add_element(InputElement::new("deep_field", InputType::Text).into());
+    let mut outer_fs = FieldsetElement::new("outer");
+    outer_fs.add_element(inner_fs.into());
+    form.add_element(outer_fs.into());
+    let mut data = FormData::new();
+    data.insert("deep_field", Value::Str("deep_value".to_string()));
+    form.bind_data(data);
+    if let Some(Element::Fieldset(outer)) = form.elements.as_ref().and_then(|e| e.first()) {
+      if let Some(Element::Fieldset(inner)) =
+        outer.elements.as_ref().and_then(|e| e.first())
+      {
+        if let Some(Element::Input(input)) =
+          inner.elements.as_ref().and_then(|e| e.first())
+        {
+          assert_eq!(input.value.as_ref().unwrap().as_str(), Some("deep_value"));
+        } else {
+          panic!("Expected Input element");
+        }
+      } else {
+        panic!("Expected inner Fieldset");
+      }
+    } else {
+      panic!("Expected outer Fieldset");
+    }
+  }
+  #[test]
+  fn test_validate_nested_fieldset() {
+    use walrs_fieldfilter::FieldBuilder;
+    use walrs_validation::Rule;
+    let mut form = Form::new("test");
+    let mut email_input = InputElement::new("email", InputType::Email);
+    email_input.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    let mut fieldset = FieldsetElement::new("contact");
+    fieldset.add_element(email_input.into());
+    form.add_element(fieldset.into());
+    // Validate with empty data - should fail since email is required
+    let data = FormData::new();
+    let result = form.validate(&data);
+    assert!(result.is_err());
+    // Validate with valid data
+    let mut data = FormData::new();
+    data.insert("email", Value::Str("test@example.com".to_string()));
+    let result = form.validate(&data);
+    assert!(result.is_ok());
   }
 }

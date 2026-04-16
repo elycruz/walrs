@@ -36,11 +36,16 @@ pub fn parse_path(path: &str) -> Result<Vec<PathSegment>, PathError> {
           current.clear();
         }
         let mut index_str = String::new();
+        let mut found_close = false;
         for ic in chars.by_ref() {
           if ic == ']' {
+            found_close = true;
             break;
           }
           index_str.push(ic);
+        }
+        if !found_close {
+          return Err(PathError::InvalidSyntax("Unclosed '['".to_string()));
         }
         let index: usize = index_str
           .parse()
@@ -89,5 +94,17 @@ mod tests {
         PathSegment::Index(0),
       ]
     );
+  }
+  #[test]
+  fn test_unclosed_bracket_error() {
+    let result = parse_path("items[0");
+    assert!(result.is_err());
+    let err = result.unwrap_err();
+    assert!(err.to_string().contains("Unclosed '['"));
+  }
+  #[test]
+  fn test_unexpected_close_bracket_error() {
+    let result = parse_path("items]0");
+    assert!(result.is_err());
   }
 }
