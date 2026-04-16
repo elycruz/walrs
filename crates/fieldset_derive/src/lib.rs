@@ -97,7 +97,10 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
   let cross_validate = parse_cross_validate_attrs(&input.attrs);
 
   // Parse all fields
-  let field_infos: Vec<_> = fields.iter().map(parse_field_info).collect();
+  let field_infos: Vec<_> = fields
+    .iter()
+    .map(parse_field_info)
+    .collect::<syn::Result<Vec<_>>>()?;
 
   // Generate the const
   let break_on_failure = struct_attrs.break_on_failure;

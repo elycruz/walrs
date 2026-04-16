@@ -208,7 +208,8 @@ pub fn gen_try_from_form_data(
         FieldType::Char => quote! {
           let #field_name = match data.get_direct(#field_name_str) {
             Some(walrs_validation::Value::Str(s)) => {
-              if s.len() == 1 {
+              if s.chars().count() == 1 {
+                // SAFETY: `s.chars().count() == 1` guarantees exactly one char
                 s.chars().next().unwrap()
               } else {
                 violations.add(
@@ -275,7 +276,8 @@ pub fn gen_try_from_form_data(
         FieldType::OptionChar => quote! {
           let #field_name = match data.get_direct(#field_name_str) {
             Some(walrs_validation::Value::Str(s)) => {
-              if s.len() == 1 {
+              // Use chars().count() instead of len() for correct UTF-8 handling
+              if s.chars().count() == 1 {
                 s.chars().next()
               } else {
                 violations.add(

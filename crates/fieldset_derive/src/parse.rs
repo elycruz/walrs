@@ -219,11 +219,10 @@ pub fn parse_cross_validate_attrs(attrs: &[Attribute]) -> CrossValidateAttrs {
 // Parse field-level attributes
 // ---------------------------------------------------------------------------
 
-pub fn parse_field_info(field: &Field) -> FieldInfo {
-  let ident = field
-    .ident
-    .clone()
-    .expect("Fieldset derive only supports named fields");
+pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
+  let ident = field.ident.clone().ok_or_else(|| {
+    syn::Error::new_spanned(field, "Fieldset derive only supports named fields")
+  })?;
   let ty = classify_type(&field.ty);
   let mut validations = Vec::new();
   let mut filters = Vec::new();
@@ -252,7 +251,7 @@ pub fn parse_field_info(field: &Field) -> FieldInfo {
     }
   }
 
-  FieldInfo {
+  Ok(FieldInfo {
     ident,
     ty,
     validations,
@@ -260,7 +259,7 @@ pub fn parse_field_info(field: &Field) -> FieldInfo {
     is_nested_validate,
     is_nested_filter,
     break_on_failure_override,
-  }
+  })
 }
 
 fn parse_validate_attr(
@@ -298,7 +297,14 @@ fn parse_validate_attr(
     } else if path.is_ident("pattern") {
       let _: Token![=] = meta.input.parse()?;
       let lit: LitStr = meta.input.parse()?;
-      validations.push(ValidateAttr::Pattern(lit.value()));
+      let pat = lit.value();
+      if regex::Regex::new(&pat).is_err() {
+        return Err(syn::Error::new_spanned(
+          &lit,
+          format!("invalid regex pattern: \"{}\"", pat),
+        ));
+      }
+      validations.push(ValidateAttr::Pattern(pat));
     } else if path.is_ident("min") {
       let _: Token![=] = meta.input.parse()?;
       validations.push(ValidateAttr::Min(parse_numeric_lit(&meta.input)?));
@@ -320,8 +326,8 @@ fn parse_validate_attr(
         }
       }
       validations.push(ValidateAttr::Range {
-        min: min.expect("range requires min"),
-        max: max.expect("range requires max"),
+        min: min.ok_or_else(|| syn::Error::new_spanned(path, "range requires `min`"))?,
+        max: max.ok_or_else(|| syn::Error::new_spanned(path, "range requires `max`"))?,
       });
     } else if path.is_ident("step") {
       let _: Token![=] = meta.input.parse()?;
@@ -437,7 +443,8 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
         }
       }
       filters.push(FilterAttr::Truncate {
-        max_length: max_length.expect("truncate requires max_length"),
+        max_length: max_length
+          .ok_or_else(|| syn::Error::new_spanned(path, "truncate requires `max_length`"))?,
       });
     } else if path.is_ident("replace") {
       let content;
@@ -454,8 +461,8 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
         }
       }
       filters.push(FilterAttr::Replace {
-        from: from.expect("replace requires from"),
-        to: to.expect("replace requires to"),
+        from: from.ok_or_else(|| syn::Error::new_spanned(path, "replace requires `from`"))?,
+        to: to.ok_or_else(|| syn::Error::new_spanned(path, "replace requires `to`"))?,
       });
     } else if path.is_ident("clamp") {
       let content;
@@ -472,8 +479,8 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
         }
       }
       filters.push(FilterAttr::Clamp {
-        min: min.expect("clamp requires min"),
-        max: max.expect("clamp requires max"),
+        min: min.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `min`"))?,
+        max: max.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `max`"))?,
       });
     } else if path.is_ident("custom") {
       let _: Token![=] = meta.input.parse()?;
