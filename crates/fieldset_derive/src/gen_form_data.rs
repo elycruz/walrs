@@ -18,7 +18,7 @@ pub fn gen_into_form_data(
     .map(|field| {
       let field_name = &field.ident;
       let field_name_str = field_name.to_string();
-      
+
       match &field.ty {
         FieldType::String => quote! {
           data.insert(#field_name_str, walrs_validation::Value::Str(value.#field_name.clone()));

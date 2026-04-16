@@ -288,49 +288,6 @@ mod tests {
     assert!(err.get("name").is_some() || err.get("email").is_some());
   }
 
-  // 6. Test From<FormViolations> for FieldsetViolations
-  #[test]
-  fn test_from_form_violations_to_fieldset_violations() {
-    #[allow(deprecated)]
-    let mut fv = crate::FormViolations::new();
-    #[allow(deprecated)]
-    {
-      fv.add_field_violation(
-        "email",
-        Violation::new(ViolationType::TypeMismatch, "Invalid"),
-      );
-      fv.add_form_violation(Violation::new(ViolationType::CustomError, "Form error"));
-    }
-
-    let fsv: FieldsetViolations = fv.into();
-    assert_eq!(fsv.len(), 2);
-    assert!(fsv.get("email").is_some());
-    assert!(fsv.form_violations().is_some());
-  }
-
-  // 7. Test From<FieldsetViolations> for FormViolations
-  #[test]
-  fn test_from_fieldset_violations_to_form_violations() {
-    let mut fsv = FieldsetViolations::new();
-    fsv.add(
-      "username",
-      Violation::new(ViolationType::TooShort, "Too short"),
-    );
-    fsv.add(
-      "",
-      Violation::new(ViolationType::CustomError, "Form-level error"),
-    );
-
-    #[allow(deprecated)]
-    let fv: crate::FormViolations = fsv.into();
-    #[allow(deprecated)]
-    {
-      assert_eq!(fv.len(), 2);
-      assert!(fv.for_field("username").is_some());
-      assert_eq!(fv.form.len(), 1);
-    }
-  }
-
   // 8. Test async trait
   #[cfg(feature = "async")]
   mod async_tests {

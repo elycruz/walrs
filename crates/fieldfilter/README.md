@@ -135,27 +135,6 @@ fn main() {
 
 See [`crates/fieldset_derive/README.md`](../fieldset_derive/README.md) for complete documentation.
 
-### FormViolations
-
-**Deprecated:** Use `FieldsetViolations` from `walrs_validation` instead.
-
-Aggregate validation errors:
-```rust
-use walrs_fieldfilter::FormViolations;
-use walrs_validation::{Violations, Violation, ViolationType};
-let mut violations = FormViolations::new();
-// Add field-specific violations
-violations.add_field_violation("email", 
-    Violation::new(ViolationType::ValueMissing, "Email is required"));
-// Add form-level violations
-violations.add_form_violation(
-    Violation::new(ViolationType::CustomError("auth".into()), "Invalid credentials"));
-if !violations.is_empty() {
-    for field_name in violations.field_names() {
-        println!("Field '{}' has errors", field_name);
-    }
-}
-```
 ## Installation
 
 ### Basic (without derive macro)
