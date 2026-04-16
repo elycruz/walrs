@@ -92,6 +92,38 @@ input.field = Some(
         .unwrap()
 );
 ```
+## Async Validation
+Enable the `async` feature for async validation support:
+```toml
+[dependencies]
+walrs_form = { path = "../form", features = ["async"] }
+```
+This enables `validate_value_async` on `InputElement`, `SelectElement`, and `TextareaElement`, plus `Form::validate_async()` and `Form::clean_async()`:
+```rust
+use walrs_form::{Form, InputElement, InputType, FormData, FieldBuilder};
+use walrs_validation::{Rule, Value};
+
+let mut form = Form::new("login");
+let mut input = InputElement::new("email", InputType::Email);
+input.field = Some(
+    FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+);
+form.add_element(input.into());
+
+let mut data = FormData::new();
+data.insert("email", Value::from("user@example.com"));
+
+// Async validation
+let result = form.validate_async(&data).await;
+assert!(result.is_ok());
+
+// Async clean (filter + validate + return data)
+let processed = form.clean_async(&data).await.unwrap();
+```
+The async feature is runtime-agnostic (`std::future::Future` only). Filtering remains synchronous; only validation becomes async, following the pattern from `walrs_fieldfilter`.
 ## Architecture
 This crate is part of the walrs form ecosystem:
 - `walrs_validation`: Shared types (`Value`, `Attributes`) and validation rules

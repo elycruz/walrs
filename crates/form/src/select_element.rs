@@ -132,6 +132,23 @@ impl SelectElement {
       Ok(())
     }
   }
+}
+
+#[cfg(feature = "async")]
+impl SelectElement {
+  /// Validates the given value asynchronously against the field configuration.
+  ///
+  /// Returns `Ok(())` if no field configuration is set or validation passes.
+  pub async fn validate_value_async(&self, value: &Value) -> Result<(), Violations> {
+    if let Some(ref field) = self.field {
+      field.validate_ref_async(value).await
+    } else {
+      Ok(())
+    }
+  }
+}
+
+impl SelectElement {
   /// Adds an option to the select element.
   ///
   /// # Example
@@ -183,5 +200,53 @@ mod tests {
   fn test_validate_without_field() {
     let select = SelectElement::new("test");
     assert!(select.validate_value(&Value::from("value")).is_ok());
+  }
+}
+
+#[cfg(test)]
+#[cfg(feature = "async")]
+mod async_tests {
+  use super::*;
+  use walrs_fieldfilter::FieldBuilder;
+  use walrs_validation::Rule;
+
+  #[tokio::test]
+  async fn test_validate_value_async_without_field() {
+    let select = SelectElement::new("test");
+    assert!(
+      select
+        .validate_value_async(&Value::from("value"))
+        .await
+        .is_ok()
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_passes() {
+    let mut select = SelectElement::new("color");
+    select.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(
+      select
+        .validate_value_async(&Value::Str("red".to_string()))
+        .await
+        .is_ok()
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_fails() {
+    let mut select = SelectElement::new("color");
+    select.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(select.validate_value_async(&Value::Null).await.is_err());
   }
 }
