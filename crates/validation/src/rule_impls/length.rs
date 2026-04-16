@@ -405,7 +405,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Value length must at most 2;  Received 4."
+      "Value length must be at most 2;  Received 4."
     );
 
     let rule = Rule::<Vec<i32>>::ExactLength(3);

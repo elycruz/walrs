@@ -175,8 +175,8 @@ Use `.with_message_provider()` for dynamic messages based on the failing value:
 use walrs_validation::{Rule, ValidateRef};
 
 let rule = Rule::<String>::MinLength(5).with_message_provider(
-    |value: &String, _locale| {
-        format!("\"{}\" is too short (minimum 5 characters).", value)
+    |ctx| {
+        format!("\"{}\" is too short (minimum 5 characters).", ctx.value)
     },
     None,
 );
