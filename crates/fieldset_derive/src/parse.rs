@@ -12,6 +12,8 @@ use syn::{
 #[derive(Debug, Default)]
 pub struct FieldsetStructAttrs {
   pub break_on_failure: bool,
+  pub into_form_data: bool,
+  pub try_from_form_data: bool,
 }
 
 /// Parsed `#[cross_validate(fn_name)]` on the struct.
@@ -185,6 +187,10 @@ pub fn parse_fieldset_struct_attrs(attrs: &[Attribute]) -> FieldsetStructAttrs {
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("break_on_failure") {
           result.break_on_failure = true;
+        } else if meta.path.is_ident("into_form_data") {
+          result.into_form_data = true;
+        } else if meta.path.is_ident("try_from_form_data") {
+          result.try_from_form_data = true;
         }
         Ok(())
       });
