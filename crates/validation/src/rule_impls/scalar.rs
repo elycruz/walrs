@@ -124,7 +124,10 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_scalar_inner(value, eff), &value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_scalar_inner(value, eff), &value, eff),
+          None => rule.validate_scalar_inner(value, eff),
+        }
       }
 
       // Step and string-only rules are pass-through for scalar types.
@@ -232,9 +235,14 @@ impl<T: ScalarValue + IsEmpty> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        let mut inner_violations = Violations::default();
-        rule.collect_violations_scalar(value, eff, &mut inner_violations);
-        message.wrap_violations(inner_violations, &value, eff, violations);
+        match message {
+          Some(msg) => {
+            let mut inner_violations = Violations::default();
+            rule.collect_violations_scalar(value, eff, &mut inner_violations);
+            msg.wrap_violations(inner_violations, &value, eff, violations);
+          }
+          None => rule.collect_violations_scalar(value, eff, violations),
+        }
       }
 
       _ => {
@@ -399,11 +407,14 @@ impl<T: ScalarValue + IsEmpty + Send + Sync> Rule<T> {
           locale,
         } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(
-            rule.validate_scalar_async_inner(value, eff).await,
-            &value,
-            eff,
-          )
+          match message {
+            Some(msg) => msg.wrap_result(
+              rule.validate_scalar_async_inner(value, eff).await,
+              &value,
+              eff,
+            ),
+            None => rule.validate_scalar_async_inner(value, eff).await,
+          }
         }
 
         // All sync rules — delegate to sync validation
@@ -623,7 +634,7 @@ mod tests {
     // WithMessage wrapping an All — all collected violations get the custom msg.
     let rule = Rule::<i32>::WithMessage {
       rule: Box::new(Rule::Min(0).and(Rule::Max(10))),
-      message: crate::Message::from("Out of range."),
+      message: Some(crate::Message::from("Out of range.")),
       locale: None,
     };
     assert!(rule.validate_scalar(5).is_ok());
