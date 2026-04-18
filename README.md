@@ -28,7 +28,18 @@ All sub-crates are enabled by default. Disable features you don't need to reduce
 walrs = { version = "0.1", default-features = false, features = ["fieldfilter", "validation", "filter"] }
 ```
 
-Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `fieldfilter`, `navigation`, `rbac`, `validation`.
+Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `fieldfilter`, `fieldfilter-derive`, `navigation`, `rbac`, `validation`.
+
+`fieldfilter-derive` opts into the `#[derive(Fieldset)]` proc-macro — it implies `fieldfilter` and enables `walrs_fieldfilter`'s `derive` feature:
+
+```toml
+[dependencies]
+walrs = { version = "0.1", default-features = false, features = ["fieldfilter-derive", "validation"] }
+```
+
+```rust
+use walrs::fieldfilter::{DeriveFieldset, Fieldset};
+```
 
 You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter = "0.1"`).
 
@@ -42,6 +53,7 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | `walrs_form` | Form elements and structure for web frameworks |
 | `walrs_graph` | Undirected graph structures |
 | `walrs_fieldfilter` | Field-level validation and filtering for form processing |
+| `walrs_fieldset_derive` | Proc-macro crate providing `#[derive(Fieldset)]`; consumed via `walrs_fieldfilter`'s `derive` feature |
 | `walrs_navigation` | Web page link graph / navigation structures |
 | `walrs_rbac` | Role-Based Access Control |
 | `walrs_validation` | Composable validation rules |
