@@ -95,5 +95,48 @@ fn main() {
   }
 
   println!();
+
+  // ---- Example 5: Built-in fallible conversions (ToBool / ToInt / ToFloat / UrlDecode) ----
+  println!("--- Built-in Fallible Conversions ---");
+
+  let to_bool = TryFilterOp::<String>::ToBool;
+  for input in ["true", "YES", "0", "off", "maybe"] {
+    match to_bool.try_apply(input.to_string()) {
+      Ok(v) => println!("  ToBool \"{}\" -> Ok(\"{}\")", input, v),
+      Err(e) => println!("  ToBool \"{}\" -> Err({})", input, e),
+    }
+  }
+
+  let to_int = TryFilterOp::<String>::ToInt;
+  for input in ["42", "  -7  ", "042", "abc"] {
+    match to_int.try_apply(input.to_string()) {
+      Ok(v) => println!("  ToInt  \"{}\" -> Ok(\"{}\")", input, v),
+      Err(e) => println!("  ToInt  \"{}\" -> Err({})", input, e),
+    }
+  }
+
+  let url_decode = TryFilterOp::<String>::UrlDecode;
+  for input in ["hello%20world", "caf%C3%A9", "plaintext", "%FF"] {
+    match url_decode.try_apply(input.to_string()) {
+      Ok(v) => println!("  UrlDecode \"{}\" -> Ok(\"{}\")", input, v),
+      Err(e) => println!("  UrlDecode \"{}\" -> Err({})", input, e),
+    }
+  }
+
+  println!();
+
+  // Common pipeline: trim → ToInt for form-input sanitation.
+  let form_int: TryFilterOp<String> = TryFilterOp::Chain(vec![
+    TryFilterOp::Infallible(FilterOp::Trim),
+    TryFilterOp::ToInt,
+  ]);
+  for input in ["  42  ", "  +7  ", "  not-a-number  "] {
+    match form_int.try_apply(input.to_string()) {
+      Ok(v) => println!("  Trim→ToInt \"{}\" -> Ok(\"{}\")", input, v),
+      Err(e) => println!("  Trim→ToInt \"{}\" -> Err({})", input, e),
+    }
+  }
+
+  println!();
   println!("=== Examples Complete ===");
 }

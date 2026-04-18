@@ -19,12 +19,22 @@ use walrs_validation::Value;
 /// Parse a permissive boolean literal (case-insensitive).
 ///
 /// Accepts `1`, `0`, `true`, `false`, `yes`, `no`, `on`, `off` — surrounding whitespace is ignored.
+///
+/// Uses [`str::eq_ignore_ascii_case`] to avoid allocating a lowercased copy of the input;
+/// the common already-canonical paths (`"true"` / `"false"`) stay allocation-free.
 fn parse_bool_literal(s: &str) -> Result<bool, FilterError> {
-  match s.trim().to_ascii_lowercase().as_str() {
-    "1" | "true" | "yes" | "on" => Ok(true),
-    "0" | "false" | "no" | "off" => Ok(false),
-    _ => Err(FilterError::new(format!("cannot parse {s:?} as bool")).with_name("ToBool")),
+  let t = s.trim();
+  for truthy in ["true", "1", "yes", "on"] {
+    if t.eq_ignore_ascii_case(truthy) {
+      return Ok(true);
+    }
   }
+  for falsy in ["false", "0", "no", "off"] {
+    if t.eq_ignore_ascii_case(falsy) {
+      return Ok(false);
+    }
+  }
+  Err(FilterError::new(format!("cannot parse {s:?} as bool")).with_name("ToBool"))
 }
 
 /// Iteratively flatten nested `Chain` variants into a list of non-chain operation references.
@@ -239,15 +249,13 @@ impl TryFilterOp<String> {
         }
       }
       TryFilterOp::UrlDecode => {
+        // `percent_decode_str(value).decode_utf8()` returns `Cow<'_, str>` borrowing from
+        // `value`, so the lifetimes line up and we can return it directly.
         let decoded = percent_decode_str(value).decode_utf8().map_err(|e| {
           FilterError::new(format!("invalid utf-8 after percent-decode: {e}"))
             .with_name("UrlDecode")
         })?;
-        // `decoded` borrows from `value`, so lifetimes line up.
-        match decoded {
-          Cow::Borrowed(s) => Ok(Cow::Borrowed(s)),
-          Cow::Owned(s) => Ok(Cow::Owned(s)),
-        }
+        Ok(decoded)
       }
       TryFilterOp::TryCustom(f) => f(value.to_string()).map(Cow::Owned),
     }
@@ -341,13 +349,17 @@ macro_rules! impl_numeric_try_filter_op {
                             let flat = flatten_try_chain(ops);
                             flat.iter().try_fold(value, |v, op| op.try_apply(v))
                         }
-                        // String-oriented conversions have no meaningful effect on numeric
-                        // types: preserve the value unchanged. Chains can still mix numeric
-                        // ops with these variants without spuriously failing.
+                        // String-oriented conversions (`ToBool`, `ToInt`, `ToFloat`,
+                        // `UrlDecode`) are only meaningful for `TryFilterOp<String>`.
+                        // Constructing one with a numeric `T` is a programming error —
+                        // panic loudly rather than silently pass the value through.
                         TryFilterOp::ToBool
                         | TryFilterOp::ToInt
                         | TryFilterOp::ToFloat
-                        | TryFilterOp::UrlDecode => Ok(value),
+                        | TryFilterOp::UrlDecode => unreachable!(
+                            "string-oriented TryFilterOp variant applied to numeric TryFilterOp<{}>; these variants are only valid for TryFilterOp<String>",
+                            stringify!($t)
+                        ),
                         TryFilterOp::TryCustom(f) => f(value),
                     }
                 }
@@ -771,6 +783,10 @@ mod tests {
     let result = op.try_apply_ref("true").unwrap();
     assert!(matches!(result, Cow::Borrowed(_)));
     assert_eq!(result, "true");
+
+    let result = op.try_apply_ref("false").unwrap();
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "false");
   }
 
   #[test]
@@ -1059,17 +1075,35 @@ mod tests {
     );
   }
 
-  // ---- Numeric pass-through for conversions ----
+  // ---- Numeric types reject string-oriented conversions ----
 
   #[test]
-  fn test_numeric_pass_through_to_int() {
+  #[should_panic(expected = "string-oriented TryFilterOp variant applied to numeric")]
+  fn test_numeric_to_int_panics() {
+    // `ToInt` on a numeric `TryFilterOp<T>` is a misconfiguration — the variant is
+    // only meaningful for `TryFilterOp<String>` (and `TryFilterOp<Value>`).
     let op = TryFilterOp::<i32>::ToInt;
-    assert_eq!(op.try_apply(42).unwrap(), 42);
+    let _ = op.try_apply(42);
   }
 
   #[test]
-  fn test_numeric_pass_through_to_bool() {
+  #[should_panic(expected = "string-oriented TryFilterOp variant applied to numeric")]
+  fn test_numeric_to_bool_panics() {
     let op = TryFilterOp::<f64>::ToBool;
-    assert_eq!(op.try_apply(1.0).unwrap(), 1.0);
+    let _ = op.try_apply(1.0);
+  }
+
+  #[test]
+  #[should_panic(expected = "string-oriented TryFilterOp variant applied to numeric")]
+  fn test_numeric_to_float_panics() {
+    let op = TryFilterOp::<i64>::ToFloat;
+    let _ = op.try_apply(1);
+  }
+
+  #[test]
+  #[should_panic(expected = "string-oriented TryFilterOp variant applied to numeric")]
+  fn test_numeric_url_decode_panics() {
+    let op = TryFilterOp::<u32>::UrlDecode;
+    let _ = op.try_apply(1);
   }
 }
