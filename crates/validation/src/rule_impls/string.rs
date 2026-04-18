@@ -501,7 +501,9 @@ impl Rule<String> {
       } => {
         let eff = locale.as_deref().or(inherited_locale);
         match message {
-          Some(msg) => msg.wrap_result(rule.validate_str_inner(value, eff), &value.to_string(), eff),
+          Some(msg) => {
+            msg.wrap_result(rule.validate_str_inner(value, eff), &value.to_string(), eff)
+          }
           None => rule.validate_str_inner(value, eff),
         }
       }

@@ -1,4 +1,4 @@
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use std::convert::TryFrom;
 /// Benchmark program for the extensive ACL configuration.
 ///
@@ -123,7 +123,7 @@ fn run_benchmark(
   privileges: &[String],
   iterations: usize,
 ) {
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
 
   let start = Instant::now();
   let mut allowed_count = 0;
@@ -168,7 +168,7 @@ fn run_inheritance_benchmark(
 ) {
   println!("Role inheritance checks (1,000 iterations):");
 
-  let mut rng = rand::thread_rng();
+  let mut rng = rand::rng();
   let start = Instant::now();
 
   // Test with roles that have deep inheritance (e.g., super_admin)

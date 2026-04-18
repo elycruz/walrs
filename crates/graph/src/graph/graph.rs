@@ -338,7 +338,10 @@ impl Graph {
               x.parse::<usize>().map_err(|e| {
                 std::io::Error::new(
                   std::io::ErrorKind::InvalidData,
-                  format!("Failed to parse \"{}\" as vertex index at line {}: {}", x, line_num, e),
+                  format!(
+                    "Failed to parse \"{}\" as vertex index at line {}: {}",
+                    x, line_num, e
+                  ),
                 )
               })
             })
@@ -984,7 +987,10 @@ mod test {
     assert_eq!(g.vert_count(), 3);
     // Edge 0-1 removed; vertex 2→1, vertex 3→2; edge 2-3 becomes 1-2
     assert!(g.has_edge(1, 2), "formerly 2-3 should now be 1-2");
-    assert!(!g.has_edge(0, 1), "vertex 0 is now formerly-vertex-1 (isolated)");
+    assert!(
+      !g.has_edge(0, 1),
+      "vertex 0 is now formerly-vertex-1 (isolated)"
+    );
     assert_eq!(g.edge_count(), 2); // only the 2-3 edge (now 1-2) remains
   }
 
@@ -1012,7 +1018,10 @@ mod test {
 
     // Edge 0-2 doesn't exist
     let result = g.remove_edge(0, 2);
-    assert!(result.is_err(), "Removing a non-existent edge should return Err");
+    assert!(
+      result.is_err(),
+      "Removing a non-existent edge should return Err"
+    );
     assert!(
       result.unwrap_err().contains("not found"),
       "Error message should indicate edge not found"
