@@ -92,7 +92,9 @@ pub enum FilterOp<T> {
   /// Remove HTML tags using Ammonia sanitizer.
   StripTags,
 
-  /// Encode special characters as XML/HTML entities.
+  /// Encode special characters as XML/HTML entities. Existing named,
+  /// decimal, and hex entity references in the input are preserved
+  /// verbatim so repeated application does not double-encode.
   HtmlEntities,
 
   /// Convert to URL-friendly slug.
@@ -646,6 +648,22 @@ mod tests {
     let result = filter.apply_ref("<b>Hello</b>");
     assert!(result.contains("&lt;"));
     assert!(result.contains("&gt;"));
+  }
+
+  #[test]
+  fn test_html_entities_preserves_existing_entities() {
+    let filter = FilterOp::<String>::HtmlEntities;
+
+    // Already-encoded input should pass through unchanged (no double-encoding).
+    assert_eq!(filter.apply_ref("Tom &amp; Jerry"), "Tom &amp; Jerry");
+    assert_eq!(filter.apply_ref("&#39;hi&#39;"), "&#39;hi&#39;");
+    assert_eq!(filter.apply_ref("&#x2F;path"), "&#x2F;path");
+
+    // Raw specials around an existing entity — only the raw ones get encoded.
+    assert_eq!(
+      filter.apply_ref("<b>Tom &amp; Jerry</b>"),
+      "&lt;b&gt;Tom &amp; Jerry&lt;/b&gt;"
+    );
   }
 
   #[test]
