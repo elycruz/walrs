@@ -218,6 +218,123 @@ fn bench_filter_op_chain(c: &mut Criterion) {
   group.finish();
 }
 
+fn bench_filter_op_sanitize(c: &mut Criterion) {
+  let mut group = c.benchmark_group("FilterOp_Sanitize");
+
+  // Digits — noop vs mutation
+  let digits = FilterOp::<String>::Digits;
+  group.bench_function("digits_noop", |b| {
+    b.iter(|| digits.apply_ref(black_box("1234567890")))
+  });
+  group.bench_function("digits_mutation", |b| {
+    b.iter(|| digits.apply_ref(black_box("abc123-def!456")))
+  });
+
+  // NormalizeWhitespace — single-pass early-exit scan on clean input,
+  // full rebuild on dirty input.
+  let normalize = FilterOp::<String>::NormalizeWhitespace;
+  group.bench_function("normalize_whitespace_noop", |b| {
+    b.iter(|| normalize.apply_ref(black_box("hello world go")))
+  });
+  group.bench_function("normalize_whitespace_mutation", |b| {
+    b.iter(|| normalize.apply_ref(black_box("  hello    world\n\tgo  ")))
+  });
+
+  // AllowChars / DenyChars
+  let allow = FilterOp::<String>::AllowChars {
+    set: "abcdefghijklmnopqrstuvwxyz ".to_string(),
+  };
+  group.bench_function("allow_chars_noop", |b| {
+    b.iter(|| allow.apply_ref(black_box("hello world")))
+  });
+  group.bench_function("allow_chars_mutation", |b| {
+    b.iter(|| allow.apply_ref(black_box("Hello, World! 123")))
+  });
+
+  let deny = FilterOp::<String>::DenyChars {
+    set: "<>&\"'".to_string(),
+  };
+  group.bench_function("deny_chars_noop", |b| {
+    b.iter(|| deny.apply_ref(black_box("plain safe text")))
+  });
+  group.bench_function("deny_chars_mutation", |b| {
+    b.iter(|| deny.apply_ref(black_box("<script>alert(\"xss\")</script>")))
+  });
+
+  // UrlEncode — RFC 3986 mode, noop vs mutation.
+  let url_encode = FilterOp::<String>::UrlEncode {
+    encode_unreserved: false,
+  };
+  group.bench_function("url_encode_noop_alphanum", |b| {
+    b.iter(|| url_encode.apply_ref(black_box("HelloWorld123")))
+  });
+  group.bench_function("url_encode_mutation", |b| {
+    b.iter(|| url_encode.apply_ref(black_box("hello world&foo=bar")))
+  });
+
+  // StripNewlines
+  let strip_nl = FilterOp::<String>::StripNewlines;
+  group.bench_function("strip_newlines_noop", |b| {
+    b.iter(|| strip_nl.apply_ref(black_box("no newlines here at all")))
+  });
+  group.bench_function("strip_newlines_mutation", |b| {
+    b.iter(|| strip_nl.apply_ref(black_box("line1\nline2\r\nline3\rline4")))
+  });
+
+  // Alnum — Unicode path
+  let alnum = FilterOp::<String>::Alnum {
+    allow_whitespace: false,
+  };
+  group.bench_function("alnum_ascii_noop", |b| {
+    b.iter(|| alnum.apply_ref(black_box("abc123")))
+  });
+  group.bench_function("alnum_unicode_mutation", |b| {
+    b.iter(|| alnum.apply_ref(black_box("café-日本語!")))
+  });
+
+  group.finish();
+}
+
+fn bench_try_filter_op_conversions(c: &mut Criterion) {
+  let mut group = c.benchmark_group("TryFilterOp_Conversions");
+
+  // ToBool — already-canonical (expected borrowed, no alloc) vs permissive.
+  let to_bool = TryFilterOp::<String>::ToBool;
+  group.bench_function("to_bool_canonical_true", |b| {
+    b.iter(|| to_bool.try_apply_ref(black_box("true")).unwrap())
+  });
+  group.bench_function("to_bool_canonical_false", |b| {
+    b.iter(|| to_bool.try_apply_ref(black_box("false")).unwrap())
+  });
+  group.bench_function("to_bool_permissive_yes", |b| {
+    b.iter(|| to_bool.try_apply_ref(black_box("YES")).unwrap())
+  });
+
+  // ToInt — canonical borrowed vs needing trim/strip.
+  let to_int = TryFilterOp::<String>::ToInt;
+  group.bench_function("to_int_canonical", |b| {
+    b.iter(|| to_int.try_apply_ref(black_box("42")).unwrap())
+  });
+  group.bench_function("to_int_with_whitespace", |b| {
+    b.iter(|| to_int.try_apply_ref(black_box("  042  ")).unwrap())
+  });
+
+  // UrlDecode — plain text (borrowed) vs real decoding.
+  let url_decode = TryFilterOp::<String>::UrlDecode;
+  group.bench_function("url_decode_noop", |b| {
+    b.iter(|| url_decode.try_apply_ref(black_box("plaintext")).unwrap())
+  });
+  group.bench_function("url_decode_mutation", |b| {
+    b.iter(|| {
+      url_decode
+        .try_apply_ref(black_box("hello%20world%20caf%C3%A9"))
+        .unwrap()
+    })
+  });
+
+  group.finish();
+}
+
 fn bench_filter_op_clamp(c: &mut Criterion) {
   let mut group = c.benchmark_group("FilterOp_Clamp");
 
@@ -362,6 +479,8 @@ criterion_group!(
   bench_filter_comparison,
   bench_filter_op_noop,
   bench_filter_op_chain,
+  bench_filter_op_sanitize,
+  bench_try_filter_op_conversions,
   bench_filter_op_clamp,
   bench_try_filter_op,
   bench_filter_op_value,
