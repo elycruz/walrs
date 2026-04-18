@@ -83,6 +83,14 @@ fn bench_xml_entities_filter(c: &mut Criterion) {
     ("all_special", "<>&\"'<>&\"'<>&\"'"),
     ("noop_plain", "Already clean text no special chars"),
     ("noop_numbers", "12345678901234567890"),
+    (
+      "noop_already_encoded",
+      "Tom &amp; Jerry &#38; friends &#x26; co",
+    ),
+    (
+      "mixed_raw_and_encoded",
+      "Tom &amp; Jerry & AT&T with <b>tags</b>",
+    ),
   ];
 
   for (name, input) in inputs {

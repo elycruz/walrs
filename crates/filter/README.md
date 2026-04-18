@@ -8,7 +8,7 @@ This crate provides reusable filter implementations that can transform input val
 
 - **`SlugFilter`** - Converts strings to URL-friendly slugs.
 - **`StripTagsFilter`** - Removes/sanitizes HTML tags using [Ammonia](https://docs.rs/ammonia).
-- **`XmlEntitiesFilter`** - Encodes special characters as XML entities.
+- **`XmlEntitiesFilter`** - Encodes special characters as XML entities. Existing named, decimal, and hex entity references are preserved, so repeated application does not double-encode.
 
 ## FilterOp Enum
 
