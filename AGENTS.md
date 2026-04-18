@@ -18,6 +18,7 @@
 Ensure all:
 
 - Call-sites, benches, examples, READMEs, and tests, where required, are updated to reflect any changes made, where required.
+- When a crate is added, renamed, or removed (in `crates/` and/or the workspace `Cargo.toml`), update the main repository `README.md` — sub-crates table, feature flags list, and any umbrella `walrs` crate re-exports / features — so it stays in sync with the current crate roster.
 - Code is covered above 80% coverage. 
 
 ## File/Code Scanning
