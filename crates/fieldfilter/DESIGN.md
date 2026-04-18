@@ -34,25 +34,25 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 
 - **`FieldFilter`** — Multi-field form-level pipeline. Holds an
   `IndexMap<String, Field<Value>>` plus a list of `CrossFieldRule`s.
-  Provides `filter()`, `try_filter()`, `validate()`, and `process()`.
+  Provides `filter()`, `try_filter()`, `validate()`, and `clean()`.
 
 - **`CrossFieldRule` / `CrossFieldRuleType`** — Serializable cross-field
   validation (FieldsEqual, RequiredIf, RequiredUnless, OneOfRequired,
   MutuallyExclusive, DependentRequired) plus a non-serializable `Custom`
   variant for arbitrary logic.
 
-- **`FormViolations`** — Aggregate error container with per-field
-  `Violations` and form-level `Violation` lists.
+- **`FieldsetViolations`** — Aggregate error container mapping field names to
+  `Violations`. Form-level violations use the empty-string key.
 
 ### Processing Pipeline
 
-`FieldFilter.process(data)` runs:
+`FieldFilter.clean(data)` runs:
 
 1. **`filter(data)`** — applies each field's `FilterOp` filters in order.
 2. **`try_filter(data)`** — applies each field's `TryFilterOp` filters;
-   collects errors into `FormViolations`.
+   collects errors into `FieldsetViolations`.
 3. **`validate(&data)`** — runs each field's `Rule<T>` plus all
-   `CrossFieldRule`s; collects errors into `FormViolations`.
+   `CrossFieldRule`s; collects errors into `FieldsetViolations`.
 
 ### Design Decisions
 

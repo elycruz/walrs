@@ -1,9 +1,9 @@
-# Design: `Filterable` Trait & `walrs_fieldfilter_derive`
+# Design: `Fieldset` Trait & `walrs_fieldset_derive`
 
 **Date:** April 12, 2026
 **Updated:** April 12, 2026
 **Status:** Design
-**Crates affected:** `walrs_validation` (new `FieldViolations` type), `walrs_fieldfilter` (trait + migration), `walrs_fieldfilter_derive` (new proc-macro crate)
+**Crates affected:** `walrs_validation` (new `FieldsetViolations` type), `walrs_fieldfilter` (trait + migration), `walrs_fieldset_derive` (new proc-macro crate)
 
 ---
 
@@ -11,12 +11,12 @@
 
 1. [Goal](#goal)
 2. [Background](#background)
-3. [Unified Violations Type: `FieldViolations`](#unified-violations-type-fieldviolations)
+3. [Unified Violations Type: `FieldsetViolations`](#unified-violations-type-fieldviolations)
    - [3.1 Definition](#31-definition)
    - [3.2 Cross-Field / Form-Level Violations](#32-cross-field--form-level-violations)
    - [3.3 Migration from `FormViolations`](#33-migration-from-formviolations)
-4. [The `Filterable` Trait](#the-filterable-trait)
-5. [Derive Macro: `#[derive(Filterable)]`](#derive-macro-derivefilterable)
+4. [The `Fieldset` Trait](#the-fieldset-trait)
+5. [Derive Macro: `#[derive(Fieldset)]`](#derive-macro-derivefieldset)
    - [5.1 Validation Annotations](#51-validation-annotations)
    - [5.2 Filter Annotations (Infallible + Fallible)](#52-filter-annotations-infallible--fallible)
    - [5.3 Cross-Field Validation](#53-cross-field-validation)
@@ -37,12 +37,12 @@
 
 ## Goal
 
-Provide a `Filterable` trait and companion `#[derive(Filterable)]` proc-macro so
+Provide a `Fieldset` trait and companion `#[derive(Fieldset)]` proc-macro so
 that users can attach **compile-time type-checked** validation rules and filters
 directly to struct fields, replacing runtime string-keyed `FieldFilter` +
 `HashMap<String, Value>` for statically known structs.
 
-Additionally, introduce a **unified violations type** (`FieldViolations`) that
+Additionally, introduce a **unified violations type** (`FieldsetViolations`) that
 can be used consistently across the entire forms/validations/filters ecosystem.
 
 ---
@@ -61,13 +61,13 @@ validating a known Rust struct, field names are runtime strings and type
 mismatches (e.g., `Rule::<Value>::MinLength(3)` on a numeric Value) are only
 caught at runtime.
 
-The `Filterable` trait provides the **typed alternative**: field names are
+The `Fieldset` trait provides the **typed alternative**: field names are
 compile-time string literals, rules are constructed with the correct `Rule<T>`
 for each field's concrete type, and mismatches cause **compiler errors**.
 
 ---
 
-## Unified Violations Type: `FieldViolations`
+## Unified Violations Type: `FieldsetViolations`
 
 ### 3.1 Definition
 
@@ -90,9 +90,9 @@ use crate::Violations;
 /// # Example
 ///
 /// ```rust
-/// use walrs_validation::{FieldViolations, Violation, ViolationType};
+/// use walrs_validation::{FieldsetViolations, Violation, ViolationType};
 ///
-/// let mut fv = FieldViolations::new();
+/// let mut fv = FieldsetViolations::new();
 /// fv.add("email", Violation::invalid_email());
 /// fv.add("", Violation::new(ViolationType::NotEqual, "Passwords must match"));
 ///
@@ -101,10 +101,10 @@ use crate::Violations;
 /// assert!(fv.form_violations().is_some());
 /// ```
 #[derive(Clone, Debug, Default)]
-pub struct FieldViolations(pub IndexMap<String, Violations>);
+pub struct FieldsetViolations(pub IndexMap<String, Violations>);
 
-impl FieldViolations {
-    /// Creates a new empty `FieldViolations`.
+impl FieldsetViolations {
+    /// Creates a new empty `FieldsetViolations`.
     pub fn new() -> Self {
         Self::default()
     }
@@ -171,22 +171,22 @@ impl FieldViolations {
         self.0.iter()
     }
 
-    /// Merges another `FieldViolations` into this one.
-    pub fn merge(&mut self, other: FieldViolations) -> &mut Self {
+    /// Merges another `FieldsetViolations` into this one.
+    pub fn merge(&mut self, other: FieldsetViolations) -> &mut Self {
         for (field, violations) in other.0 {
             self.add_many(field, violations);
         }
         self
     }
 
-    /// Merges another `FieldViolations` with a key prefix.
+    /// Merges another `FieldsetViolations` with a key prefix.
     ///
     /// Useful for nested struct violations: `merge_prefixed("address", nested)`
     /// turns key `"street"` into `"address.street"`.
     pub fn merge_prefixed(
         &mut self,
         prefix: &str,
-        other: FieldViolations,
+        other: FieldsetViolations,
     ) -> &mut Self {
         for (field, violations) in other.0 {
             let prefixed = if field.is_empty() {
@@ -206,7 +206,7 @@ impl FieldViolations {
     }
 }
 
-impl std::fmt::Display for FieldViolations {
+impl std::fmt::Display for FieldsetViolations {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         for (field, violations) in &self.0 {
             if !violations.is_empty() {
@@ -218,10 +218,10 @@ impl std::fmt::Display for FieldViolations {
     }
 }
 
-impl std::error::Error for FieldViolations {}
+impl std::error::Error for FieldsetViolations {}
 
-impl From<FieldViolations> for Result<(), FieldViolations> {
-    fn from(fv: FieldViolations) -> Self {
+impl From<FieldsetViolations> for Result<(), FieldsetViolations> {
+    fn from(fv: FieldsetViolations) -> Self {
         if fv.is_empty() { Ok(()) } else { Err(fv) }
     }
 }
@@ -239,49 +239,49 @@ both per-field and form-level violations through a single structure.
 ### 3.3 Migration from `FormViolations`
 
 The existing `FormViolations` in `walrs_fieldfilter` will be deprecated in
-favor of `FieldViolations` from `walrs_validation`. Migration path:
+favor of `FieldsetViolations` from `walrs_validation`. Migration path:
 
-1. Add `FieldViolations` to `walrs_validation`.
-2. Add a `type FormViolations = FieldViolations;` alias in `walrs_fieldfilter`
+1. Add `FieldsetViolations` to `walrs_validation`.
+2. Add a `type FormViolations = FieldsetViolations;` alias in `walrs_fieldfilter`
    for backward compatibility (marked `#[deprecated]`).
-3. Update `FieldFilter` internals to use `FieldViolations`.
-4. New code (`Filterable`, derive macros) uses `FieldViolations` exclusively.
+3. Update `FieldFilter` internals to use `FieldsetViolations`.
+4. New code (`Fieldset`, derive macros) uses `FieldsetViolations` exclusively.
 
-The `FieldViolations::merge_prefixed()` method replaces the nested violation
+The `FieldsetViolations::merge_prefixed()` method replaces the nested violation
 key-prefixing that `FormViolations` relied on ad-hoc logic for.
 
 ---
 
-## The `Filterable` Trait
+## The `Fieldset` Trait
 
-Defined in `walrs_fieldfilter::filterable`:
+Defined in `walrs_fieldfilter::fieldset`:
 
 ```rust
-use walrs_validation::FieldViolations;
+use walrs_validation::FieldsetViolations;
 
 /// Trait for structs that support type-safe field validation and filtering.
 ///
-/// Implementors can either derive this trait via `#[derive(Filterable)]` or
+/// Implementors can either derive this trait via `#[derive(Fieldset)]` or
 /// implement it manually for full control over validation and filtering logic.
-pub trait Filterable: Sized {
+pub trait Fieldset: Sized {
     /// Validate all fields and cross-field rules.
     ///
     /// Returns `Ok(())` when all fields pass validation, or
-    /// `Err(FieldViolations)` with per-field and form-level violations.
-    fn validate(&self) -> Result<(), FieldViolations>;
+    /// `Err(FieldsetViolations)` with per-field and form-level violations.
+    fn validate(&self) -> Result<(), FieldsetViolations>;
 
     /// Apply all per-field filters (infallible and fallible).
     ///
-    /// Returns `Ok(filtered)` on success, or `Err(FieldViolations)` if any
+    /// Returns `Ok(filtered)` on success, or `Err(FieldsetViolations)` if any
     /// fallible filter fails. Takes ownership to avoid `mem::take` / `Default`
     /// requirements on non-`Default` fields.
-    fn filter(self) -> Result<Self, FieldViolations>;
+    fn filter(self) -> Result<Self, FieldsetViolations>;
 
     /// Filter then validate (provided default).
     ///
     /// Applies `filter()` first, then `validate()` on the result.
-    /// Returns `Ok(filtered)` if both succeed, or `Err(FieldViolations)`.
-    fn process(self) -> Result<Self, FieldViolations> {
+    /// Returns `Ok(filtered)` if both succeed, or `Err(FieldsetViolations)`.
+    fn clean(self) -> Result<Self, FieldsetViolations> {
         let filtered = self.filter()?;
         filtered.validate()?;
         Ok(filtered)
@@ -293,24 +293,24 @@ pub trait Filterable: Sized {
 
 - **`validate(&self)`** — borrows `self`, runs `Rule<T>::validate_ref()` for
   strings/refs, `Rule<T>::validate()` for `Copy` types. Collects errors into
-  `FieldViolations` keyed by field name string literals.
+  `FieldsetViolations` keyed by field name string literals.
 
-- **`filter(self) -> Result<Self, FieldViolations>`** — takes ownership. Runs
+- **`filter(self) -> Result<Self, FieldsetViolations>`** — takes ownership. Runs
   **all** filters (both infallible `FilterOp` and fallible `TryFilterOp`) in a
   single pass. Returns `Result` so that fallible filter failures propagate
   naturally without requiring a separate `try_filter()` method or special
-  handling in `process()`. Infallible filters (e.g., `Trim`) are simply wrapped
+  handling in `clean()`. Infallible filters (e.g., `Trim`) are simply wrapped
   in `Ok(...)` internally.
 
-- **`process(self)`** — provided default: `filter()? → validate()?`. Mirrors
-  the existing `Field<T>::process` semantics but simplified since `filter()`
+- **`clean(self)`** — provided default: `filter()? → validate()?`. Mirrors
+  the existing `Field<T>::clean` semantics but simplified since `filter()`
   already handles fallible operations.
 
 ---
 
-## Derive Macro: `#[derive(Filterable)]`
+## Derive Macro: `#[derive(Fieldset)]`
 
-A new proc-macro crate `walrs_fieldfilter_derive` provides `#[derive(Filterable)]`.
+A new proc-macro crate `walrs_fieldset_derive` provides `#[derive(Fieldset)]`.
 
 ### 5.1 Validation Annotations
 
@@ -335,7 +335,7 @@ Placed on struct fields via `#[validate(...)]`:
 | `step = N` | `Rule::Step(N)` | `SteppableValue` types |
 | `one_of = [a, b, c]` | `Rule::OneOf(vec![a, b, c])` | Types with `PartialEq` |
 | `custom = "path::to::fn"` | `Rule::Custom(Arc::new(path::to::fn))` | All |
-| `nested` | Calls `field.validate()` (requires `Filterable`) | Nested structs |
+| `nested` | Calls `field.validate()` (requires `Fieldset`) | Nested structs |
 
 Multiple `#[validate(...)]` attributes on the same field are combined via
 `Rule::All(vec![...])`.
@@ -360,7 +360,7 @@ All filters — infallible and fallible — are placed on struct fields via
 | `replace(from = "x", to = "y")` | `FilterOp::Replace { from, to }` | `String` |
 | `clamp(min = A, max = B)` | `FilterOp::Clamp { min: A, max: B }` | Numeric scalars |
 | `custom = "path::to::fn"` | `FilterOp::Custom(Arc::new(path::to::fn))` | All |
-| `nested` | Calls `field.filter()` (requires `Filterable`) | Nested structs |
+| `nested` | Calls `field.filter()` (requires `Fieldset`) | Nested structs |
 
 #### Fallible filters
 
@@ -368,10 +368,10 @@ All filters — infallible and fallible — are placed on struct fields via
 |---|---|---|
 | `try_custom = "path::to::fn"` | `TryFilterOp::TryCustom(Arc::new(path::to::fn))` | All |
 
-Since `filter()` returns `Result<Self, FieldViolations>`, both infallible and
+Since `filter()` returns `Result<Self, FieldsetViolations>`, both infallible and
 fallible filters run in sequence within the same method. Infallible filters
 always succeed; fallible filters may fail, in which case their error is
-converted to a `Violation` and added to `FieldViolations` under the field's
+converted to a `Violation` and added to `FieldsetViolations` under the field's
 name.
 
 Multiple `#[filter(...)]` annotations on the same field produce a chained
@@ -382,7 +382,7 @@ sequence: infallible filters run first, then fallible filters.
 #### MVP: `#[cross_validate(...)]` struct attribute
 
 ```rust
-#[derive(Filterable)]
+#[derive(Fieldset)]
 #[cross_validate(passwords_match)]
 struct Registration {
     #[validate(required, min_length = 8)]
@@ -403,18 +403,18 @@ fn passwords_match(r: &Registration) -> walrs_validation::ValidatorResult {
 
 Generated `validate()` calls each `#[cross_validate]` function **after**
 per-field checks, passing `&self` as the argument. Any returned `Violation` is
-added to `FieldViolations` under the `""` (empty string) key (form-level violations).
+added to `FieldsetViolations` under the `""` (empty string) key (form-level violations).
 
 Multiple `#[cross_validate(...)]` attributes are supported — each function is
 called in declaration order.
 
 ### 5.4 Nested Structs
 
-When a field's type also implements `Filterable`, use `#[validate(nested)]`
+When a field's type also implements `Fieldset`, use `#[validate(nested)]`
 and/or `#[filter(nested)]`:
 
 ```rust
-#[derive(Filterable)]
+#[derive(Fieldset)]
 struct UserRegistration {
     #[validate(required, min_length = 2)]
     #[filter(trim)]
@@ -429,7 +429,7 @@ struct UserRegistration {
 Generated code:
 
 - **`validate()`**: calls `self.address.validate()` and prefixes nested
-  violations with the field name via `FieldViolations::merge_prefixed("address", ...)`.
+  violations with the field name via `FieldsetViolations::merge_prefixed("address", ...)`.
 - **`filter()`**: calls `self.address.filter()?` and propagates errors with
   prefix.
 
@@ -463,8 +463,8 @@ let field = match self.field {
 Controlled via struct-level attributes:
 
 ```rust
-#[derive(Filterable)]
-#[filterable(into_form_data)]
+#[derive(Fieldset)]
+#[fieldset(into_form_data)]
 struct UserAddress {
     street: String,
     zip: String,
@@ -474,7 +474,7 @@ struct UserAddress {
 - `into_form_data` generates `impl From<&UserAddress> for FormData`
 - `try_from_form_data` generates `impl TryFrom<FormData> for UserAddress`
 
-This enables bridging between the typed `Filterable` path and the dynamic
+This enables bridging between the typed `Fieldset` path and the dynamic
 `FieldFilter` / `Form` path.
 
 ---
@@ -484,11 +484,11 @@ This enables bridging between the typed `Filterable` path and the dynamic
 ### 6.1 Simple Struct
 
 ```rust
-use walrs_fieldfilter::Filterable;
+use walrs_fieldfilter::Fieldset;
 use walrs_filter::FilterOp;
 use walrs_validation::{Rule, CompiledPattern};
 
-#[derive(Filterable)]
+#[derive(Fieldset)]
 struct UserAddress {
     #[validate(required, min_length = 3)]
     #[filter(trim)]
@@ -500,12 +500,12 @@ struct UserAddress {
 }
 ```
 
-**Generated `Filterable` impl:**
+**Generated `Fieldset` impl:**
 
 ```rust
-impl Filterable for UserAddress {
-    fn validate(&self) -> Result<(), walrs_validation::FieldViolations> {
-        let mut violations = walrs_validation::FieldViolations::new();
+impl Fieldset for UserAddress {
+    fn validate(&self) -> Result<(), walrs_validation::FieldsetViolations> {
+        let mut violations = walrs_validation::FieldsetViolations::new();
 
         // street: required + min_length(3)
         {
@@ -534,7 +534,7 @@ impl Filterable for UserAddress {
         if violations.is_empty() { Ok(()) } else { Err(violations) }
     }
 
-    fn filter(self) -> Result<Self, walrs_validation::FieldViolations> {
+    fn filter(self) -> Result<Self, walrs_validation::FieldsetViolations> {
         let street = FilterOp::<String>::Trim.apply(self.street);
         let zip = FilterOp::<String>::Trim.apply(self.zip);
         Ok(Self { street, zip })
@@ -545,10 +545,10 @@ impl Filterable for UserAddress {
 ### 6.2 Nested Struct with Cross-Field Validation
 
 ```rust
-use walrs_fieldfilter::Filterable;
+use walrs_fieldfilter::Fieldset;
 use walrs_validation::{Violation, ViolationType};
 
-#[derive(Filterable)]
+#[derive(Fieldset)]
 #[cross_validate(passwords_match)]
 struct UserRegistration {
     #[validate(required, min_length = 2, max_length = 50)]
@@ -598,21 +598,21 @@ fn passwords_match(r: &UserRegistration) -> walrs_validation::ValidatorResult {
 
 ### 6.3 Manual Implementation
 
-Users can implement `Filterable` without the derive macro:
+Users can implement `Fieldset` without the derive macro:
 
 ```rust
-use walrs_fieldfilter::Filterable;
+use walrs_fieldfilter::Fieldset;
 use walrs_filter::FilterOp;
-use walrs_validation::{FieldViolations, Rule, ValidateRef, Violation, ViolationType};
+use walrs_validation::{FieldsetViolations, Rule, ValidateRef, Violation, ViolationType};
 
 struct LoginForm {
     username: String,
     password: String,
 }
 
-impl Filterable for LoginForm {
-    fn validate(&self) -> Result<(), FieldViolations> {
-        let mut violations = FieldViolations::new();
+impl Fieldset for LoginForm {
+    fn validate(&self) -> Result<(), FieldsetViolations> {
+        let mut violations = FieldsetViolations::new();
 
         let username_rule = Rule::<String>::Required.and(Rule::MinLength(3));
         if let Err(v) = username_rule.validate_ref(self.username.as_str()) {
@@ -627,7 +627,7 @@ impl Filterable for LoginForm {
         if violations.is_empty() { Ok(()) } else { Err(violations) }
     }
 
-    fn filter(self) -> Result<Self, FieldViolations> {
+    fn filter(self) -> Result<Self, FieldsetViolations> {
         let username = FilterOp::<String>::Trim.apply(self.username);
         Ok(Self { username, password: self.password })
     }
@@ -647,7 +647,7 @@ method:
 | `i8`..`i128`, `isize` | `Rule<{int}>` | `rule.validate(self.field)` |
 | `u8`..`u128`, `usize` | `Rule<{uint}>` | `rule.validate(self.field)` |
 | `f32`, `f64` | `Rule<{float}>` | `rule.validate(self.field)` |
-| `T: Filterable` | N/A (nested) | `self.field.validate()` |
+| `T: Fieldset` | N/A (nested) | `self.field.validate()` |
 | `Option<T>` | Conditional | Skip if `None` unless `required` |
 | `Vec<T>` | `Rule<Vec<T>>` | `rule.validate_ref(&self.field)` |
 
@@ -657,7 +657,7 @@ For filtering (all return `Result`):
 |---|---|
 | `String` | `Ok(FilterOp::<String>::apply(self.field))` |
 | Numeric (`Copy`) | `Ok(FilterOp::<T>::apply(self.field))` |
-| `T: Filterable` (nested) | `self.field.filter()?` |
+| `T: Fieldset` (nested) | `self.field.filter()?` |
 | `Option<T>` | `self.field.map(\|v\| filter.apply(v))` wrapped in `Ok(...)` |
 | Fallible (`TryFilterOp`) | `try_filter.try_apply(self.field).map_err(\|e\| ...)` |
 
@@ -668,16 +668,16 @@ For filtering (all return `Result`):
 ```
 crates/
 ├── fieldfilter/
-│   ├── Cargo.toml           # adds `walrs_fieldfilter_derive` as optional dep
+│   ├── Cargo.toml           # adds `walrs_fieldset_derive` as optional dep
 │   └── src/
-│       ├── lib.rs            # re-exports `Filterable` trait; conditionally
+│       ├── lib.rs            # re-exports `Fieldset` trait; conditionally
 │       │                     #   re-exports derive macro
-│       ├── filterable.rs     # `Filterable` trait definition (NEW)
+│       ├── fieldset.rs     # `Fieldset` trait definition (NEW)
 │       └── ...               # existing modules unchanged
-├── fieldfilter_derive/       # (NEW)
+├── fieldset_derive/       # (NEW)
 │   ├── Cargo.toml            # proc-macro = true
 │   └── src/
-│       ├── lib.rs            # #[proc_macro_derive(Filterable, attributes(validate, filter, cross_validate, filterable))]
+│       ├── lib.rs            # #[proc_macro_derive(Fieldset, attributes(validate, filter, cross_validate, fieldset))]
 │       ├── parse.rs          # Attribute parsing (syn-based)
 │       ├── gen_validate.rs   # Code generation for validate()
 │       ├── gen_filter.rs     # Code generation for filter() (infallible + fallible)
@@ -690,10 +690,10 @@ crates/
 # crates/fieldfilter/Cargo.toml
 [features]
 default = []
-derive = ["walrs_fieldfilter_derive"]
+derive = ["walrs_fieldset_derive"]
 
 [dependencies]
-walrs_fieldfilter_derive = { path = "../fieldfilter_derive", optional = true }
+walrs_fieldset_derive = { path = "../fieldset_derive", optional = true }
 ```
 
 Users opt in with:
@@ -702,15 +702,15 @@ Users opt in with:
 walrs_fieldfilter = { version = "...", features = ["derive"] }
 ```
 
-### `walrs_fieldfilter_derive/Cargo.toml`
+### `walrs_fieldset_derive/Cargo.toml`
 
 ```toml
 [package]
-name = "walrs_fieldfilter_derive"
+name = "walrs_fieldset_derive"
 version = "0.1.0"
 edition = "2024"
 authors = ["Ely De La Cruz <elycruz@elycruz.com>"]
-description = "Derive macro for walrs_fieldfilter Filterable trait"
+description = "Derive macro for walrs_fieldfilter Fieldset trait"
 license = "Elastic-2.0"
 
 [lib]
@@ -732,11 +732,11 @@ The `HashMap<String, Value>` / `FieldFilter` path is **preserved unchanged**:
 - WASM boundaries (`web_sys::FormData`) → `FormData` + `FieldFilter`
 - Dynamic form generation → `FieldFilter`
 
-The struct-based `Filterable` path **supplements** the existing dynamic path.
+The struct-based `Fieldset` path **supplements** the existing dynamic path.
 No existing public APIs are changed or removed.
 
 The existing `FormViolations` type in `walrs_fieldfilter` is deprecated and
-replaced by a type alias to `FieldViolations` from `walrs_validation`. Existing
+replaced by a type alias to `FieldsetViolations` from `walrs_validation`. Existing
 code using `FormViolations` continues to compile with a deprecation warning.
 
 ---
@@ -745,11 +745,11 @@ code using `FormViolations` continues to compile with a deprecation warning.
 
 1. **`break_on_failure` semantics** — The typed path currently validates all
    fields and collects all violations. Should we add a
-   `#[filterable(break_on_failure)]` struct-level attribute for short-circuit
+   `#[fieldset(break_on_failure)]` struct-level attribute for short-circuit
    validation?
 
-2. **Async validation** — Should `Filterable` have an async counterpart
-   (`FilterableAsync`) mirroring the `ValidateAsync` / `ValidateRefAsync` traits?
+2. **Async validation** — Should `Fieldset` have an async counterpart
+   (`FieldsetAsync`) mirroring the `ValidateAsync` / `ValidateRefAsync` traits?
    This would enable `Rule::CustomAsync` in derive macros.
 
 3. **Error message customization** — Should `#[validate]` annotations support
@@ -760,7 +760,7 @@ code using `FormViolations` continues to compile with a deprecation warning.
 
 ## Out of Scope
 
-1. **`impl Filterable for FormData`** — Unifying the dynamic and typed paths
+1. **`impl Fieldset for FormData`** — Unifying the dynamic and typed paths
    under a single trait is a potential future improvement.
 2. **Runtime schema validation** — The derive macro generates static code;
    schema-driven validation at runtime continues to use `FieldFilter`.

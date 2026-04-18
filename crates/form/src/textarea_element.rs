@@ -33,7 +33,7 @@ use walrs_validation::{Attributes, Value};
 ///
 /// assert_eq!(textarea.rows, Some(5));
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct TextareaElement {
   /// Element name attribute.
@@ -128,6 +128,20 @@ impl TextareaElement {
     }
   }
 }
+
+#[cfg(feature = "async")]
+impl TextareaElement {
+  /// Validates the given value asynchronously against the field configuration.
+  ///
+  /// Returns `Ok(())` if no field configuration is set or validation passes.
+  pub async fn validate_value_async(&self, value: &Value) -> Result<(), Violations> {
+    if let Some(ref field) = self.field {
+      field.validate_ref_async(value).await
+    } else {
+      Ok(())
+    }
+  }
+}
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -165,5 +179,53 @@ mod tests {
     let textarea = TextareaElement::new("test");
     let json = serde_json::to_string(&textarea).unwrap();
     assert!(json.contains("\"name\":\"test\""));
+  }
+}
+
+#[cfg(test)]
+#[cfg(feature = "async")]
+mod async_tests {
+  use super::*;
+  use walrs_fieldfilter::FieldBuilder;
+  use walrs_validation::Rule;
+
+  #[tokio::test]
+  async fn test_validate_value_async_without_field() {
+    let textarea = TextareaElement::new("test");
+    assert!(
+      textarea
+        .validate_value_async(&Value::from("text"))
+        .await
+        .is_ok()
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_passes() {
+    let mut textarea = TextareaElement::new("bio");
+    textarea.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(
+      textarea
+        .validate_value_async(&Value::Str("Hello".to_string()))
+        .await
+        .is_ok()
+    );
+  }
+
+  #[tokio::test]
+  async fn test_validate_value_async_fails() {
+    let mut textarea = TextareaElement::new("bio");
+    textarea.field = Some(
+      FieldBuilder::default()
+        .rule(Rule::required())
+        .build()
+        .unwrap(),
+    );
+    assert!(textarea.validate_value_async(&Value::Null).await.is_err());
   }
 }

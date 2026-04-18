@@ -93,28 +93,60 @@ Built-in rules for multi-field validation:
 - **MutuallyExclusive** - Only one field can have a value
 - **DependentRequired** - Field required when another field has any value
 - **Custom** - Custom validation function
-### FormViolations
-Aggregate validation errors:
+### Fieldset
+
+Typed struct validation and filtering with compile-time guarantees — the recommended approach when your fields are known at compile time. Use the `derive` feature to auto-generate implementations:
+
 ```rust
-use walrs_fieldfilter::FormViolations;
-use walrs_validation::{Violations, Violation, ViolationType};
-let mut violations = FormViolations::new();
-// Add field-specific violations
-violations.add_field_violation("email", 
-    Violation::new(ViolationType::ValueMissing, "Email is required"));
-// Add form-level violations
-violations.add_form_violation(
-    Violation::new(ViolationType::CustomError("auth".into()), "Invalid credentials"));
-if !violations.is_empty() {
-    for field_name in violations.field_names() {
-        println!("Field '{}' has errors", field_name);
+use walrs_fieldfilter::{DeriveFieldset, Fieldset};
+
+#[derive(Debug, DeriveFieldset)]
+struct ContactForm {
+    #[validate(required, email)]
+    #[filter(trim, lowercase)]
+    email: String,
+
+    #[validate(required, min_length = 2)]
+    #[filter(trim)]
+    name: String,
+}
+
+fn main() {
+    let form = ContactForm {
+        email: "  USER@EXAMPLE.COM  ".into(),
+        name: "  Alice  ".into(),
+    };
+    
+    match form.clean() {
+        Ok(cleaned) => println!("Cleaned: {:?}", cleaned),
+        Err(violations) => eprintln!("Errors: {}", violations),
     }
 }
 ```
+
+**Key features:**
+- `clean()` — filter then validate (convenience method)
+- `validate()` — validate without filtering
+- `filter()` — filter without validation
+- Nested struct support with `#[validate(nested)]` and `#[filter(nested)]`
+- Cross-field validation with `#[cross_validate(fn_name)]`
+- `Option<T>` handling
+- Custom validators and filters
+
+See [`crates/fieldset_derive/README.md`](../fieldset_derive/README.md) for complete documentation.
+
 ## Installation
+
+### Basic (without derive macro)
 ```toml
 [dependencies]
 walrs_fieldfilter = { path = "../fieldfilter" }
+```
+
+### With derive macro
+```toml
+[dependencies]
+walrs_fieldfilter = { path = "../fieldfilter", features = ["derive"] }
 ```
 ## Architecture
 This crate sits between `walrs_validation` and `walrs_form`:

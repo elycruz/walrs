@@ -303,7 +303,10 @@ impl Rule<Date> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_date_inner(value, eff), value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_date_inner(value, eff), value, eff),
+          None => rule.validate_date_inner(value, eff),
+        }
       }
       _ => Ok(()),
     }
@@ -423,7 +426,10 @@ impl Rule<Date> {
           locale,
         } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff)
+          match message {
+            Some(msg) => msg.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff),
+            None => rule.validate_date_async_inner(value, eff).await,
+          }
         }
 
         // All sync rules — delegate to sync validation
@@ -556,7 +562,10 @@ impl Rule<DateTime> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_datetime_inner(value, eff), value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_datetime_inner(value, eff), value, eff),
+          None => rule.validate_datetime_inner(value, eff),
+        }
       }
       _ => Ok(()),
     }
@@ -676,11 +685,14 @@ impl Rule<DateTime> {
           locale,
         } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(
-            rule.validate_datetime_async_inner(value, eff).await,
-            value,
-            eff,
-          )
+          match message {
+            Some(msg) => msg.wrap_result(
+              rule.validate_datetime_async_inner(value, eff).await,
+              value,
+              eff,
+            ),
+            None => rule.validate_datetime_async_inner(value, eff).await,
+          }
         }
 
         // All sync rules — delegate to sync validation

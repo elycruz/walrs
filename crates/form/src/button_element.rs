@@ -37,7 +37,7 @@ use walrs_validation::Attributes;
 /// let button = ButtonElement::new("action", ButtonType::Button);
 /// assert_eq!(button._type, ButtonType::Button);
 /// ```
-#[derive(Clone, Debug, Default, Builder, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Builder, Serialize, Deserialize)]
 #[builder(setter(into, strip_option), default)]
 pub struct ButtonElement {
   /// Element name attribute.

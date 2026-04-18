@@ -278,7 +278,10 @@ impl Rule<Value> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_value_inner(value, eff), value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_value_inner(value, eff), value, eff),
+          None => rule.validate_value_inner(value, eff),
+        }
       }
     }
   }
@@ -399,11 +402,14 @@ impl Rule<Value> {
           locale,
         } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(
-            rule.validate_value_async_inner(value, eff).await,
-            value,
-            eff,
-          )
+          match message {
+            Some(msg) => msg.wrap_result(
+              rule.validate_value_async_inner(value, eff).await,
+              value,
+              eff,
+            ),
+            None => rule.validate_value_async_inner(value, eff).await,
+          }
         }
 
         // All sync rules — delegate to sync validation

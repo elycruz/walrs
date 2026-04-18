@@ -1,0 +1,53 @@
+[package]
+name = "walrs-validation-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+
+[dependencies.walrs_validation]
+path = ".."
+features = ["serde_json_bridge"]
+
+# Prevent this from interfering with workspaces
+[workspace]
+members = ["."]
+
+[profile.release]
+debug = 1
+
+[[bin]]
+name = "fuzz_email"
+path = "fuzz_targets/fuzz_email.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_url"
+path = "fuzz_targets/fuzz_url.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_ip"
+path = "fuzz_targets/fuzz_ip.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_hostname"
+path = "fuzz_targets/fuzz_hostname.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_date"
+path = "fuzz_targets/fuzz_date.rs"
+doc = false
+
+[[bin]]
+name = "fuzz_rule_composition"
+path = "fuzz_targets/fuzz_rule_composition.rs"
+doc = false

@@ -59,8 +59,7 @@ impl DirectedPathsDFS {
   /// `source_path` (initially passed to struct).  Additionally, method returns `None` when `v` is
   /// out of bounds.
   pub fn path_to(&self, v: usize) -> Option<Vec<usize>> {
-    let path_exists = self.has_path_to(v);
-    if path_exists.is_err() || (path_exists.is_ok() && !path_exists.unwrap()) {
+    if !self.has_path_to(v).unwrap_or(false) {
       return None;
     }
     let s = self._source_vertex;
@@ -71,7 +70,7 @@ impl DirectedPathsDFS {
         break;
       }
       path.push(x);
-      x = self._edge_to[x].unwrap();
+      x = self._edge_to[x].expect("_edge_to invariant violated: vertex on path has no parent");
     }
     path.push(s);
     Some(path)
@@ -259,5 +258,12 @@ mod test {
     }
 
     Ok(())
+  }
+
+  #[test]
+  fn test_new_invalid_source_vertex() {
+    let g = Digraph::new(3);
+    let result = DirectedPathsDFS::new(&g, 99);
+    assert!(result.is_err());
   }
 }

@@ -15,16 +15,21 @@
 //! ## FilterOp Enum
 //!
 //! The [`FilterOp`] enum provides a composable, serializable way to define
-//! filter operations for config-driven form processing.
+//! filter operations for config-driven form processing. In addition to
+//! string/numeric transforms like `Trim`, `Lowercase`, and `Clamp`, it
+//! exposes a suite of sanitize variants: `Digits`, `Alnum`, `Alpha`,
+//! `StripNewlines`, `NormalizeWhitespace`, `AllowChars`, `DenyChars`, and
+//! `UrlEncode`.
 //!
 //! ## TryFilterOp Enum
 //!
 //! The [`TryFilterOp`] enum provides a composable, serializable way to define
 //! **fallible** filter operations. Use this for filters that can legitimately
-//! fail (e.g., base64 decode, JSON parse, URL decode). Errors are represented
+//! fail (e.g., JSON parse, URL decode, type coercion). Errors are represented
 //! as [`FilterError`], which can be converted to
 //! [`Violation`](walrs_validation::Violation) for integration with the
-//! validation error pipeline.
+//! validation error pipeline. Built-in fallible variants include `ToBool`,
+//! `ToInt`, `ToFloat`, and `UrlDecode`.
 //!
 //! ## Example
 //!

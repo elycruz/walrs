@@ -117,7 +117,10 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_step_inner(value, eff), &value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_step_inner(value, eff), &value, eff),
+          None => rule.validate_step_inner(value, eff),
+        }
       }
       // String rules don't apply to numbers - pass through
       Rule::MinLength(_)
@@ -210,9 +213,14 @@ impl<T: SteppableValue + IsEmpty> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        let mut inner_violations = crate::Violations::default();
-        rule.collect_violations(value, eff, &mut inner_violations);
-        message.wrap_violations(inner_violations, &value, eff, violations);
+        match message {
+          Some(msg) => {
+            let mut inner_violations = crate::Violations::default();
+            rule.collect_violations(value, eff, &mut inner_violations);
+            msg.wrap_violations(inner_violations, &value, eff, violations);
+          }
+          None => rule.collect_violations(value, eff, violations),
+        }
       }
       _ => {
         if let Err(v) = self.validate_step_inner(value, inherited_locale) {
@@ -341,11 +349,14 @@ impl<T: SteppableValue + IsEmpty + Clone + Send + Sync> Rule<T> {
           locale,
         } => {
           let eff = locale.as_deref().or(inherited_locale);
-          message.wrap_result(
-            rule.validate_step_async_inner(value, eff).await,
-            &value,
-            eff,
-          )
+          match message {
+            Some(msg) => msg.wrap_result(
+              rule.validate_step_async_inner(value, eff).await,
+              &value,
+              eff,
+            ),
+            None => rule.validate_step_async_inner(value, eff).await,
+          }
         }
 
         // All sync rules — delegate to sync validation

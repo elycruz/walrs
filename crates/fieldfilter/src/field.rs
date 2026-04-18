@@ -10,6 +10,9 @@ use walrs_filter::{FilterOp, TryFilterOp};
 use walrs_validation::Value;
 use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
+#[cfg(feature = "async")]
+use walrs_validation::ValidateRefAsync;
+
 /// Validation configuration for a single field.
 ///
 /// `Field<T>` provides a unified API for field validation and filtering,
@@ -52,9 +55,9 @@ use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 ///     .build()
 ///     .unwrap();
 ///
-/// // process() applies infallible filters, then fallible filters, then validates
-/// assert!(field.process("  hello  ".to_string()).is_ok());
-/// assert!(field.process("  \0bad  ".to_string()).is_err());
+/// // clean() applies infallible filters, then fallible filters, then validates
+/// assert!(field.clean("  hello  ".to_string()).is_ok());
+/// assert!(field.clean("  \0bad  ".to_string()).is_err());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
@@ -126,7 +129,7 @@ where
 
 impl<T: Clone> Field<T> {
   /// Bakes the stored locale into the rule so that subsequent
-  /// [`validate_ref`] calls avoid cloning the rule.
+  /// `validate_ref` calls avoid cloning the rule.
   ///
   /// After this call `locale` is `None` and the rule carries the locale
   /// internally via [`Rule::WithMessage`].
@@ -134,12 +137,248 @@ impl<T: Clone> Field<T> {
   /// This is an opt-in performance optimisation — calling code that never
   /// sets a locale is unaffected.
   pub fn apply_locale(&mut self) {
-    if self.locale.is_some()
-      && let (Some(locale), Some(rule)) = (self.locale.take(), self.rule.take())
+    if let Some(locale) = &self.locale
+      && let Some(rule) = self.rule.take()
     {
       self.rule = Some(rule.with_locale(locale.as_ref()));
+      self.locale = None;
     }
   }
+}
+
+// ============================================================================
+// FieldOps trait — private abstraction for Field<String> / Field<Value>
+// ============================================================================
+
+/// Private trait for unifying `Field<String>` and `Field<Value>` method bodies.
+trait FieldOps: Clone + Sized {
+  /// The reference type for validation (`String` → `str`, `Value` → `Value`).
+  type ValueRef: ?Sized;
+
+  /// Apply infallible filters starting from a reference, returning owned.
+  fn apply_filters_from_ref(filters: &[FilterOp<Self>], value: &Self::ValueRef) -> Self;
+
+  /// Apply infallible filters to an owned value.
+  fn apply_filters(filters: &[FilterOp<Self>], value: Self) -> Self;
+
+  /// Clone/convert from reference to owned.
+  fn ref_to_owned(value: &Self::ValueRef) -> Self;
+
+  /// Borrow self as the validation reference type.
+  fn as_value_ref(&self) -> &Self::ValueRef;
+
+  /// Apply a single fallible filter to an owned value.
+  fn try_apply_filter(
+    filter: &TryFilterOp<Self>,
+    value: Self,
+  ) -> Result<Self, walrs_filter::FilterError>;
+}
+
+impl FieldOps for String {
+  type ValueRef = str;
+
+  fn apply_filters_from_ref(filters: &[FilterOp<Self>], value: &str) -> String {
+    let mut result = value.to_string();
+    for f in filters {
+      match f.apply_ref(&result) {
+        Cow::Borrowed(_) => {} // No change, keep result as-is
+        Cow::Owned(s) => result = s,
+      }
+    }
+    result
+  }
+
+  fn apply_filters(filters: &[FilterOp<Self>], value: String) -> String {
+    let mut result = value;
+    for f in filters {
+      match f.apply_ref(&result) {
+        Cow::Borrowed(_) => {} // No change, keep result as-is
+        Cow::Owned(s) => result = s,
+      }
+    }
+    result
+  }
+
+  fn ref_to_owned(value: &str) -> String {
+    value.to_string()
+  }
+
+  fn as_value_ref(&self) -> &str {
+    self.as_str()
+  }
+
+  fn try_apply_filter(
+    filter: &TryFilterOp<Self>,
+    value: Self,
+  ) -> Result<Self, walrs_filter::FilterError> {
+    filter.try_apply(value)
+  }
+}
+
+impl FieldOps for Value {
+  type ValueRef = Value;
+
+  fn apply_filters_from_ref(filters: &[FilterOp<Self>], value: &Value) -> Value {
+    let mut result = value.clone();
+    for f in filters {
+      result = f.apply_ref(&result);
+    }
+    result
+  }
+
+  fn apply_filters(filters: &[FilterOp<Self>], value: Value) -> Value {
+    let mut result = value;
+    for f in filters {
+      result = f.apply_ref(&result);
+    }
+    result
+  }
+
+  fn ref_to_owned(value: &Value) -> Value {
+    value.clone()
+  }
+
+  fn as_value_ref(&self) -> &Value {
+    self
+  }
+
+  fn try_apply_filter(
+    filter: &TryFilterOp<Self>,
+    value: Self,
+  ) -> Result<Self, walrs_filter::FilterError> {
+    filter.try_apply(value)
+  }
+}
+
+// ============================================================================
+// Private generic helper functions
+// ============================================================================
+
+fn filter_ref_impl<T: FieldOps>(field: &Field<T>, value: &T::ValueRef) -> T {
+  match &field.filters {
+    Some(filters) => T::apply_filters_from_ref(filters, value),
+    None => T::ref_to_owned(value),
+  }
+}
+
+fn filter_impl<T: FieldOps>(field: &Field<T>, value: T) -> T {
+  match &field.filters {
+    Some(filters) => T::apply_filters(filters, value),
+    None => value,
+  }
+}
+
+fn try_filter_ref_impl<T: FieldOps>(
+  field: &Field<T>,
+  value: &T::ValueRef,
+) -> Result<T, Violations> {
+  match &field.try_filters {
+    Some(try_filters) => {
+      let mut result = T::ref_to_owned(value);
+      for f in try_filters {
+        result = T::try_apply_filter(f, result).map_err(|e| -> Violations {
+          let violation: Violation = e.into();
+          Violations::new(vec![violation])
+        })?;
+      }
+      Ok(result)
+    }
+    None => Ok(T::ref_to_owned(value)),
+  }
+}
+
+fn try_filter_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations> {
+  match &field.try_filters {
+    Some(try_filters) => {
+      let mut result = value;
+      for f in try_filters {
+        result = T::try_apply_filter(f, result).map_err(|e| -> Violations {
+          let violation: Violation = e.into();
+          Violations::new(vec![violation])
+        })?;
+      }
+      Ok(result)
+    }
+    None => Ok(value),
+  }
+}
+
+fn validate_ref_impl<T: FieldOps>(field: &Field<T>, value: &T::ValueRef) -> Result<(), Violations>
+where
+  Rule<T>: ValidateRef<T::ValueRef>,
+{
+  match &field.rule {
+    Some(rule) => {
+      // Apply locale to rule if set, then validate via trait method
+      // @todo `locale` should be set directly on `rule`.
+      let result = if let Some(locale) = &field.locale {
+        rule
+          .clone()
+          .with_locale(locale.as_ref())
+          .validate_ref(value)
+      } else {
+        rule.validate_ref(value)
+      };
+      result.map_err(|v| {
+        let mut violations = Violations::empty();
+        violations.push(v);
+        violations
+      })
+    }
+    None => Ok(()),
+  }
+}
+
+fn clean_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
+where
+  Rule<T>: ValidateRef<T::ValueRef>,
+{
+  let filtered = filter_impl(field, value);
+  let filtered = try_filter_impl(field, filtered)?;
+  validate_ref_impl(field, filtered.as_value_ref())?;
+  Ok(filtered)
+}
+
+#[cfg(feature = "async")]
+async fn validate_ref_async_impl<T: FieldOps>(
+  field: &Field<T>,
+  value: &T::ValueRef,
+) -> Result<(), Violations>
+where
+  T::ValueRef: Sync,
+  Rule<T>: ValidateRefAsync<T::ValueRef>,
+{
+  match &field.rule {
+    Some(rule) => {
+      let result = if let Some(locale) = &field.locale {
+        rule
+          .clone()
+          .with_locale(locale.as_ref())
+          .validate_ref_async(value)
+          .await
+      } else {
+        rule.validate_ref_async(value).await
+      };
+      result.map_err(|v| {
+        let mut violations = Violations::empty();
+        violations.push(v);
+        violations
+      })
+    }
+    None => Ok(()),
+  }
+}
+
+#[cfg(feature = "async")]
+async fn clean_async_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
+where
+  T::ValueRef: Sync,
+  Rule<T>: ValidateRefAsync<T::ValueRef>,
+{
+  let filtered = filter_impl(field, value);
+  let filtered = try_filter_impl(field, filtered)?;
+  validate_ref_async_impl(field, filtered.as_value_ref()).await?;
+  Ok(filtered)
 }
 
 // ============================================================================
@@ -152,36 +391,12 @@ impl Field<String> {
   /// Prefer this method when you already have a `&str`, avoiding an
   /// allocation at the call site.
   pub fn filter_ref(&self, value: &str) -> String {
-    match &self.filters {
-      Some(filters) => {
-        let mut result = value.to_string();
-        for f in filters {
-          match f.apply_ref(&result) {
-            std::borrow::Cow::Borrowed(_) => {} // No change, keep result as-is
-            std::borrow::Cow::Owned(s) => result = s,
-          }
-        }
-        result
-      }
-      None => value.to_string(),
-    }
+    filter_ref_impl(self, value)
   }
 
   /// Apply all filters to the value sequentially.
   pub fn filter(&self, value: String) -> String {
-    match &self.filters {
-      Some(filters) => {
-        let mut result = value;
-        for f in filters {
-          match f.apply_ref(&result) {
-            std::borrow::Cow::Borrowed(_) => {} // No change, keep result as-is
-            std::borrow::Cow::Owned(s) => result = s,
-          }
-        }
-        result
-      }
-      None => value,
-    }
+    filter_impl(self, value)
   }
 
   /// Apply all fallible filters to a `&str` reference.
@@ -189,19 +404,7 @@ impl Field<String> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter_ref(&self, value: &str) -> Result<String, Violations> {
-    match &self.try_filters {
-      Some(try_filters) => {
-        let mut result = value.to_string();
-        for f in try_filters {
-          result = f.try_apply(result).map_err(|e| -> Violations {
-            let violation: Violation = e.into();
-            Violations::new(vec![violation])
-          })?;
-        }
-        Ok(result)
-      }
-      None => Ok(value.to_string()),
-    }
+    try_filter_ref_impl(self, value)
   }
 
   /// Apply all fallible filters to an owned `String`.
@@ -209,19 +412,7 @@ impl Field<String> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter(&self, value: String) -> Result<String, Violations> {
-    match &self.try_filters {
-      Some(try_filters) => {
-        let mut result = value;
-        for f in try_filters {
-          result = f.try_apply(result).map_err(|e| -> Violations {
-            let violation: Violation = e.into();
-            Violations::new(vec![violation])
-          })?;
-        }
-        Ok(result)
-      }
-      None => Ok(value),
-    }
+    try_filter_impl(self, value)
   }
 
   /// Validate the value against the rule, short-circuiting on the first violation.
@@ -234,26 +425,7 @@ impl Field<String> {
   /// Whether the calling context stops processing further fields on failure is
   /// controlled by the `break_on_failure` flag (used by `FieldFilter`).
   pub fn validate_ref(&self, value: &str) -> Result<(), Violations> {
-    match &self.rule {
-      Some(rule) => {
-        // Apply locale to rule if set, then validate via trait method
-        // @todo `locale` should be set directly on `rule`.
-        let result = if let Some(locale) = &self.locale {
-          rule
-            .clone()
-            .with_locale(locale.as_ref())
-            .validate_ref(value)
-        } else {
-          rule.validate_ref(value)
-        };
-        result.map_err(|v| {
-          let mut violations = Violations::empty();
-          violations.push(v);
-          violations
-        })
-      }
-      None => Ok(()),
-    }
+    validate_ref_impl(self, value)
   }
 
   /// Validate a `&String` value. Delegates to [`validate_ref`](Self::validate_ref).
@@ -265,18 +437,15 @@ impl Field<String> {
   ///
   /// Applies infallible filters first, then fallible filters, then validates.
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub fn process(&self, value: String) -> Result<String, Violations> {
-    let filtered = self.filter(value);
-    let filtered = self.try_filter(filtered)?;
-    self.validate_ref(&filtered)?;
-    Ok(filtered)
+  pub fn clean(&self, value: String) -> Result<String, Violations> {
+    clean_impl(self, value)
   }
 
   /// Filter a `&str` and then validate the result.
   ///
-  /// Like [`process`](Self::process) but starts from a `&str` reference,
+  /// Like [`clean`](Self::clean) but starts from a `&str` reference,
   /// avoiding the need for the caller to allocate a `String` up-front.
-  pub fn process_ref(&self, value: &str) -> Result<String, Violations> {
+  pub fn clean_ref(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
@@ -291,30 +460,12 @@ impl Field<String> {
 impl Field<Value> {
   /// Apply all filters to a `&Value` reference, returning an owned `Value`.
   pub fn filter_ref(&self, value: &Value) -> Value {
-    match &self.filters {
-      Some(filters) => {
-        let mut result = value.clone();
-        for f in filters {
-          result = f.apply_ref(&result);
-        }
-        result
-      }
-      None => value.clone(),
-    }
+    filter_ref_impl(self, value)
   }
 
   /// Apply all filters to the value sequentially.
   pub fn filter(&self, value: Value) -> Value {
-    match &self.filters {
-      Some(filters) => {
-        let mut result = value;
-        for f in filters {
-          result = f.apply_ref(&result);
-        }
-        result
-      }
-      None => value,
-    }
+    filter_impl(self, value)
   }
 
   /// Apply all fallible filters to a `&Value` reference.
@@ -322,19 +473,7 @@ impl Field<Value> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter_ref(&self, value: &Value) -> Result<Value, Violations> {
-    match &self.try_filters {
-      Some(try_filters) => {
-        let mut result = value.clone();
-        for f in try_filters {
-          result = f.try_apply(result).map_err(|e| -> Violations {
-            let violation: Violation = e.into();
-            Violations::new(vec![violation])
-          })?;
-        }
-        Ok(result)
-      }
-      None => Ok(value.clone()),
-    }
+    try_filter_ref_impl(self, value)
   }
 
   /// Apply all fallible filters to an owned `Value`.
@@ -342,19 +481,7 @@ impl Field<Value> {
   /// Returns `Ok(filtered_value)` if all filters succeed, or `Err(Violations)` with
   /// the filter error converted to a `Violation`.
   pub fn try_filter(&self, value: Value) -> Result<Value, Violations> {
-    match &self.try_filters {
-      Some(try_filters) => {
-        let mut result = value;
-        for f in try_filters {
-          result = f.try_apply(result).map_err(|e| -> Violations {
-            let violation: Violation = e.into();
-            Violations::new(vec![violation])
-          })?;
-        }
-        Ok(result)
-      }
-      None => Ok(value),
-    }
+    try_filter_impl(self, value)
   }
 
   /// Validate a `&Value` reference against the rule.
@@ -363,24 +490,7 @@ impl Field<Value> {
   /// If the field has a locale set, it is applied to the rule for internationalized
   /// error messages.
   pub fn validate_ref(&self, value: &Value) -> Result<(), Violations> {
-    match &self.rule {
-      Some(rule) => {
-        let result = if let Some(locale) = &self.locale {
-          rule
-            .clone()
-            .with_locale(locale.as_ref())
-            .validate_ref(value)
-        } else {
-          rule.validate_ref(value)
-        };
-        result.map_err(|v| {
-          let mut violations = Violations::empty();
-          violations.push(v);
-          violations
-        })
-      }
-      None => Ok(()),
-    }
+    validate_ref_impl(self, value)
   }
 
   /// Validate the value against the rule.
@@ -413,11 +523,8 @@ impl Field<Value> {
   ///
   /// Applies infallible filters first, then fallible filters, then validates.
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub fn process(&self, value: Value) -> Result<Value, Violations> {
-    let filtered = self.filter(value);
-    let filtered = self.try_filter(filtered)?;
-    self.validate_ref(&filtered)?;
-    Ok(filtered)
+  pub fn clean(&self, value: Value) -> Result<Value, Violations> {
+    clean_impl(self, value)
   }
 }
 
@@ -432,26 +539,7 @@ impl Field<String> {
   /// Works like [`validate_ref`](Self::validate_ref) but supports
   /// `Rule::CustomAsync` validators.
   pub async fn validate_ref_async(&self, value: &str) -> Result<(), Violations> {
-    match &self.rule {
-      Some(rule) => {
-        use walrs_validation::ValidateRefAsync;
-        let result = if let Some(locale) = &self.locale {
-          rule
-            .clone()
-            .with_locale(locale.as_ref())
-            .validate_ref_async(value)
-            .await
-        } else {
-          rule.validate_ref_async(value).await
-        };
-        result.map_err(|v| {
-          let mut violations = Violations::empty();
-          violations.push(v);
-          violations
-        })
-      }
-      None => Ok(()),
-    }
+    validate_ref_async_impl(self, value).await
   }
 
   /// Validate a `String` value asynchronously.
@@ -462,15 +550,12 @@ impl Field<String> {
   /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
   ///
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub async fn process_async(&self, value: String) -> Result<String, Violations> {
-    let filtered = self.filter(value);
-    let filtered = self.try_filter(filtered)?;
-    self.validate_ref_async(&filtered).await?;
-    Ok(filtered)
+  pub async fn clean_async(&self, value: String) -> Result<String, Violations> {
+    clean_async_impl(self, value).await
   }
 
-  /// Like [`process_async`](Self::process_async) but starts from a `&str` reference.
-  pub async fn process_ref_async(&self, value: &str) -> Result<String, Violations> {
+  /// Like [`clean_async`](Self::clean_async) but starts from a `&str` reference.
+  pub async fn clean_ref_async(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
@@ -482,26 +567,7 @@ impl Field<String> {
 impl Field<Value> {
   /// Validate a `&Value` reference asynchronously.
   pub async fn validate_ref_async(&self, value: &Value) -> Result<(), Violations> {
-    match &self.rule {
-      Some(rule) => {
-        use walrs_validation::ValidateRefAsync;
-        let result = if let Some(locale) = &self.locale {
-          rule
-            .clone()
-            .with_locale(locale.as_ref())
-            .validate_ref_async(value)
-            .await
-        } else {
-          rule.validate_ref_async(value).await
-        };
-        result.map_err(|v| {
-          let mut violations = Violations::empty();
-          violations.push(v);
-          violations
-        })
-      }
-      None => Ok(()),
-    }
+    validate_ref_async_impl(self, value).await
   }
 
   /// Validate a `Value` asynchronously (takes ownership).
@@ -510,11 +576,8 @@ impl Field<Value> {
   }
 
   /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
-  pub async fn process_async(&self, value: Value) -> Result<Value, Violations> {
-    let filtered = self.filter(value);
-    let filtered = self.try_filter(filtered)?;
-    self.validate_ref_async(&filtered).await?;
-    Ok(filtered)
+  pub async fn clean_async(&self, value: Value) -> Result<Value, Violations> {
+    clean_async_impl(self, value).await
   }
 }
 
@@ -603,14 +666,14 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_process() {
+  fn test_string_field_clean() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
       .build()
       .unwrap();
 
-    let result = field.process("  hello  ".to_string());
+    let result = field.clean("  hello  ".to_string());
     assert_eq!(result.unwrap(), "hello");
   }
 
@@ -768,7 +831,7 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_process_with_try_filters() {
+  fn test_string_field_clean_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -783,20 +846,20 @@ mod tests {
       .unwrap();
 
     // Happy path: trim -> try_filter passes -> validation passes
-    assert_eq!(field.process("  hello  ".to_string()).unwrap(), "hello");
+    assert_eq!(field.clean("  hello  ".to_string()).unwrap(), "hello");
 
     // Try filter fails (empty after trim)
-    let err = field.process("     ".to_string()).unwrap_err();
+    let err = field.clean("     ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
     assert!(err[0].message().contains("empty after trimming"));
 
     // Try filter passes but validation fails (too short)
-    let err = field.process("  hi  ".to_string()).unwrap_err();
+    let err = field.clean("  hi  ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
   }
 
   #[test]
-  fn test_string_field_process_try_filter_short_circuits() {
+  fn test_string_field_clean_try_filter_short_circuits() {
     let field = FieldBuilder::<String>::default()
       .try_filters(vec![
         TryFilterOp::TryCustom(Arc::new(|_| Err(FilterError::new("first fails")))),
@@ -807,7 +870,7 @@ mod tests {
       .build()
       .unwrap();
 
-    let err = field.process("hello".to_string()).unwrap_err();
+    let err = field.clean("hello".to_string()).unwrap_err();
     assert!(err[0].message().contains("first fails"));
   }
 
@@ -865,7 +928,7 @@ mod tests {
   }
 
   #[test]
-  fn test_value_field_process_with_try_filters() {
+  fn test_value_field_clean_with_try_filters() {
     let field = FieldBuilder::<Value>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
@@ -882,12 +945,12 @@ mod tests {
 
     // Happy path
     assert_eq!(
-      field.process(Value::Str("  hello  ".to_string())).unwrap(),
+      field.clean(Value::Str("  hello  ".to_string())).unwrap(),
       Value::Str("hello".to_string())
     );
 
     // Try filter fails
-    assert!(field.process(Value::Str("     ".to_string())).is_err());
+    assert!(field.clean(Value::Str("     ".to_string())).is_err());
   }
 
   // ====================================================================
@@ -912,11 +975,11 @@ mod tests {
   }
 
   // ====================================================================
-  // process_ref tests — Field<String>
+  // clean_ref tests — Field<String>
   // ====================================================================
 
   #[test]
-  fn test_string_field_process_ref() {
+  fn test_string_field_clean_ref() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
@@ -924,14 +987,14 @@ mod tests {
       .unwrap();
 
     // Happy path: starts from &str
-    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
+    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
 
     // Validation fails
-    assert!(field.process_ref("  hi  ").is_err());
+    assert!(field.clean_ref("  hi  ").is_err());
   }
 
   #[test]
-  fn test_string_field_process_ref_with_try_filters() {
+  fn test_string_field_clean_ref_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -945,15 +1008,15 @@ mod tests {
       .build()
       .unwrap();
 
-    assert_eq!(field.process_ref("  hello  ").unwrap(), "hello");
-    assert!(field.process_ref("     ").is_err()); // empty after trim
-    assert!(field.process_ref("  hi  ").is_err()); // too short
+    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
+    assert!(field.clean_ref("     ").is_err()); // empty after trim
+    assert!(field.clean_ref("  hi  ").is_err()); // too short
   }
 
   #[test]
-  fn test_string_field_process_ref_no_filters_no_rule() {
+  fn test_string_field_clean_ref_no_filters_no_rule() {
     let field = FieldBuilder::<String>::default().build().unwrap();
-    assert_eq!(field.process_ref("hello").unwrap(), "hello");
+    assert_eq!(field.clean_ref("hello").unwrap(), "hello");
   }
 
   // ====================================================================
@@ -996,8 +1059,8 @@ mod tests {
       .unwrap();
 
     field.apply_locale();
-    // locale consumed, rule still None
-    assert!(field.locale.is_none());
+    // locale preserved when rule is None
+    assert!(field.locale.is_some());
     assert!(field.rule.is_none());
   }
 }

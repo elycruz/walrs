@@ -184,7 +184,7 @@ impl Topology {
     match &self._rank {
       Some(rank) => {
         if v >= rank.len() {
-          Err(invalid_vertex_msg(v, rank.len()))
+          Err(invalid_vertex_msg(v, if !rank.is_empty() { rank.len() - 1 } else { 0 }))
         } else {
           Ok(Some(rank[v]))
         }
@@ -330,8 +330,9 @@ mod tests {
 
     let topo = Topology::new(&g);
 
-    // Invalid vertex should return error
-    assert!(topo.rank(5).is_err());
+    // Invalid vertex should return error with correct range
+    let err = topo.rank(5).unwrap_err();
+    assert!(err.contains("0-2"), "Error message should reference range 0-2, got: {}", err);
   }
 
   #[test]

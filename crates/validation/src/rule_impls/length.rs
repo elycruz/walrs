@@ -93,7 +93,10 @@ impl<T: WithLength> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        message.wrap_result(rule.validate_len_inner(value, eff), value, eff)
+        match message {
+          Some(msg) => msg.wrap_result(rule.validate_len_inner(value, eff), value, eff),
+          None => rule.validate_len_inner(value, eff),
+        }
       }
       // Non-length rules don't apply to collections - pass through
       Rule::Pattern(_)
@@ -192,9 +195,14 @@ impl<T: WithLength> Rule<T> {
         locale,
       } => {
         let eff = locale.as_deref().or(inherited_locale);
-        let mut inner_violations = crate::Violations::default();
-        rule.collect_len_violations(value, eff, &mut inner_violations);
-        message.wrap_violations(inner_violations, value, eff, violations);
+        match message {
+          Some(msg) => {
+            let mut inner_violations = crate::Violations::default();
+            rule.collect_len_violations(value, eff, &mut inner_violations);
+            msg.wrap_violations(inner_violations, value, eff, violations);
+          }
+          None => rule.collect_len_violations(value, eff, violations),
+        }
       }
       _ => {
         if let Err(v) = self.validate_len_inner(value, inherited_locale) {
@@ -405,7 +413,7 @@ mod tests {
     let violation = result.unwrap_err();
     assert_eq!(
       violation.message(),
-      "Value length must at most 2;  Received 4."
+      "Value length must be at most 2;  Received 4."
     );
 
     let rule = Rule::<Vec<i32>>::ExactLength(3);

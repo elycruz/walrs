@@ -111,16 +111,9 @@ impl Digraph {
   /// representation's length if vertex is greater than contained adjacency's list until index is
   /// valid, allows graph to grow arbitrarily.
   pub fn add_vertex(&mut self, v: usize) -> usize {
-    let mut v_len = self._adj_lists.len();
-    if v >= v_len {
-      loop {
-        if v_len > v {
-          break;
-        }
-        self._adj_lists.push(Vec::new());
-        self._in_degree.push(0);
-        v_len += 1;
-      }
+    if v >= self._adj_lists.len() {
+      self._adj_lists.resize_with(v + 1, Vec::new);
+      self._in_degree.resize(v + 1, 0);
     }
     v
   }
@@ -133,7 +126,6 @@ impl Digraph {
 
     let adj = &mut self._adj_lists[v];
     adj.push(w);
-    adj.sort_unstable();
     self._edge_count += 1;
     self._in_degree[w] += 1;
     Ok(self)
@@ -143,7 +135,11 @@ impl Digraph {
   pub fn validate_vertex(&self, v: usize) -> Result<&Self, String> {
     let len = self._adj_lists.len();
     if v >= len {
-      return Err(invalid_vertex_msg(v, if len > 0 { len - 1 } else { 0 }));
+      return Err(if len == 0 {
+        format!("Vertex {} is invalid: graph has no vertices", v)
+      } else {
+        invalid_vertex_msg(v, len - 1)
+      });
     }
     Ok(self)
   }
@@ -180,9 +176,7 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
   ///
   fn try_from(reader: &mut BufReader<R>) -> Result<Self, Self::Error> {
     // Extract vert count, and move cursor passed edge count line, for reader
-    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)
-      .unwrap()
-      .0;
+    let vert_count = extract_vert_and_edge_counts_from_bufreader(reader)?.0;
 
     // Construct digraph
     let mut dg = Digraph::new(vert_count);
@@ -194,10 +188,20 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for Digraph {
       // Split and parse edge values to integers
       let verts: Vec<usize> = _line
         .split_ascii_whitespace()
-        .map(|x| x.parse::<usize>().unwrap())
-        .collect();
+        .map(|x| x.parse::<usize>())
+        .collect::<Result<Vec<usize>, _>>()?;
 
-      // Add edge, and panic if unable to add it
+      if verts.len() < 2 {
+        return Err(
+          format!(
+            "Edge line must contain at least 2 vertices, got {}: '{}'",
+            verts.len(),
+            _line
+          )
+          .into(),
+        );
+      }
+
       dg.add_edge(verts[0], verts[1])?;
     }
 
@@ -348,7 +352,7 @@ mod test {
   }
 
   #[test]
-  #[should_panic(expected = "Vertex 99 is outside defined range 0-0")]
+  #[should_panic(expected = "Vertex 99 is invalid: graph has no vertices")]
   pub fn test_adj_invalid() {
     let g = Digraph::new(0);
     g.adj(99).unwrap();
@@ -423,7 +427,7 @@ mod test {
   }
 
   #[test]
-  #[should_panic(expected = "Vertex 99 is outside defined range 0-0")]
+  #[should_panic(expected = "Vertex 99 is invalid: graph has no vertices")]
   pub fn test_validate_vertex_invalid() {
     let g = Digraph::new(0);
     g.validate_vertex(99).unwrap();
@@ -553,5 +557,75 @@ mod test {
     let _: Digraph = BufReader::new(f).try_into().unwrap();
 
     Ok(())
+  }
+
+  #[test]
+  fn test_try_from_malformed_non_numeric_vertex_count() {
+    let data = b"abc\n5\n0 1\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_non_numeric_edge_definition() {
+    let data = b"3\n2\na b\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_single_value_edge_line() {
+    let data = b"3\n2\n0\n";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  fn test_try_from_malformed_empty_input() {
+    let data = b"";
+    let mut reader = BufReader::new(std::io::Cursor::new(data));
+    let result = Digraph::try_from(&mut reader);
+    assert!(result.is_err());
+  }
+
+  #[test]
+  pub fn test_duplicate_edges() -> Result<(), String> {
+    let mut g = Digraph::new(3);
+
+    g.add_edge(0, 1)?;
+    g.add_edge(0, 1)?;
+
+    // Both entries are kept
+    assert_eq!(g.adj(0)?, &vec![1, 1]);
+    assert_eq!(g.edge_count(), 2);
+    assert_eq!(g.indegree(1)?, 2);
+    assert_eq!(g.outdegree(0)?, 2);
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_self_loop_degree() -> Result<(), String> {
+    let mut g = Digraph::new(3);
+
+    g.add_edge(1, 1)?;
+
+    // Self-loop increments in_degree and appears in adjacency list
+    assert_eq!(g.adj(1)?, &vec![1]);
+    assert_eq!(g.indegree(1)?, 1);
+    assert_eq!(g.outdegree(1)?, 1);
+    assert_eq!(g.edge_count(), 1);
+
+    Ok(())
+  }
+
+  #[test]
+  pub fn test_validate_vertex_empty_graph() {
+    let g = Digraph::new(0);
+    let err = g.validate_vertex(5).unwrap_err();
+    assert_eq!(err, "Vertex 5 is invalid: graph has no vertices");
   }
 }

@@ -67,6 +67,9 @@ fn main() {
     "He said \"Hello\"",
     "It's a test",
     "<script>alert('xss')</script>",
+    // Already-encoded input is preserved verbatim (no double-encoding).
+    "Tom &amp; Jerry",
+    "path &#x2F; segment",
   ];
 
   for s in strings {

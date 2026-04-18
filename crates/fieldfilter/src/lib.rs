@@ -4,12 +4,13 @@
 //!
 //! This crate provides:
 //!
+//! - [`Fieldset`] - Typed struct validation and filtering (recommended for new code)
+//! - `FieldsetAsync` - Async version of `Fieldset` (behind `async` feature)
 //! - [`Field`] - Unified validation configuration
 //! - [`FieldFilter`] - Multi-field validation with cross-field rules
 //! - [`FilterOp`] - Serializable filter enum for value transformation (re-exported from `walrs_filter`)
 //! - [`TryFilterOp`] - Fallible filter enum for transformations that can fail (re-exported from `walrs_filter`)
 //! - [`FilterError`] - Error type for fallible filters (re-exported from `walrs_filter`)
-//! - [`FormViolations`] - Collection of form-level validation errors
 //!
 //! ## Example
 //!
@@ -29,8 +30,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! // Process (filter + validate) a value
-//! let result = email_field.process("  TEST@EXAMPLE.COM  ".to_string());
+//! // Clean (filter + validate) a value
+//! let result = email_field.clean("  TEST@EXAMPLE.COM  ".to_string());
 //! assert!(result.is_ok());
 //! assert_eq!(result.unwrap(), "test@example.com");
 //!
@@ -49,8 +50,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! assert!(encoded_field.process("hello".to_string()).is_ok());
-//! assert!(encoded_field.process("bad\0input".to_string()).is_err());
+//! assert!(encoded_field.clean("hello".to_string()).is_ok());
+//! assert!(encoded_field.clean("bad\0input".to_string()).is_err());
 //! ```
 
 #[macro_use]
@@ -58,7 +59,7 @@ extern crate derive_builder;
 
 pub mod field;
 pub mod field_filter;
-pub mod form_violations;
+pub mod fieldset;
 
 pub mod rule;
 
@@ -67,8 +68,8 @@ pub use indexmap::IndexMap;
 
 // Re-export types from walrs_validation
 pub use walrs_validation::{
-  Attributes, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt, Violation,
-  ViolationMessage, ViolationType, Violations,
+  Attributes, FieldsetViolations, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,
+  Violation, ViolationMessage, ViolationType, Violations,
 };
 
 #[cfg(feature = "async")]
@@ -79,6 +80,11 @@ pub use walrs_filter::{FilterError, FilterOp, TryFilterOp};
 
 pub use field::{Field, FieldBuilder};
 pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
-pub use form_violations::FormViolations;
+pub use fieldset::Fieldset;
+#[cfg(feature = "derive")]
+pub use walrs_fieldset_derive::Fieldset as DeriveFieldset;
+
+#[cfg(feature = "async")]
+pub use fieldset::FieldsetAsync;
 
 pub use rule::{Condition, Rule, RuleResult};

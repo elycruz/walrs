@@ -5,12 +5,12 @@
 //! conditional requirements, and mutual exclusivity.
 
 use crate::field::Field;
-use crate::form_violations::FormViolations;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
+use walrs_validation::FieldsetViolations;
 use walrs_validation::{Condition, RuleResult, Violation, ViolationType};
 use walrs_validation::{Value, ValueExt};
 
@@ -87,7 +87,7 @@ impl FieldFilter {
 
   /// Validates form data against all fields and cross-field rules.
   ///
-  /// Returns `Ok(())` if all validation passes, or `Err(FormViolations)` with
+  /// Returns `Ok(())` if all validation passes, or `Err(FieldsetViolations)` with
   /// the collected field- and form-level violations.
   ///
   /// **Missing fields are treated as `Value::Null`.**  If `data` does not
@@ -98,7 +98,7 @@ impl FieldFilter {
   /// If a field has `break_on_failure` set to `true` and fails validation,
   /// the method returns immediately with the violations collected so far,
   /// without checking the remaining fields or any cross-field rules. In that
-  /// case, the returned `FormViolations` is a partial result and does not
+  /// case, the returned `FieldsetViolations` is a partial result and does not
   /// contain violations from fields or cross-field rules that were not
   /// evaluated before the early exit.
   ///
@@ -106,9 +106,9 @@ impl FieldFilter {
   /// order. When `break_on_failure = true`, the "first" field that triggers an
   /// early return is deterministic and corresponds to the order in which fields
   /// were added.
-  pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
+  pub fn validate(&self, data: &IndexMap<String, Value>) -> Result<(), FieldsetViolations> {
     let null = Value::Null;
-    let mut violations = FormViolations::new();
+    let mut violations = FieldsetViolations::new();
 
     // Validate individual fields.
     // Missing fields are treated as `Value::Null`, which causes `Rule::Required`
@@ -116,7 +116,7 @@ impl FieldFilter {
     for (field_name, field) in &self.fields {
       let value = data.get(field_name).unwrap_or(&null);
       if let Err(field_violations) = field.validate_ref(value) {
-        violations.add_field_violations(field_name, field_violations);
+        violations.add_many(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
         }
@@ -169,14 +169,14 @@ impl FieldFilter {
 
   /// Applies fallible filters to all field values in the data.
   ///
-  /// Returns `Ok(data)` with filtered values, or `Err(FormViolations)` if
+  /// Returns `Ok(data)` with filtered values, or `Err(FieldsetViolations)` if
   /// any fallible filter fails. Short-circuits on fields with `break_on_failure`.
   pub fn try_filter(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let mut result = data;
-    let mut violations = FormViolations::new();
+    let mut violations = FieldsetViolations::new();
 
     for (field_name, field) in &self.fields {
       if let Some(slot) = result.get_mut(field_name) {
@@ -186,7 +186,7 @@ impl FieldFilter {
             *slot = filtered;
           }
           Err(field_violations) => {
-            violations.add_field_violations(field_name, field_violations);
+            violations.add_many(field_name, field_violations);
             if field.break_on_failure {
               return Err(violations);
             }
@@ -203,10 +203,10 @@ impl FieldFilter {
   }
 
   /// Filters (infallible + fallible) and then validates the data.
-  pub fn process(
+  pub fn clean(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let filtered = self.filter(data);
     let filtered = self.try_filter(filtered)?;
     self.validate(&filtered)?;
@@ -253,14 +253,30 @@ pub enum CrossFieldRuleType {
   FieldsEqual { field_a: String, field_b: String },
 
   /// Field is required if condition on another field is met.
+  ///
+  /// `condition_field` is checked against `condition`; if the condition holds,
+  /// `field` must have a non-empty value.
   RequiredIf {
     field: String,
+    /// The field whose value is tested against `condition`. Defaults to `field`
+    /// when empty, preserving backward-compatibility with data serialized before
+    /// this field was introduced.
+    #[serde(default)]
+    condition_field: String,
     condition: Condition<Value>,
   },
 
   /// Field is required unless condition on another field is met.
+  ///
+  /// `condition_field` is checked against `condition`; if the condition does
+  /// **not** hold, `field` must have a non-empty value.
   RequiredUnless {
     field: String,
+    /// The field whose value is tested against `condition`. Defaults to `field`
+    /// when empty, preserving backward-compatibility with data serialized before
+    /// this field was introduced.
+    #[serde(default)]
+    condition_field: String,
     condition: Condition<Value>,
   },
 
@@ -300,14 +316,24 @@ impl Debug for CrossFieldRuleType {
         .field("field_a", field_a)
         .field("field_b", field_b)
         .finish(),
-      Self::RequiredIf { field, condition } => f
+      Self::RequiredIf {
+        field,
+        condition_field,
+        condition,
+      } => f
         .debug_struct("RequiredIf")
         .field("field", field)
+        .field("condition_field", condition_field)
         .field("condition", condition)
         .finish(),
-      Self::RequiredUnless { field, condition } => f
+      Self::RequiredUnless {
+        field,
+        condition_field,
+        condition,
+      } => f
         .debug_struct("RequiredUnless")
         .field("field", field)
+        .field("condition_field", condition_field)
         .field("condition", condition)
         .finish(),
       Self::OneOfRequired(fields) => f.debug_tuple("OneOfRequired").field(fields).finish(),
@@ -346,9 +372,18 @@ impl CrossFieldRuleType {
         }
       }
 
-      CrossFieldRuleType::RequiredIf { field, condition } => {
+      CrossFieldRuleType::RequiredIf {
+        field,
+        condition_field,
+        condition,
+      } => {
+        let cond_field = if condition_field.is_empty() {
+          field
+        } else {
+          condition_field
+        };
         let condition_met = data
-          .get(field)
+          .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
           .unwrap_or(false);
 
@@ -364,9 +399,10 @@ impl CrossFieldRuleType {
             Err(Violation::new(
               ViolationType::ValueMissing,
               format!(
-                "{}: {} is required when condition is met",
+                "{}: {} is required when condition is met on {}",
                 rule_name.unwrap_or("RequiredIf"),
-                field
+                field,
+                cond_field
               ),
             ))
           }
@@ -375,9 +411,18 @@ impl CrossFieldRuleType {
         }
       }
 
-      CrossFieldRuleType::RequiredUnless { field, condition } => {
+      CrossFieldRuleType::RequiredUnless {
+        field,
+        condition_field,
+        condition,
+      } => {
+        let cond_field = if condition_field.is_empty() {
+          field
+        } else {
+          condition_field
+        };
         let condition_met = data
-          .get(field)
+          .get(cond_field)
           .map(|v| evaluate_condition(condition, v))
           .unwrap_or(false);
 
@@ -393,9 +438,10 @@ impl CrossFieldRuleType {
             Err(Violation::new(
               ViolationType::ValueMissing,
               format!(
-                "{}: {} is required unless condition is met",
+                "{}: {} is required unless condition is met on {}",
                 rule_name.unwrap_or("RequiredUnless"),
-                field
+                field,
+                cond_field
               ),
             ))
           }
@@ -475,6 +521,9 @@ impl CrossFieldRuleType {
 
       CrossFieldRuleType::Custom(f) => f(data),
 
+      // `CustomAsync` rules are silently skipped in sync context for
+      // ecosystem consistency with `walrs_validation`'s `Rule::CustomAsync`.
+      // Use `validate_async()` / `evaluate_async()` to execute async rules.
       #[cfg(feature = "async")]
       CrossFieldRuleType::CustomAsync(_) => Ok(()),
     }
@@ -540,14 +589,17 @@ impl FieldFilter {
   ///
   /// Works like [`validate`](Self::validate) but supports `Rule::CustomAsync`
   /// in field rules and `CrossFieldRuleType::CustomAsync` in cross-field rules.
-  pub async fn validate_async(&self, data: &IndexMap<String, Value>) -> Result<(), FormViolations> {
-    let mut violations = FormViolations::new();
+  pub async fn validate_async(
+    &self,
+    data: &IndexMap<String, Value>,
+  ) -> Result<(), FieldsetViolations> {
+    let mut violations = FieldsetViolations::new();
 
     // Validate individual fields (async)
     for (field_name, field) in &self.fields {
       let value = data.get(field_name).cloned().unwrap_or(Value::Null);
       if let Err(field_violations) = field.validate_ref_async(&value).await {
-        violations.add_field_violations(field_name, field_violations);
+        violations.add_many(field_name, field_violations);
         if field.break_on_failure {
           return Err(violations);
         }
@@ -571,10 +623,10 @@ impl FieldFilter {
   /// Filters (infallible + fallible) and then validates the data asynchronously.
   ///
   /// Filtering is synchronous (CPU-bound); validation is async.
-  pub async fn process_async(
+  pub async fn clean_async(
     &self,
     data: IndexMap<String, Value>,
-  ) -> Result<IndexMap<String, Value>, FormViolations> {
+  ) -> Result<IndexMap<String, Value>, FieldsetViolations> {
     let filtered = self.filter(data);
     let filtered = self.try_filter(filtered)?;
     self.validate_async(&filtered).await?;
@@ -743,7 +795,7 @@ mod tests {
   }
 
   #[test]
-  fn test_process() {
+  fn test_clean() {
     let mut field_filter = FieldFilter::new();
     field_filter.add_field(
       "email",
@@ -755,7 +807,7 @@ mod tests {
     );
 
     let data = make_data(&[("email", Value::Str("  test@example.com  ".to_string()))]);
-    let result = field_filter.process(data);
+    let result = field_filter.clean(data);
     assert!(result.is_ok());
     assert_eq!(
       result.unwrap().get("email").unwrap(),
@@ -813,8 +865,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_some());
-    assert!(violations.form.is_empty());
+    assert!(violations.get("email").is_some());
+    assert!(violations.form_violations().is_none());
 
     let data = make_data(&[
       ("email", Value::Str("test@example.com".to_string())),
@@ -824,8 +876,8 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("email").is_none());
-    assert!(!violations.form.is_empty());
+    assert!(violations.get("email").is_none());
+    assert!(violations.form_violations().is_some());
   }
 
   // ====================================================================
@@ -879,7 +931,7 @@ mod tests {
 
     let data = make_data(&[("encoded", Value::Str("bad\0input".to_string()))]);
     let err = filter.try_filter(data).unwrap_err();
-    assert!(err.for_field("encoded").is_some());
+    assert!(err.get("encoded").is_some());
   }
 
   #[test]
@@ -913,12 +965,12 @@ mod tests {
       ("second", Value::Str("b".to_string())),
     ]);
     let err = filter.try_filter(data).unwrap_err();
-    assert!(err.for_field("first").is_some());
-    assert!(err.for_field("second").is_none());
+    assert!(err.get("first").is_some());
+    assert!(err.get("second").is_none());
   }
 
   #[test]
-  fn test_field_filter_process_with_try_filters() {
+  fn test_field_filter_clean_with_try_filters() {
     use std::sync::Arc;
     use walrs_filter::{FilterError, TryFilterOp};
 
@@ -942,7 +994,7 @@ mod tests {
 
     // Happy path: trim -> try_filter passes -> validation passes
     let data = make_data(&[("name", Value::Str("  hello  ".to_string()))]);
-    let result = filter.process(data).unwrap();
+    let result = filter.clean(data).unwrap();
     assert_eq!(
       result.get("name").unwrap(),
       &Value::Str("hello".to_string())
@@ -950,7 +1002,7 @@ mod tests {
 
     // Try filter fails
     let data = make_data(&[("name", Value::Str("     ".to_string()))]);
-    assert!(filter.process(data).is_err());
+    assert!(filter.clean(data).is_err());
   }
 
   #[test]
@@ -1053,7 +1105,7 @@ mod tests {
     let result = filter.validate(&data);
     assert!(result.is_err());
     let violations = result.unwrap_err();
-    assert!(violations.for_field("required_field").is_some());
+    assert!(violations.get("required_field").is_some());
   }
 
   #[test]
@@ -1071,5 +1123,222 @@ mod tests {
     let data: IndexMap<String, Value> = IndexMap::new();
     let result = filter.validate(&data);
     assert!(result.is_ok());
+  }
+
+  // ====================================================================
+  // RequiredIf cross-field rule tests
+  // ====================================================================
+
+  #[test]
+  fn test_required_if_condition_met_and_field_present() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("shipping_required".into()),
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (is_physical=true), field present → OK
+    let data = make_data(&[
+      ("is_physical", Value::Bool(true)),
+      ("shipping_address", Value::Str("123 Main St".to_string())),
+    ]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_condition_met_and_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("shipping_required".into()),
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (is_physical=true), field missing → Error
+    let data = make_data(&[("is_physical", Value::Bool(true))]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(violations.form_violations().is_some());
+    assert!(
+      violations.form_violations().unwrap()[0]
+        .message()
+        .contains("shipping_address")
+    );
+  }
+
+  #[test]
+  fn test_required_if_condition_not_met() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (is_physical=false), field missing → OK
+    let data = make_data(&[("is_physical", Value::Bool(false))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_condition_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["shipping_address".to_string(), "is_physical".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "shipping_address".to_string(),
+        condition_field: "is_physical".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition field missing entirely → condition not met → OK
+    let data = make_data(&[]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_if_empty_condition_field_fallback() {
+    // When condition_field is empty (e.g., deserialized from old data via serde(default)),
+    // the fallback uses `field` as both condition and required field (backward compat).
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["status".to_string()],
+      rule: CrossFieldRuleType::RequiredIf {
+        field: "status".to_string(),
+        condition_field: String::new(), // empty → fallback to `field`
+        condition: walrs_validation::Condition::Equals(Value::Str("active".into())),
+      },
+    });
+
+    // Field equals condition → condition met on same field, and field has value → OK
+    let data = make_data(&[("status", Value::Str("active".into()))]);
+    assert!(filter.validate(&data).is_ok());
+
+    // Field missing entirely → condition not met → OK
+    let data = make_data(&[]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_empty_condition_field_fallback() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["status".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "status".to_string(),
+        condition_field: String::new(), // empty → fallback to `field`
+        condition: walrs_validation::Condition::Equals(Value::Str("exempt".into())),
+      },
+    });
+
+    // Field is "exempt" → condition met → not required → OK
+    let data = make_data(&[("status", Value::Str("exempt".into()))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  // ====================================================================
+  // RequiredUnless cross-field rule tests
+  // ====================================================================
+
+  #[test]
+  fn test_required_unless_condition_met() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("email_unless_phone".into()),
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition met (has_phone=true), field missing → OK (unless satisfied)
+    let data = make_data(&[("has_phone", Value::Bool(true))]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_condition_not_met_and_field_present() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (has_phone=false), field present → OK
+    let data = make_data(&[
+      ("has_phone", Value::Bool(false)),
+      ("email", Value::Str("user@example.com".to_string())),
+    ]);
+    assert!(filter.validate(&data).is_ok());
+  }
+
+  #[test]
+  fn test_required_unless_condition_not_met_and_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: Some("email_unless_phone".into()),
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition not met (has_phone=false), field missing → Error
+    let data = make_data(&[("has_phone", Value::Bool(false))]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
+    let violations = result.unwrap_err();
+    assert!(violations.form_violations().is_some());
+    assert!(
+      violations.form_violations().unwrap()[0]
+        .message()
+        .contains("email")
+    );
+  }
+
+  #[test]
+  fn test_required_unless_condition_field_missing() {
+    let mut filter = FieldFilter::new();
+    filter.add_cross_field_rule(CrossFieldRule {
+      name: None,
+      fields: vec!["email".to_string(), "has_phone".to_string()],
+      rule: CrossFieldRuleType::RequiredUnless {
+        field: "email".to_string(),
+        condition_field: "has_phone".to_string(),
+        condition: walrs_validation::Condition::Equals(Value::Bool(true)),
+      },
+    });
+
+    // Condition field missing → condition not met → email required → Error
+    let data = make_data(&[]);
+    let result = filter.validate(&data);
+    assert!(result.is_err());
   }
 }

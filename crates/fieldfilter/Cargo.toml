@@ -9,6 +9,7 @@ include = ["src/**/*", "Cargo.toml"]
 [features]
 default = []
 async = ["walrs_validation/async"]
+derive = ["walrs_fieldset_derive"]
 
 [dependencies]
 derive_builder = "0.13.0"
@@ -17,6 +18,15 @@ serde_json = "1.0.82"
 indexmap = { version = "2", features = ["serde"] }
 walrs_filter = { path = "../filter", features = ["validation"] }
 walrs_validation = { path = "../validation" }
+walrs_fieldset_derive = { path = "../fieldset_derive", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt", "macros"] }
+
+[[example]]
+name = "derive_simple"
+required-features = ["derive"]
+
+[[example]]
+name = "derive_nested"
+required-features = ["derive"]

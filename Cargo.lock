@@ -2114,8 +2114,19 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "walrs_fieldset_derive",
  "walrs_filter",
  "walrs_validation",
+]
+
+[[package]]
+name = "walrs_fieldset_derive"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "regex",
+ "syn 2.0.106",
 ]
 
 [[package]]
@@ -2125,6 +2136,7 @@ dependencies = [
  "ammonia",
  "criterion",
  "derive_builder",
+ "percent-encoding",
  "regex",
  "serde",
  "serde_json",
@@ -2138,12 +2150,13 @@ dependencies = [
  "derive_builder",
  "indexmap",
  "js-sys",
- "regex",
  "serde",
  "serde-wasm-bindgen",
  "serde_json",
  "thiserror",
+ "tokio",
  "walrs_fieldfilter",
+ "walrs_fieldset_derive",
  "walrs_validation",
  "wasm-bindgen",
  "web-sys",

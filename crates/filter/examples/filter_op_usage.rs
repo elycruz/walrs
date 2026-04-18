@@ -50,7 +50,60 @@ fn main() {
 
   println!();
 
-  // ---- Example 2: apply_ref zero-copy optimization ----
+  // ---- Example 2: Sanitize filter variants ----
+  println!("--- Sanitize filters (Digits, Alnum, NormalizeWhitespace, UrlEncode, etc.) ---");
+
+  let sanitizers: &[(&str, FilterOp<String>)] = &[
+    ("Digits", FilterOp::Digits),
+    (
+      "Alnum(ws=false)",
+      FilterOp::Alnum {
+        allow_whitespace: false,
+      },
+    ),
+    (
+      "Alpha(ws=true)",
+      FilterOp::Alpha {
+        allow_whitespace: true,
+      },
+    ),
+    ("StripNewlines", FilterOp::StripNewlines),
+    ("NormalizeWhitespace", FilterOp::NormalizeWhitespace),
+    (
+      "AllowChars(a-z )",
+      FilterOp::AllowChars {
+        set: "abcdefghijklmnopqrstuvwxyz ".to_string(),
+      },
+    ),
+    (
+      "DenyChars(<>&)",
+      FilterOp::DenyChars {
+        set: "<>&".to_string(),
+      },
+    ),
+    (
+      "UrlEncode(rfc3986)",
+      FilterOp::UrlEncode {
+        encode_unreserved: false,
+      },
+    ),
+  ];
+
+  for input in [
+    "  phone: (555) 123-4567  \n",
+    "café-日本語 123!",
+    "<script>alert('x')</script>",
+  ] {
+    println!("\n  Input: {:?}", input);
+    for (name, filter) in sanitizers {
+      let result = filter.apply_ref(input);
+      println!("    {:20} -> {:?}", name, result.as_ref());
+    }
+  }
+
+  println!();
+
+  // ---- Example 3: apply_ref zero-copy optimization ----
   println!("--- apply_ref: Cow::Borrowed (no-op) vs Cow::Owned (mutated) ---");
 
   let trim = FilterOp::<String>::Trim;
@@ -71,7 +124,7 @@ fn main() {
 
   println!();
 
-  // ---- Example 3: Chain multiple operations ----
+  // ---- Example 4: Chain multiple operations ----
   println!("--- Chain: composing multiple filters ---");
 
   let pipeline: FilterOp<String> = FilterOp::Chain(vec![
@@ -92,7 +145,7 @@ fn main() {
 
   println!();
 
-  // ---- Example 4: Numeric clamping ----
+  // ---- Example 5: Numeric clamping ----
   println!("--- Clamp: numeric range clamping ---");
 
   let clamp_i32 = FilterOp::<i32>::Clamp { min: 0, max: 100 };
@@ -115,7 +168,7 @@ fn main() {
 
   println!();
 
-  // ---- Example 5: Custom filter function ----
+  // ---- Example 6: Custom filter function ----
   println!("--- Custom: runtime filter function ---");
 
   let custom: FilterOp<String> = FilterOp::Custom(Arc::new(|s: String| {
@@ -130,7 +183,7 @@ fn main() {
 
   println!();
 
-  // ---- Example 6: Serde JSON round-trip ----
+  // ---- Example 7: Serde JSON round-trip ----
   println!("--- Serde: JSON serialization/deserialization ---");
 
   let chain: FilterOp<String> = FilterOp::Chain(vec![

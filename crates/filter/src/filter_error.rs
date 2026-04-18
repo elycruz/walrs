@@ -23,7 +23,7 @@ use std::fmt;
 /// assert_eq!(err.filter_name(), Some("Base64Decode"));
 /// assert_eq!(err.to_string(), "Filter 'Base64Decode' failed: invalid base64 input");
 /// ```
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct FilterError {
   message: String,
   filter_name: Option<String>,
