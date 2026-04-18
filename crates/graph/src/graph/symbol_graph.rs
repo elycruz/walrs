@@ -316,8 +316,8 @@ mod test {
 
   #[test]
   pub fn test_symbol_graph_builder_from_buf_reader() {
-    use crate::graph::symbol_graph::SymbolGraph;
     use crate::graph::GenericSymbol;
+    use crate::graph::symbol_graph::SymbolGraph;
     use std::fs::File;
     use std::io::BufReader;
 
@@ -422,8 +422,11 @@ mod test {
   #[test]
   pub fn test_adj_indices() {
     let mut sg: SymbolGraph<String> = SymbolGraph::new();
-    sg.add_edge("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
-      .unwrap();
+    sg.add_edge(
+      "a".to_string(),
+      Some(vec!["b".to_string(), "c".to_string()]),
+    )
+    .unwrap();
 
     let indices = sg.adj_indices("a").unwrap();
     assert_eq!(indices.len(), 2);
@@ -442,8 +445,11 @@ mod test {
   #[test]
   pub fn test_degree() {
     let mut sg: SymbolGraph<String> = SymbolGraph::new();
-    sg.add_edge("a".to_string(), Some(vec!["b".to_string(), "c".to_string()]))
-      .unwrap();
+    sg.add_edge(
+      "a".to_string(),
+      Some(vec!["b".to_string(), "c".to_string()]),
+    )
+    .unwrap();
 
     assert_eq!(sg.degree("a").unwrap(), 2);
     assert_eq!(sg.degree("b").unwrap(), 1);

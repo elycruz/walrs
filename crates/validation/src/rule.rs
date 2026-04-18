@@ -1081,7 +1081,10 @@ mod tests {
       } => {
         assert_eq!(*inner, Rule::Min(0));
         assert!(message.as_ref().unwrap().is_provider());
-        assert_eq!(message.as_ref().unwrap().resolve(&-5, None), "Got -5, expected >= 0.");
+        assert_eq!(
+          message.as_ref().unwrap().resolve(&-5, None),
+          "Got -5, expected >= 0."
+        );
         assert_eq!(locale, None);
       }
       _ => panic!("Expected Rule::WithMessage"),
