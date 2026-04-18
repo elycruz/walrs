@@ -29,7 +29,7 @@ Available operations:
 - `NormalizeWhitespace` - Collapse runs of whitespace to a single space and trim
 - `AllowChars { set }` - Keep only characters that appear in `set`
 - `DenyChars { set }` - Drop characters that appear in `set`
-- `UrlEncode` - Percent-encode non-alphanumeric characters
+- `UrlEncode { encode_unreserved }` - Percent-encode. With `encode_unreserved: false` (RFC 3986), keeps `-._~` unencoded; with `true`, matches the stricter `NON_ALPHANUMERIC` set
 - `Clamp { min, max }` - Numeric clamping
 - `Chain(ops)` - Sequential filter chain
 - `Custom(fn)` - Runtime filter function (not serializable — see [Serde notes](#serde-notes))
@@ -137,7 +137,7 @@ Supported JSON variant types: `Trim`, `Lowercase`, `Uppercase`, `StripTags`, `Ht
 `Slug` (with `max_length`), `Truncate` (with `max_length`), `Replace` (with `from`/`to`),
 `Digits`, `Alnum` (with `allow_whitespace`), `Alpha` (with `allow_whitespace`),
 `StripNewlines`, `NormalizeWhitespace`, `AllowChars` (with `set`), `DenyChars` (with `set`),
-`UrlEncode`, `Clamp` (with `min`/`max`), `Chain` (with array of ops).
+`UrlEncode` (with `encode_unreserved`), `Clamp` (with `min`/`max`), `Chain` (with array of ops).
 
 ## TryFilterOp Enum (Fallible Filters)
 

@@ -4,7 +4,7 @@
 //! filter operations. Most variants delegate to the filter struct
 //! implementations in this crate (e.g., [`SlugFilter`], [`StripTagsFilter`]).
 
-use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
+use percent_encoding::{AsciiSet, NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::fmt::{self, Debug};
@@ -15,27 +15,44 @@ use crate::{Filter, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
 #[cfg(feature = "validation")]
 use walrs_validation::Value;
 
+/// RFC 3986 §2.3 "unreserved" character set: `ALPHA / DIGIT / "-" / "." / "_" / "~"`.
+///
+/// Derived from [`NON_ALPHANUMERIC`] by re-admitting the four unreserved punctuation
+/// characters. Used by [`FilterOp::UrlEncode`] when `encode_unreserved` is `false`.
+const RFC_3986_UNRESERVED: AsciiSet = NON_ALPHANUMERIC
+  .remove(b'-')
+  .remove(b'.')
+  .remove(b'_')
+  .remove(b'~');
+
 /// Collapse runs of whitespace to a single ASCII space and trim leading/trailing
 /// whitespace. Returns `Cow::Borrowed` when the input is already normalized.
+///
+/// Performs a single early-exit scan to detect whether the input is already
+/// normalized. Only rebuilds when a deviation is found — so the clean-input path
+/// allocates nothing and exits as soon as the first anomaly (leading whitespace,
+/// a non-space whitespace character, or a whitespace run) is spotted.
 fn normalize_whitespace(value: &str) -> Cow<'_, str> {
-  let needs_trim = value.chars().next().is_some_and(char::is_whitespace)
-    || value.chars().next_back().is_some_and(char::is_whitespace);
-  let has_run = {
-    let mut prev_ws = false;
-    let mut found = false;
-    for c in value.chars() {
-      let ws = c.is_whitespace();
-      if ws && prev_ws {
-        found = true;
+  let mut prev_ws = false;
+  let mut seen_any = false;
+  let mut trailing_ws = false;
+  let mut dirty = false;
+  for c in value.chars() {
+    let ws = c.is_whitespace();
+    if !seen_any {
+      if ws {
+        dirty = true;
         break;
       }
-      prev_ws = ws;
+      seen_any = true;
+    } else if ws && (prev_ws || c != ' ') {
+      dirty = true;
+      break;
     }
-    found
-  };
-  let has_non_space_ws = value.chars().any(|c| c.is_whitespace() && c != ' ');
-
-  if !needs_trim && !has_run && !has_non_space_ws {
+    prev_ws = ws;
+    trailing_ws = ws;
+  }
+  if !dirty && !trailing_ws {
     return Cow::Borrowed(value);
   }
 
@@ -175,7 +192,9 @@ pub enum FilterOp<T> {
   /// `char::is_alphanumeric` is used, so non-ASCII letters and digits
   /// (`é`, `Ⅳ`, `日`) are preserved.
   Alnum {
-    /// When `true`, whitespace characters are also kept.
+    /// When `true`, any Unicode whitespace character is also kept — detected via
+    /// [`char::is_whitespace`]. This includes tabs (`\t`), newlines (`\n`, `\r`),
+    /// non-breaking space (U+00A0), and other Unicode whitespace — not just ASCII space.
     allow_whitespace: bool,
   },
 
@@ -183,7 +202,9 @@ pub enum FilterOp<T> {
   ///
   /// `char::is_alphabetic` is used, so non-ASCII letters (`é`, `日`) are preserved.
   Alpha {
-    /// When `true`, whitespace characters are also kept.
+    /// When `true`, any Unicode whitespace character is also kept — detected via
+    /// [`char::is_whitespace`]. This includes tabs (`\t`), newlines (`\n`, `\r`),
+    /// non-breaking space (U+00A0), and other Unicode whitespace — not just ASCII space.
     allow_whitespace: bool,
   },
 
@@ -208,10 +229,23 @@ pub enum FilterOp<T> {
     set: String,
   },
 
-  /// Percent-encode the string using `percent-encoding`'s `NON_ALPHANUMERIC` set.
+  /// Percent-encode the string.
   ///
-  /// Encodes anything that isn't ASCII alphanumeric. Infallible.
-  UrlEncode,
+  /// By default (`encode_unreserved: false`), conforms to RFC 3986 §2.3: ASCII
+  /// alphanumerics and the four "unreserved" punctuation characters (`-`, `.`,
+  /// `_`, `~`) are left as-is; everything else is `%HH`-encoded.
+  ///
+  /// Set `encode_unreserved: true` for the stricter `percent-encoding`
+  /// `NON_ALPHANUMERIC` behaviour, which also encodes `-._~` — useful when
+  /// building opaque tokens where any non-alphanumeric byte must be escaped.
+  ///
+  /// Infallible.
+  UrlEncode {
+    /// When `true`, also percent-encode the RFC 3986 "unreserved" characters
+    /// `-`, `.`, `_`, and `~`. When `false` (default-ish — RFC-compliant),
+    /// these pass through.
+    encode_unreserved: bool,
+  },
 
   // ---- Numeric Filters ----
   /// Clamp value to a range (for numeric types).
@@ -284,7 +318,10 @@ impl<T: Debug> Debug for FilterOp<T> {
       Self::NormalizeWhitespace => write!(f, "NormalizeWhitespace"),
       Self::AllowChars { set } => f.debug_struct("AllowChars").field("set", set).finish(),
       Self::DenyChars { set } => f.debug_struct("DenyChars").field("set", set).finish(),
-      Self::UrlEncode => write!(f, "UrlEncode"),
+      Self::UrlEncode { encode_unreserved } => f
+        .debug_struct("UrlEncode")
+        .field("encode_unreserved", encode_unreserved)
+        .finish(),
       Self::Clamp { min, max } => f
         .debug_struct("Clamp")
         .field("min", min)
@@ -330,7 +367,14 @@ impl<T: PartialEq> PartialEq for FilterOp<T> {
       (Self::NormalizeWhitespace, Self::NormalizeWhitespace) => true,
       (Self::AllowChars { set: a }, Self::AllowChars { set: b }) => a == b,
       (Self::DenyChars { set: a }, Self::DenyChars { set: b }) => a == b,
-      (Self::UrlEncode, Self::UrlEncode) => true,
+      (
+        Self::UrlEncode {
+          encode_unreserved: a,
+        },
+        Self::UrlEncode {
+          encode_unreserved: b,
+        },
+      ) => a == b,
       (Self::Clamp { min: a1, max: a2 }, Self::Clamp { min: b1, max: b2 }) => a1 == b1 && a2 == b2,
       (Self::Chain(a), Self::Chain(b)) => a == b,
       // Custom filters are never equal
@@ -456,12 +500,14 @@ impl FilterOp<String> {
           Cow::Owned(value.chars().filter(|c| !set.contains(*c)).collect())
         }
       }
-      FilterOp::UrlEncode => {
-        // percent_encoding returns an iterator adapter that materialises as Cow<str>.
-        match utf8_percent_encode(value, NON_ALPHANUMERIC).into() {
-          Cow::Borrowed(s) => Cow::Borrowed(s),
-          Cow::Owned(s) => Cow::Owned(s),
-        }
+      FilterOp::UrlEncode { encode_unreserved } => {
+        let set: &AsciiSet = if *encode_unreserved {
+          NON_ALPHANUMERIC
+        } else {
+          &RFC_3986_UNRESERVED
+        };
+        // `PercentEncode` materialises as `Cow<str>` — `Borrowed` when nothing needed encoding.
+        utf8_percent_encode(value, set).into()
       }
       FilterOp::Clamp { .. } => Cow::Borrowed(value), // Clamp doesn't apply to strings
       FilterOp::Chain(filters) => {
@@ -497,6 +543,21 @@ impl FilterOp<String> {
 // ============================================================================
 // Value FilterOp Implementation (requires "validation" feature)
 // ============================================================================
+
+/// Apply a string-typed `FilterOp` to a `Value::Str` variant, preserving the
+/// zero-copy `Borrowed → clone the original Value` shortcut that existing `Trim`
+/// / `Lowercase` arms use. Non-string variants pass through unchanged.
+#[cfg(feature = "validation")]
+fn apply_string_op_to_value(op: FilterOp<String>, value: &Value) -> Value {
+  if let Value::Str(s) = value {
+    match op.apply_ref(s.as_str()) {
+      Cow::Borrowed(_) => value.clone(),
+      Cow::Owned(new_s) => Value::Str(new_s),
+    }
+  } else {
+    value.clone()
+  }
+}
 
 #[cfg(feature = "validation")]
 impl FilterOp<Value> {
@@ -586,35 +647,35 @@ impl FilterOp<Value> {
           value.clone()
         }
       }
-      FilterOp::Digits
-      | FilterOp::Alnum { .. }
-      | FilterOp::Alpha { .. }
-      | FilterOp::StripNewlines
-      | FilterOp::NormalizeWhitespace
-      | FilterOp::AllowChars { .. }
-      | FilterOp::DenyChars { .. }
-      | FilterOp::UrlEncode => {
-        if let Value::Str(s) = value {
-          let string_filter: FilterOp<String> = match self {
-            FilterOp::Digits => FilterOp::Digits,
-            FilterOp::Alnum { allow_whitespace } => FilterOp::Alnum {
-              allow_whitespace: *allow_whitespace,
-            },
-            FilterOp::Alpha { allow_whitespace } => FilterOp::Alpha {
-              allow_whitespace: *allow_whitespace,
-            },
-            FilterOp::StripNewlines => FilterOp::StripNewlines,
-            FilterOp::NormalizeWhitespace => FilterOp::NormalizeWhitespace,
-            FilterOp::AllowChars { set } => FilterOp::AllowChars { set: set.clone() },
-            FilterOp::DenyChars { set } => FilterOp::DenyChars { set: set.clone() },
-            FilterOp::UrlEncode => FilterOp::UrlEncode,
-            _ => unreachable!(),
-          };
-          Value::Str(string_filter.apply_ref(s.as_str()).into_owned())
-        } else {
-          value.clone()
-        }
+      FilterOp::Digits => apply_string_op_to_value(FilterOp::Digits, value),
+      FilterOp::Alnum { allow_whitespace } => apply_string_op_to_value(
+        FilterOp::Alnum {
+          allow_whitespace: *allow_whitespace,
+        },
+        value,
+      ),
+      FilterOp::Alpha { allow_whitespace } => apply_string_op_to_value(
+        FilterOp::Alpha {
+          allow_whitespace: *allow_whitespace,
+        },
+        value,
+      ),
+      FilterOp::StripNewlines => apply_string_op_to_value(FilterOp::StripNewlines, value),
+      FilterOp::NormalizeWhitespace => {
+        apply_string_op_to_value(FilterOp::NormalizeWhitespace, value)
       }
+      FilterOp::AllowChars { set } => {
+        apply_string_op_to_value(FilterOp::AllowChars { set: set.clone() }, value)
+      }
+      FilterOp::DenyChars { set } => {
+        apply_string_op_to_value(FilterOp::DenyChars { set: set.clone() }, value)
+      }
+      FilterOp::UrlEncode { encode_unreserved } => apply_string_op_to_value(
+        FilterOp::UrlEncode {
+          encode_unreserved: *encode_unreserved,
+        },
+        value,
+      ),
       FilterOp::Clamp { min, max } => match (value, min, max) {
         (Value::I64(v), Value::I64(min_v), Value::I64(max_v)) => {
           Value::I64((*v).clamp(*min_v, *max_v))
@@ -1614,6 +1675,15 @@ mod tests {
   }
 
   #[test]
+  fn test_normalize_whitespace_non_ascii_whitespace() {
+    // Non-breaking space (U+00A0) is `char::is_whitespace` — it should collapse
+    // to an ASCII space, not pass through unchanged.
+    let filter = FilterOp::<String>::NormalizeWhitespace;
+    let result = filter.apply("a\u{00A0}b".to_string());
+    assert_eq!(result, "a b");
+  }
+
+  #[test]
   fn test_serde_roundtrip_normalize_whitespace() {
     let op = FilterOp::<String>::NormalizeWhitespace;
     let json = serde_json::to_string(&op).unwrap();
@@ -1644,6 +1714,20 @@ mod tests {
   fn test_allow_chars_empty_set_drops_everything() {
     let filter = FilterOp::<String>::AllowChars { set: String::new() };
     assert_eq!(filter.apply("anything".to_string()), "");
+  }
+
+  #[test]
+  fn test_allow_chars_unicode_set() {
+    // Unicode chars in both set and input — the set uses `str::contains(char)`
+    // so non-ASCII members (`é`, `ñ`) match on code-point equality.
+    let filter = FilterOp::<String>::AllowChars {
+      set: "café".to_string(),
+    };
+    let result = filter.apply_ref("café");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "café");
+
+    assert_eq!(filter.apply("café-!".to_string()), "café");
   }
 
   #[test]
@@ -1695,20 +1779,46 @@ mod tests {
   // ---- UrlEncode ----
 
   #[test]
-  fn test_url_encode_basic() {
-    let filter = FilterOp::<String>::UrlEncode;
+  fn test_url_encode_basic_rfc3986_default() {
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
     assert_eq!(filter.apply("hello world".to_string()), "hello%20world");
   }
 
   #[test]
+  fn test_url_encode_rfc3986_preserves_unreserved_punctuation() {
+    // `-._~` are RFC 3986 unreserved and must pass through when encode_unreserved = false.
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
+    let result = filter.apply_ref("a-b_c.d~e");
+    assert!(matches!(result, Cow::Borrowed(_)));
+    assert_eq!(result, "a-b_c.d~e");
+  }
+
+  #[test]
+  fn test_url_encode_aggressive_encodes_unreserved_punctuation() {
+    // With encode_unreserved = true, the stricter NON_ALPHANUMERIC set is used.
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: true,
+    };
+    assert_eq!(filter.apply("a-b_c.d~e".to_string()), "a%2Db%5Fc%2Ed%7Ee");
+  }
+
+  #[test]
   fn test_url_encode_unicode() {
-    let filter = FilterOp::<String>::UrlEncode;
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
     assert_eq!(filter.apply("café".to_string()), "caf%C3%A9");
   }
 
   #[test]
   fn test_url_encode_alphanumeric_only_is_borrowed() {
-    let filter = FilterOp::<String>::UrlEncode;
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
     let result = filter.apply_ref("HelloWorld123");
     assert!(matches!(result, Cow::Borrowed(_)));
     assert_eq!(result, "HelloWorld123");
@@ -1716,16 +1826,29 @@ mod tests {
 
   #[test]
   fn test_url_encode_special_chars() {
-    let filter = FilterOp::<String>::UrlEncode;
+    let filter = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
     assert_eq!(filter.apply("a&b=c".to_string()), "a%26b%3Dc");
   }
 
   #[test]
   fn test_serde_roundtrip_url_encode() {
-    let op = FilterOp::<String>::UrlEncode;
+    let op = FilterOp::<String>::UrlEncode {
+      encode_unreserved: false,
+    };
     let json = serde_json::to_string(&op).unwrap();
     let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
     assert_eq!(op, deserialized);
+
+    let op_strict = FilterOp::<String>::UrlEncode {
+      encode_unreserved: true,
+    };
+    let json = serde_json::to_string(&op_strict).unwrap();
+    let deserialized: FilterOp<String> = serde_json::from_str(&json).unwrap();
+    assert_eq!(op_strict, deserialized);
+    // The two modes are distinguishable via PartialEq.
+    assert_ne!(op, op_strict);
   }
 
   // ---- Chain composition with new variants ----
@@ -1768,7 +1891,14 @@ mod tests {
       format!("{:?}", FilterOp::<String>::NormalizeWhitespace),
       "NormalizeWhitespace"
     );
-    assert_eq!(format!("{:?}", FilterOp::<String>::UrlEncode), "UrlEncode");
+    let url = format!(
+      "{:?}",
+      FilterOp::<String>::UrlEncode {
+        encode_unreserved: false
+      }
+    );
+    assert!(url.contains("UrlEncode"));
+    assert!(url.contains("encode_unreserved"));
   }
 
   // ---- FilterOp<Value> sanitize filter tests ----
@@ -1803,7 +1933,9 @@ mod tests {
   #[cfg(feature = "validation")]
   #[test]
   fn test_url_encode_value_str() {
-    let filter = FilterOp::<Value>::UrlEncode;
+    let filter = FilterOp::<Value>::UrlEncode {
+      encode_unreserved: false,
+    };
     assert_eq!(
       filter.apply(Value::Str("hello world".to_string())),
       Value::Str("hello%20world".to_string())

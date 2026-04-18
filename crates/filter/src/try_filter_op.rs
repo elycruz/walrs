@@ -108,6 +108,9 @@ pub enum TryFilterOp<T> {
   /// Parse the value as a signed 64-bit integer (`i64`), accepting surrounding whitespace.
   ///
   /// - On `TryFilterOp<String>`: normalises to the canonical decimal representation.
+  ///   **Note:** a leading `+` sign is accepted by the parser but is **not**
+  ///   preserved in the canonical output (`"+42"` → `"42"`). Likewise, leading
+  ///   zeros are stripped (`"042"` → `"42"`).
   /// - On `TryFilterOp<Value>` (feature `validation`): converts `Value::Str` → `Value::I64`;
   ///   numeric variants pass through; other variants pass through unchanged.
   ToInt,
@@ -115,6 +118,10 @@ pub enum TryFilterOp<T> {
   /// Parse the value as a 64-bit floating-point number (`f64`), accepting surrounding whitespace.
   ///
   /// - On `TryFilterOp<String>`: normalises to `Display`-canonical form.
+  ///   **Note:** this canonical form is what Rust's default `f64` `Display` impl
+  ///   produces — which drops the fractional part for whole-valued floats
+  ///   (`"3.0"` → `"3"`), normalises exponents (`"-1e2"` → `"-100"`), and
+  ///   preserves the sign of `-0.0` (`"-0.0"` → `"-0"`).
   /// - On `TryFilterOp<Value>` (feature `validation`): converts `Value::Str` → `Value::F64`;
   ///   numeric variants pass through; other variants pass through unchanged.
   ToFloat,
@@ -805,6 +812,15 @@ mod tests {
   }
 
   #[test]
+  fn test_to_int_string_plus_sign_stripped() {
+    // Rust's `i64::parse` accepts a leading `+`; the canonical form does not
+    // preserve it. Documented behaviour.
+    let op = TryFilterOp::<String>::ToInt;
+    assert_eq!(op.try_apply("+42".to_string()).unwrap(), "42");
+    assert_eq!(op.try_apply("  +42  ".to_string()).unwrap(), "42");
+  }
+
+  #[test]
   fn test_serde_roundtrip_to_int() {
     let op = TryFilterOp::<String>::ToInt;
     let json = serde_json::to_string(&op).unwrap();
@@ -827,6 +843,31 @@ mod tests {
     let op = TryFilterOp::<String>::ToFloat;
     let err = op.try_apply("xyz".to_string()).unwrap_err();
     assert_eq!(err.filter_name(), Some("ToFloat"));
+  }
+
+  #[test]
+  fn test_to_float_string_negative_zero_preserved() {
+    // Rust's `Display` for `f64` renders `-0.0` as `"-0"` — the sign survives
+    // String canonicalisation.
+    let op = TryFilterOp::<String>::ToFloat;
+    assert_eq!(op.try_apply("-0.0".to_string()).unwrap(), "-0");
+  }
+
+  #[cfg(feature = "validation")]
+  #[test]
+  fn test_to_float_value_preserves_negative_zero() {
+    // On `Value`, `-0.0` survives as a `Value::F64` with its sign bit intact.
+    let op = TryFilterOp::<Value>::ToFloat;
+    let result = op.try_apply(Value::Str("-0.0".to_string())).unwrap();
+    if let Value::F64(f) = result {
+      assert!(
+        f.is_sign_negative(),
+        "-0.0 sign should survive Value::F64 path"
+      );
+      assert_eq!(f, 0.0);
+    } else {
+      panic!("expected Value::F64, got {result:?}");
+    }
   }
 
   #[test]
