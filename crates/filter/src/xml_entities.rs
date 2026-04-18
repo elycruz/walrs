@@ -31,16 +31,26 @@ fn scan_entity(bytes: &[u8], start: usize) -> Option<usize> {
   if first == b'#' {
     j += 1;
     let next = *bytes.get(j)?;
-    let (digits_start, max_len, is_valid): (usize, usize, fn(u8) -> bool) =
-      if next == b'x' || next == b'X' {
-        j += 1;
-        (j, MAX_HEX_ENTITY_DIGITS, |b: u8| b.is_ascii_hexdigit())
-      } else {
-        (j, MAX_DECIMAL_ENTITY_DIGITS, |b: u8| b.is_ascii_digit())
-      };
-
-    while j < bytes.len() && is_valid(bytes[j]) && (j - digits_start) < max_len {
+    let is_hex = next == b'x' || next == b'X';
+    if is_hex {
       j += 1;
+    }
+    let digits_start = j;
+
+    if is_hex {
+      while j < bytes.len()
+        && bytes[j].is_ascii_hexdigit()
+        && (j - digits_start) < MAX_HEX_ENTITY_DIGITS
+      {
+        j += 1;
+      }
+    } else {
+      while j < bytes.len()
+        && bytes[j].is_ascii_digit()
+        && (j - digits_start) < MAX_DECIMAL_ENTITY_DIGITS
+      {
+        j += 1;
+      }
     }
 
     if j > digits_start && bytes.get(j).copied() == Some(b';') {
