@@ -22,6 +22,14 @@ Available operations:
 - `Slug { max_length }` - URL-safe slug generation
 - `Truncate { max_length }` - Clip string to at most `max_length` characters
 - `Replace { from, to }` - Replace all occurrences of a substring
+- `Digits` - Keep ASCII digits only
+- `Alnum { allow_whitespace }` - Keep Unicode alphanumerics (optionally whitespace)
+- `Alpha { allow_whitespace }` - Keep Unicode letters (optionally whitespace)
+- `StripNewlines` - Remove `\r` and `\n`
+- `NormalizeWhitespace` - Collapse runs of whitespace to a single space and trim
+- `AllowChars { set }` - Keep only characters that appear in `set`
+- `DenyChars { set }` - Drop characters that appear in `set`
+- `UrlEncode` - Percent-encode non-alphanumeric characters
 - `Clamp { min, max }` - Numeric clamping
 - `Chain(ops)` - Sequential filter chain
 - `Custom(fn)` - Runtime filter function (not serializable — see [Serde notes](#serde-notes))
@@ -127,7 +135,9 @@ fn main() {
 
 Supported JSON variant types: `Trim`, `Lowercase`, `Uppercase`, `StripTags`, `HtmlEntities`,
 `Slug` (with `max_length`), `Truncate` (with `max_length`), `Replace` (with `from`/`to`),
-`Clamp` (with `min`/`max`), `Chain` (with array of ops).
+`Digits`, `Alnum` (with `allow_whitespace`), `Alpha` (with `allow_whitespace`),
+`StripNewlines`, `NormalizeWhitespace`, `AllowChars` (with `set`), `DenyChars` (with `set`),
+`UrlEncode`, `Clamp` (with `min`/`max`), `Chain` (with array of ops).
 
 ## TryFilterOp Enum (Fallible Filters)
 
@@ -139,6 +149,14 @@ validation error pipeline.
 Available variants:
 - `Infallible(FilterOp<T>)` - Wraps an infallible filter, lifting it into the fallible pipeline
 - `Chain(Vec<TryFilterOp<T>>)` - Sequential filter chain that short-circuits on the first error
+- `ToBool` - Parse `"1"`/`"0"`/`"true"`/`"false"`/`"yes"`/`"no"`/`"on"`/`"off"` (case-insensitive).
+  On `TryFilterOp<String>`, normalises to canonical `"true"`/`"false"`; on
+  `TryFilterOp<Value>`, converts `Value::Str` → `Value::Bool`.
+- `ToInt` - Parse a decimal `i64`. Canonicalises on `String`; converts `Value::Str` →
+  `Value::I64` on `Value`.
+- `ToFloat` - Parse an `f64`. Canonicalises on `String`; converts `Value::Str` →
+  `Value::F64` on `Value`.
+- `UrlDecode` - Percent-decode, validating as UTF-8 (errors on invalid byte sequences).
 - `TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError>>)` - Custom fallible filter function (not serializable)
 
 ```rust

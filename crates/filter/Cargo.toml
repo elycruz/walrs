@@ -20,6 +20,7 @@ validation = ["dep:walrs_validation"]
 [dependencies]
 ammonia = "3.3.1"
 derive_builder = "0.13.0"
+percent-encoding = "2"
 regex = "1.3.1"
 serde = { version = "1.0", features = ["derive"] }
 walrs_validation = { path = "../validation", optional = true }
