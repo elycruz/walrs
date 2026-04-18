@@ -376,7 +376,7 @@ fn estimate_acl_data_size(acl_data: &AclData) -> usize {
 
   // Estimate roles size
   if let Some(roles) = &acl_data.roles {
-    size += std::mem::size_of::<Vec<(String, Option<Vec<String>>) >>();
+    size += std::mem::size_of::<Vec<(String, Option<Vec<String>>)>>();
     for (role_name, parents) in roles {
       size += std::mem::size_of::<String>() + role_name.len();
       if let Some(parent_list) = parents {
@@ -390,7 +390,7 @@ fn estimate_acl_data_size(acl_data: &AclData) -> usize {
 
   // Estimate resources size
   if let Some(resources) = &acl_data.resources {
-    size += std::mem::size_of::<Vec<(String, Option<Vec<String>>) >>();
+    size += std::mem::size_of::<Vec<(String, Option<Vec<String>>)>>();
     for (resource_name, parents) in resources {
       size += std::mem::size_of::<String>() + resource_name.len();
       if let Some(parent_list) = parents {
@@ -423,7 +423,7 @@ fn estimate_rules_size(rules: &Vec<(String, Option<Vec<(String, Option<Vec<Strin
     size += std::mem::size_of::<String>() + resource.len();
 
     if let Some(list) = role_privilege_list {
-      size += std::mem::size_of::<Vec<(String, Option<Vec<String>>) >>();
+      size += std::mem::size_of::<Vec<(String, Option<Vec<String>>)>>();
       for (role, privileges) in list {
         size += std::mem::size_of::<String>() + role.len();
         if let Some(priv_list) = privileges {

@@ -427,7 +427,9 @@ impl Rule<Date> {
         } => {
           let eff = locale.as_deref().or(inherited_locale);
           match message {
-            Some(msg) => msg.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff),
+            Some(msg) => {
+              msg.wrap_result(rule.validate_date_async_inner(value, eff).await, value, eff)
+            }
             None => rule.validate_date_async_inner(value, eff).await,
           }
         }
