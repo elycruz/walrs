@@ -76,21 +76,24 @@ fn deny_if_true_denies() -> Result<(), String> {
 
 #[test]
 fn deny_if_false_does_not_deny() -> Result<(), String> {
-  // Note: deny_if clears the opposing allow rule (opposing-family clearing),
-  // so to assert "deny_if resolving to false does not deny", we set the
-  // allow AFTER the deny_if.
+  // Keep the DenyIf rule on `user` while an unconditional Allow lives on the
+  // inherited `guest` role, so opposing-family clearing cannot remove the
+  // conditional deny we're testing.
   let acl = AclBuilder::new()
-    .add_role("user", None)?
+    .add_role("guest", None)?
+    .add_role("user", Some(&["guest"]))?
     .add_resource("admin_panel", None)?
+    .allow(Some(&["guest"]), Some(&["admin_panel"]), Some(&["access"]))?
     .deny_if(
       Some(&["user"]),
       Some(&["admin_panel"]),
       Some(&["access"]),
       "outside_hours",
     )?
-    .allow(Some(&["user"]), Some(&["admin_panel"]), Some(&["access"]))?
     .build()?;
 
+  // DenyIf resolves to false → user still has access via the inherited Allow
+  // from guest.
   let resolver = StaticResolver(&[("outside_hours", false)]);
   assert!(acl.is_allowed_with(Some("user"), Some("admin_panel"), Some("access"), &resolver));
   Ok(())
@@ -106,18 +109,20 @@ fn allow_if_without_resolver_is_denied() -> Result<(), String> {
 
 #[test]
 fn deny_if_without_resolver_does_not_block() -> Result<(), String> {
-  // Combine a plain Allow with a DenyIf — plain is_allowed should let the
-  // access through because the DenyIf is treated as "not deny" conservatively.
+  // Combine an unconditional Allow on the parent role with a DenyIf on the
+  // child role. Plain is_allowed treats DenyIf as "not-blocking" conservatively,
+  // so the inherited Allow should pass through.
   let acl = AclBuilder::new()
-    .add_role("user", None)?
+    .add_role("guest", None)?
+    .add_role("user", Some(&["guest"]))?
     .add_resource("admin_panel", None)?
+    .allow(Some(&["guest"]), Some(&["admin_panel"]), Some(&["access"]))?
     .deny_if(
       Some(&["user"]),
       Some(&["admin_panel"]),
       Some(&["access"]),
       "outside_hours",
     )?
-    .allow(Some(&["user"]), Some(&["admin_panel"]), Some(&["access"]))?
     .build()?;
 
   assert!(
@@ -129,21 +134,22 @@ fn deny_if_without_resolver_does_not_block() -> Result<(), String> {
 
 #[test]
 fn explicit_deny_overrides_allow_if_true() -> Result<(), String> {
-  // An explicit Deny wins over an AllowIf, even when the resolver says true.
-  // Note: we apply allow_if LAST so it isn't cleared by the subsequent deny's
-  // opposing-family clearing. Still, the plain Deny at the same spot would
-  // clear it — so we use different privileges and check a blanket Deny path.
+  // An explicit Deny on the direct role wins over an AllowIf inherited from a
+  // parent role, even when the resolver evaluates to true.  Both rules coexist
+  // because opposing-family clearing only affects rules on the same role; the
+  // AllowIf on "user" is not cleared by the Deny on "editor".
   let acl = AclBuilder::new()
-    .add_role("editor", None)?
+    .add_role("user", None)?
+    .add_role("editor", Some(&["user"]))?
     .add_resource("post", None)?
-    // allow_if on "edit"
+    // AllowIf on the parent role.
     .allow_if(
-      Some(&["editor"]),
+      Some(&["user"]),
       Some(&["post"]),
       Some(&["edit"]),
       "is_owner",
     )?
-    // Explicit deny ALSO on "edit" — this replaces the AllowIf.
+    // Explicit Deny on the child role — overrides the inherited AllowIf.
     .deny(Some(&["editor"]), Some(&["post"]), Some(&["edit"]))?
     .build()?;
 
@@ -262,47 +268,23 @@ fn json_round_trip_conditional_rules() -> Result<(), Box<dyn std::error::Error>>
     &not_owner
   ));
 
-  // 5. The round-tripped deny_if must still be stored and fire under a resolver.
+  // 5. The round-tripped deny_if must still fire under a resolver.
+  // The fixture grants admin_panel/access to "guest" (unconditional Allow) and
+  // places a DenyIf(outside_business_hours) on "user" (which inherits from
+  // guest).  The two rules are on different roles so opposing-family clearing
+  // cannot remove either of them.
   let off_hours = |k: &str| k == "outside_business_hours";
-  // Without a corresponding Allow there's nothing to pass anyway, so confirm
-  // we can still read back the assertion key from the serialized form.
+  // When outside_business_hours resolves to true the DenyIf fires → denied.
   assert!(!acl.is_allowed_with(
     Some("user"),
     Some("admin_panel"),
     Some("access"),
     &off_hours
   ));
-
-  // Combine freshly-built with an Allow that precedes the deny_if, so the
-  // deny_if (loaded from JSON) survives the opposing-family clearing.
-  let with_allow = AclBuilder::new()
-    .add_role("guest", None)?
-    .add_role("user", Some(&["guest"]))?
-    .add_resource("admin_panel", None)?
-    .allow(Some(&["user"]), Some(&["admin_panel"]), Some(&["access"]))?
-    .deny_if(
-      Some(&["user"]),
-      Some(&["admin_panel"]),
-      Some(&["access"]),
-      "outside_business_hours",
-    )?
-    .build()?;
-  // The later deny_if clears the earlier allow (opposing-family clearing).
-  // So under the off-hours resolver we must deny, and under in-hours the rule
-  // is "not-deny" — but since the allow got cleared, the default (deny) wins.
-  assert!(!with_allow.is_allowed_with(
-    Some("user"),
-    Some("admin_panel"),
-    Some("access"),
-    &off_hours
-  ));
+  // When outside_business_hours resolves to false the DenyIf does not fire →
+  // user can access via the inherited unconditional Allow from guest.
   let in_hours = |_k: &str| false;
-  assert!(!with_allow.is_allowed_with(
-    Some("user"),
-    Some("admin_panel"),
-    Some("access"),
-    &in_hours
-  ));
+  assert!(acl.is_allowed_with(Some("user"), Some("admin_panel"), Some("access"), &in_hours));
 
   Ok(())
 }

@@ -9,7 +9,8 @@
     ["admin_panel", null]
   ],
   "allow": [
-    ["content_item", [["editor", ["read"]]]]
+    ["content_item", [["editor", ["read"]]]],
+    ["admin_panel", [["guest", ["access"]]]]
   ],
   "deny": null,
   "allow_if": [

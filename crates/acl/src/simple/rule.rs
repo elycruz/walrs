@@ -1,9 +1,9 @@
-use crate::prelude::String;
+use crate::simple::types::AssertionKey;
 
 /// A rule governing access to a (resource, role, privilege) triple.
 ///
 /// Two unconditional variants (`Allow`, `Deny`) behave as before.
-/// Two conditional variants (`AllowIf`, `DenyIf`) carry an `AssertionKey` — an
+/// Two conditional variants (`AllowIf`, `DenyIf`) carry an [`AssertionKey`] — an
 /// opaque string identifier that a caller-supplied
 /// [`AssertionResolver`](crate::simple::AssertionResolver) resolves to a boolean
 /// at check time.
@@ -16,10 +16,10 @@ pub enum Rule {
   Deny,
   /// Conditional allow: resolves to `Allow` iff the resolver evaluates the key
   /// to `true`, otherwise treated as non-allow.
-  AllowIf(String),
+  AllowIf(AssertionKey),
   /// Conditional deny: resolves to `Deny` iff the resolver evaluates the key
   /// to `true`, otherwise treated as non-deny.
-  DenyIf(String),
+  DenyIf(AssertionKey),
 }
 
 impl Rule {

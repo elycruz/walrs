@@ -134,8 +134,9 @@ impl JsAcl {
   /// callback.
   ///
   /// The callback is invoked as `resolver(key)` where `key` is a string
-  /// assertion key. It should return a boolean — truthy resolves conditional
-  /// allows/denies to `true`.
+  /// assertion key. It must return a JavaScript boolean; `true` resolves
+  /// conditional allows/denies to `true`, while `false`, exceptions, and
+  /// non-boolean returns are treated conservatively as `false`.
   ///
   /// # Arguments
   /// * `role` - The role name (null for "all roles")
