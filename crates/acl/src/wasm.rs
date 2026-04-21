@@ -11,9 +11,9 @@ use wasm_bindgen::prelude::*;
 /// Adapter wrapping a JS callback into an [`AssertionResolver`].
 ///
 /// The JS callback receives the assertion key (a string) and should return a
-/// boolean value. Anything that isn't a strict boolean `true` falls back to
-/// `false` — unknown keys, exceptions, and non-boolean returns are all
-/// treated conservatively.
+/// JavaScript boolean value: `true` grants the conditional rule, while `false`
+/// denies it. Unknown keys, exceptions, and non-boolean returns are all
+/// treated conservatively as `false`.
 struct JsResolver {
   f: Function,
 }
