@@ -1,3 +1,7 @@
+// The serde data model for rules uses deeply nested Vec/Option/tuple types by
+// design. Silence clippy's `type_complexity` here — refactoring them into
+// named aliases buys little readability at significant signature noise cost.
+#![allow(clippy::type_complexity)]
 use crate::prelude::{String, ToString, Vec, format, vec};
 use core::convert::TryFrom;
 
@@ -217,6 +221,65 @@ impl AclBuilder {
     Ok(self)
   }
 
+  /// Adds a conditional "allow" rule keyed by `assertion_key`. The caller
+  /// supplies an [`AssertionResolver`](crate::simple::AssertionResolver) at
+  /// check time (via [`Acl::is_allowed_with`]) to decide whether the key
+  /// resolves to `true`.
+  ///
+  /// When checked via plain [`Acl::is_allowed`] (no resolver), the rule is
+  /// treated conservatively — `AllowIf` does NOT allow. Pair with explicit
+  /// `Allow` if you need an "always-on" fallback.
+  ///
+  /// # Example
+  ///
+  /// ```rust
+  /// use walrs_acl::simple::AclBuilder;
+  ///
+  /// let acl = AclBuilder::new()
+  ///   .add_role("editor", None)?
+  ///   .add_resource("post", None)?
+  ///   .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+  ///   .build()?;
+  ///
+  /// let resolver = |k: &str| k == "is_owner";
+  /// assert!(acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &resolver));
+  /// # Ok::<(), String>(())
+  /// ```
+  pub fn allow_if(
+    &mut self,
+    roles: Option<&[&str]>,
+    resources: Option<&[&str]>,
+    privileges: Option<&[&str]>,
+    assertion_key: &str,
+  ) -> Result<&mut Self, String> {
+    self._add_rule(
+      Rule::AllowIf(assertion_key.to_string()),
+      roles,
+      resources,
+      privileges,
+    );
+    Ok(self)
+  }
+
+  /// Adds a conditional "deny" rule keyed by `assertion_key`. Mirrors
+  /// [`allow_if`](AclBuilder::allow_if) semantics. Without a resolver, plain
+  /// [`Acl::is_allowed`] treats this as "not-blocking" (no deny fires).
+  pub fn deny_if(
+    &mut self,
+    roles: Option<&[&str]>,
+    resources: Option<&[&str]>,
+    privileges: Option<&[&str]>,
+    assertion_key: &str,
+  ) -> Result<&mut Self, String> {
+    self._add_rule(
+      Rule::DenyIf(assertion_key.to_string()),
+      roles,
+      resources,
+      privileges,
+    );
+    Ok(self)
+  }
+
   /// Builds and returns the final `Acl` instance.
   ///
   /// This method clones the builder's internal state and performs validation checks on the
@@ -292,6 +355,10 @@ impl AclBuilder {
     // allows using for loops as a `while` loop
     let _resources: Vec<Option<String>> = self._get_only_keys_in_graph(&self._resources, resources);
 
+    // Determine whether the rule we're adding is allowing or denying — used to
+    // select the opposing family we need to clear.
+    let incoming_is_allowing = rule_type.is_allowing_family();
+
     // Apply the rule to each resource and role combination
     // ----
     for resource in _resources.iter() {
@@ -326,36 +393,39 @@ impl AclBuilder {
         // Get role rules for resource (will either be "for all roles" or specific role based on Some/None args passed in)
         let role_rules = self._get_role_rules_mut(resource.as_deref(), role.as_deref());
 
-        // Clear opposing rules before setting new rule
+        // Clear opposing-family rules before setting new rule.
+        //
+        // "Opposing family" = if we're adding Allow/AllowIf, the opposing family
+        // is {Deny, DenyIf(_)} and vice versa. Using the family predicates keeps
+        // this logic correct across the four Rule variants.
         // ----
-        let opposite_rule = match rule_type {
-          Rule::Allow => Rule::Deny,
-          Rule::Deny => Rule::Allow,
+        let is_opposing = |existing: &Rule| -> bool {
+          if incoming_is_allowing {
+            existing.is_denying_family()
+          } else {
+            existing.is_allowing_family()
+          }
         };
 
-        // Clear opposite rule for each specific privilege we're about to set
         if let Some(privilege_list) = privileges {
-          // Clear opposite rule for each specific privilege we're about to set
+          // Clear opposing rule for each specific privilege we're about to set
           if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
             for privilege in privilege_list {
-              // Remove the privilege entry if it has the opposite rule
+              // Remove the privilege entry if it has a rule in the opposing family
               if let Some(existing_rule) = p_map.get(*privilege)
-                && existing_rule == &opposite_rule
+                && is_opposing(existing_rule)
               {
                 p_map.remove(*privilege);
               }
             }
           }
         } else {
-          // Setting rule for "all privileges" - clear all opposite rules
-          if role_rules.for_all_privileges == opposite_rule {
-            // Clear the for_all_privileges if it's the opposite rule
-            // (it will be overwritten anyway, but this makes intent clear)
-          }
+          // Setting rule for "all privileges" - clear all opposing rules.
+          // (for_all_privileges will be overwritten below anyway.)
 
-          // Clear any specific privilege rules that have the opposite rule
+          // Clear any specific privilege rules that have an opposing-family rule
           if let Some(p_map) = role_rules.by_privilege_id.as_mut() {
-            p_map.retain(|_, rule| rule != &opposite_rule);
+            p_map.retain(|_, rule| !is_opposing(rule));
 
             // If map is now empty after clearing, set to None for cleanliness
             if p_map.is_empty() {
@@ -370,11 +440,11 @@ impl AclBuilder {
           // Set rule for each specific privilege
           let p_map = role_rules.by_privilege_id.get_or_insert_with(HashMap::new);
           for privilege in privilege_list {
-            p_map.insert(privilege.to_string(), rule_type);
+            p_map.insert(privilege.to_string(), rule_type.clone());
           }
         } else {
           // Set rule for "all privileges" and clear any existing per-privilege rules
-          role_rules.for_all_privileges = rule_type;
+          role_rules.for_all_privileges = rule_type.clone();
           role_rules.by_privilege_id = None;
         }
       }
@@ -543,6 +613,8 @@ impl TryFrom<&Acl> for AclBuilder {
 ///         ])),
 ///     ]),
 ///     deny: None,
+///     allow_if: None,
+///     deny_if: None,
 /// };
 ///
 /// let acl = AclBuilder::try_from(&acl_data)?
@@ -619,6 +691,66 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
       Ok(())
     };
 
+    // Helper: process conditional rules (allow_if / deny_if). The innermost
+    // list is `(privilege_name, assertion_key)` tuples instead of privilege
+    // strings; we have to split by assertion_key because one call to
+    // `allow_if` / `deny_if` on the builder can only accept one assertion key.
+    #[cfg(not(feature = "std"))]
+    use alloc::collections::BTreeMap as KeyMap;
+    #[cfg(feature = "std")]
+    use std::collections::HashMap as KeyMap;
+    let process_conditional_rules = |builder: &mut AclBuilder,
+                                     rules: &Vec<(
+      String,
+      Option<Vec<(String, Option<Vec<(String, String)>>)>>,
+    )>,
+                                     is_allow: bool|
+     -> Result<(), String> {
+      for (resource, roles_and_privileges_assoc_list) in rules.iter() {
+        let resource_slice: Option<&[&str]> = if resource == "*" {
+          None
+        } else {
+          Some(&[resource.as_str()])
+        };
+
+        if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
+          for (role, privileges_with_keys) in rs_and_ps_list.iter() {
+            let role_slice: Option<&[&str]> = if role == "*" {
+              None
+            } else {
+              Some(&[role.as_str()])
+            };
+
+            match privileges_with_keys.as_deref() {
+              Some(pairs) => {
+                // Group privileges by assertion key so we can issue one
+                // builder call per key with all applicable privileges.
+                let mut by_key: KeyMap<&str, Vec<&str>> = KeyMap::new();
+                for (priv_name, key) in pairs.iter() {
+                  by_key.entry(key.as_str()).or_default().push(priv_name.as_str());
+                }
+                for (key, ps) in by_key.into_iter() {
+                  if is_allow {
+                    builder.allow_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
+                  } else {
+                    builder.deny_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
+                  }
+                }
+              }
+              None => {
+                // If no pairs are given for this role, skip — a conditional
+                // rule without any assertion key is meaningless.
+              }
+            }
+          }
+        }
+        // Note: we intentionally do not treat `None` at the outer level as
+        // "apply to all roles" for conditional rules — there is no assertion
+        // key to bind to in that shape.
+      }
+      Ok(())
+    };
+
     // Add `allow` rules to builder, if any
     if let Some(allow) = data.allow.as_ref() {
       process_rules(&mut builder, allow, true)?;
@@ -627,6 +759,16 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
     // Add `deny` rules to builder, if any
     if let Some(deny) = data.deny.as_ref() {
       process_rules(&mut builder, deny, false)?;
+    }
+
+    // Add conditional `allow_if` rules to builder, if any
+    if let Some(allow_if) = data.allow_if.as_ref() {
+      process_conditional_rules(&mut builder, allow_if, true)?;
+    }
+
+    // Add conditional `deny_if` rules to builder, if any
+    if let Some(deny_if) = data.deny_if.as_ref() {
+      process_conditional_rules(&mut builder, deny_if, false)?;
     }
 
     // Return the builder (without calling .build())
@@ -692,9 +834,9 @@ impl TryFrom<&AclBuilder> for AclData {
       None
     };
 
-    // Helper to extract rules from RolePrivilegeRules based on rule type
+    // Helper to extract unconditional rules (Allow / Deny) from RolePrivilegeRules.
     let extract_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules,
-                         rule_type: crate::simple::Rule|
+                         match_rule: &crate::simple::Rule|
      -> Option<Vec<(String, Option<Vec<String>>)>> {
       let mut role_rules = HashMap::new();
 
@@ -709,16 +851,16 @@ impl TryFrom<&AclBuilder> for AclData {
         if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
           let matching_privileges: Vec<String> = by_priv
             .iter()
-            .filter(|(_, rule)| **rule == rule_type)
+            .filter(|(_, rule)| *rule == match_rule)
             .map(|(k, _)| k.to_string())
             .collect();
           if !matching_privileges.is_empty() {
             role_rules.insert("*".to_string(), Some(matching_privileges));
           }
         }
-      } else if role_priv_rules.for_all_roles.for_all_privileges == rule_type {
+      } else if &role_priv_rules.for_all_roles.for_all_privileges == match_rule {
         // Only insert for Allow rules (Deny is the default, so we don't capture it unless explicit)
-        if rule_type == crate::simple::Rule::Allow {
+        if match_rule == &crate::simple::Rule::Allow {
           role_rules.insert("*".to_string(), None);
         }
       }
@@ -735,14 +877,14 @@ impl TryFrom<&AclBuilder> for AclData {
             if let Some(ref by_priv) = priv_rules.by_privilege_id {
               let matching_privileges: Vec<String> = by_priv
                 .iter()
-                .filter(|(_, rule)| **rule == rule_type)
+                .filter(|(_, rule)| *rule == match_rule)
                 .map(|(k, _)| k.to_string())
                 .collect();
               if !matching_privileges.is_empty() {
                 role_rules.insert(role.clone(), Some(matching_privileges));
               }
             }
-          } else if priv_rules.for_all_privileges == rule_type {
+          } else if &priv_rules.for_all_privileges == match_rule {
             role_rules.insert(role.clone(), None);
           }
         }
@@ -755,21 +897,76 @@ impl TryFrom<&AclBuilder> for AclData {
       }
     };
 
+    // Helper to extract conditional rules (AllowIf / DenyIf). Matches on the
+    // variant; the `(privilege, assertion_key)` pairs are the inner items.
+    // `want_allow_if = true` => AllowIf, false => DenyIf.
+    let extract_conditional_rules =
+      |role_priv_rules: &crate::simple::RolePrivilegeRules, want_allow_if: bool|
+       -> Option<Vec<(String, Option<Vec<(String, String)>>)>> {
+        let mut role_rules: HashMap<String, Option<Vec<(String, String)>>> = HashMap::new();
+
+        let variant_matches = |rule: &crate::simple::Rule| -> Option<String> {
+          match (rule, want_allow_if) {
+            (crate::simple::Rule::AllowIf(k), true) => Some(k.clone()),
+            (crate::simple::Rule::DenyIf(k), false) => Some(k.clone()),
+            _ => None,
+          }
+        };
+
+        // Check "for all roles" per-privilege rules
+        if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
+          let matches: Vec<(String, String)> = by_priv
+            .iter()
+            .filter_map(|(pname, rule)| variant_matches(rule).map(|k| (pname.to_string(), k)))
+            .collect();
+          if !matches.is_empty() {
+            role_rules.insert("*".to_string(), Some(matches));
+          }
+        }
+        // Per-role "for all privileges" conditional rules: also check those.
+        if let Some(k) = variant_matches(&role_priv_rules.for_all_roles.for_all_privileges) {
+          // No privilege name makes sense for "all privileges"; use empty
+          // privilege-name slot paired with key. We skip this — the data
+          // format requires a privilege name, so these are not representable.
+          // Log via a no-op; user who cares will supply per-privilege rules.
+          let _ = k;
+        }
+
+        // Check per-role rules
+        if let Some(ref by_role) = role_priv_rules.by_role_id {
+          for (role, priv_rules) in by_role.iter() {
+            if let Some(ref by_priv) = priv_rules.by_privilege_id {
+              let matches: Vec<(String, String)> = by_priv
+                .iter()
+                .filter_map(|(pname, rule)| variant_matches(rule).map(|k| (pname.to_string(), k)))
+                .collect();
+              if !matches.is_empty() {
+                role_rules.insert(role.clone(), Some(matches));
+              }
+            }
+            // Skipping per-role "for_all_privileges" conditional rules for the
+            // same reason as above — not representable without a privilege id.
+          }
+        }
+
+        if role_rules.is_empty() {
+          None
+        } else {
+          Some(role_rules.into_iter().collect())
+        }
+      };
+
     // Extract allow rules
     let mut allow_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
 
-    // Check "for all resources" allow rules
-    let for_all_allow = extract_rules(
-      &builder._rules.for_all_resources,
-      crate::simple::Rule::Allow,
-    );
+    let for_all_allow =
+      extract_rules(&builder._rules.for_all_resources, &crate::simple::Rule::Allow);
     if for_all_allow.is_some() {
       allow_map.insert("*".to_string(), for_all_allow);
     }
 
-    // Check per-resource allow rules
     for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-      let resource_allow = extract_rules(role_priv_rules, crate::simple::Rule::Allow);
+      let resource_allow = extract_rules(role_priv_rules, &crate::simple::Rule::Allow);
       if resource_allow.is_some() {
         allow_map.insert(resource.clone(), resource_allow);
       }
@@ -784,15 +981,14 @@ impl TryFrom<&AclBuilder> for AclData {
     // Extract deny rules
     let mut deny_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
 
-    // Check "for all resources" deny rules
-    let for_all_deny = extract_rules(&builder._rules.for_all_resources, crate::simple::Rule::Deny);
+    let for_all_deny =
+      extract_rules(&builder._rules.for_all_resources, &crate::simple::Rule::Deny);
     if for_all_deny.is_some() {
       deny_map.insert("*".to_string(), for_all_deny);
     }
 
-    // Check per-resource deny rules
     for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-      let resource_deny = extract_rules(role_priv_rules, crate::simple::Rule::Deny);
+      let resource_deny = extract_rules(role_priv_rules, &crate::simple::Rule::Deny);
       if resource_deny.is_some() {
         deny_map.insert(resource.clone(), resource_deny);
       }
@@ -804,11 +1000,57 @@ impl TryFrom<&AclBuilder> for AclData {
       Some(deny_map.into_iter().collect())
     };
 
+    // Extract allow_if rules
+    let mut allow_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
+      HashMap::new();
+
+    let for_all_allow_if = extract_conditional_rules(&builder._rules.for_all_resources, true);
+    if for_all_allow_if.is_some() {
+      allow_if_map.insert("*".to_string(), for_all_allow_if);
+    }
+
+    for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
+      let r_allow_if = extract_conditional_rules(role_priv_rules, true);
+      if r_allow_if.is_some() {
+        allow_if_map.insert(resource.clone(), r_allow_if);
+      }
+    }
+
+    let allow_if = if allow_if_map.is_empty() {
+      None
+    } else {
+      Some(allow_if_map.into_iter().collect())
+    };
+
+    // Extract deny_if rules
+    let mut deny_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
+      HashMap::new();
+
+    let for_all_deny_if = extract_conditional_rules(&builder._rules.for_all_resources, false);
+    if for_all_deny_if.is_some() {
+      deny_if_map.insert("*".to_string(), for_all_deny_if);
+    }
+
+    for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
+      let r_deny_if = extract_conditional_rules(role_priv_rules, false);
+      if r_deny_if.is_some() {
+        deny_if_map.insert(resource.clone(), r_deny_if);
+      }
+    }
+
+    let deny_if = if deny_if_map.is_empty() {
+      None
+    } else {
+      Some(deny_if_map.into_iter().collect())
+    };
+
     Ok(AclData {
       roles,
       resources,
       allow,
       deny,
+      allow_if,
+      deny_if,
     })
   }
 }

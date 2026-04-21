@@ -109,10 +109,73 @@ fn main() -> Result<(), String> {
   run_resource_hierarchy_benchmark(&acl);
   run_deny_rule_benchmark(&acl);
 
+  // Conditional assertion path (issue #244).
+  //
+  // We re-use the same ACL as before — none of its rules are conditional —
+  // and call `is_allowed_with` 100k times with a trivial always-true resolver.
+  // This measures the overhead of the conditional-aware code path relative to
+  // the unconditional 100k run printed above.
+  println!();
+  println!("=== Conditional assertion path ===");
+  run_conditional_benchmark(&acl, &roles, &resources, &privileges, 100_000);
+
   println!();
   println!("=== Benchmark Complete ===");
 
   Ok(())
+}
+
+struct AlwaysTrue;
+impl walrs_acl::simple::AssertionResolver for AlwaysTrue {
+  fn evaluate(&self, _: &str) -> bool {
+    true
+  }
+}
+
+fn run_conditional_benchmark(
+  acl: &Acl,
+  roles: &[String],
+  resources: &[String],
+  privileges: &[String],
+  iterations: usize,
+) {
+  let mut rng = rand::rng();
+  let resolver = AlwaysTrue;
+
+  let start = Instant::now();
+  let mut allowed_count = 0;
+  let mut denied_count = 0;
+
+  for _ in 0..iterations {
+    let role = roles.choose(&mut rng).unwrap();
+    let resource = resources.choose(&mut rng).unwrap();
+    let privilege = privileges.choose(&mut rng).unwrap();
+
+    if acl.is_allowed_with(
+      Some(role.as_str()),
+      Some(resource.as_str()),
+      Some(privilege.as_str()),
+      &resolver,
+    ) {
+      allowed_count += 1;
+    } else {
+      denied_count += 1;
+    }
+  }
+
+  let duration = start.elapsed();
+  let avg_time = duration / iterations as u32;
+  let checks_per_sec = iterations as f64 / duration.as_secs_f64();
+
+  println!("{} is_allowed_with checks (always-true resolver)", iterations);
+  println!("  Total time: {:?}", duration);
+  println!("  Average per check: {:?}", avg_time);
+  println!("  Checks per second: {:.0}", checks_per_sec);
+  println!(
+    "  Results: {} allowed, {} denied",
+    allowed_count, denied_count
+  );
+  println!();
 }
 
 fn run_benchmark(

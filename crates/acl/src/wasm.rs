@@ -4,8 +4,32 @@
 //! the walrs_acl crate.
 
 use crate::prelude::{String, Vec, format};
-use crate::simple::{Acl, AclBuilder, AclData};
+use crate::simple::{Acl, AclBuilder, AclData, AssertionResolver};
+use js_sys::Function;
 use wasm_bindgen::prelude::*;
+
+/// Adapter wrapping a JS callback into an [`AssertionResolver`].
+///
+/// The JS callback receives the assertion key (a string) and should return a
+/// truthy/falsy value. Anything that isn't a strict boolean-true falls back to
+/// `false` — unknown keys, exceptions, and non-boolean returns are all
+/// treated conservatively.
+struct JsResolver {
+  f: Function,
+}
+
+impl AssertionResolver for JsResolver {
+  fn evaluate(&self, key: &str) -> bool {
+    let this = JsValue::NULL;
+    let arg = JsValue::from_str(key);
+    self
+      .f
+      .call1(&this, &arg)
+      .ok()
+      .and_then(|v| v.as_bool())
+      .unwrap_or(false)
+  }
+}
 
 /// JavaScript-compatible wrapper for Acl
 #[wasm_bindgen]
@@ -102,6 +126,36 @@ impl JsAcl {
       role_refs.as_deref(),
       resource_refs.as_deref(),
       privilege_refs.as_deref(),
+    )
+  }
+
+  /// Checks if a role is allowed to perform an action on a resource, resolving
+  /// any conditional (`AllowIf` / `DenyIf`) rules using the supplied JS
+  /// callback.
+  ///
+  /// The callback is invoked as `resolver(key)` where `key` is a string
+  /// assertion key. It should return a boolean — truthy resolves conditional
+  /// allows/denies to `true`.
+  ///
+  /// # Arguments
+  /// * `role` - The role name (null for "all roles")
+  /// * `resource` - The resource name (null for "all resources")
+  /// * `privilege` - The privilege name (null for "all privileges")
+  /// * `resolver` - JS function `(key: string) => boolean`
+  #[wasm_bindgen(js_name = isAllowedWith)]
+  pub fn is_allowed_with(
+    &self,
+    role: Option<String>,
+    resource: Option<String>,
+    privilege: Option<String>,
+    resolver: Function,
+  ) -> bool {
+    let r = JsResolver { f: resolver };
+    self.inner.is_allowed_with(
+      role.as_deref(),
+      resource.as_deref(),
+      privilege.as_deref(),
+      &r,
     )
   }
 
@@ -329,6 +383,81 @@ impl JsAclBuilder {
         role_refs.as_deref(),
         resource_refs.as_deref(),
         privilege_refs.as_deref(),
+      )
+      .map_err(|e| JsValue::from_str(&e))?;
+
+    Ok(self)
+  }
+
+  /// Adds a conditional "allow" rule bound to an assertion key.
+  ///
+  /// The key is resolved at check time by a JS callback passed to
+  /// [`JsAcl::isAllowedWith`]. Plain `isAllowed` treats this as "not-allow"
+  /// (conservative).
+  ///
+  /// # Arguments
+  /// * `roles` - Array of role names (null means "all roles")
+  /// * `resources` - Array of resource names (null means "all resources")
+  /// * `privileges` - Array of privilege names (null means "all privileges")
+  /// * `assertionKey` - The key passed to the resolver at check time
+  #[wasm_bindgen(js_name = allowIf)]
+  pub fn allow_if(
+    mut self,
+    roles: Option<Vec<String>>,
+    resources: Option<Vec<String>>,
+    privileges: Option<Vec<String>>,
+    assertion_key: String,
+  ) -> Result<Self, JsValue> {
+    let role_refs: Option<Vec<&str>> = roles
+      .as_ref()
+      .map(|r| r.iter().map(|s| s.as_str()).collect());
+    let resource_refs: Option<Vec<&str>> = resources
+      .as_ref()
+      .map(|r| r.iter().map(|s| s.as_str()).collect());
+    let privilege_refs: Option<Vec<&str>> = privileges
+      .as_ref()
+      .map(|p| p.iter().map(|s| s.as_str()).collect());
+
+    self
+      .inner
+      .allow_if(
+        role_refs.as_deref(),
+        resource_refs.as_deref(),
+        privilege_refs.as_deref(),
+        &assertion_key,
+      )
+      .map_err(|e| JsValue::from_str(&e))?;
+
+    Ok(self)
+  }
+
+  /// Adds a conditional "deny" rule bound to an assertion key. Mirrors
+  /// [`allowIf`](Self::allow_if).
+  #[wasm_bindgen(js_name = denyIf)]
+  pub fn deny_if(
+    mut self,
+    roles: Option<Vec<String>>,
+    resources: Option<Vec<String>>,
+    privileges: Option<Vec<String>>,
+    assertion_key: String,
+  ) -> Result<Self, JsValue> {
+    let role_refs: Option<Vec<&str>> = roles
+      .as_ref()
+      .map(|r| r.iter().map(|s| s.as_str()).collect());
+    let resource_refs: Option<Vec<&str>> = resources
+      .as_ref()
+      .map(|r| r.iter().map(|s| s.as_str()).collect());
+    let privilege_refs: Option<Vec<&str>> = privileges
+      .as_ref()
+      .map(|p| p.iter().map(|s| s.as_str()).collect());
+
+    self
+      .inner
+      .deny_if(
+        role_refs.as_deref(),
+        resource_refs.as_deref(),
+        privilege_refs.as_deref(),
+        &assertion_key,
       )
       .map_err(|e| JsValue::from_str(&e))?;
 

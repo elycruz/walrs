@@ -97,6 +97,46 @@ This representation represents an [`AclData`](src/simple/acl_data.rs) struct.
 }
 ```
 
+## Assertions
+
+In addition to plain `Allow` / `Deny`, rules can be made conditional — fired only when a caller-supplied predicate resolves to `true`. Conditional rules are keyed by an `AssertionKey` (a plain string); the registry mapping keys to predicates lives in the caller, not in the crate. This keeps the ACL fully serializable and WASM-friendly — only the keys are persisted, never closures.
+
+The Rust API exposes `AllowIf` / `DenyIf` via `AclBuilder::allow_if` / `deny_if`, and `Acl::is_allowed_with` / `is_allowed_any_with` which accept an `AssertionResolver`. Any `Fn(&str) -> bool` is a valid resolver via a blanket impl.
+
+```rust
+use walrs_acl::simple::AclBuilder;
+
+let acl = AclBuilder::new()
+    .add_role("editor", None)?
+    .add_resource("post", None)?
+    .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+    .build()?;
+
+let is_owner = true;
+let resolver = |key: &str| key == "is_owner" && is_owner;
+
+assert!(acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &resolver));
+# Ok::<(), String>(())
+```
+
+The same rules can be expressed in JSON via the `allow_if` / `deny_if` top-level fields. The inner shape mirrors `allow` / `deny` but swaps the bare privilege name for a `[privilege, assertion_key]` pair:
+
+```json5
+{
+  "roles": [["user", null], ["editor", ["user"]]],
+  "resources": [["post", null], ["admin_panel", null]],
+  "allow": [["post", [["editor", ["read"]]]]],
+  "allow_if": [
+    ["post", [["editor", [["edit", "is_owner"], ["publish", "is_owner"]]]]]
+  ],
+  "deny_if": [
+    ["admin_panel", [["user", [["access", "outside_business_hours"]]]]]
+  ]
+}
+```
+
+**Conservative defaults.** Plain `is_allowed` (no resolver) treats `AllowIf` as **not-allow** and `DenyIf` as **not-deny**: without a resolver we can't evaluate the predicate, so we stay on the safe side for allows and don't synthesise a deny we aren't sure about. An explicit `Deny` still overrides a conditional `AllowIf` even when the resolver says `true`.
+
 ## How it works?
 
 The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [which is used to define, and query-for, "allow" and "deny" rules].

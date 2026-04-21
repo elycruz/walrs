@@ -1984,6 +1984,8 @@ fn test_acl_builder_to_acl_data_deny_all_roles_all_privileges_on_resource() -> R
     )]),
     // This deny rule applies to all roles and all privileges on secret_resource
     deny: Some(vec![("secret_resource".to_string(), None)]),
+    allow_if: None,
+    deny_if: None,
   };
 
   // Convert AclData to AclBuilder
