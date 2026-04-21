@@ -111,6 +111,18 @@ pub enum FilterAttr {
   Truncate { max_length: usize },
   Replace { from: String, to: String },
   Clamp { min: NumericLit, max: NumericLit },
+  Digits,
+  Alnum { allow_whitespace: bool },
+  Alpha { allow_whitespace: bool },
+  StripNewlines,
+  NormalizeWhitespace,
+  AllowChars { set: String },
+  DenyChars { set: String },
+  UrlEncode,
+  ToBool,
+  ToInt,
+  ToFloat,
+  UrlDecode,
   Custom(Path),
   TryCustom(Path),
 }
@@ -483,6 +495,36 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
         min: min.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `min`"))?,
         max: max.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `max`"))?,
       });
+    } else if path.is_ident("digits") {
+      filters.push(FilterAttr::Digits);
+    } else if path.is_ident("alnum") {
+      let allow_whitespace = parse_whitespace_flag(&meta)?;
+      filters.push(FilterAttr::Alnum { allow_whitespace });
+    } else if path.is_ident("alpha") {
+      let allow_whitespace = parse_whitespace_flag(&meta)?;
+      filters.push(FilterAttr::Alpha { allow_whitespace });
+    } else if path.is_ident("strip_newlines") {
+      filters.push(FilterAttr::StripNewlines);
+    } else if path.is_ident("normalize_whitespace") {
+      filters.push(FilterAttr::NormalizeWhitespace);
+    } else if path.is_ident("allow_chars") {
+      let _: Token![=] = meta.input.parse()?;
+      let lit: LitStr = meta.input.parse()?;
+      filters.push(FilterAttr::AllowChars { set: lit.value() });
+    } else if path.is_ident("deny_chars") {
+      let _: Token![=] = meta.input.parse()?;
+      let lit: LitStr = meta.input.parse()?;
+      filters.push(FilterAttr::DenyChars { set: lit.value() });
+    } else if path.is_ident("url_encode") {
+      filters.push(FilterAttr::UrlEncode);
+    } else if path.is_ident("to_bool") {
+      filters.push(FilterAttr::ToBool);
+    } else if path.is_ident("to_int") {
+      filters.push(FilterAttr::ToInt);
+    } else if path.is_ident("to_float") {
+      filters.push(FilterAttr::ToFloat);
+    } else if path.is_ident("url_decode") {
+      filters.push(FilterAttr::UrlDecode);
     } else if path.is_ident("custom") {
       let _: Token![=] = meta.input.parse()?;
       let lit: LitStr = meta.input.parse()?;
@@ -503,6 +545,32 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
     }
     Ok(())
   });
+}
+
+/// Parse an optional `(whitespace)` flag for `alnum` / `alpha` attributes.
+///
+/// Accepts:
+/// - `alnum` → `false`
+/// - `alnum(whitespace)` → `true`
+fn parse_whitespace_flag(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<bool> {
+  if !meta.input.peek(token::Paren) {
+    return Ok(false);
+  }
+  let content;
+  parenthesized!(content in meta.input);
+  let idents: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
+  let mut allow_whitespace = false;
+  for id in idents {
+    if id == "whitespace" {
+      allow_whitespace = true;
+    } else {
+      return Err(syn::Error::new_spanned(
+        &id,
+        format!("Unknown flag: {id}; expected `whitespace`"),
+      ));
+    }
+  }
+  Ok(allow_whitespace)
 }
 
 // ---------------------------------------------------------------------------
