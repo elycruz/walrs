@@ -28,7 +28,12 @@ fn basic_acl() -> Result<walrs_acl::simple::Acl, String> {
     .add_role("editor", Some(&["user"]))?
     .add_resource("post", None)?
     .add_resource("admin_panel", None)?
-    .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
     .build()
 }
 
@@ -132,7 +137,12 @@ fn explicit_deny_overrides_allow_if_true() -> Result<(), String> {
     .add_role("editor", None)?
     .add_resource("post", None)?
     // allow_if on "edit"
-    .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
     // Explicit deny ALSO on "edit" — this replaces the AllowIf.
     .deny(Some(&["editor"]), Some(&["post"]), Some(&["edit"]))?
     .build()?;
@@ -152,7 +162,12 @@ fn role_inheritance_with_allow_if() -> Result<(), String> {
     .add_role("user", None)?
     .add_role("editor", Some(&["user"]))?
     .add_resource("post", None)?
-    .allow_if(Some(&["user"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+    .allow_if(
+      Some(&["user"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
     .build()?;
 
   let resolver = StaticResolver(&[("is_owner", true)]);
@@ -176,7 +191,12 @@ fn resource_inheritance_with_allow_if() -> Result<(), String> {
     .add_role("editor", None)?
     .add_resource("content", None)?
     .add_resource("post", Some(&["content"]))?
-    .allow_if(Some(&["editor"]), Some(&["content"]), Some(&["edit"]), "is_owner")?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["content"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
     .build()?;
 
   let resolver = StaticResolver(&[("is_owner", true)]);
@@ -210,8 +230,14 @@ fn json_round_trip_conditional_rules() -> Result<(), Box<dyn std::error::Error>>
 
   // 2. Re-serialize via AclData::try_from(&AclBuilder).
   let data2 = AclData::try_from(&builder)?;
-  assert!(data2.allow_if.is_some(), "round-tripped allow_if must be present");
-  assert!(data2.deny_if.is_some(), "round-tripped deny_if must be present");
+  assert!(
+    data2.allow_if.is_some(),
+    "round-tripped allow_if must be present"
+  );
+  assert!(
+    data2.deny_if.is_some(),
+    "round-tripped deny_if must be present"
+  );
 
   // 3. Re-parse the re-serialized JSON and re-build.
   let json = serde_json::to_string(&data2)?;
@@ -221,16 +247,31 @@ fn json_round_trip_conditional_rules() -> Result<(), Box<dyn std::error::Error>>
   // 4. Validate behavior is preserved: editor can edit post when is_owner.
   let owner = |k: &str| k == "is_owner";
   assert!(acl.is_allowed_with(Some("editor"), Some("content_item"), Some("edit"), &owner));
-  assert!(acl.is_allowed_with(Some("editor"), Some("content_item"), Some("publish"), &owner));
+  assert!(acl.is_allowed_with(
+    Some("editor"),
+    Some("content_item"),
+    Some("publish"),
+    &owner
+  ));
 
   let not_owner = |_k: &str| false;
-  assert!(!acl.is_allowed_with(Some("editor"), Some("content_item"), Some("edit"), &not_owner));
+  assert!(!acl.is_allowed_with(
+    Some("editor"),
+    Some("content_item"),
+    Some("edit"),
+    &not_owner
+  ));
 
   // 5. The round-tripped deny_if must still be stored and fire under a resolver.
   let off_hours = |k: &str| k == "outside_business_hours";
   // Without a corresponding Allow there's nothing to pass anyway, so confirm
   // we can still read back the assertion key from the serialized form.
-  assert!(!acl.is_allowed_with(Some("user"), Some("admin_panel"), Some("access"), &off_hours));
+  assert!(!acl.is_allowed_with(
+    Some("user"),
+    Some("admin_panel"),
+    Some("access"),
+    &off_hours
+  ));
 
   // Combine freshly-built with an Allow that precedes the deny_if, so the
   // deny_if (loaded from JSON) survives the opposing-family clearing.
@@ -249,9 +290,19 @@ fn json_round_trip_conditional_rules() -> Result<(), Box<dyn std::error::Error>>
   // The later deny_if clears the earlier allow (opposing-family clearing).
   // So under the off-hours resolver we must deny, and under in-hours the rule
   // is "not-deny" — but since the allow got cleared, the default (deny) wins.
-  assert!(!with_allow.is_allowed_with(Some("user"), Some("admin_panel"), Some("access"), &off_hours));
+  assert!(!with_allow.is_allowed_with(
+    Some("user"),
+    Some("admin_panel"),
+    Some("access"),
+    &off_hours
+  ));
   let in_hours = |_k: &str| false;
-  assert!(!with_allow.is_allowed_with(Some("user"), Some("admin_panel"), Some("access"), &in_hours));
+  assert!(!with_allow.is_allowed_with(
+    Some("user"),
+    Some("admin_panel"),
+    Some("access"),
+    &in_hours
+  ));
 
   Ok(())
 }
@@ -263,8 +314,18 @@ fn opposing_rule_clearing_allow_if_vs_deny_if() -> Result<(), String> {
   let acl = AclBuilder::new()
     .add_role("editor", None)?
     .add_resource("post", None)?
-    .deny_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "locked")?
-    .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+    .deny_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "locked",
+    )?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
     .build()?;
 
   // Resolver says is_owner=true, locked=true. If the DenyIf had been kept, we'd
@@ -279,8 +340,18 @@ fn opposing_rule_clearing_allow_if_vs_deny_if() -> Result<(), String> {
   let acl2 = AclBuilder::new()
     .add_role("editor", None)?
     .add_resource("post", None)?
-    .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
-    .deny_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "locked")?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
+    .deny_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "locked",
+    )?
     .build()?;
 
   let r = StaticResolver(&[("is_owner", true), ("locked", false)]);
@@ -295,7 +366,12 @@ fn opposing_rule_clearing_allow_if_vs_deny_if() -> Result<(), String> {
 fn closure_resolver_works() -> Result<(), String> {
   let acl = basic_acl()?;
   let closure_resolver = |k: &str| k == "is_owner";
-  assert!(acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &closure_resolver));
+  assert!(acl.is_allowed_with(
+    Some("editor"),
+    Some("post"),
+    Some("edit"),
+    &closure_resolver
+  ));
   Ok(())
 }
 
@@ -309,11 +385,6 @@ fn is_allowed_any_with_works() -> Result<(), String> {
     Some(&["edit", "delete"]),
     &r,
   ));
-  assert!(!acl.is_allowed_any_with(
-    Some(&["editor"]),
-    Some(&["post"]),
-    Some(&["delete"]),
-    &r,
-  ));
+  assert!(!acl.is_allowed_any_with(Some(&["editor"]), Some(&["post"]), Some(&["delete"]), &r,));
   Ok(())
 }

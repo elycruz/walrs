@@ -167,7 +167,10 @@ fn run_conditional_benchmark(
   let avg_time = duration / iterations as u32;
   let checks_per_sec = iterations as f64 / duration.as_secs_f64();
 
-  println!("{} is_allowed_with checks (always-true resolver)", iterations);
+  println!(
+    "{} is_allowed_with checks (always-true resolver)",
+    iterations
+  );
   println!("  Total time: {:?}", duration);
   println!("  Average per check: {:?}", avg_time);
   println!("  Checks per second: {:.0}", checks_per_sec);

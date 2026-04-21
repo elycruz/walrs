@@ -73,8 +73,14 @@ mod tests {
   fn assertion_key() {
     assert_eq!(Rule::Allow.assertion_key(), None);
     assert_eq!(Rule::Deny.assertion_key(), None);
-    assert_eq!(Rule::AllowIf("owner".to_string()).assertion_key(), Some("owner"));
-    assert_eq!(Rule::DenyIf("closed".to_string()).assertion_key(), Some("closed"));
+    assert_eq!(
+      Rule::AllowIf("owner".to_string()).assertion_key(),
+      Some("owner")
+    );
+    assert_eq!(
+      Rule::DenyIf("closed".to_string()).assertion_key(),
+      Some("closed")
+    );
   }
 
   #[test]
