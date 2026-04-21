@@ -247,7 +247,7 @@ pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
     if attr.path().is_ident("validate") {
       parse_validate_attr(attr, &mut validations, &mut is_nested_validate);
     } else if attr.path().is_ident("filter") {
-      parse_filter_attr(attr, &mut filters, &mut is_nested_filter);
+      parse_filter_attr(attr, &mut filters, &mut is_nested_filter)?;
     } else if attr.path().is_ident("fieldset") {
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("break_on_failure") {
@@ -414,8 +414,12 @@ fn parse_validate_attr(
   });
 }
 
-fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested: &mut bool) {
-  let _ = attr.parse_nested_meta(|meta| {
+fn parse_filter_attr(
+  attr: &Attribute,
+  filters: &mut Vec<FilterAttr>,
+  is_nested: &mut bool,
+) -> syn::Result<()> {
+  attr.parse_nested_meta(|meta| {
     let path = &meta.path;
 
     if path.is_ident("trim") {
@@ -544,7 +548,7 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
       ));
     }
     Ok(())
-  });
+  })
 }
 
 /// Parse an optional `(whitespace)` flag for `alnum` / `alpha` attributes.
@@ -558,6 +562,9 @@ fn parse_whitespace_flag(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<b
   }
   let content;
   parenthesized!(content in meta.input);
+  if content.is_empty() {
+    return Err(content.error("expected `whitespace` inside parentheses"));
+  }
   let idents: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
   let mut allow_whitespace = false;
   for id in idents {
@@ -571,6 +578,55 @@ fn parse_whitespace_flag(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<b
     }
   }
   Ok(allow_whitespace)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::parse_field_info;
+  use quote::quote;
+  use syn::{Fields, ItemStruct};
+
+  fn parse_named_field(tokens: proc_macro2::TokenStream) -> syn::Field {
+    let item: ItemStruct = syn::parse2(tokens).expect("struct should parse");
+    match item.fields {
+      Fields::Named(fields) => fields
+        .named
+        .into_iter()
+        .next()
+        .expect("struct should have one field"),
+      _ => panic!("expected named fields"),
+    }
+  }
+
+  #[test]
+  fn parse_field_info_rejects_unknown_filter_attrs() {
+    let field = parse_named_field(quote! {
+      struct Example {
+        #[filter(unknown)]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("unknown filter should error");
+    assert!(err.to_string().contains("Unknown filter attribute"));
+  }
+
+  #[test]
+  fn parse_field_info_rejects_empty_whitespace_flag() {
+    let field = parse_named_field(quote! {
+      struct Example {
+        #[filter(alnum())]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("empty alnum parens should error");
+    assert!(
+      err
+        .to_string()
+        .contains("expected `whitespace` inside parentheses")
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
