@@ -699,58 +699,65 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
     use alloc::collections::BTreeMap as KeyMap;
     #[cfg(feature = "std")]
     use std::collections::HashMap as KeyMap;
-    let process_conditional_rules =
-      |builder: &mut AclBuilder,
-       rules: &Vec<(String, Option<Vec<(String, Option<Vec<(String, String)>>)>>)>,
-       is_allow: bool|
-       -> Result<(), String> {
-        for (resource, roles_and_privileges_assoc_list) in rules.iter() {
-          let resource_slice: Option<&[&str]> = if resource == "*" {
-            None
-          } else {
-            Some(&[resource.as_str()])
-          };
+    let process_conditional_rules = |builder: &mut AclBuilder,
+                                     rules: &Vec<(
+      String,
+      Option<Vec<(String, Option<Vec<(String, String)>>)>>,
+    )>,
+                                     is_allow: bool|
+     -> Result<(), String> {
+      let rule_name = if is_allow { "allow_if" } else { "deny_if" };
+      for (resource, roles_and_privileges_assoc_list) in rules.iter() {
+        let resource_slice: Option<&[&str]> = if resource == "*" {
+          None
+        } else {
+          Some(&[resource.as_str()])
+        };
 
-          if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
-            for (role, privileges_with_keys) in rs_and_ps_list.iter() {
-              let role_slice: Option<&[&str]> = if role == "*" {
-                None
-              } else {
-                Some(&[role.as_str()])
-              };
+        if let Some(rs_and_ps_list) = roles_and_privileges_assoc_list {
+          for (role, privileges_with_keys) in rs_and_ps_list.iter() {
+            let role_slice: Option<&[&str]> = if role == "*" {
+              None
+            } else {
+              Some(&[role.as_str()])
+            };
 
-              match privileges_with_keys.as_deref() {
-                Some(pairs) => {
-                  // Group privileges by assertion key so we can issue one
-                  // builder call per key with all applicable privileges.
-                  let mut by_key: KeyMap<&str, Vec<&str>> = KeyMap::new();
-                  for (priv_name, key) in pairs.iter() {
-                    by_key
-                      .entry(key.as_str())
-                      .or_default()
-                      .push(priv_name.as_str());
-                  }
-                  for (key, ps) in by_key.into_iter() {
-                    if is_allow {
-                      builder.allow_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
-                    } else {
-                      builder.deny_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
-                    }
+            match privileges_with_keys.as_deref() {
+              Some(pairs) => {
+                // Group privileges by assertion key so we can issue one
+                // builder call per key with all applicable privileges.
+                let mut by_key: KeyMap<&str, Vec<&str>> = KeyMap::new();
+                for (priv_name, key) in pairs.iter() {
+                  by_key
+                    .entry(key.as_str())
+                    .or_default()
+                    .push(priv_name.as_str());
+                }
+                for (key, ps) in by_key.into_iter() {
+                  if is_allow {
+                    builder.allow_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
+                  } else {
+                    builder.deny_if(role_slice, resource_slice, Some(ps.as_slice()), key)?;
                   }
                 }
-                None => {
-                  // If no pairs are given for this role, skip — a conditional
-                  // rule without any assertion key is meaningless.
-                }
+              }
+              None => {
+                return Err(format!(
+                  "invalid {} rule for role '{}' on resource '{}': missing privileges/assertion-key pairs",
+                  rule_name, role, resource
+                ));
               }
             }
           }
-          // Note: we intentionally do not treat `None` at the outer level as
-          // "apply to all roles" for conditional rules — there is no assertion
-          // key to bind to in that shape.
+        } else {
+          return Err(format!(
+            "invalid {} rule for resource '{}': missing role/privilege entries",
+            rule_name, resource
+          ));
         }
-        Ok(())
-      };
+      }
+      Ok(())
+    };
 
     // Add `allow` rules to builder, if any
     if let Some(allow) = data.allow.as_ref() {
@@ -901,10 +908,15 @@ impl TryFrom<&AclBuilder> for AclData {
     // Helper to extract conditional rules (AllowIf / DenyIf). Matches on the
     // variant; the `(privilege, assertion_key)` pairs are the inner items.
     // `want_allow_if = true` => AllowIf, false => DenyIf.
-    let extract_conditional_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules,
+    let extract_conditional_rules = |resource: &str,
+                                     role_priv_rules: &crate::simple::RolePrivilegeRules,
                                      want_allow_if: bool|
-     -> Option<Vec<(String, Option<Vec<(String, String)>>)>> {
+     -> Result<
+      Option<Vec<(String, Option<Vec<(String, String)>>)>>,
+      String,
+    > {
       let mut role_rules: HashMap<String, Option<Vec<(String, String)>>> = HashMap::new();
+      let rule_name = if want_allow_if { "allow_if" } else { "deny_if" };
 
       let variant_matches = |rule: &crate::simple::Rule| -> Option<String> {
         match (rule, want_allow_if) {
@@ -924,13 +936,11 @@ impl TryFrom<&AclBuilder> for AclData {
           role_rules.insert("*".to_string(), Some(matches));
         }
       }
-      // Per-role "for all privileges" conditional rules: also check those.
-      if let Some(k) = variant_matches(&role_priv_rules.for_all_roles.for_all_privileges) {
-        // No privilege name makes sense for "all privileges"; use empty
-        // privilege-name slot paired with key. We skip this — the data
-        // format requires a privilege name, so these are not representable.
-        // Log via a no-op; user who cares will supply per-privilege rules.
-        let _ = k;
+      if let Some(_key) = variant_matches(&role_priv_rules.for_all_roles.for_all_privileges) {
+        return Err(format!(
+          "cannot serialize {} rule for role '*' on resource '{}' that applies to all privileges; AclData requires explicit privilege/assertion-key pairs",
+          rule_name, resource
+        ));
       }
 
       // Check per-role rules
@@ -945,15 +955,19 @@ impl TryFrom<&AclBuilder> for AclData {
               role_rules.insert(role.clone(), Some(matches));
             }
           }
-          // Skipping per-role "for_all_privileges" conditional rules for the
-          // same reason as above — not representable without a privilege id.
+          if let Some(_key) = variant_matches(&priv_rules.for_all_privileges) {
+            return Err(format!(
+              "cannot serialize {} rule for role '{}' on resource '{}' that applies to all privileges; AclData requires explicit privilege/assertion-key pairs",
+              rule_name, role, resource
+            ));
+          }
         }
       }
 
       if role_rules.is_empty() {
-        None
+        Ok(None)
       } else {
-        Some(role_rules.into_iter().collect())
+        Ok(Some(role_rules.into_iter().collect()))
       }
     };
 
@@ -1009,13 +1023,13 @@ impl TryFrom<&AclBuilder> for AclData {
     let mut allow_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
       HashMap::new();
 
-    let for_all_allow_if = extract_conditional_rules(&builder._rules.for_all_resources, true);
+    let for_all_allow_if = extract_conditional_rules("*", &builder._rules.for_all_resources, true)?;
     if for_all_allow_if.is_some() {
       allow_if_map.insert("*".to_string(), for_all_allow_if);
     }
 
     for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-      let r_allow_if = extract_conditional_rules(role_priv_rules, true);
+      let r_allow_if = extract_conditional_rules(resource, role_priv_rules, true)?;
       if r_allow_if.is_some() {
         allow_if_map.insert(resource.clone(), r_allow_if);
       }
@@ -1031,13 +1045,13 @@ impl TryFrom<&AclBuilder> for AclData {
     let mut deny_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
       HashMap::new();
 
-    let for_all_deny_if = extract_conditional_rules(&builder._rules.for_all_resources, false);
+    let for_all_deny_if = extract_conditional_rules("*", &builder._rules.for_all_resources, false)?;
     if for_all_deny_if.is_some() {
       deny_if_map.insert("*".to_string(), for_all_deny_if);
     }
 
     for (resource, role_priv_rules) in builder._rules.by_resource_id.iter() {
-      let r_deny_if = extract_conditional_rules(role_priv_rules, false);
+      let r_deny_if = extract_conditional_rules(resource, role_priv_rules, false)?;
       if r_deny_if.is_some() {
         deny_if_map.insert(resource.clone(), r_deny_if);
       }

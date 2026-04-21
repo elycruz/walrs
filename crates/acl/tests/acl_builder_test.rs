@@ -2023,6 +2023,57 @@ fn test_acl_builder_to_acl_data_deny_all_roles_all_privileges_on_resource() -> R
   Ok(())
 }
 
+#[test]
+fn test_acl_data_conditional_rule_without_pairs_returns_error() {
+  let acl_data = AclData {
+    roles: Some(vec![("editor".to_string(), None)]),
+    resources: Some(vec![("post".to_string(), None)]),
+    allow: None,
+    deny: None,
+    allow_if: Some(vec![(
+      "post".to_string(),
+      Some(vec![("editor".to_string(), None)]),
+    )]),
+    deny_if: None,
+  };
+
+  let err = AclBuilder::try_from(&acl_data).expect_err("missing conditional pairs should error");
+  assert!(err.contains("invalid allow_if rule"));
+  assert!(err.contains("missing privileges/assertion-key pairs"));
+}
+
+#[test]
+fn test_acl_data_conditional_rule_without_role_entries_returns_error() {
+  let acl_data = AclData {
+    roles: Some(vec![("editor".to_string(), None)]),
+    resources: Some(vec![("post".to_string(), None)]),
+    allow: None,
+    deny: None,
+    allow_if: Some(vec![("post".to_string(), None)]),
+    deny_if: None,
+  };
+
+  let err =
+    AclBuilder::try_from(&acl_data).expect_err("missing conditional role entries should error");
+  assert!(err.contains("invalid allow_if rule"));
+  assert!(err.contains("missing role/privilege entries"));
+}
+
+#[test]
+fn test_acl_builder_to_acl_data_conditional_all_privileges_returns_error() -> Result<(), String> {
+  let mut builder = AclBuilder::new();
+  builder.add_role("editor", None)?;
+  builder.add_resource("post", None)?;
+  builder.allow_if(Some(&["editor"]), Some(&["post"]), None, "is_owner")?;
+
+  let err = AclData::try_from(&builder)
+    .expect_err("all-privileges conditional rules are not representable");
+  assert!(err.contains("cannot serialize allow_if rule"));
+  assert!(err.contains("applies to all privileges"));
+
+  Ok(())
+}
+
 // ============================
 // Tests for cycle detection
 // ============================
