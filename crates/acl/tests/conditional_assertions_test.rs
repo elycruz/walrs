@@ -370,3 +370,101 @@ fn is_allowed_any_with_works() -> Result<(), String> {
   assert!(!acl.is_allowed_any_with(Some(&["editor"]), Some(&["post"]), Some(&["delete"]), &r,));
   Ok(())
 }
+
+#[test]
+fn allow_if_without_privileges_errors() {
+  // AclData cannot represent a conditional rule that applies to "all
+  // privileges", so the builder should reject it up-front with a clear
+  // error rather than failing later at serialization time.
+  let mut builder = AclBuilder::new();
+  let err = builder
+    .add_role("editor", None)
+    .and_then(|b| b.add_resource("post", None))
+    .and_then(|b| b.allow_if(Some(&["editor"]), Some(&["post"]), None, "is_owner"))
+    .expect_err("allow_if with privileges=None must fail");
+  assert!(
+    err.contains("allow_if"),
+    "error should name the builder method: {err}"
+  );
+  assert!(
+    err.contains("privilege"),
+    "error should mention the missing privilege list: {err}"
+  );
+
+  // Empty slice is treated the same as `None` for this guard.
+  let mut builder = AclBuilder::new();
+  let err = builder
+    .add_role("editor", None)
+    .and_then(|b| b.add_resource("post", None))
+    .and_then(|b| b.allow_if(Some(&["editor"]), Some(&["post"]), Some(&[]), "is_owner"))
+    .expect_err("allow_if with empty privileges must fail");
+  assert!(err.contains("allow_if"));
+}
+
+#[test]
+fn deny_if_without_privileges_errors() {
+  let mut builder = AclBuilder::new();
+  let err = builder
+    .add_role("user", None)
+    .and_then(|b| b.add_resource("admin_panel", None))
+    .and_then(|b| b.deny_if(Some(&["user"]), Some(&["admin_panel"]), None, "closed"))
+    .expect_err("deny_if with privileges=None must fail");
+  assert!(
+    err.contains("deny_if"),
+    "error should name the builder method: {err}"
+  );
+  assert!(
+    err.contains("privilege"),
+    "error should mention the missing privilege list: {err}"
+  );
+}
+
+#[test]
+fn acl_data_round_trip_bytes_are_deterministic() -> Result<(), Box<dyn std::error::Error>> {
+  // Build an ACL with enough conditional rules across multiple resources and
+  // privileges that any non-deterministic map iteration would surface as a
+  // byte-difference between two consecutive serializations.
+  let acl_data = AclData::try_from(&mut File::open("./test-fixtures/example-acl-conditional.json")?)?;
+  let builder = AclBuilder::try_from(&acl_data)?;
+
+  let first = serde_json::to_string(&AclData::try_from(&builder)?)?;
+  let second = serde_json::to_string(&AclData::try_from(&builder)?)?;
+
+  assert_eq!(
+    first, second,
+    "AclData -> JSON must be byte-identical across runs"
+  );
+  Ok(())
+}
+
+#[test]
+fn deny_if_on_parent_role_does_not_block_child_allow() -> Result<(), String> {
+  // The engine's `has_explicit_deny` short-circuit only looks at rules
+  // attached directly to the queried role/resource — it does NOT walk the
+  // role-inheritance graph. So a `DenyIf` placed on a parent role must not
+  // override an explicit `Allow` placed directly on the child role, even when
+  // the resolver would fire the parent's DenyIf.
+  let acl = AclBuilder::new()
+    .add_role("user", None)?
+    .add_role("editor", Some(&["user"]))?
+    .add_resource("post", None)?
+    // Conditional deny on the parent role.
+    .deny_if(
+      Some(&["user"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "locked",
+    )?
+    // Explicit allow directly on the child role.
+    .allow(Some(&["editor"]), Some(&["post"]), Some(&["edit"]))?
+    .build()?;
+
+  // Resolver says the parent's DenyIf would fire, but the child has a direct
+  // Allow, so the check must return true.
+  let resolver = StaticResolver(&[("locked", true)]);
+  assert!(
+    acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &resolver),
+    "direct Allow on child role must not be blocked by inherited DenyIf on parent"
+  );
+  Ok(())
+}

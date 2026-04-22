@@ -230,6 +230,13 @@ impl AclBuilder {
   /// treated conservatively — `AllowIf` does NOT allow. Pair with explicit
   /// `Allow` if you need an "always-on" fallback.
   ///
+  /// # Errors
+  ///
+  /// Returns `Err` when `privileges` is `None` or an empty slice. Conditional
+  /// rules must target explicit privileges; an "all privileges" conditional
+  /// rule is not representable in [`AclData`](crate::simple::AclData) and would
+  /// fail at serialization time.
+  ///
   /// # Example
   ///
   /// ```rust
@@ -252,6 +259,12 @@ impl AclBuilder {
     privileges: Option<&[&str]>,
     assertion_key: &str,
   ) -> Result<&mut Self, String> {
+    if _is_empty(&privileges) {
+      return Err(
+        "allow_if requires an explicit, non-empty privilege list; \"all privileges\" conditional rules are not representable in AclData"
+          .to_string(),
+      );
+    }
     self._add_rule(
       Rule::AllowIf(assertion_key.to_string()),
       roles,
@@ -271,6 +284,12 @@ impl AclBuilder {
     privileges: Option<&[&str]>,
     assertion_key: &str,
   ) -> Result<&mut Self, String> {
+    if _is_empty(&privileges) {
+      return Err(
+        "deny_if requires an explicit, non-empty privilege list; \"all privileges\" conditional rules are not representable in AclData"
+          .to_string(),
+      );
+    }
     self._add_rule(
       Rule::DenyIf(assertion_key.to_string()),
       roles,
@@ -695,10 +714,14 @@ impl<'a> TryFrom<&'a AclData> for AclBuilder {
     // list is `(privilege_name, assertion_key)` tuples instead of privilege
     // strings; we have to split by assertion_key because one call to
     // `allow_if` / `deny_if` on the builder can only accept one assertion key.
+    //
+    // Use BTreeMap unconditionally so the builder visits assertion keys in a
+    // stable order — this keeps the resulting `AclData` (and therefore the
+    // serialized JSON bytes) deterministic across runs.
     #[cfg(not(feature = "std"))]
     use alloc::collections::BTreeMap as KeyMap;
     #[cfg(feature = "std")]
-    use std::collections::HashMap as KeyMap;
+    use std::collections::BTreeMap as KeyMap;
     let process_conditional_rules = |builder: &mut AclBuilder,
                                      rules: &Vec<(
       String,
@@ -815,10 +838,15 @@ impl TryFrom<&AclBuilder> for AclData {
   type Error = String;
 
   fn try_from(builder: &AclBuilder) -> Result<Self, Self::Error> {
+    // Use BTreeMap unconditionally so that the extracted `AclData` (and any
+    // JSON emitted from it) has a deterministic key order across runs. The
+    // per-resource and per-role maps below are small; the sort cost is
+    // negligible compared to the stability benefit for fixtures, snapshot
+    // tests, and cache keys.
     #[cfg(not(feature = "std"))]
-    use alloc::collections::BTreeMap as HashMap;
+    use alloc::collections::BTreeMap;
     #[cfg(feature = "std")]
-    use std::collections::HashMap;
+    use std::collections::BTreeMap;
 
     use walrs_digraph::DisymGraphData;
 
@@ -846,7 +874,7 @@ impl TryFrom<&AclBuilder> for AclData {
     let extract_rules = |role_priv_rules: &crate::simple::RolePrivilegeRules,
                          match_rule: &crate::simple::Rule|
      -> Option<Vec<(String, Option<Vec<String>>)>> {
-      let mut role_rules = HashMap::new();
+      let mut role_rules: BTreeMap<String, Option<Vec<String>>> = BTreeMap::new();
 
       // Check "for all roles" rules
       let by_priv_is_empty = role_priv_rules
@@ -915,7 +943,7 @@ impl TryFrom<&AclBuilder> for AclData {
       Option<Vec<(String, Option<Vec<(String, String)>>)>>,
       String,
     > {
-      let mut role_rules: HashMap<String, Option<Vec<(String, String)>>> = HashMap::new();
+      let mut role_rules: BTreeMap<String, Option<Vec<(String, String)>>> = BTreeMap::new();
       let rule_name = if want_allow_if { "allow_if" } else { "deny_if" };
 
       let variant_matches = |rule: &crate::simple::Rule| -> Option<String> {
@@ -972,7 +1000,8 @@ impl TryFrom<&AclBuilder> for AclData {
     };
 
     // Extract allow rules
-    let mut allow_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
+    let mut allow_map: BTreeMap<String, Option<Vec<(String, Option<Vec<String>>)>>> =
+      BTreeMap::new();
 
     let for_all_allow = extract_rules(
       &builder._rules.for_all_resources,
@@ -996,7 +1025,8 @@ impl TryFrom<&AclBuilder> for AclData {
     };
 
     // Extract deny rules
-    let mut deny_map: HashMap<String, Option<Vec<(String, Option<Vec<String>>)>>> = HashMap::new();
+    let mut deny_map: BTreeMap<String, Option<Vec<(String, Option<Vec<String>>)>>> =
+      BTreeMap::new();
 
     let for_all_deny = extract_rules(
       &builder._rules.for_all_resources,
@@ -1020,8 +1050,8 @@ impl TryFrom<&AclBuilder> for AclData {
     };
 
     // Extract allow_if rules
-    let mut allow_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
-      HashMap::new();
+    let mut allow_if_map: BTreeMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
+      BTreeMap::new();
 
     let for_all_allow_if = extract_conditional_rules("*", &builder._rules.for_all_resources, true)?;
     if for_all_allow_if.is_some() {
@@ -1042,8 +1072,8 @@ impl TryFrom<&AclBuilder> for AclData {
     };
 
     // Extract deny_if rules
-    let mut deny_if_map: HashMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
-      HashMap::new();
+    let mut deny_if_map: BTreeMap<String, Option<Vec<(String, Option<Vec<(String, String)>>)>>> =
+      BTreeMap::new();
 
     let for_all_deny_if = extract_conditional_rules("*", &builder._rules.for_all_resources, false)?;
     if for_all_deny_if.is_some() {

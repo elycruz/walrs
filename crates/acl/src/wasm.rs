@@ -13,7 +13,9 @@ use wasm_bindgen::prelude::*;
 /// The JS callback receives the assertion key (a string) and should return a
 /// JavaScript boolean value: `true` grants the conditional rule, while `false`
 /// denies it. Unknown keys, exceptions, and non-boolean returns are all
-/// treated conservatively as `false`.
+/// treated conservatively as `false`; exceptions and non-boolean returns are
+/// additionally surfaced via `console.warn` so misbehaving resolvers aren't
+/// silent.
 struct JsResolver {
   f: Function,
 }
@@ -22,12 +24,33 @@ impl AssertionResolver for JsResolver {
   fn evaluate(&self, key: &str) -> bool {
     let this = JsValue::NULL;
     let arg = JsValue::from_str(key);
-    self
-      .f
-      .call1(&this, &arg)
-      .ok()
-      .and_then(|v| v.as_bool())
-      .unwrap_or(false)
+    match self.f.call1(&this, &arg) {
+      Ok(v) => match v.as_bool() {
+        Some(b) => b,
+        None => {
+          // Non-boolean return: warn once per call so surprising resolver
+          // behavior (e.g. forgetting to `return`) is visible in the JS
+          // console. Falls back to the conservative `false` verdict.
+          web_sys::console::warn_1(&JsValue::from_str(&format!(
+            "walrs_acl: assertion resolver for key '{}' returned a non-boolean value; treating as false",
+            key
+          )));
+          false
+        }
+      },
+      Err(e) => {
+        // JS exception: surface it via console.warn so callers can see the
+        // error message instead of silently denying.
+        web_sys::console::warn_2(
+          &JsValue::from_str(&format!(
+            "walrs_acl: assertion resolver for key '{}' threw; treating as false",
+            key
+          )),
+          &e,
+        );
+        false
+      }
+    }
   }
 }
 
