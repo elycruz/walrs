@@ -823,6 +823,259 @@ impl Default for Acl {
   }
 }
 
+#[cfg(feature = "async")]
+mod async_impl {
+  //! Async counterparts to [`Acl::is_allowed_with`] / [`is_allowed_any_with`].
+  //!
+  //! The rule-walking logic mirrors the sync path in the enclosing module; the
+  //! only difference is that assertion resolution awaits an
+  //! [`AsyncAssertionResolver`]. Helpers are duplicated rather than abstracted
+  //! so the sync hot path keeps zero dispatch cost and the async walk can
+  //! `.await` freely without the sync code paying for indirection.
+
+  use super::Acl;
+  use crate::prelude::Vec;
+  use crate::simple::async_assertion_resolver::AsyncAssertionResolver;
+  use crate::simple::rule::Rule;
+  use walrs_digraph::{DigraphDFSShape, DirectedPathsDFS};
+
+  async fn rule_is_deny_async(rule: &Rule, resolver: &dyn AsyncAssertionResolver) -> bool {
+    match rule {
+      Rule::Deny => true,
+      Rule::DenyIf(k) => resolver.evaluate(k).await,
+      Rule::Allow | Rule::AllowIf(_) => false,
+    }
+  }
+
+  async fn rule_is_allow_async(rule: &Rule, resolver: &dyn AsyncAssertionResolver) -> bool {
+    match rule {
+      Rule::Allow => true,
+      Rule::AllowIf(k) => resolver.evaluate(k).await,
+      Rule::Deny | Rule::DenyIf(_) => false,
+    }
+  }
+
+  impl Acl {
+    /// Async variant of [`Acl::is_allowed_with`]. Evaluates conditional
+    /// (`AllowIf` / `DenyIf`) rules via an [`AsyncAssertionResolver`].
+    ///
+    /// Semantics match the sync version exactly — only the resolver call is
+    /// awaited.
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub async fn is_allowed_with_async<R: AsyncAssertionResolver>(
+      &self,
+      role: Option<&str>,
+      resource: Option<&str>,
+      privilege: Option<&str>,
+      resolver: &R,
+    ) -> bool {
+      self
+        ._is_allowed_inner_async(role, resource, privilege, resolver)
+        .await
+    }
+
+    /// Async variant of [`Acl::is_allowed_any_with`].
+    #[cfg_attr(docsrs, doc(cfg(feature = "async")))]
+    pub async fn is_allowed_any_with_async<R: AsyncAssertionResolver>(
+      &self,
+      roles: Option<&[&str]>,
+      resources: Option<&[&str]>,
+      privileges: Option<&[&str]>,
+      resolver: &R,
+    ) -> bool {
+      for resource in
+        self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_resource(xs), resources)
+      {
+        for role in self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_role(xs), roles)
+        {
+          for privilege in self._filter_vec_option_to_options_vec1(&|_| true, privileges) {
+            if self
+              ._is_allowed_inner_async(role, resource, privilege, resolver)
+              .await
+            {
+              return true;
+            }
+          }
+        }
+      }
+      false
+    }
+
+    async fn _is_allowed_inner_async(
+      &self,
+      role: Option<&str>,
+      resource: Option<&str>,
+      privilege: Option<&str>,
+      resolver: &dyn AsyncAssertionResolver,
+    ) -> bool {
+      // Collect transitive parent roles (DFS), same as the sync path.
+      let _roles = role.and_then(|_role| {
+        let role_idx = self._roles.index(_role)?;
+        let dfs = DirectedPathsDFS::new(self._roles.graph(), role_idx).ok()?;
+
+        let mut inherited = Vec::new();
+        for i in 0..self._roles.vert_count() {
+          if i != role_idx
+            && dfs.marked(i).unwrap_or(false)
+            && let Some(name) = self._roles.name_as_ref(i)
+          {
+            inherited.push(name);
+          }
+        }
+
+        if inherited.is_empty() {
+          None
+        } else {
+          Some(inherited)
+        }
+      });
+
+      let _resources = resource.and_then(|_resource| {
+        let resource_idx = self._resources.index(_resource)?;
+        let dfs = DirectedPathsDFS::new(self._resources.graph(), resource_idx).ok()?;
+
+        let mut inherited = Vec::new();
+        for i in 0..self._resources.vert_count() {
+          if i != resource_idx
+            && dfs.marked(i).unwrap_or(false)
+            && let Some(name) = self._resources.name_as_ref(i)
+          {
+            inherited.push(name);
+          }
+        }
+
+        if inherited.is_empty() {
+          None
+        } else {
+          Some(inherited)
+        }
+      });
+
+      // Explicit-Deny short-circuit on the direct (role, resource, privilege).
+      let has_explicit_deny = if let Some(priv_id) = privilege {
+        if resource.is_some() {
+          let role_rules = self
+            ._rules
+            .get_role_privilege_rules(resource)
+            .get_privilege_rules(role);
+          if let Some(rule) = role_rules
+            .by_privilege_id
+            .as_ref()
+            .and_then(|map| map.get(priv_id))
+          {
+            rule_is_deny_async(rule, resolver).await
+          } else {
+            false
+          }
+        } else {
+          let role_rules = self._rules.for_all_resources.get_privilege_rules(role);
+          if let Some(rule) = role_rules
+            .by_privilege_id
+            .as_ref()
+            .and_then(|map| map.get(priv_id))
+          {
+            rule_is_deny_async(rule, resolver).await
+          } else {
+            false
+          }
+        }
+      } else {
+        false
+      };
+
+      if has_explicit_deny {
+        return false;
+      }
+
+      // Walk inherited combinations looking for an allowing verdict, then fall
+      // back to the direct (role, resource, privilege).
+      if let (Some(res_list), Some(role_list)) = (_resources.as_ref(), _roles.as_ref()) {
+        for r in res_list.iter().rev() {
+          for ro in role_list.iter().rev() {
+            if self
+              ._matches_allow_no_dfs_async(Some(ro), Some(r), privilege, resolver)
+              .await
+            {
+              return true;
+            }
+          }
+        }
+        self
+          ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
+          .await
+      } else if _resources.is_none() && _roles.is_some() {
+        let rs = _roles.as_ref().unwrap();
+        for ro in rs.iter().rev() {
+          if self
+            ._matches_allow_no_dfs_async(Some(ro), resource, privilege, resolver)
+            .await
+          {
+            return true;
+          }
+        }
+        self
+          ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
+          .await
+      } else if _resources.is_some() && _roles.is_none() {
+        let rs = _resources.as_ref().unwrap();
+        for r in rs.iter().rev() {
+          if self
+            ._matches_allow_no_dfs_async(role, Some(*r), privilege, resolver)
+            .await
+          {
+            return true;
+          }
+        }
+        self
+          ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
+          .await
+      } else {
+        self
+          ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
+          .await
+      }
+    }
+
+    async fn _matches_allow_no_dfs_async(
+      &self,
+      role: Option<&str>,
+      resource: Option<&str>,
+      privilege: Option<&str>,
+      resolver: &dyn AsyncAssertionResolver,
+    ) -> bool {
+      if resource.is_some() {
+        let specific_rule = self
+          ._rules
+          .get_role_privilege_rules(resource)
+          .get_privilege_rules(role)
+          .get_rule(privilege);
+
+        if rule_is_allow_async(specific_rule, resolver).await {
+          return true;
+        }
+
+        let global_rule = self
+          ._rules
+          .for_all_resources
+          .get_privilege_rules(role)
+          .get_rule(privilege);
+
+        return rule_is_allow_async(global_rule, resolver).await;
+      }
+
+      rule_is_allow_async(
+        self
+          ._rules
+          .for_all_resources
+          .get_privilege_rules(role)
+          .get_rule(privilege),
+        resolver,
+      )
+      .await
+    }
+  }
+}
+
 #[cfg(test)]
 mod test_acl {
   use crate::simple::acl::Acl;
@@ -833,8 +1086,8 @@ mod test_acl {
   #[test]
   fn test_default_and_new() {
     let acl = Acl::default();
-    assert_eq!(acl.has_resource("index"), false);
-    assert_eq!(acl.has_role("admin"), false);
+    assert!(!acl.has_resource("index"));
+    assert!(!acl.has_role("admin"));
     assert_eq!(
       acl
         ._rules
@@ -845,8 +1098,8 @@ mod test_acl {
     );
 
     let acl2 = Acl::new();
-    assert_eq!(acl2.has_resource("index"), false);
-    assert_eq!(acl2.has_role("admin"), false);
+    assert!(!acl2.has_resource("index"));
+    assert!(!acl2.has_role("admin"));
     assert_eq!(
       acl2
         ._rules
@@ -878,9 +1131,8 @@ mod test_acl {
       "Should contain {:?} resource",
       users
     );
-    assert_eq!(
-      acl.has_resource(non_existent_resource),
-      false,
+    assert!(
+      !acl.has_resource(non_existent_resource),
       "Should \"not\" contain {:?} resource",
       non_existent_resource
     );
@@ -905,9 +1157,8 @@ mod test_acl {
       "Should contain {:?} role",
       super_admin
     );
-    assert_eq!(
-      acl.has_role(non_existent_role),
-      false,
+    assert!(
+      !acl.has_role(non_existent_role),
       "Should \"not\" contain {:?} role",
       non_existent_role
     );
@@ -929,9 +1180,9 @@ mod test_acl {
       privilege_rules
         .by_privilege_id
         .as_mut()
-        .and_then(|privilege_id_map| {
+        .map(|privilege_id_map| {
           privilege_id_map.insert(privilege.to_string(), expected_rule.clone());
-          Some(())
+          ()
         })
         .expect("Expecting a `privilege_id_map`;  None found");
 
@@ -1210,9 +1461,8 @@ mod test_acl {
 
       // println!("`#Acl._rules`: {:#?}", &acl._rules);
 
-      assert_eq!(
-        acl.is_allowed_any(roles, resources, privileges),
-        false,
+      assert!(
+        !acl.is_allowed_any(roles, resources, privileges),
         "Expected `acl.is_allowed_any({:?}, {:?}, {:?}) == {}`",
         roles,
         resources,

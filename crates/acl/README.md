@@ -137,6 +137,38 @@ The same rules can be expressed in JSON via the `allow_if` / `deny_if` top-level
 
 **Conservative defaults.** Plain `is_allowed` (no resolver) treats `AllowIf` as **not-allow** and `DenyIf` as **not-deny**: without a resolver we can't evaluate the predicate, so we stay on the safe side for allows and don't synthesise a deny we aren't sure about. An explicit `Deny` still overrides a conditional `AllowIf` even when the resolver says `true`.
 
+### Sync vs. async resolvers
+
+`AssertionResolver::evaluate` is synchronous — use it when the decision is in-memory (cached flags, request-scoped values, etc.). For assertions that need I/O (database lookups, calls to a policy service, remote feature flags), enable the `async` feature and implement `AsyncAssertionResolver` instead:
+
+```toml
+[dependencies]
+walrs_acl = { version = "0.1.0", features = ["async"] }
+```
+
+```rust,ignore
+use walrs_acl::simple::{AclBuilder, AsyncAssertionResolver};
+use async_trait::async_trait;
+
+struct DbResolver { /* pool, etc. */ }
+
+#[async_trait]
+impl AsyncAssertionResolver for DbResolver {
+  async fn evaluate(&self, key: &str) -> bool {
+    // Await your DB / service call here.
+    key == "is_owner"
+  }
+}
+
+# async fn check(acl: &walrs_acl::simple::Acl, resolver: &DbResolver) {
+let allowed = acl
+  .is_allowed_with_async(Some("editor"), Some("post"), Some("edit"), resolver)
+  .await;
+# }
+```
+
+`Acl::is_allowed_with_async` / `is_allowed_any_with_async` mirror their sync siblings' semantics exactly — the only difference is that the resolver call is awaited. The sync path has zero async overhead; the async path is opt-in.
+
 ## How it works?
 
 The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and a "nested" `rules` structure [which is used to define, and query-for, "allow" and "deny" rules].
@@ -157,6 +189,7 @@ $ sh ./ci-cd-wasm.sh
 
 - **`std`** (default): Full standard library support with file I/O
 - **`wasm`**: WASM-compatible mode with `no_std` + `alloc`
+- **`async`**: Adds `AsyncAssertionResolver` and `Acl::is_allowed_with_async` / `is_allowed_any_with_async` for assertions that need I/O
 
 ### Usage
 
