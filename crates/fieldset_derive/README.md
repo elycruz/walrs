@@ -295,7 +295,7 @@ impl EmojiExt for char {
 | `normalize_whitespace` | Collapse whitespace runs and trim | `#[filter(normalize_whitespace)]` |
 | `allow_chars = "..."` | Keep only characters in set | `#[filter(allow_chars = "abc123")]` |
 | `deny_chars = "..."` | Remove characters in set | `#[filter(deny_chars = "!?.")]` |
-| `url_encode` | Percent-encode (RFC 3986) | `#[filter(url_encode)]` |
+| `url_encode` | Percent-encode reserved characters (RFC 3986 reserved set; unreserved chars pass through) | `#[filter(url_encode)]` |
 | `to_bool` | Parse to canonical `"true"`/`"false"` (fallible) | `#[filter(to_bool)]` |
 | `to_int` | Parse string as `i64` and canonicalize (fallible) | `#[filter(to_int)]` |
 | `to_float` | Parse string as `f64` and canonicalize (fallible) | `#[filter(to_float)]` |

@@ -185,6 +185,21 @@ fn gen_nested_filter(field: &FieldInfo) -> TokenStream {
   }
 }
 
+/// Emit a fallible filter step that wraps `try_apply` errors into a
+/// `FieldsetViolations` keyed by `fname`.
+fn emit_try_filter_step(op: TokenStream, src: &TokenStream, fname: &str) -> TokenStream {
+  quote! {
+    let filtered = #op
+      .try_apply(#src)
+      .map_err(|e| {
+        let mut fv = walrs_validation::FieldsetViolations::new();
+        let violation: walrs_validation::Violation = e.into();
+        fv.add(#fname, violation);
+        fv
+      })?;
+  }
+}
+
 /// Generate sequential filter application steps for String fields.
 fn gen_filter_steps(
   field: &FieldInfo,
@@ -250,21 +265,14 @@ fn gen_filter_steps(
         );
       }
       FilterAttr::TryCustom(path) => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::TryCustom(::std::sync::Arc::new(#path))
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::TryCustom(::std::sync::Arc::new(#path)) },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::Digits => {
-        steps
-          .push(quote! { let filtered = walrs_filter::FilterOp::<String>::Digits.apply(#src); });
+        steps.push(quote! { let filtered = walrs_filter::FilterOp::<String>::Digits.apply(#src); });
       }
       FilterAttr::Alnum { allow_whitespace } => {
         let aw = *allow_whitespace;
@@ -304,56 +312,32 @@ fn gen_filter_steps(
         );
       }
       FilterAttr::ToBool => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::ToBool
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToBool },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::ToInt => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::ToInt
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToInt },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::ToFloat => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::ToFloat
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToFloat },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::UrlDecode => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::UrlDecode
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::UrlDecode },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::Clamp { .. } => {
         // Clamp doesn't apply to strings; ignore

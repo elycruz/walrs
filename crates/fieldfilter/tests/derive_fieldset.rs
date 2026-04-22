@@ -551,6 +551,7 @@ mod derive_tests {
     };
     let filtered = form.filter().unwrap();
     assert_eq!(filtered.name, "Alice");
+    // `alpha(whitespace)` keeps the space between "World" and "42", stripping only the digits and punctuation around it.
     assert_eq!(filtered.sentence, "Hello World ");
   }
 
@@ -637,9 +638,7 @@ mod derive_tests {
 
   #[test]
   fn test_to_bool_filter_ok() {
-    let form = ToBoolForm {
-      flag: "YES".into(),
-    };
+    let form = ToBoolForm { flag: "YES".into() };
     let filtered = form.filter().unwrap();
     assert_eq!(filtered.flag, "true");
   }
@@ -712,9 +711,7 @@ mod derive_tests {
 
   #[test]
   fn test_url_decode_filter_err() {
-    let form = UrlDecodeForm {
-      q: "%FF%FE".into(),
-    };
+    let form = UrlDecodeForm { q: "%FF%FE".into() };
     let err = form.filter().unwrap_err();
     assert!(err.get("q").is_some());
   }
