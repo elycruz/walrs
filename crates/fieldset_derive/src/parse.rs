@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use syn::{
   Attribute, Expr, ExprLit, Field, Ident, Lit, LitFloat, LitInt, LitStr, MetaNameValue, Path,
   Token, Type, TypePath, parenthesized, parse::Parse, parse::ParseStream, punctuated::Punctuated,
@@ -395,15 +396,19 @@ fn parse_validate_attr(
     } else {
       return Err(syn::Error::new_spanned(
         path,
-        format!("Unknown validate attribute: {:?}", path.get_ident()),
+        format!("Unknown validate attribute: {}", format_meta_path(path)),
       ));
     }
     Ok(())
   })
 }
 
-fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested: &mut bool) {
-  let _ = attr.parse_nested_meta(|meta| {
+fn parse_filter_attr(
+  attr: &Attribute,
+  filters: &mut Vec<FilterAttr>,
+  is_nested: &mut bool,
+) -> syn::Result<()> {
+  attr.parse_nested_meta(|meta| {
     let path = &meta.path;
 
     if path.is_ident("trim") {
@@ -498,11 +503,11 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
     } else {
       return Err(syn::Error::new_spanned(
         path,
-        format!("Unknown filter attribute: {:?}", path.get_ident()),
+        format!("Unknown filter attribute: {}", format_meta_path(path)),
       ));
     }
     Ok(())
-  });
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -582,6 +587,13 @@ fn expr_to_string(expr: &Expr) -> syn::Result<String> {
   }
 }
 
+fn format_meta_path(path: &Path) -> String {
+  path
+    .get_ident()
+    .map(ToString::to_string)
+    .unwrap_or_else(|| path.to_token_stream().to_string())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -603,6 +615,11 @@ mod tests {
     assert!(
       err.to_string().contains("Unknown validate attribute"),
       "expected 'Unknown validate attribute' in error, got: {}",
+      err
+    );
+    assert!(
+      err.to_string().contains("nonsense") && !err.to_string().contains("Some("),
+      "expected unknown key name in error without Option debug formatting, got: {}",
       err
     );
   }
