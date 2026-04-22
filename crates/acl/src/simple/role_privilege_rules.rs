@@ -72,8 +72,8 @@ impl RolePrivilegeRules {
     } else if privilege_rules.is_some() && role_ids.is_none() {
       self.for_all_roles = privilege_rules.unwrap();
       RuleContextScope::ForAllSymbols
-    } else if privilege_rules.is_none() && role_ids.is_some() {
-      self.set_privilege_rules_for_role_ids(role_ids.unwrap(), PrivilegeRules::new(false))
+    } else if let Some(role_ids) = role_ids {
+      self.set_privilege_rules_for_role_ids(role_ids, PrivilegeRules::new(false))
     } else {
       self.for_all_roles = PrivilegeRules::new(false);
       RuleContextScope::ForAllSymbols

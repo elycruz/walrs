@@ -566,6 +566,7 @@ impl<T> Rule<T> {
   /// let not_empty = Rule::<String>::MinLength(1);
   /// let is_empty = not_empty.not();
   /// ```
+  #[allow(clippy::should_implement_trait)]
   pub fn not(self) -> Rule<T> {
     Rule::Not(Box::new(self))
   }

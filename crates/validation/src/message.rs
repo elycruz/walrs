@@ -248,6 +248,7 @@ pub enum Message<T: ?Sized> {
   /// The closure receives a `MessageContext` containing the value being validated
   /// and parameters extracted from the validator, enabling rich interpolated messages.
   #[serde(skip)]
+  #[allow(clippy::type_complexity)]
   Provider(Arc<dyn Fn(&MessageContext<T>) -> String + Send + Sync>),
 }
 

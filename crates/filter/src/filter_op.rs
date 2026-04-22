@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use crate::{Filter, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 use walrs_validation::Value;
 
 /// RFC 3986 §2.3 "unreserved" character set: `ALPHA / DIGIT / "-" / "." / "_" / "~"`.
@@ -543,13 +543,13 @@ impl FilterOp<String> {
 }
 
 // ============================================================================
-// Value FilterOp Implementation (requires "validation" feature)
+// Value FilterOp Implementation (requires "value" feature)
 // ============================================================================
 
 /// Apply a string-typed `FilterOp` to a `Value::Str` variant, preserving the
 /// zero-copy `Borrowed → clone the original Value` shortcut that existing `Trim`
 /// / `Lowercase` arms use. Non-string variants pass through unchanged.
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 fn apply_string_op_to_value(op: FilterOp<String>, value: &Value) -> Value {
   if let Value::Str(s) = value {
     match op.apply_ref(s.as_str()) {
@@ -561,7 +561,7 @@ fn apply_string_op_to_value(op: FilterOp<String>, value: &Value) -> Value {
   }
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 impl FilterOp<Value> {
   /// Apply the filter operation to a `&Value` reference, returning an owned `Value`.
   ///
@@ -765,7 +765,7 @@ impl crate::Filter<String> for FilterOp<String> {
   }
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 impl crate::Filter<Value> for FilterOp<Value> {
   type Output = Value;
 
@@ -823,7 +823,7 @@ mod tests {
     assert_eq!(filter.apply("hello world".to_string()), "hello rust");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_trim_value() {
     let filter = FilterOp::<Value>::Trim;
@@ -831,7 +831,7 @@ mod tests {
     assert_eq!(result, Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_clamp_value_f64() {
     let filter = FilterOp::<Value>::Clamp {
@@ -843,7 +843,7 @@ mod tests {
     assert_eq!(filter.apply(Value::F64(50.0)), Value::F64(50.0));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_clamp_value_i64() {
     use walrs_validation::value;
@@ -856,7 +856,7 @@ mod tests {
     assert_eq!(filter.apply(value!(50)), value!(50));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_filter_preserves_non_matching_types() {
     let filter = FilterOp::<Value>::Trim;
@@ -969,7 +969,7 @@ mod tests {
   // apply_ref tests — FilterOp<Value>
   // ====================================================================
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_trim_value_apply_ref() {
     let filter = FilterOp::<Value>::Trim;
@@ -977,7 +977,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_lowercase_value_apply_ref() {
     let filter = FilterOp::<Value>::Lowercase;
@@ -985,7 +985,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_clamp_value_f64_apply_ref() {
     let filter = FilterOp::<Value>::Clamp {
@@ -1000,7 +1000,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&mid), Value::F64(50.0));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_chain_value_apply_ref() {
     let filter: FilterOp<Value> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
@@ -1008,7 +1008,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&value), Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_chain_value_empty_returns_original() {
     let filter: FilterOp<Value> = FilterOp::Chain(vec![]);
@@ -1016,7 +1016,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&value), value);
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_filter_preserves_non_matching_types_apply_ref() {
     let filter = FilterOp::<Value>::Trim;
@@ -1125,7 +1125,7 @@ mod tests {
   // No-op tests — FilterOp<Value>::apply_ref
   // ====================================================================
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_trim_value_noop() {
     let filter = FilterOp::<Value>::Trim;
@@ -1134,7 +1134,7 @@ mod tests {
     assert_eq!(result, Value::Str("already_trimmed".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_lowercase_value_noop() {
     let filter = FilterOp::<Value>::Lowercase;
@@ -1143,7 +1143,7 @@ mod tests {
     assert_eq!(result, Value::Str("already lowercase 123".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_uppercase_value_noop() {
     let filter = FilterOp::<Value>::Uppercase;
@@ -1223,7 +1223,7 @@ mod tests {
     assert_eq!(result, "hello world");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_replace_value_empty_from_is_noop() {
     // Empty `from` on Value::Str must also be a no-op (returns the original clone).
@@ -1295,7 +1295,7 @@ mod tests {
     assert_eq!(filter.filter(20), 10);
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_filter_trait_value() {
     use crate::Filter;
@@ -1412,7 +1412,7 @@ mod tests {
   // Value — Truncate and Replace tests
   // ====================================================================
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_truncate_value_str() {
     let filter = FilterOp::<Value>::Truncate { max_length: 5 };
@@ -1420,7 +1420,7 @@ mod tests {
     assert_eq!(filter.apply_ref(&value), Value::Str("Hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_replace_value_str() {
     let filter = FilterOp::<Value>::Replace {
@@ -1456,7 +1456,7 @@ mod tests {
     assert_eq!(chain.apply_ref("  hello  "), "hello");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_deeply_nested_chain_value() {
     let mut chain = FilterOp::<Value>::Trim;
@@ -1921,7 +1921,7 @@ mod tests {
 
   // ---- FilterOp<Value> sanitize filter tests ----
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_digits_value_str() {
     let filter = FilterOp::<Value>::Digits;
@@ -1931,14 +1931,14 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_digits_value_non_str_pass_through() {
     let filter = FilterOp::<Value>::Digits;
     assert_eq!(filter.apply(Value::I64(42)), Value::I64(42));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_normalize_whitespace_value_str() {
     let filter = FilterOp::<Value>::NormalizeWhitespace;
@@ -1948,7 +1948,7 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_url_encode_value_str() {
     let filter = FilterOp::<Value>::UrlEncode {
@@ -1960,7 +1960,7 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_allow_chars_value_str() {
     let filter = FilterOp::<Value>::AllowChars {
@@ -1972,7 +1972,7 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_deny_chars_value_str() {
     let filter = FilterOp::<Value>::DenyChars {
