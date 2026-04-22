@@ -208,6 +208,20 @@ This crate also provides shared foundation types used across form-related crates
 - **`value!`** - Convenience macro for constructing `Value` literals
 - **`Attributes`** - HTML attributes storage and rendering
 
+### Feature Flags
+
+- **`value`** (default) — Enables the dynamic `Value` enum, its `Rule<Value>` /
+  `Condition<Value>` dispatch, and the `value!` macro. Disable with
+  `default-features = false` to build typed-only (`Rule<T>`) without the
+  dynamic path.
+- **`serde_json_bridge`** (default) — Provides `From<serde_json::Value> for
+  Value` and vice-versa, plus `Rule::to_attributes_list` HTML-attribute
+  conversion. Implies `value`.
+- **`async`** — Enables `ValidateAsync` / `ValidateRefAsync` traits and the
+  `Rule::CustomAsync` variant.
+- **`chrono`** — Enables `chrono::NaiveDate` date validation.
+- **`jiff`** — Enables `jiff::civil::Date` date validation.
+
 ### `serde_json` Bridge
 
 The `serde_json_bridge` feature (enabled by default) provides `From<serde_json::Value> for Value` and vice-versa for interoperability.

@@ -11,11 +11,16 @@ keywords = ["filter", "sanitize", "transform", "validation", "form"]
 categories = ["text-processing", "web-programming"]
 include = ["src/**/*", "examples/**/*", "benches/**/*", "README.md", "Cargo.toml"]
 
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
 [features]
-default = ["validation"]
+default = ["validation", "value"]
 fn_traits = []
 nightly = ["fn_traits"]
 validation = ["dep:walrs_validation"]
+value = ["walrs_validation/value"]
 
 [dependencies]
 ammonia = "3.3.1"

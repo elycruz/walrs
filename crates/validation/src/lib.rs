@@ -93,6 +93,8 @@ pub mod options;
 pub mod rule;
 pub(crate) mod rule_impls;
 pub mod traits;
+#[cfg(feature = "value")]
+#[cfg_attr(docsrs, doc(cfg(feature = "value")))]
 pub mod value;
 pub mod violation;
 
@@ -102,5 +104,7 @@ pub use message::*;
 pub use options::*;
 pub use rule::{CompiledPattern, Condition, Rule, RuleResult};
 pub use traits::*;
+#[cfg(feature = "value")]
+#[cfg_attr(docsrs, doc(cfg(feature = "value")))]
 pub use value::*;
 pub use violation::*;

@@ -161,6 +161,7 @@ impl<T> IsEmpty for Option<T> {
   }
 }
 
+#[cfg(feature = "value")]
 impl IsEmpty for crate::Value {
   fn is_empty(&self) -> bool {
     crate::ValueExt::is_empty_value(self)

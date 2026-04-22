@@ -67,7 +67,7 @@ fn main() {
 }
 ```
 
-When the `validation` feature is enabled (default), `FilterOp<Value>` is available
+When the `value` feature is enabled (default), `FilterOp<Value>` is available
 for dynamic value transformation using `walrs_validation::Value`.
 
 ### `apply_ref` vs `apply`
@@ -204,8 +204,9 @@ fn main() {
 `Chain` that contains one) returns an error. If your pipeline must survive a round-trip, avoid
 `TryCustom` or inject custom logic after deserialization.
 
-When the `validation` feature is enabled (default), `TryFilterOp<Value>` is available
-for dynamic value transformation, and `FilterError` can be converted to `Violation`/`Violations`.
+When the `value` feature is enabled (default), `TryFilterOp<Value>` is available
+for dynamic value transformation. `FilterError` can be converted to `Violation`/`Violations`
+whenever the `validation` feature is enabled.
 
 ## FilterError
 
@@ -300,9 +301,12 @@ fn main () {
 
 ## Features
 
-- **`validation`** (default) — Enables `FilterOp<Value>`, `TryFilterOp<Value>`, and
-  `FilterError` → `Violation`/`Violations` conversions via `walrs_validation`.
-  Without this feature, only `FilterOp<String>` and scalar numeric types are available.
+- **`validation`** (default) — Enables the `walrs_validation` dependency,
+  exposing `FilterError` → `Violation`/`Violations` conversions.
+- **`value`** (default) — Enables `FilterOp<Value>` and `TryFilterOp<Value>`
+  for dynamic value transformation using `walrs_validation::Value`. Implies
+  `validation`. Disable with `default-features = false` to build typed-only
+  (`FilterOp<String>` and scalar numerics) without the dynamic path.
 - **`fn_traits`** — Enables nightly Rust `Fn`/`FnMut`/`FnOnce` trait implementations on
   filter structs, allowing them to be called as closures. Requires a nightly compiler.
 - **`nightly`** — Catch-all for nightly features. Currently enables `fn_traits`.

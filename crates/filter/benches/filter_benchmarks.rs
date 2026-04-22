@@ -432,7 +432,7 @@ fn bench_try_filter_op(c: &mut Criterion) {
   group.finish();
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 fn bench_filter_op_value(c: &mut Criterion) {
   use walrs_validation::Value;
 
@@ -468,7 +468,7 @@ fn bench_filter_op_value(c: &mut Criterion) {
   group.finish();
 }
 
-#[cfg(not(feature = "validation"))]
+#[cfg(not(feature = "value"))]
 fn bench_filter_op_value(_c: &mut Criterion) {}
 
 criterion_group!(

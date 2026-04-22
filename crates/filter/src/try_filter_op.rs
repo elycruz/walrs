@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use crate::{FilterError, FilterOp};
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 use walrs_validation::Value;
 
 /// Parse a permissive boolean literal (case-insensitive).
@@ -273,7 +273,7 @@ impl TryFilterOp<String> {
 // Value TryFilterOp Implementation (requires "validation" feature)
 // ============================================================================
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 impl TryFilterOp<Value> {
   /// Apply the fallible filter to a `&Value` reference, returning a `Result<Value, FilterError>`.
   pub fn try_apply_ref(&self, value: &Value) -> Result<Value, FilterError> {
@@ -392,7 +392,7 @@ impl crate::TryFilter<String> for TryFilterOp<String> {
   }
 }
 
-#[cfg(feature = "validation")]
+#[cfg(feature = "value")]
 impl crate::TryFilter<Value> for TryFilterOp<Value> {
   type Output = Value;
 
@@ -542,7 +542,7 @@ mod tests {
 
   // ---- Value tests ----
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_infallible_value_trim() {
     let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
@@ -550,7 +550,7 @@ mod tests {
     assert_eq!(result, Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_try_custom_value() {
     let op: TryFilterOp<Value> = TryFilterOp::TryCustom(Arc::new(|v: Value| {
@@ -573,7 +573,7 @@ mod tests {
     assert_eq!(op.try_apply(Value::I64(42)).unwrap(), Value::I64(42));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_chain_value() {
     let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![
@@ -584,7 +584,7 @@ mod tests {
     assert_eq!(result, Value::Str("hello".to_string()));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_chain_value_empty() {
     let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![]);
@@ -611,7 +611,7 @@ mod tests {
     assert_eq!(result, "hello");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_value_try_apply_ref() {
     let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
@@ -691,7 +691,7 @@ mod tests {
     assert_eq!(op.try_filter("  hello  ".to_string()).unwrap(), "hello");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_try_filter_trait_value() {
     use crate::TryFilter;
@@ -724,7 +724,7 @@ mod tests {
     assert_eq!(chain.try_apply_ref("  hello  ").unwrap(), "hello");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_deeply_nested_try_chain_value() {
     let mut chain: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
@@ -869,7 +869,7 @@ mod tests {
     assert_eq!(op.try_apply("-0.0".to_string()).unwrap(), "-0");
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_float_value_preserves_negative_zero() {
     // On `Value`, `-0.0` survives as a `Value::F64` with its sign bit intact.
@@ -974,7 +974,7 @@ mod tests {
 
   // ---- TryFilterOp<Value> conversion tests ----
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_bool_value_str_to_bool() {
     let op = TryFilterOp::<Value>::ToBool;
@@ -988,21 +988,21 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_bool_value_bool_pass_through() {
     let op = TryFilterOp::<Value>::ToBool;
     assert_eq!(op.try_apply(Value::Bool(true)).unwrap(), Value::Bool(true));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_bool_value_other_pass_through() {
     let op = TryFilterOp::<Value>::ToBool;
     assert_eq!(op.try_apply(Value::I64(42)).unwrap(), Value::I64(42));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_int_value_str_to_i64() {
     let op = TryFilterOp::<Value>::ToInt;
@@ -1012,14 +1012,14 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_int_value_str_invalid_errors() {
     let op = TryFilterOp::<Value>::ToInt;
     assert!(op.try_apply(Value::Str("abc".to_string())).is_err());
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_int_value_non_str_pass_through() {
     let op = TryFilterOp::<Value>::ToInt;
@@ -1027,7 +1027,7 @@ mod tests {
     assert_eq!(op.try_apply(Value::F64(1.5)).unwrap(), Value::F64(1.5));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_float_value_str_to_f64() {
     let op = TryFilterOp::<Value>::ToFloat;
@@ -1037,14 +1037,14 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_to_float_value_non_str_pass_through() {
     let op = TryFilterOp::<Value>::ToFloat;
     assert_eq!(op.try_apply(Value::F64(2.5)).unwrap(), Value::F64(2.5));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_url_decode_value_str() {
     let op = TryFilterOp::<Value>::UrlDecode;
@@ -1055,14 +1055,14 @@ mod tests {
     );
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_url_decode_value_non_str_pass_through() {
     let op = TryFilterOp::<Value>::UrlDecode;
     assert_eq!(op.try_apply(Value::I64(7)).unwrap(), Value::I64(7));
   }
 
-  #[cfg(feature = "validation")]
+  #[cfg(feature = "value")]
   #[test]
   fn test_chain_value_trim_then_to_int() {
     let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![
