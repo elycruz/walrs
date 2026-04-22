@@ -119,6 +119,13 @@ fn main() -> Result<(), String> {
   println!("=== Conditional assertion path ===");
   run_conditional_benchmark(&acl, &roles, &resources, &privileges, 100_000);
 
+  // Conditional assertion path — mixed allow / allow_if / deny_if rules with a
+  // table-backed resolver that actually looks keys up (follow-up #249). This
+  // surfaces the real cost of resolver dispatch, unlike the always-true
+  // benchmark above which never branches.
+  println!("=== Conditional assertion path (mixed rules + lookup resolver) ===");
+  run_mixed_conditional_benchmark(100_000)?;
+
   println!();
   println!("=== Benchmark Complete ===");
 
@@ -130,6 +137,99 @@ impl walrs_acl::simple::AssertionResolver for AlwaysTrue {
   fn evaluate(&self, _: &str) -> bool {
     true
   }
+}
+
+/// Resolver that looks keys up in a `HashMap`, returning `false` for unknown
+/// keys. Simulates a realistic "facts table" populated per-request.
+struct TableResolver(std::collections::HashMap<String, bool>);
+impl walrs_acl::simple::AssertionResolver for TableResolver {
+  fn evaluate(&self, key: &str) -> bool {
+    self.0.get(key).copied().unwrap_or(false)
+  }
+}
+
+fn run_mixed_conditional_benchmark(iterations: usize) -> Result<(), String> {
+  // Small ACL mixing every rule variant. The `post` resource carries an
+  // unconditional Allow (read), an AllowIf gated on `is_owner` (edit), and a
+  // DenyIf gated on `locked` (publish). The resolver populates both keys so
+  // every check actually branches through the conditional code path.
+  let acl = AclBuilder::new()
+    .add_role("guest", None)?
+    .add_role("user", Some(&["guest"]))?
+    .add_role("editor", Some(&["user"]))?
+    .add_resource("post", None)?
+    .add_resource("admin_panel", None)?
+    .allow(Some(&["editor"]), Some(&["post"]), Some(&["read"]))?
+    .allow_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["edit"]),
+      "is_owner",
+    )?
+    .deny_if(
+      Some(&["editor"]),
+      Some(&["post"]),
+      Some(&["publish"]),
+      "locked",
+    )?
+    .allow(Some(&["guest"]), Some(&["admin_panel"]), Some(&["access"]))?
+    .deny_if(
+      Some(&["user"]),
+      Some(&["admin_panel"]),
+      Some(&["access"]),
+      "outside_hours",
+    )?
+    .build()?;
+
+  let resolver = {
+    let mut m = std::collections::HashMap::new();
+    m.insert("is_owner".to_string(), true);
+    m.insert("locked".to_string(), false);
+    m.insert("outside_hours".to_string(), false);
+    TableResolver(m)
+  };
+
+  // Pre-built query set cycling through the rule variants so each iteration
+  // hits a different path in the engine.
+  let queries: Vec<(&str, &str, &str)> = vec![
+    ("editor", "post", "read"),       // unconditional Allow
+    ("editor", "post", "edit"),       // AllowIf → true
+    ("editor", "post", "publish"),    // DenyIf → false (allowed via fallthrough? no — no Allow)
+    ("user", "admin_panel", "access"), // Allow on parent, DenyIf on child (false)
+    ("guest", "admin_panel", "access"), // Allow direct
+  ];
+
+  let mut rng = rand::rng();
+  let start = Instant::now();
+  let mut allowed_count = 0;
+  let mut denied_count = 0;
+
+  for _ in 0..iterations {
+    let (role, resource, privilege) = *queries.choose(&mut rng).unwrap();
+    if acl.is_allowed_with(Some(role), Some(resource), Some(privilege), &resolver) {
+      allowed_count += 1;
+    } else {
+      denied_count += 1;
+    }
+  }
+
+  let duration = start.elapsed();
+  let avg_time = duration / iterations as u32;
+  let checks_per_sec = iterations as f64 / duration.as_secs_f64();
+
+  println!(
+    "{} is_allowed_with checks (mixed rules, lookup resolver)",
+    iterations
+  );
+  println!("  Total time: {:?}", duration);
+  println!("  Average per check: {:?}", avg_time);
+  println!("  Checks per second: {:.0}", checks_per_sec);
+  println!(
+    "  Results: {} allowed, {} denied",
+    allowed_count, denied_count
+  );
+  println!();
+  Ok(())
 }
 
 fn run_conditional_benchmark(

@@ -2061,15 +2061,19 @@ fn test_acl_data_conditional_rule_without_role_entries_returns_error() {
 
 #[test]
 fn test_acl_builder_to_acl_data_conditional_all_privileges_returns_error() -> Result<(), String> {
+  // Conditional rules with `privileges = None` are rejected at the builder
+  // call site (see the `allow_if` / `deny_if` guard in
+  // `crates/acl/src/simple/acl_builder.rs`). This test pins that early
+  // rejection so the invalid state can never reach serialization.
   let mut builder = AclBuilder::new();
   builder.add_role("editor", None)?;
   builder.add_resource("post", None)?;
-  builder.allow_if(Some(&["editor"]), Some(&["post"]), None, "is_owner")?;
 
-  let err = AclData::try_from(&builder)
-    .expect_err("all-privileges conditional rules are not representable");
-  assert!(err.contains("cannot serialize allow_if rule"));
-  assert!(err.contains("applies to all privileges"));
+  let err = builder
+    .allow_if(Some(&["editor"]), Some(&["post"]), None, "is_owner")
+    .expect_err("all-privileges conditional rules must be rejected at the builder");
+  assert!(err.contains("allow_if"));
+  assert!(err.contains("privilege"));
 
   Ok(())
 }

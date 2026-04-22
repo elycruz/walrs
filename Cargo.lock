@@ -2112,6 +2112,7 @@ dependencies = [
  "tokio",
  "walrs_digraph",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]
