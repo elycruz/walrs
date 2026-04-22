@@ -496,4 +496,271 @@ mod derive_tests {
     };
     assert!(form.validate().is_ok());
   }
+
+  // =========================================================================
+  // Sanitize filter attributes (issue #236)
+  // =========================================================================
+
+  #[derive(Debug, DeriveFieldset)]
+  struct DigitsForm {
+    #[filter(digits)]
+    phone: String,
+  }
+
+  #[test]
+  fn test_digits_filter() {
+    let form = DigitsForm {
+      phone: "(555) 123-4567".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.phone, "5551234567");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct AlnumForm {
+    #[filter(alnum)]
+    code: String,
+    #[filter(alnum(whitespace))]
+    label: String,
+  }
+
+  #[test]
+  fn test_alnum_filter() {
+    let form = AlnumForm {
+      code: "ABC-123!".into(),
+      label: "Hello, World 42!".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.code, "ABC123");
+    assert_eq!(filtered.label, "Hello World 42");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct AlphaForm {
+    #[filter(alpha)]
+    name: String,
+    #[filter(alpha(whitespace))]
+    sentence: String,
+  }
+
+  #[test]
+  fn test_alpha_filter() {
+    let form = AlphaForm {
+      name: "Alice123".into(),
+      sentence: "Hello, World 42!".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.name, "Alice");
+    // `alpha(whitespace)` keeps the space between "World" and "42", stripping only the digits and punctuation around it.
+    assert_eq!(filtered.sentence, "Hello World ");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct StripNewlinesForm {
+    #[filter(strip_newlines)]
+    body: String,
+  }
+
+  #[test]
+  fn test_strip_newlines_filter() {
+    let form = StripNewlinesForm {
+      body: "line1\nline2\r\nline3".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.body, "line1line2line3");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct NormalizeWhitespaceForm {
+    #[filter(normalize_whitespace)]
+    message: String,
+  }
+
+  #[test]
+  fn test_normalize_whitespace_filter() {
+    let form = NormalizeWhitespaceForm {
+      message: "  hello   world\t\tfoo  ".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.message, "hello world foo");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct AllowCharsForm {
+    #[filter(allow_chars = "abc123")]
+    code: String,
+  }
+
+  #[test]
+  fn test_allow_chars_filter() {
+    let form = AllowCharsForm {
+      code: "abc-XYZ-123".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.code, "abc123");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct DenyCharsForm {
+    #[filter(deny_chars = "!?.")]
+    text: String,
+  }
+
+  #[test]
+  fn test_deny_chars_filter() {
+    let form = DenyCharsForm {
+      text: "Hello, world!?.".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.text, "Hello, world");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct UrlEncodeForm {
+    #[filter(url_encode)]
+    q: String,
+  }
+
+  #[test]
+  fn test_url_encode_filter() {
+    let form = UrlEncodeForm {
+      q: "hello world/foo?x=1".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.q, "hello%20world%2Ffoo%3Fx%3D1");
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct ToBoolForm {
+    #[filter(to_bool)]
+    flag: String,
+  }
+
+  #[test]
+  fn test_to_bool_filter_ok() {
+    let form = ToBoolForm { flag: "YES".into() };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.flag, "true");
+  }
+
+  #[test]
+  fn test_to_bool_filter_err() {
+    let form = ToBoolForm {
+      flag: "maybe".into(),
+    };
+    let err = form.filter().unwrap_err();
+    assert!(err.get("flag").is_some());
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct ToIntForm {
+    #[filter(to_int)]
+    n: String,
+  }
+
+  #[test]
+  fn test_to_int_filter_ok() {
+    let form = ToIntForm { n: "  -42 ".into() };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.n, "-42");
+  }
+
+  #[test]
+  fn test_to_int_filter_err() {
+    let form = ToIntForm {
+      n: "not-a-number".into(),
+    };
+    let err = form.filter().unwrap_err();
+    assert!(err.get("n").is_some());
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct ToFloatForm {
+    #[filter(to_float)]
+    n: String,
+  }
+
+  #[test]
+  fn test_to_float_filter_ok() {
+    let form = ToFloatForm { n: " 3.5 ".into() };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.n, "3.5");
+  }
+
+  #[test]
+  fn test_to_float_filter_err() {
+    let form = ToFloatForm { n: "abc".into() };
+    let err = form.filter().unwrap_err();
+    assert!(err.get("n").is_some());
+  }
+
+  #[derive(Debug, DeriveFieldset)]
+  struct UrlDecodeForm {
+    #[filter(url_decode)]
+    q: String,
+  }
+
+  #[test]
+  fn test_url_decode_filter_ok() {
+    let form = UrlDecodeForm {
+      q: "hello%20world".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.q, "hello world");
+  }
+
+  #[test]
+  fn test_url_decode_filter_err() {
+    let form = UrlDecodeForm { q: "%FF%FE".into() };
+    let err = form.filter().unwrap_err();
+    assert!(err.get("q").is_some());
+  }
+
+  // Chain of sanitize filters — ensures ordering is preserved.
+  #[derive(Debug, DeriveFieldset)]
+  struct ChainedSanitizeForm {
+    #[filter(trim, normalize_whitespace, alnum(whitespace))]
+    title: String,
+  }
+
+  #[test]
+  fn test_chained_sanitize_filters() {
+    let form = ChainedSanitizeForm {
+      title: "  Hello,   World!  ".into(),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.title, "Hello World");
+  }
+
+  // Option<String> with a fallible sanitize filter.
+  #[derive(Debug, DeriveFieldset)]
+  struct OptionToIntForm {
+    #[filter(to_int)]
+    n: Option<String>,
+  }
+
+  #[test]
+  fn test_option_to_int_some_ok() {
+    let form = OptionToIntForm {
+      n: Some("7".into()),
+    };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.n, Some("7".into()));
+  }
+
+  #[test]
+  fn test_option_to_int_none_passthrough() {
+    let form = OptionToIntForm { n: None };
+    let filtered = form.filter().unwrap();
+    assert_eq!(filtered.n, None);
+  }
+
+  #[test]
+  fn test_option_to_int_some_err() {
+    let form = OptionToIntForm {
+      n: Some("abc".into()),
+    };
+    let err = form.filter().unwrap_err();
+    assert!(err.get("n").is_some());
+  }
 }

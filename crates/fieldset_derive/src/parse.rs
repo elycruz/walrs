@@ -111,6 +111,18 @@ pub enum FilterAttr {
   Truncate { max_length: usize },
   Replace { from: String, to: String },
   Clamp { min: NumericLit, max: NumericLit },
+  Digits,
+  Alnum { allow_whitespace: bool },
+  Alpha { allow_whitespace: bool },
+  StripNewlines,
+  NormalizeWhitespace,
+  AllowChars { set: String },
+  DenyChars { set: String },
+  UrlEncode,
+  ToBool,
+  ToInt,
+  ToFloat,
+  UrlDecode,
   Custom(Path),
   TryCustom(Path),
 }
@@ -235,7 +247,7 @@ pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
     if attr.path().is_ident("validate") {
       parse_validate_attr(attr, &mut validations, &mut is_nested_validate);
     } else if attr.path().is_ident("filter") {
-      parse_filter_attr(attr, &mut filters, &mut is_nested_filter);
+      parse_filter_attr(attr, &mut filters, &mut is_nested_filter)?;
     } else if attr.path().is_ident("fieldset") {
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("break_on_failure") {
@@ -402,8 +414,12 @@ fn parse_validate_attr(
   });
 }
 
-fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested: &mut bool) {
-  let _ = attr.parse_nested_meta(|meta| {
+fn parse_filter_attr(
+  attr: &Attribute,
+  filters: &mut Vec<FilterAttr>,
+  is_nested: &mut bool,
+) -> syn::Result<()> {
+  attr.parse_nested_meta(|meta| {
     let path = &meta.path;
 
     if path.is_ident("trim") {
@@ -483,6 +499,36 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
         min: min.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `min`"))?,
         max: max.ok_or_else(|| syn::Error::new_spanned(path, "clamp requires `max`"))?,
       });
+    } else if path.is_ident("digits") {
+      filters.push(FilterAttr::Digits);
+    } else if path.is_ident("alnum") {
+      let allow_whitespace = parse_whitespace_flag(&meta)?;
+      filters.push(FilterAttr::Alnum { allow_whitespace });
+    } else if path.is_ident("alpha") {
+      let allow_whitespace = parse_whitespace_flag(&meta)?;
+      filters.push(FilterAttr::Alpha { allow_whitespace });
+    } else if path.is_ident("strip_newlines") {
+      filters.push(FilterAttr::StripNewlines);
+    } else if path.is_ident("normalize_whitespace") {
+      filters.push(FilterAttr::NormalizeWhitespace);
+    } else if path.is_ident("allow_chars") {
+      let _: Token![=] = meta.input.parse()?;
+      let lit: LitStr = meta.input.parse()?;
+      filters.push(FilterAttr::AllowChars { set: lit.value() });
+    } else if path.is_ident("deny_chars") {
+      let _: Token![=] = meta.input.parse()?;
+      let lit: LitStr = meta.input.parse()?;
+      filters.push(FilterAttr::DenyChars { set: lit.value() });
+    } else if path.is_ident("url_encode") {
+      filters.push(FilterAttr::UrlEncode);
+    } else if path.is_ident("to_bool") {
+      filters.push(FilterAttr::ToBool);
+    } else if path.is_ident("to_int") {
+      filters.push(FilterAttr::ToInt);
+    } else if path.is_ident("to_float") {
+      filters.push(FilterAttr::ToFloat);
+    } else if path.is_ident("url_decode") {
+      filters.push(FilterAttr::UrlDecode);
     } else if path.is_ident("custom") {
       let _: Token![=] = meta.input.parse()?;
       let lit: LitStr = meta.input.parse()?;
@@ -502,7 +548,85 @@ fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested:
       ));
     }
     Ok(())
-  });
+  })
+}
+
+/// Parse an optional `(whitespace)` flag for `alnum` / `alpha` attributes.
+///
+/// Accepts:
+/// - `alnum` → `false`
+/// - `alnum(whitespace)` → `true`
+fn parse_whitespace_flag(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<bool> {
+  if !meta.input.peek(token::Paren) {
+    return Ok(false);
+  }
+  let content;
+  parenthesized!(content in meta.input);
+  if content.is_empty() {
+    return Err(content.error("expected `whitespace` inside parentheses"));
+  }
+  let idents: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
+  let mut allow_whitespace = false;
+  for id in idents {
+    if id == "whitespace" {
+      allow_whitespace = true;
+    } else {
+      return Err(syn::Error::new_spanned(
+        &id,
+        format!("Unknown flag: {id}; expected `whitespace`"),
+      ));
+    }
+  }
+  Ok(allow_whitespace)
+}
+
+#[cfg(test)]
+mod tests {
+  use super::parse_field_info;
+  use quote::quote;
+  use syn::{Fields, ItemStruct};
+
+  fn parse_named_field(tokens: proc_macro2::TokenStream) -> syn::Field {
+    let item: ItemStruct = syn::parse2(tokens).expect("struct should parse");
+    match item.fields {
+      Fields::Named(fields) => fields
+        .named
+        .into_iter()
+        .next()
+        .expect("struct should have one field"),
+      _ => panic!("expected named fields"),
+    }
+  }
+
+  #[test]
+  fn parse_field_info_rejects_unknown_filter_attrs() {
+    let field = parse_named_field(quote! {
+      struct Example {
+        #[filter(unknown)]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("unknown filter should error");
+    assert!(err.to_string().contains("Unknown filter attribute"));
+  }
+
+  #[test]
+  fn parse_field_info_rejects_empty_whitespace_flag() {
+    let field = parse_named_field(quote! {
+      struct Example {
+        #[filter(alnum())]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("empty alnum parens should error");
+    assert!(
+      err
+        .to_string()
+        .contains("expected `whitespace` inside parentheses")
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
