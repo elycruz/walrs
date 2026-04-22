@@ -233,7 +233,7 @@ pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
 
   for attr in &field.attrs {
     if attr.path().is_ident("validate") {
-      parse_validate_attr(attr, &mut validations, &mut is_nested_validate);
+      parse_validate_attr(attr, &mut validations, &mut is_nested_validate)?;
     } else if attr.path().is_ident("filter") {
       parse_filter_attr(attr, &mut filters, &mut is_nested_filter);
     } else if attr.path().is_ident("fieldset") {
@@ -267,8 +267,8 @@ fn parse_validate_attr(
   attr: &Attribute,
   validations: &mut Vec<ValidateAttr>,
   is_nested: &mut bool,
-) {
-  let _ = attr.parse_nested_meta(|meta| {
+) -> syn::Result<()> {
+  attr.parse_nested_meta(|meta| {
     let path = &meta.path;
 
     if path.is_ident("required") {
@@ -399,7 +399,7 @@ fn parse_validate_attr(
       ));
     }
     Ok(())
-  });
+  })
 }
 
 fn parse_filter_attr(attr: &Attribute, filters: &mut Vec<FilterAttr>, is_nested: &mut bool) {
@@ -579,5 +579,42 @@ fn expr_to_string(expr: &Expr) -> syn::Result<String> {
     Ok(s.value())
   } else {
     Err(syn::Error::new_spanned(expr, "Expected string literal"))
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use syn::{Fields, ItemStruct, parse_str};
+
+  /// Parse a struct declaration and return its first named field.
+  fn parse_named_field(src: &str) -> Field {
+    let item: ItemStruct = parse_str(src).expect("valid struct");
+    match item.fields {
+      Fields::Named(named) => named.named.into_iter().next().expect("one field"),
+      _ => panic!("expected named fields"),
+    }
+  }
+
+  #[test]
+  fn parse_field_info_rejects_unknown_validate_attrs() {
+    let field = parse_named_field("struct S { #[validate(nonsense)] x: String }");
+    let err = parse_field_info(&field).expect_err("unknown validate attr should error");
+    assert!(
+      err.to_string().contains("Unknown validate attribute"),
+      "expected 'Unknown validate attribute' in error, got: {}",
+      err
+    );
+  }
+
+  #[test]
+  fn parse_field_info_rejects_invalid_regex_pattern() {
+    let field = parse_named_field(r#"struct S { #[validate(pattern = "[")] x: String }"#);
+    let err = parse_field_info(&field).expect_err("invalid regex should error");
+    assert!(
+      err.to_string().contains("invalid regex pattern"),
+      "expected 'invalid regex pattern' in error, got: {}",
+      err
+    );
   }
 }
