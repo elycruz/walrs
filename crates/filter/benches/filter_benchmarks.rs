@@ -7,6 +7,21 @@ use std::borrow::Cow;
 use std::sync::Arc;
 use walrs_filter::{Filter, FilterOp, SlugFilter, StripTagsFilter, TryFilterOp, XmlEntitiesFilter};
 
+const NORMALIZE_WHITESPACE_DIRTY_INPUT: &str = r#"  Lorem   ipsum	dolor
+
+sit amet,     consectetur	 adipiscing elit.  
+  Sed		do  eiusmod   tempor
+
+	incididunt ut labore    et dolore
+magna	 aliqua.   Ut
+
+ enim	 ad minim	veniam,   quis
+ nostrud
+exercitation    ullamco	 laboris	nisi   ut aliquip
+
+   ex	 ea commodo
+consequat.  "#;
+
 fn bench_slug_filter(c: &mut Criterion) {
   let mut group = c.benchmark_group("SlugFilter");
 
@@ -237,7 +252,7 @@ fn bench_filter_op_sanitize(c: &mut Criterion) {
     b.iter(|| normalize.apply_ref(black_box("hello world go")))
   });
   group.bench_function("normalize_whitespace_mutation", |b| {
-    b.iter(|| normalize.apply_ref(black_box("  hello    world\n\tgo  ")))
+    b.iter(|| normalize.apply_ref(black_box(NORMALIZE_WHITESPACE_DIRTY_INPUT)))
   });
 
   // AllowChars / DenyChars
