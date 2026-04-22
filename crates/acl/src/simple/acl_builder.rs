@@ -885,11 +885,12 @@ impl TryFrom<&AclBuilder> for AclData {
 
       if !by_priv_is_empty {
         if let Some(ref by_priv) = role_priv_rules.for_all_roles.by_privilege_id {
-          let matching_privileges: Vec<String> = by_priv
+          let mut matching_privileges: Vec<String> = by_priv
             .iter()
             .filter(|(_, rule)| *rule == match_rule)
             .map(|(k, _)| k.to_string())
             .collect();
+          matching_privileges.sort();
           if !matching_privileges.is_empty() {
             role_rules.insert("*".to_string(), Some(matching_privileges));
           }
@@ -911,11 +912,12 @@ impl TryFrom<&AclBuilder> for AclData {
 
           if !role_by_priv_is_empty {
             if let Some(ref by_priv) = priv_rules.by_privilege_id {
-              let matching_privileges: Vec<String> = by_priv
+              let mut matching_privileges: Vec<String> = by_priv
                 .iter()
                 .filter(|(_, rule)| *rule == match_rule)
                 .map(|(k, _)| k.to_string())
                 .collect();
+              matching_privileges.sort();
               if !matching_privileges.is_empty() {
                 role_rules.insert(role.clone(), Some(matching_privileges));
               }
