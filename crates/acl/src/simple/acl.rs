@@ -886,8 +886,7 @@ mod async_impl {
       for resource in
         self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_resource(xs), resources)
       {
-        for role in self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_role(xs), roles)
-        {
+        for role in self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_role(xs), roles) {
           for privilege in self._filter_vec_option_to_options_vec1(&|_| true, privileges) {
             if self
               ._is_allowed_inner_async(role, resource, privilege, resolver)

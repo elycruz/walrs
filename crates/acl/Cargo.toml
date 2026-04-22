@@ -12,7 +12,7 @@ wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
 async = ["dep:async-trait"]
 
 [package.metadata.docs.rs]
-all-features = true
+features = ["async"]
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
