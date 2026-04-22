@@ -300,15 +300,15 @@ mod test_role_privilege_rules {
               privilege_rules
                 .by_privilege_id
                 .get_or_insert(HashMap::new())
-                .insert(p_id.to_string(), expected_rule);
+                .insert(p_id.to_string(), expected_rule.clone());
             });
           } else {
-            privilege_rules.for_all_privileges = expected_rule;
+            privilege_rules.for_all_privileges = expected_rule.clone();
           }
           Some(privilege_rules)
         }
         _ => {
-          privilege_rules.for_all_privileges = expected_rule;
+          privilege_rules.for_all_privileges = expected_rule.clone();
           Some(privilege_rules)
         }
       };

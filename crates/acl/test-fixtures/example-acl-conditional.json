@@ -1,0 +1,22 @@
+{
+  "roles": [
+    ["guest", null],
+    ["user", ["guest"]],
+    ["editor", ["user"]]
+  ],
+  "resources": [
+    ["content_item", null],
+    ["admin_panel", null]
+  ],
+  "allow": [
+    ["content_item", [["editor", ["read"]]]],
+    ["admin_panel", [["guest", ["access"]]]]
+  ],
+  "deny": null,
+  "allow_if": [
+    ["content_item", [["editor", [["edit", "is_owner"], ["publish", "is_owner"]]]]]
+  ],
+  "deny_if": [
+    ["admin_panel", [["user", [["access", "outside_business_hours"]]]]]
+  ]
+}

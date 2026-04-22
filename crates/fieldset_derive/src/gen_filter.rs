@@ -34,10 +34,16 @@ fn gen_field_filter(field: &FieldInfo) -> TokenStream {
   }
 
   // Has filters
-  let has_try_filters = field
-    .filters
-    .iter()
-    .any(|f| matches!(f, FilterAttr::TryCustom(_)));
+  let has_try_filters = field.filters.iter().any(|f| {
+    matches!(
+      f,
+      FilterAttr::TryCustom(_)
+        | FilterAttr::ToBool
+        | FilterAttr::ToInt
+        | FilterAttr::ToFloat
+        | FilterAttr::UrlDecode
+    )
+  });
 
   match &field.ty {
     FieldType::String => gen_string_filter(field, has_try_filters),
@@ -179,6 +185,21 @@ fn gen_nested_filter(field: &FieldInfo) -> TokenStream {
   }
 }
 
+/// Emit a fallible filter step that wraps `try_apply` errors into a
+/// `FieldsetViolations` keyed by `fname`.
+fn emit_try_filter_step(op: TokenStream, src: &TokenStream, fname: &str) -> TokenStream {
+  quote! {
+    let filtered = #op
+      .try_apply(#src)
+      .map_err(|e| {
+        let mut fv = walrs_validation::FieldsetViolations::new();
+        let violation: walrs_validation::Violation = e.into();
+        fv.add(#fname, violation);
+        fv
+      })?;
+  }
+}
+
 /// Generate sequential filter application steps for String fields.
 fn gen_filter_steps(
   field: &FieldInfo,
@@ -244,17 +265,79 @@ fn gen_filter_steps(
         );
       }
       FilterAttr::TryCustom(path) => {
-        let fname = field_name_str;
-        steps.push(quote! {
-          let filtered = walrs_filter::TryFilterOp::<String>::TryCustom(::std::sync::Arc::new(#path))
-            .try_apply(#src)
-            .map_err(|e| {
-              let mut fv = walrs_validation::FieldsetViolations::new();
-              let violation: walrs_validation::Violation = e.into();
-              fv.add(#fname, violation);
-              fv
-            })?;
-        });
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::TryCustom(::std::sync::Arc::new(#path)) },
+          &src,
+          field_name_str,
+        ));
+      }
+      FilterAttr::Digits => {
+        steps.push(quote! { let filtered = walrs_filter::FilterOp::<String>::Digits.apply(#src); });
+      }
+      FilterAttr::Alnum { allow_whitespace } => {
+        let aw = *allow_whitespace;
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::Alnum { allow_whitespace: #aw }.apply(#src); },
+        );
+      }
+      FilterAttr::Alpha { allow_whitespace } => {
+        let aw = *allow_whitespace;
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::Alpha { allow_whitespace: #aw }.apply(#src); },
+        );
+      }
+      FilterAttr::StripNewlines => {
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::StripNewlines.apply(#src); },
+        );
+      }
+      FilterAttr::NormalizeWhitespace => {
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::NormalizeWhitespace.apply(#src); },
+        );
+      }
+      FilterAttr::AllowChars { set } => {
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::AllowChars { set: #set.to_string() }.apply(#src); },
+        );
+      }
+      FilterAttr::DenyChars { set } => {
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::DenyChars { set: #set.to_string() }.apply(#src); },
+        );
+      }
+      FilterAttr::UrlEncode => {
+        steps.push(
+          quote! { let filtered = walrs_filter::FilterOp::<String>::UrlEncode { encode_unreserved: false }.apply(#src); },
+        );
+      }
+      FilterAttr::ToBool => {
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToBool },
+          &src,
+          field_name_str,
+        ));
+      }
+      FilterAttr::ToInt => {
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToInt },
+          &src,
+          field_name_str,
+        ));
+      }
+      FilterAttr::ToFloat => {
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::ToFloat },
+          &src,
+          field_name_str,
+        ));
+      }
+      FilterAttr::UrlDecode => {
+        steps.push(emit_try_filter_step(
+          quote! { walrs_filter::TryFilterOp::<String>::UrlDecode },
+          &src,
+          field_name_str,
+        ));
       }
       FilterAttr::Clamp { .. } => {
         // Clamp doesn't apply to strings; ignore

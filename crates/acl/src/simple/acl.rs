@@ -1,8 +1,40 @@
 use crate::prelude::{String, Vec, format, vec};
 use walrs_digraph::{DigraphDFSShape, DirectedCycle, DirectedPathsDFS, DisymGraph};
 
+use crate::simple::assertion_resolver::AssertionResolver;
 use crate::simple::resource_role_rules::ResourceRoleRules;
 use crate::simple::rule::Rule;
+
+/// Returns `true` if `rule` (with optional resolver) should be treated as a
+/// denying verdict.
+///
+/// - `Deny` => always deny.
+/// - `DenyIf(k)` with resolver => resolver verdict (deny iff `resolver(k)`).
+/// - `DenyIf(k)` without resolver => `false` (conservative: permissive for
+///   conditional deny without a resolver, since we can't know).
+/// - `Allow` / `AllowIf(_)` => never deny.
+fn rule_is_deny(rule: &Rule, resolver: Option<&dyn AssertionResolver>) -> bool {
+  match rule {
+    Rule::Deny => true,
+    Rule::DenyIf(k) => resolver.map(|r| r.evaluate(k)).unwrap_or(false),
+    Rule::Allow | Rule::AllowIf(_) => false,
+  }
+}
+
+/// Returns `true` if `rule` (with optional resolver) should be treated as an
+/// allowing verdict.
+///
+/// - `Allow` => always allow.
+/// - `AllowIf(k)` with resolver => resolver verdict (allow iff `resolver(k)`).
+/// - `AllowIf(k)` without resolver => `false` (conservative).
+/// - `Deny` / `DenyIf(_)` => never allow.
+fn rule_is_allow(rule: &Rule, resolver: Option<&dyn AssertionResolver>) -> bool {
+  match rule {
+    Rule::Allow => true,
+    Rule::AllowIf(k) => resolver.map(|r| r.evaluate(k)).unwrap_or(false),
+    Rule::Deny | Rule::DenyIf(_) => false,
+  }
+}
 
 // Note: Rules structure:
 // Resources contain roles, roles contain privileges,
@@ -381,6 +413,51 @@ impl Acl {
     resource: Option<&str>,
     privilege: Option<&str>,
   ) -> bool {
+    self._is_allowed_inner(role, resource, privilege, None)
+  }
+
+  /// Like [`is_allowed`](Acl::is_allowed), but evaluates any conditional
+  /// (`AllowIf` / `DenyIf`) rules via the supplied
+  /// [`AssertionResolver`](crate::simple::AssertionResolver).
+  ///
+  /// ```rust
+  /// use walrs_acl::simple::{AclBuilder, AssertionResolver};
+  ///
+  /// let acl = AclBuilder::new()
+  ///     .add_role("editor", None)?
+  ///     .add_resource("post", None)?
+  ///     .allow_if(Some(&["editor"]), Some(&["post"]), Some(&["edit"]), "is_owner")?
+  ///     .build()?;
+  ///
+  /// let allow = |k: &str| k == "is_owner";
+  /// assert!(acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &allow));
+  ///
+  /// let deny = |_k: &str| false;
+  /// assert!(!acl.is_allowed_with(Some("editor"), Some("post"), Some("edit"), &deny));
+  /// # Ok::<(), String>(())
+  /// ```
+  pub fn is_allowed_with<R: AssertionResolver>(
+    &self,
+    role: Option<&str>,
+    resource: Option<&str>,
+    privilege: Option<&str>,
+    resolver: &R,
+  ) -> bool {
+    self._is_allowed_inner(
+      role,
+      resource,
+      privilege,
+      Some(resolver as &dyn AssertionResolver),
+    )
+  }
+
+  fn _is_allowed_inner(
+    &self,
+    role: Option<&str>,
+    resource: Option<&str>,
+    privilege: Option<&str>,
+    resolver: Option<&dyn AssertionResolver>,
+  ) -> bool {
     // Get ALL inherited roles (including transitive parents) using DFS
     let _roles = role.and_then(|_role| {
       let role_idx = self._roles.index(_role)?;
@@ -426,10 +503,12 @@ impl Acl {
     });
 
     // CRITICAL: Check for explicit Deny on the DIRECT role/resource combo FIRST
-    // This ensures that deny rules on a role/resource override inherited allow rules
-    // We only block if there's an EXPLICIT Deny entry in the by_privilege_id map
+    // This ensures that deny rules on a role/resource override inherited allow rules.
+    // "Deny" here means the rule is treated as denying under `rule_is_deny`:
+    //   - `Deny` always denies
+    //   - `DenyIf(k)` denies iff resolver says so
     let has_explicit_deny = if let Some(priv_id) = privilege {
-      // Checking a specific privilege - look for explicit Deny in the map
+      // Checking a specific privilege - look for explicit Deny/DenyIf in the map
       if resource.is_some() {
         let role_rules = self
           ._rules
@@ -439,7 +518,7 @@ impl Acl {
           .by_privilege_id
           .as_ref()
           .and_then(|map| map.get(priv_id))
-          .map(|rule| rule == &Rule::Deny)
+          .map(|rule| rule_is_deny(rule, resolver))
           .unwrap_or(false)
       } else {
         let role_rules = self._rules.for_all_resources.get_privilege_rules(role);
@@ -447,7 +526,7 @@ impl Acl {
           .by_privilege_id
           .as_ref()
           .and_then(|map| map.get(priv_id))
-          .map(|rule| rule == &Rule::Deny)
+          .map(|rule| rule_is_deny(rule, resolver))
           .unwrap_or(false)
       }
     } else {
@@ -460,19 +539,15 @@ impl Acl {
       return false;
     }
 
-    // ...existing code...
-
     // Callback for returning `allow` check result, or checking if current parameter set has `allow` permission
     //  Helps dry up the code, below, a bit
     let rslt_or_check_direct = |rslt| {
       if rslt {
         rslt
       } else {
-        self._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow)
+        self._matches_allow_no_dfs(role, resource, privilege, resolver)
       }
     };
-
-    // println!("Inherited roles and resources {:?}, {:?}", &_roles, &_resources);
 
     // If inherited `resources`, and `roles`, found, loop through them and check for `Allow` rule
     _resources
@@ -481,7 +556,7 @@ impl Acl {
       .map(|(_resources, _roles2)| {
         _resources.iter().rev().any(|_resource| {
           _roles2.iter().rev().any(|_role| {
-            self._matches_rule_no_dfs(Some(_role), Some(_resource), privilege, &Rule::Allow)
+            self._matches_allow_no_dfs(Some(_role), Some(_resource), privilege, resolver)
           })
         })
       })
@@ -496,7 +571,7 @@ impl Acl {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._matches_rule_no_dfs(Some(r), resource, privilege, &Rule::Allow))
+                .any(|r| self._matches_allow_no_dfs(Some(r), resource, privilege, resolver))
             })
             .map(rslt_or_check_direct)
         }
@@ -508,14 +583,14 @@ impl Acl {
               _rs
                 .iter()
                 .rev()
-                .any(|r| self._matches_rule_no_dfs(role, Some(*r), privilege, &Rule::Allow))
+                .any(|r| self._matches_allow_no_dfs(role, Some(*r), privilege, resolver))
             })
             .map(rslt_or_check_direct)
         }
         // Else check for direct allowance
         else {
           self
-            ._matches_rule_no_dfs(role, resource, privilege, &Rule::Allow)
+            ._matches_allow_no_dfs(role, resource, privilege, resolver)
             .into()
         }
       })
@@ -636,12 +711,40 @@ impl Acl {
     resources: Option<&[&str]>,
     privileges: Option<&[&str]>,
   ) -> bool {
+    self._is_allowed_any_inner(roles, resources, privileges, None)
+  }
+
+  /// Like [`is_allowed_any`](Acl::is_allowed_any), but evaluates any
+  /// conditional (`AllowIf` / `DenyIf`) rules using the supplied
+  /// [`AssertionResolver`](crate::simple::AssertionResolver).
+  pub fn is_allowed_any_with<R: AssertionResolver>(
+    &self,
+    roles: Option<&[&str]>,
+    resources: Option<&[&str]>,
+    privileges: Option<&[&str]>,
+    resolver: &R,
+  ) -> bool {
+    self._is_allowed_any_inner(
+      roles,
+      resources,
+      privileges,
+      Some(resolver as &dyn AssertionResolver),
+    )
+  }
+
+  fn _is_allowed_any_inner(
+    &self,
+    roles: Option<&[&str]>,
+    resources: Option<&[&str]>,
+    privileges: Option<&[&str]>,
+    resolver: Option<&dyn AssertionResolver>,
+  ) -> bool {
     for resource in
       self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_resource(xs), resources)
     {
       for role in self._filter_vec_option_to_options_vec1(&|xs: &str| self.has_role(xs), roles) {
         for privilege in self._filter_vec_option_to_options_vec1(&|_| true, privileges) {
-          if self.is_allowed(role, resource, privilege) {
+          if self._is_allowed_inner(role, resource, privilege, resolver) {
             return true;
           }
         }
@@ -670,14 +773,14 @@ impl Acl {
     })
   }
 
-  /// Returns a boolean indicating whether the given rule matches or not -
-  /// Does not check symbol graph for inheritance chains (flat "rules" check).
-  fn _matches_rule_no_dfs(
+  /// Returns `true` if the given (role, resource, privilege) has an allowing
+  /// verdict (via [`rule_is_allow`]) — does not walk the inheritance graph.
+  fn _matches_allow_no_dfs(
     &self,
     role: Option<&str>,
     resource: Option<&str>,
     privilege: Option<&str>,
-    rule: &Rule,
+    resolver: Option<&dyn AssertionResolver>,
   ) -> bool {
     // First check the specific resource (if provided)
     if resource.is_some() {
@@ -688,7 +791,7 @@ impl Acl {
         .get_rule(privilege);
 
       // If we found an explicit match, return true
-      if specific_rule == rule {
+      if rule_is_allow(specific_rule, resolver) {
         return true;
       }
 
@@ -699,16 +802,18 @@ impl Acl {
         .get_privilege_rules(role)
         .get_rule(privilege);
 
-      return global_rule == rule;
+      return rule_is_allow(global_rule, resolver);
     }
 
     // If no specific resource, just check for_all_resources
-    self
-      ._rules
-      .for_all_resources
-      .get_privilege_rules(role)
-      .get_rule(privilege)
-      == rule
+    rule_is_allow(
+      self
+        ._rules
+        .for_all_resources
+        .get_privilege_rules(role)
+        .get_rule(privilege),
+      resolver,
+    )
   }
 }
 
@@ -825,7 +930,7 @@ mod test_acl {
         .by_privilege_id
         .as_mut()
         .and_then(|privilege_id_map| {
-          privilege_id_map.insert(privilege.to_string(), expected_rule);
+          privilege_id_map.insert(privilege.to_string(), expected_rule.clone());
           Some(())
         })
         .expect("Expecting a `privilege_id_map`;  None found");
