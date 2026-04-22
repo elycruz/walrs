@@ -270,7 +270,7 @@ impl TryFilterOp<String> {
 }
 
 // ============================================================================
-// Value TryFilterOp Implementation (requires "validation" feature)
+// Value TryFilterOp Implementation (requires "value" feature)
 // ============================================================================
 
 #[cfg(feature = "value")]

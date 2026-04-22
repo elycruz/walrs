@@ -543,7 +543,7 @@ impl FilterOp<String> {
 }
 
 // ============================================================================
-// Value FilterOp Implementation (requires "validation" feature)
+// Value FilterOp Implementation (requires "value" feature)
 // ============================================================================
 
 /// Apply a string-typed `FilterOp` to a `Value::Str` variant, preserving the

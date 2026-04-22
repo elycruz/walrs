@@ -20,7 +20,7 @@ default = ["validation", "value"]
 fn_traits = []
 nightly = ["fn_traits"]
 validation = ["dep:walrs_validation"]
-value = ["walrs_validation/value"]
+value = ["validation", "walrs_validation/value"]
 
 [dependencies]
 ammonia = "3.3.1"
