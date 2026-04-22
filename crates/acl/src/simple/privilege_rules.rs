@@ -40,7 +40,7 @@ impl PrivilegeRules {
           self
             .by_privilege_id
             .get_or_insert(HashMap::new())
-            .insert(p.to_string(), rule);
+            .insert(p.to_string(), rule.clone());
         });
       } else {
         self.for_all_privileges = rule;
@@ -109,7 +109,7 @@ mod test_privilege_rules {
         .by_privilege_id
         .as_mut()
         .and_then(|privilege_id_map| {
-          privilege_id_map.insert(privilege.to_string(), expected_rule);
+          privilege_id_map.insert(privilege.to_string(), expected_rule.clone());
           Some(())
         })
         .expect("Expecting a `privilege_id_map`;  None found");
@@ -156,7 +156,7 @@ mod test_privilege_rules {
       let mut prs = PrivilegeRules::new(create_internal_map.into());
       test_default_state(&prs, create_internal_map);
 
-      prs.set_rule(Some(&privileges_ids), expected_rule);
+      prs.set_rule(Some(&privileges_ids), expected_rule.clone());
 
       // Test for expected (1)
       privileges_ids.iter().for_each(|pid| {
