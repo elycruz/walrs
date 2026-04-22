@@ -423,12 +423,17 @@ fn deny_if_without_privileges_errors() {
 fn acl_data_round_trip_bytes_are_deterministic() -> Result<(), Box<dyn std::error::Error>> {
   // Build an ACL with enough conditional rules across multiple resources and
   // privileges that any non-deterministic map iteration would surface as a
-  // byte-difference between two consecutive serializations.
-  let acl_data = AclData::try_from(&mut File::open("./test-fixtures/example-acl-conditional.json")?)?;
-  let builder = AclBuilder::try_from(&acl_data)?;
+  // byte-difference between two fresh parses/builds.
+  let first_acl_data =
+    AclData::try_from(&mut File::open("./test-fixtures/example-acl-conditional.json")?)?;
+  let first_builder = AclBuilder::try_from(&first_acl_data)?;
 
-  let first = serde_json::to_string(&AclData::try_from(&builder)?)?;
-  let second = serde_json::to_string(&AclData::try_from(&builder)?)?;
+  let second_acl_data =
+    AclData::try_from(&mut File::open("./test-fixtures/example-acl-conditional.json")?)?;
+  let second_builder = AclBuilder::try_from(&second_acl_data)?;
+
+  let first = serde_json::to_string(&AclData::try_from(&first_builder)?)?;
+  let second = serde_json::to_string(&AclData::try_from(&second_builder)?)?;
 
   assert_eq!(
     first, second,
