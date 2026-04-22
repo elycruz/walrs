@@ -27,14 +27,12 @@ fn parse_bool_literal(s: &str) -> Result<bool, FilterError> {
   let t = s.trim();
   if ["true", "1", "yes", "on"]
     .iter()
-    .any(|truthy| t.eq_ignore_ascii_case(truthy))
-  {
+    .any(|truthy| t.eq_ignore_ascii_case(truthy)) {
     return Ok(true);
   }
   if ["false", "0", "no", "off"]
     .iter()
-    .any(|falsy| t.eq_ignore_ascii_case(falsy))
-  {
+    .any(|falsy| t.eq_ignore_ascii_case(falsy)) {
     return Ok(false);
   }
   Err(FilterError::new(format!("cannot parse {s:?} as bool")).with_name("ToBool"))
