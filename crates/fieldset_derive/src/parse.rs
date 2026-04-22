@@ -235,7 +235,7 @@ pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
     if attr.path().is_ident("validate") {
       parse_validate_attr(attr, &mut validations, &mut is_nested_validate)?;
     } else if attr.path().is_ident("filter") {
-      parse_filter_attr(attr, &mut filters, &mut is_nested_filter);
+      parse_filter_attr(attr, &mut filters, &mut is_nested_filter)?;
     } else if attr.path().is_ident("fieldset") {
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("break_on_failure") {
