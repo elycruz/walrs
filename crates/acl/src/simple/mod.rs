@@ -2,6 +2,8 @@ pub mod acl;
 pub mod acl_builder;
 pub mod acl_data;
 pub mod assertion_resolver;
+#[cfg(feature = "async")]
+pub mod async_assertion_resolver;
 pub mod privilege_rules;
 pub mod resource_role_rules;
 pub mod role_privilege_rules;
@@ -15,6 +17,8 @@ pub use acl::*;
 pub use acl_builder::*;
 pub use acl_data::*;
 pub use assertion_resolver::*;
+#[cfg(feature = "async")]
+pub use async_assertion_resolver::*;
 pub use privilege_rules::*;
 pub use resource_role_rules::*;
 pub use role_privilege_rules::*;

@@ -9,6 +9,11 @@ crate-type = ["cdylib", "rlib"]
 default = ["std"]
 std = ["serde/std", "serde_json/std"]
 wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
+async = ["dep:async-trait"]
+
+[package.metadata.docs.rs]
+features = ["async"]
+rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
 walrs_digraph = { path = '../digraph' }
@@ -18,10 +23,12 @@ serde_derive = "1.0.228"
 wasm-bindgen = { version = "0.2", optional = true }
 serde-wasm-bindgen = { version = "0.6", optional = true }
 js-sys = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
 
 [dev-dependencies]
 rand = "0.9"
 actix-web = "4"
+tokio = { version = "1", features = ["rt", "macros"] }
 
 [[example]]
 name = "acl_builder_example"
