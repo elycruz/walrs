@@ -20,19 +20,22 @@ use walrs_validation::Value;
 ///
 /// Accepts `1`, `0`, `true`, `false`, `yes`, `no`, `on`, `off` — surrounding whitespace is ignored.
 ///
-/// Uses [`str::eq_ignore_ascii_case`] to avoid allocating a lowercased copy of the input;
-/// the common already-canonical paths (`"true"` / `"false"`) stay allocation-free.
+/// Uses [`str::eq_ignore_ascii_case`] to avoid allocating a lowercased copy of the input.
+/// The success path no longer allocates — `eq_ignore_ascii_case` compares in place without
+/// lowering the input; only the `Err` branch still allocates via `format!`.
 fn parse_bool_literal(s: &str) -> Result<bool, FilterError> {
   let t = s.trim();
-  for truthy in ["true", "1", "yes", "on"] {
-    if t.eq_ignore_ascii_case(truthy) {
-      return Ok(true);
-    }
+  if ["true", "1", "yes", "on"]
+    .iter()
+    .any(|truthy| t.eq_ignore_ascii_case(truthy))
+  {
+    return Ok(true);
   }
-  for falsy in ["false", "0", "no", "off"] {
-    if t.eq_ignore_ascii_case(falsy) {
-      return Ok(false);
-    }
+  if ["false", "0", "no", "off"]
+    .iter()
+    .any(|falsy| t.eq_ignore_ascii_case(falsy))
+  {
+    return Ok(false);
   }
   Err(FilterError::new(format!("cannot parse {s:?} as bool")).with_name("ToBool"))
 }
@@ -357,7 +360,7 @@ macro_rules! impl_numeric_try_filter_op {
                         | TryFilterOp::ToInt
                         | TryFilterOp::ToFloat
                         | TryFilterOp::UrlDecode => unreachable!(
-                            "string-oriented TryFilterOp variant applied to numeric TryFilterOp<{}>; these variants are only valid for TryFilterOp<String>",
+                            "string-oriented TryFilterOp variant applied to numeric TryFilterOp<{}>; these variants are only valid for TryFilterOp<String> (and TryFilterOp<Value> while the validation feature is enabled)",
                             stringify!($t)
                         ),
                         TryFilterOp::TryCustom(f) => f(value),

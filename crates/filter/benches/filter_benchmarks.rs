@@ -237,7 +237,11 @@ fn bench_filter_op_sanitize(c: &mut Criterion) {
     b.iter(|| normalize.apply_ref(black_box("hello world go")))
   });
   group.bench_function("normalize_whitespace_mutation", |b| {
-    b.iter(|| normalize.apply_ref(black_box("  hello    world\n\tgo  ")))
+    b.iter(|| {
+      normalize.apply_ref(black_box(
+        "  Lorem   ipsum\tdolor\n\nsit amet,     consectetur\t adipiscing elit.  \n  Sed\t\tdo  eiusmod   tempor\n\n\tincididunt ut labore    et dolore\nmagna\t aliqua.   Ut\n\n enim\t ad minim\tveniam,   quis\n nostrud\nexercitation    ullamco\t laboris\tnisi   ut aliquip\n\n   ex\t ea commodo\nconsequat.  ",
+      ))
+    })
   });
 
   // AllowChars / DenyChars
