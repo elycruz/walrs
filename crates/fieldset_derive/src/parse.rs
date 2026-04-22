@@ -1,3 +1,4 @@
+use quote::ToTokens;
 use syn::{
   Attribute, Expr, ExprLit, Field, Ident, Lit, LitFloat, LitInt, LitStr, MetaNameValue, Path,
   Token, Type, TypePath, parenthesized, parse::Parse, parse::ParseStream, punctuated::Punctuated,
@@ -245,7 +246,7 @@ pub fn parse_field_info(field: &Field) -> syn::Result<FieldInfo> {
 
   for attr in &field.attrs {
     if attr.path().is_ident("validate") {
-      parse_validate_attr(attr, &mut validations, &mut is_nested_validate);
+      parse_validate_attr(attr, &mut validations, &mut is_nested_validate)?;
     } else if attr.path().is_ident("filter") {
       parse_filter_attr(attr, &mut filters, &mut is_nested_filter)?;
     } else if attr.path().is_ident("fieldset") {
@@ -279,8 +280,8 @@ fn parse_validate_attr(
   attr: &Attribute,
   validations: &mut Vec<ValidateAttr>,
   is_nested: &mut bool,
-) {
-  let _ = attr.parse_nested_meta(|meta| {
+) -> syn::Result<()> {
+  attr.parse_nested_meta(|meta| {
     let path = &meta.path;
 
     if path.is_ident("required") {
@@ -407,11 +408,11 @@ fn parse_validate_attr(
     } else {
       return Err(syn::Error::new_spanned(
         path,
-        format!("Unknown validate attribute: {:?}", path.get_ident()),
+        format!("Unknown validate attribute: {}", format_meta_path(path)),
       ));
     }
     Ok(())
-  });
+  })
 }
 
 fn parse_filter_attr(
@@ -544,7 +545,7 @@ fn parse_filter_attr(
     } else {
       return Err(syn::Error::new_spanned(
         path,
-        format!("Unknown filter attribute: {:?}", path.get_ident()),
+        format!("Unknown filter attribute: {}", format_meta_path(path)),
       ));
     }
     Ok(())
@@ -578,55 +579,6 @@ fn parse_whitespace_flag(meta: &syn::meta::ParseNestedMeta<'_>) -> syn::Result<b
     }
   }
   Ok(allow_whitespace)
-}
-
-#[cfg(test)]
-mod tests {
-  use super::parse_field_info;
-  use quote::quote;
-  use syn::{Fields, ItemStruct};
-
-  fn parse_named_field(tokens: proc_macro2::TokenStream) -> syn::Field {
-    let item: ItemStruct = syn::parse2(tokens).expect("struct should parse");
-    match item.fields {
-      Fields::Named(fields) => fields
-        .named
-        .into_iter()
-        .next()
-        .expect("struct should have one field"),
-      _ => panic!("expected named fields"),
-    }
-  }
-
-  #[test]
-  fn parse_field_info_rejects_unknown_filter_attrs() {
-    let field = parse_named_field(quote! {
-      struct Example {
-        #[filter(unknown)]
-        value: String
-      }
-    });
-
-    let err = parse_field_info(&field).expect_err("unknown filter should error");
-    assert!(err.to_string().contains("Unknown filter attribute"));
-  }
-
-  #[test]
-  fn parse_field_info_rejects_empty_whitespace_flag() {
-    let field = parse_named_field(quote! {
-      struct Example {
-        #[filter(alnum())]
-        value: String
-      }
-    });
-
-    let err = parse_field_info(&field).expect_err("empty alnum parens should error");
-    assert!(
-      err
-        .to_string()
-        .contains("expected `whitespace` inside parentheses")
-    );
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -703,5 +655,98 @@ fn expr_to_string(expr: &Expr) -> syn::Result<String> {
     Ok(s.value())
   } else {
     Err(syn::Error::new_spanned(expr, "Expected string literal"))
+  }
+}
+
+fn format_meta_path(path: &Path) -> String {
+  path
+    .get_ident()
+    .map(ToString::to_string)
+    .unwrap_or_else(|| path.to_token_stream().to_string())
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use quote::quote;
+  use syn::{Fields, ItemStruct, parse_str};
+
+  /// Parse a struct declaration and return its first named field.
+  fn parse_named_field(src: &str) -> Field {
+    let item: ItemStruct = parse_str(src).expect("valid struct");
+    match item.fields {
+      Fields::Named(named) => named.named.into_iter().next().expect("one field"),
+      _ => panic!("expected named fields"),
+    }
+  }
+
+  /// Parse a struct with quote! macro and return its first named field.
+  fn parse_named_field_from_tokens(tokens: proc_macro2::TokenStream) -> syn::Field {
+    let item: ItemStruct = syn::parse2(tokens).expect("struct should parse");
+    match item.fields {
+      Fields::Named(fields) => fields
+        .named
+        .into_iter()
+        .next()
+        .expect("struct should have one field"),
+      _ => panic!("expected named fields"),
+    }
+  }
+
+  #[test]
+  fn parse_field_info_rejects_unknown_validate_attrs() {
+    let field = parse_named_field("struct S { #[validate(nonsense)] x: String }");
+    let err = parse_field_info(&field).expect_err("unknown validate attr should error");
+    assert!(
+      err.to_string().contains("Unknown validate attribute"),
+      "expected 'Unknown validate attribute' in error, got: {}",
+      err
+    );
+    assert!(
+      err.to_string().contains("nonsense") && !err.to_string().contains("Some("),
+      "expected unknown key name in error without Option debug formatting, got: {}",
+      err
+    );
+  }
+
+  #[test]
+  fn parse_field_info_rejects_invalid_regex_pattern() {
+    let field = parse_named_field(r#"struct S { #[validate(pattern = "[")] x: String }"#);
+    let err = parse_field_info(&field).expect_err("invalid regex should error");
+    assert!(
+      err.to_string().contains("invalid regex pattern"),
+      "expected 'invalid regex pattern' in error, got: {}",
+      err
+    );
+  }
+
+  #[test]
+  fn parse_field_info_rejects_unknown_filter_attrs() {
+    let field = parse_named_field_from_tokens(quote! {
+      struct Example {
+        #[filter(unknown)]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("unknown filter should error");
+    assert!(err.to_string().contains("Unknown filter attribute"));
+  }
+
+  #[test]
+  fn parse_field_info_rejects_empty_whitespace_flag() {
+    let field = parse_named_field_from_tokens(quote! {
+      struct Example {
+        #[filter(alnum())]
+        value: String
+      }
+    });
+
+    let err = parse_field_info(&field).expect_err("empty alnum parens should error");
+    assert!(
+      err
+        .to_string()
+        .contains("expected `whitespace` inside parentheses")
+    );
   }
 }
