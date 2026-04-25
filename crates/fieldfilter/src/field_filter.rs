@@ -297,6 +297,7 @@ pub enum CrossFieldRuleType {
   /// Async custom validation (not serializable).
   #[cfg(feature = "async")]
   #[serde(skip)]
+  #[allow(clippy::type_complexity)]
   CustomAsync(
     Arc<
       dyn Fn(
