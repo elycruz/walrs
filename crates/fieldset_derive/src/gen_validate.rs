@@ -1,37 +1,238 @@
 use proc_macro2::TokenStream;
 use quote::quote;
+use syn::Ident;
 
-use crate::parse::{FieldInfo, FieldType, NumericLit, OneOfItem, ValidateAttr};
+use crate::parse::{
+  ConditionLiteral, CrossValidateRule, FieldInfo, FieldType, NumericLit, OneOfItem, ValidateAttr,
+};
 
 /// Generate the body of `fn validate(&self) -> Result<(), FieldsetViolations>`.
 pub fn gen_validate(
   fields: &[FieldInfo],
-  cross_fns: &[syn::Path],
+  cross_rules: &[CrossValidateRule],
   struct_break_on_failure: bool,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
   let field_checks: Vec<TokenStream> = fields
     .iter()
     .filter(|f| !f.validations.is_empty() || f.is_nested_validate)
     .map(|f| gen_field_validate(f, struct_break_on_failure))
     .collect();
 
-  let cross_checks: Vec<TokenStream> = cross_fns
+  let cross_checks: Vec<TokenStream> = cross_rules
     .iter()
-    .map(|path| {
-      quote! {
-        if let Err(violation) = #path(&self) {
-          violations.add_form_violation(violation);
-        }
-      }
-    })
-    .collect();
+    .map(|rule| gen_cross_validate(rule, fields))
+    .collect::<syn::Result<Vec<_>>>()?;
 
-  quote! {
+  Ok(quote! {
     fn validate(&self) -> ::core::result::Result<(), walrs_validation::FieldsetViolations> {
       let mut violations = walrs_validation::FieldsetViolations::new();
       #(#field_checks)*
       #(#cross_checks)*
       violations.into()
+    }
+  })
+}
+
+/// Find a field by ident; error if missing. Returns its type for codegen decisions.
+fn lookup_field<'a>(fields: &'a [FieldInfo], name: &Ident) -> syn::Result<&'a FieldInfo> {
+  fields.iter().find(|f| &f.ident == name).ok_or_else(|| {
+    syn::Error::new(
+      name.span(),
+      format!("cross_validate references unknown field `{name}`"),
+    )
+  })
+}
+
+/// Emit an expression of type `bool` that is `true` when `self.<field>` carries a value.
+///
+/// - `Option<T>` → `self.field.is_some()` (and for Option<String>, also non-empty)
+/// - `String` → `!self.field.is_empty()`
+/// - other scalars (numeric/bool/char) → always `true`
+fn emit_has_value(field: &FieldInfo) -> TokenStream {
+  let name = &field.ident;
+  match &field.ty {
+    FieldType::String => quote! { !self.#name.is_empty() },
+    FieldType::OptionString => {
+      quote! { self.#name.as_ref().map(|s| !s.is_empty()).unwrap_or(false) }
+    }
+    FieldType::OptionBool
+    | FieldType::OptionChar
+    | FieldType::OptionNumeric(_)
+    | FieldType::OptionOther(_) => quote! { self.#name.is_some() },
+    _ => quote! { true },
+  }
+}
+
+/// Emit an expression of type `bool` that compares `self.<field>` against `lit`.
+fn emit_eq_literal(field: &FieldInfo, lit: &ConditionLiteral) -> TokenStream {
+  let name = &field.ident;
+  match (&field.ty, lit) {
+    (FieldType::String, ConditionLiteral::Str(s)) => quote! { self.#name == #s },
+    (FieldType::OptionString, ConditionLiteral::Str(s)) => {
+      quote! { self.#name.as_deref() == ::core::option::Option::Some(#s) }
+    }
+    (FieldType::Bool, ConditionLiteral::Bool(b)) => quote! { self.#name == #b },
+    (FieldType::OptionBool, ConditionLiteral::Bool(b)) => {
+      quote! { self.#name == ::core::option::Option::Some(#b) }
+    }
+    (FieldType::Numeric(_), ConditionLiteral::Int(v)) => {
+      let lit = proc_macro2::Literal::i128_unsuffixed(*v);
+      quote! { self.#name == #lit }
+    }
+    (FieldType::OptionNumeric(_), ConditionLiteral::Int(v)) => {
+      let lit = proc_macro2::Literal::i128_unsuffixed(*v);
+      quote! { self.#name == ::core::option::Option::Some(#lit) }
+    }
+    // Fallback: fall through to direct equality and let rustc surface a type
+    // mismatch at the call site rather than silently codegen the wrong thing.
+    (_, ConditionLiteral::Str(s)) => quote! { self.#name == #s },
+    (_, ConditionLiteral::Bool(b)) => quote! { self.#name == #b },
+    (_, ConditionLiteral::Int(v)) => {
+      let lit = proc_macro2::Literal::i128_unsuffixed(*v);
+      quote! { self.#name == #lit }
+    }
+  }
+}
+
+fn gen_cross_validate(rule: &CrossValidateRule, fields: &[FieldInfo]) -> syn::Result<TokenStream> {
+  match rule {
+    CrossValidateRule::Custom(path) => Ok(quote! {
+      if let Err(violation) = #path(&self) {
+        violations.add_form_violation(violation);
+      }
+    }),
+    CrossValidateRule::FieldsEqual { field_a, field_b } => {
+      let _ = lookup_field(fields, field_a)?;
+      let _ = lookup_field(fields, field_b)?;
+      let a_str = field_a.to_string();
+      let b_str = field_b.to_string();
+      Ok(quote! {
+        if self.#field_a != self.#field_b {
+          violations.add_form_violation(walrs_validation::Violation::new(
+            walrs_validation::ViolationType::NotEqual,
+            ::std::format!("FieldsEqual: {} and {} must be equal", #a_str, #b_str),
+          ));
+        }
+      })
+    }
+    CrossValidateRule::RequiredIf {
+      field,
+      condition_field,
+      condition,
+    } => {
+      let field_info = lookup_field(fields, field)?;
+      let cond_info = lookup_field(fields, condition_field)?;
+      let has_value = emit_has_value(field_info);
+      let cond_check = emit_eq_literal(cond_info, condition);
+      let f_str = field.to_string();
+      let c_str = condition_field.to_string();
+      Ok(quote! {
+        if (#cond_check) && !(#has_value) {
+          violations.add_form_violation(walrs_validation::Violation::new(
+            walrs_validation::ViolationType::ValueMissing,
+            ::std::format!(
+              "RequiredIf: {} is required when condition is met on {}",
+              #f_str, #c_str
+            ),
+          ));
+        }
+      })
+    }
+    CrossValidateRule::RequiredUnless {
+      field,
+      condition_field,
+      condition,
+    } => {
+      let field_info = lookup_field(fields, field)?;
+      let cond_info = lookup_field(fields, condition_field)?;
+      let has_value = emit_has_value(field_info);
+      let cond_check = emit_eq_literal(cond_info, condition);
+      let f_str = field.to_string();
+      let c_str = condition_field.to_string();
+      Ok(quote! {
+        if !(#cond_check) && !(#has_value) {
+          violations.add_form_violation(walrs_validation::Violation::new(
+            walrs_validation::ViolationType::ValueMissing,
+            ::std::format!(
+              "RequiredUnless: {} is required unless condition is met on {}",
+              #f_str, #c_str
+            ),
+          ));
+        }
+      })
+    }
+    CrossValidateRule::OneOfRequired { fields: names } => {
+      let checks: Vec<TokenStream> = names
+        .iter()
+        .map(|n| lookup_field(fields, n).map(emit_has_value))
+        .collect::<syn::Result<_>>()?;
+      let names_csv = names
+        .iter()
+        .map(|n| n.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+      Ok(quote! {
+        if !((#(#checks)||*)) {
+          violations.add_form_violation(walrs_validation::Violation::new(
+            walrs_validation::ViolationType::ValueMissing,
+            ::std::format!("OneOfRequired: At least one of {} is required", #names_csv),
+          ));
+        }
+      })
+    }
+    CrossValidateRule::MutuallyExclusive { fields: names } => {
+      let checks: Vec<TokenStream> = names
+        .iter()
+        .map(|n| lookup_field(fields, n).map(emit_has_value))
+        .collect::<syn::Result<_>>()?;
+      let names_csv = names
+        .iter()
+        .map(|n| n.to_string())
+        .collect::<Vec<_>>()
+        .join(", ");
+      Ok(quote! {
+        {
+          let __filled: usize = 0 #(+ if #checks { 1 } else { 0 })*;
+          if __filled > 1 {
+            violations.add_form_violation(walrs_validation::Violation::new(
+              walrs_validation::ViolationType::CustomError,
+              ::std::format!("MutuallyExclusive: Only one of {} can have a value", #names_csv),
+            ));
+          }
+        }
+      })
+    }
+    CrossValidateRule::DependentRequired {
+      trigger,
+      dependents,
+    } => {
+      let trigger_info = lookup_field(fields, trigger)?;
+      let trigger_check = emit_has_value(trigger_info);
+      let dep_arms: Vec<TokenStream> = dependents
+        .iter()
+        .map(|n| {
+          let info = lookup_field(fields, n)?;
+          let has = emit_has_value(info);
+          let n_str = n.to_string();
+          let t_str = trigger.to_string();
+          Ok(quote! {
+            if !(#has) {
+              violations.add_form_violation(walrs_validation::Violation::new(
+                walrs_validation::ViolationType::ValueMissing,
+                ::std::format!(
+                  "DependentRequired: {} is required when {} is provided",
+                  #n_str, #t_str
+                ),
+              ));
+            }
+          })
+        })
+        .collect::<syn::Result<_>>()?;
+      Ok(quote! {
+        if #trigger_check {
+          #(#dep_arms)*
+        }
+      })
     }
   }
 }
