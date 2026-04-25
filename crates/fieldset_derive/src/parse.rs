@@ -15,6 +15,10 @@ pub struct FieldsetStructAttrs {
   pub break_on_failure: bool,
   pub into_form_data: bool,
   pub try_from_form_data: bool,
+  /// `#[fieldset(async)]` — emit a `FieldsetAsync` impl in addition to the sync `Fieldset` impl.
+  // Field renamed from `r#async` because `r#async` cannot be used as an idiomatic struct field
+  // name in some downstream tooling; meaning is "emit async impl".
+  pub async_emit: bool,
 }
 
 /// Parsed `#[cross_validate(...)]` attributes on the struct.
@@ -111,10 +115,16 @@ pub enum ValidateAttr {
   Pattern(String),
   Min(NumericLit),
   Max(NumericLit),
-  Range { min: NumericLit, max: NumericLit },
+  Range {
+    min: NumericLit,
+    max: NumericLit,
+  },
   Step(NumericLit),
   OneOf(Vec<OneOfItem>),
   Custom(Path),
+  /// `custom_async = "path::fn"` — async custom validator. Only honored by the async codegen
+  /// path; the sync codegen ignores it.
+  CustomAsync(Path),
   Message(String),
   MessageFn(Path),
   Locale(String),
@@ -242,6 +252,8 @@ pub fn parse_fieldset_struct_attrs(attrs: &[Attribute]) -> FieldsetStructAttrs {
           result.into_form_data = true;
         } else if meta.path.is_ident("try_from_form_data") {
           result.try_from_form_data = true;
+        } else if is_async_path(&meta.path) {
+          result.async_emit = true;
         }
         Ok(())
       });
@@ -624,6 +636,11 @@ fn parse_validate_attr(
       let lit: LitStr = meta.input.parse()?;
       let path: Path = lit.parse()?;
       validations.push(ValidateAttr::Custom(path));
+    } else if path.is_ident("custom_async") {
+      let _: Token![=] = meta.input.parse()?;
+      let lit: LitStr = meta.input.parse()?;
+      let path: Path = lit.parse()?;
+      validations.push(ValidateAttr::CustomAsync(path));
     } else if path.is_ident("nested") {
       *is_nested = true;
     } else if path.is_ident("message") {
@@ -890,6 +907,14 @@ fn expr_to_string(expr: &Expr) -> syn::Result<String> {
   } else {
     Err(syn::Error::new_spanned(expr, "Expected string literal"))
   }
+}
+
+/// Check whether a meta path is the identifier `async`.
+///
+/// `async` is a Rust keyword, so `path.is_ident("async")` does not match in
+/// all syn versions. Compare via the underlying string instead.
+fn is_async_path(path: &Path) -> bool {
+  path.get_ident().map(|i| i == "async").unwrap_or(false)
 }
 
 fn format_meta_path(path: &Path) -> String {
