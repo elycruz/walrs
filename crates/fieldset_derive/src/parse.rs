@@ -393,6 +393,7 @@ fn parse_required_conditional(
     let _: Token![=] = input.parse()?;
     let lit: Lit = input.parse()?;
     let condition = lit_to_condition(&lit)?;
+    let _: Option<Token![,]> = input.parse()?;
     Ok((field, condition_field, condition))
   };
   syn::parse::Parser::parse2(parser, body).map_err(|e| {
@@ -450,6 +451,7 @@ fn parse_dependent_required(
         "dependents() requires at least one field ident",
       ));
     }
+    let _: Option<Token![,]> = input.parse()?;
     Ok((trigger, dependents))
   };
   syn::parse::Parser::parse2(parser, body).map_err(|e| {
@@ -1084,5 +1086,41 @@ mod tests {
     })
     .unwrap_err();
     assert!(err.to_string().contains("Unknown cross_validate rule"));
+  }
+
+  #[test]
+  fn parse_cross_validate_required_if_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_if(addr, country = "us",))]
+      struct S { country: String, addr: Option<String> }
+    })
+    .expect("trailing comma after literal should be accepted");
+    assert!(matches!(attrs.rules[0], CrossValidateRule::RequiredIf { .. }));
+  }
+
+  #[test]
+  fn parse_cross_validate_required_unless_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_unless(addr, same = true,))]
+      struct S { same: bool, addr: Option<String> }
+    })
+    .expect("trailing comma after literal should be accepted");
+    assert!(matches!(
+      attrs.rules[0],
+      CrossValidateRule::RequiredUnless { .. }
+    ));
+  }
+
+  #[test]
+  fn parse_cross_validate_dependent_required_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(dependent_required(trigger = ship, dependents(street, zip),))]
+      struct S { ship: bool, street: Option<String>, zip: Option<String> }
+    })
+    .expect("trailing comma after dependents() should be accepted");
+    assert!(matches!(
+      attrs.rules[0],
+      CrossValidateRule::DependentRequired { .. }
+    ));
   }
 }

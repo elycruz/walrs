@@ -267,3 +267,69 @@ fn required_if_int_condition_mismatch() {
   };
   assert!(form.validate().is_ok());
 }
+
+// =========================================================================
+// presence checks treat whitespace-only strings as empty
+// =========================================================================
+//
+// `walrs_validation::IsEmpty for String` and `ValueExt::is_empty_value()`
+// both treat `"   "` as empty, so the typed-derive cross-field rules must
+// agree. These tests pin that contract: a whitespace-only String /
+// Option<String> behaves the same as an empty / `None` value.
+
+#[derive(Debug, DeriveFieldset)]
+#[cross_validate(one_of_required(email, phone))]
+struct ContactWs {
+  email: Option<String>,
+  phone: Option<String>,
+}
+
+#[test]
+fn one_of_required_treats_whitespace_only_as_empty() {
+  let form = ContactWs {
+    email: Some("   ".into()),
+    phone: Some("\t\n".into()),
+  };
+  let err = form
+    .validate()
+    .expect_err("whitespace-only fields should not satisfy one_of_required");
+  assert!(err.form_violations().is_some());
+}
+
+#[derive(Debug, DeriveFieldset)]
+#[cross_validate(required_if(addr, country = "us"))]
+struct CheckoutWs {
+  country: String,
+  addr: Option<String>,
+}
+
+#[test]
+fn required_if_treats_whitespace_only_addr_as_missing() {
+  let form = CheckoutWs {
+    country: "us".into(),
+    addr: Some("   ".into()),
+  };
+  let err = form
+    .validate()
+    .expect_err("whitespace-only addr should be treated as missing");
+  assert!(err.form_violations().is_some());
+}
+
+#[derive(Debug, DeriveFieldset)]
+#[cross_validate(dependent_required(trigger = ship, dependents(street, zip)))]
+struct ShipFormWs {
+  ship: String,
+  street: Option<String>,
+  zip: Option<String>,
+}
+
+#[test]
+fn dependent_required_whitespace_only_trigger_does_not_fire() {
+  // A whitespace-only trigger is "empty", so the dependents check must skip.
+  let form = ShipFormWs {
+    ship: "   ".into(),
+    street: None,
+    zip: None,
+  };
+  assert!(form.validate().is_ok());
+}

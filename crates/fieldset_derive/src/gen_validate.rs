@@ -45,15 +45,20 @@ fn lookup_field<'a>(fields: &'a [FieldInfo], name: &Ident) -> syn::Result<&'a Fi
 
 /// Emit an expression of type `bool` that is `true` when `self.<field>` carries a value.
 ///
-/// - `Option<T>` → `self.field.is_some()` (and for Option<String>, also non-empty)
-/// - `String` → `!self.field.is_empty()`
+/// String presence checks use `trim().is_empty()` to match `walrs_validation`'s
+/// `IsEmpty for String` and `ValueExt::is_empty_value()` semantics — a
+/// whitespace-only string is treated as empty here, just like field-level
+/// `required` validation and the dynamic cross-field rules.
+///
+/// - `Option<T>` → `self.field.is_some()` (and for Option<String>, also non-blank)
+/// - `String` → `!self.field.trim().is_empty()`
 /// - other scalars (numeric/bool/char) → always `true`
 fn emit_has_value(field: &FieldInfo) -> TokenStream {
   let name = &field.ident;
   match &field.ty {
-    FieldType::String => quote! { !self.#name.is_empty() },
+    FieldType::String => quote! { !self.#name.trim().is_empty() },
     FieldType::OptionString => {
-      quote! { self.#name.as_ref().map(|s| !s.is_empty()).unwrap_or(false) }
+      quote! { self.#name.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false) }
     }
     FieldType::OptionBool
     | FieldType::OptionChar
