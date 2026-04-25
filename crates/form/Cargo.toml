@@ -34,5 +34,10 @@ async = ["walrs_fieldfilter/async"]
 [dev-dependencies]
 walrs_fieldfilter = { path = "../fieldfilter", features = ["derive"] }
 walrs_fieldset_derive = { path = "../fieldset_derive" }
+walrs_filter = { path = "../filter", features = ["validation", "value"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+
+[[example]]
+name = "derive_formdata_bridge"
+required-features = []
 

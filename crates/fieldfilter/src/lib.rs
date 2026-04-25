@@ -53,6 +53,40 @@
 //! assert!(encoded_field.clean("hello".to_string()).is_ok());
 //! assert!(encoded_field.clean("bad\0input".to_string()).is_err());
 //! ```
+//!
+//! ## Typed ↔ Dynamic interop
+//!
+//! Two parallel processing paths exist; pick by where your data shape is known:
+//!
+//! - **Typed path — [`Fieldset`]** (recommended for new code). When fields
+//!   are known at compile time, define a struct and either implement
+//!   [`Fieldset`] manually or use `#[derive(Fieldset)]` (behind the `derive`
+//!   feature, re-exported as [`DeriveFieldset`]). You get statically-checked
+//!   fields, native Rust types, and per-field `clean()` semantics.
+//!
+//! - **Dynamic path — [`FieldFilter`]**. When fields are not known until
+//!   runtime (e.g., user-defined forms, schema-driven payloads), build a
+//!   `FieldFilter` from `Field<Value>` entries plus optional
+//!   [`CrossFieldRule`]s. The form data travels as `walrs_form::FormData`
+//!   (an ordered `IndexMap<String, Value>`).
+//!
+//! The two paths are bridged by the derive macro's optional attributes:
+//!
+//! ```ignore
+//! #[derive(Fieldset)]
+//! #[fieldset(into_form_data, try_from_form_data)]
+//! struct Signup { /* ... */ }
+//! ```
+//!
+//! - `#[fieldset(into_form_data)]` generates `impl From<&T> for walrs_form::FormData`.
+//! - `#[fieldset(try_from_form_data)]` generates
+//!   `impl TryFrom<walrs_form::FormData> for T` returning
+//!   [`FieldsetViolations`] on shape errors.
+//!
+//! Together they let an HTTP layer that speaks dynamic `FormData` round-trip
+//! through a typed struct: `FormData → T → clean() → FormData`. See the
+//! runnable `derive_formdata_bridge` example in the `walrs_form` crate
+//! (`cargo run --example derive_formdata_bridge -p walrs_form`).
 
 #[macro_use]
 extern crate derive_builder;

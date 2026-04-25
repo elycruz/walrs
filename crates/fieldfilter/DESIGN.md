@@ -69,3 +69,22 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
 
 - **Stateless** — `Field<T>` and `FieldFilter` are configuration objects
   that do not mutate internal state during processing.
+
+## Typed vs Dynamic
+
+The crate exposes two parallel pipelines. Choose by where the field set is
+known:
+
+- **`Fieldset` (typed)** — fields known at compile time. Implement the trait
+  by hand or with `#[derive(Fieldset)]` (the `derive` feature). Native Rust
+  types, statically-checked field names, per-field `clean()`.
+
+- **`FieldFilter` (dynamic)** — fields known only at runtime. An
+  `IndexMap<String, Field<Value>>` plus `CrossFieldRule`s drives the
+  pipeline; data travels as `walrs_form::FormData`.
+
+The two are connected by the derive's optional bridge attributes
+`#[fieldset(into_form_data, try_from_form_data)]`, which generate
+`From<&T> for FormData` and `TryFrom<FormData> for T` so a single payload
+can move between paths. A runnable round-trip lives in
+`crates/form/examples/derive_formdata_bridge.rs`.

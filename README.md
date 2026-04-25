@@ -58,6 +58,16 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | `walrs_rbac` | Role-Based Access Control |
 | `walrs_validation` | Composable validation rules |
 
+### Choosing a path: typed vs dynamic
+
+`walrs_fieldfilter` offers two parallel pipelines. Use the typed `Fieldset` trait
+(or `#[derive(Fieldset)]` via the `fieldfilter-derive` feature) when fields are
+known at compile time. Use the dynamic `FieldFilter` over `walrs_form::FormData`
+when fields are only known at runtime. The derive's
+`#[fieldset(into_form_data, try_from_form_data)]` attributes bridge the two; see
+`crates/form/examples/derive_formdata_bridge.rs` for a `FormData → typed → clean → FormData`
+round-trip.
+
 ## Development
 
 ### Code coverage with `cargo-llvm-cov`
