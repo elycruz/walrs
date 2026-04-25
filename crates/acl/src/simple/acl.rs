@@ -1002,8 +1002,7 @@ mod async_impl {
         self
           ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
           .await
-      } else if _resources.is_none() && _roles.is_some() {
-        let rs = _roles.as_ref().unwrap();
+      } else if let Some(rs) = _roles.as_ref().filter(|_| _resources.is_none()) {
         for ro in rs.iter().rev() {
           if self
             ._matches_allow_no_dfs_async(Some(ro), resource, privilege, resolver)
@@ -1015,8 +1014,7 @@ mod async_impl {
         self
           ._matches_allow_no_dfs_async(role, resource, privilege, resolver)
           .await
-      } else if _resources.is_some() && _roles.is_none() {
-        let rs = _resources.as_ref().unwrap();
+      } else if let Some(rs) = _resources.as_ref().filter(|_| _roles.is_none()) {
         for r in rs.iter().rev() {
           if self
             ._matches_allow_no_dfs_async(role, Some(*r), privilege, resolver)
