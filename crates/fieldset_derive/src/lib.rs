@@ -25,6 +25,12 @@ use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_
 /// - `#[fieldset(try_from_form_data)]` — generate `impl TryFrom<walrs_form::FormData> for T`
 /// - `#[fieldset(async)]` — also emit a `FieldsetAsync` impl (gated under `cfg(feature = "async")`)
 /// - `#[cross_validate(fn_name)]` — call `fn_name(&self) -> RuleResult` after per-field validation
+/// - `#[cross_validate(fields_equal(a, b))]` — both fields must be equal
+/// - `#[cross_validate(required_if(field, condition_field = <literal>))]`
+/// - `#[cross_validate(required_unless(field, condition_field = <literal>))]`
+/// - `#[cross_validate(one_of_required(a, b, ...))]`
+/// - `#[cross_validate(mutually_exclusive(a, b, ...))]`
+/// - `#[cross_validate(dependent_required(trigger = t, dependents(a, b, ...)))]`
 ///
 /// ## Field-level validation (`#[validate(...)]`)
 ///
@@ -98,7 +104,7 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
   // Parse struct-level attributes
   let struct_attrs = parse_fieldset_struct_attrs(&input.attrs);
-  let cross_validate = parse_cross_validate_attrs(&input.attrs);
+  let cross_validate = parse_cross_validate_attrs(&input.attrs)?;
 
   // Parse all fields
   let field_infos: Vec<_> = fields
@@ -112,9 +118,9 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
   // Generate validate and filter methods
   let validate_fn = gen_validate(
     &field_infos,
-    &cross_validate.fns,
+    &cross_validate.rules,
     struct_attrs.break_on_failure,
-  );
+  )?;
   let filter_fn = gen_filter(&field_infos);
 
   // Generate FormData bridge impls if requested
@@ -145,9 +151,9 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
   let async_impl = if struct_attrs.async_emit {
     let validate_async_fn = gen_validate_async(
       &field_infos,
-      &cross_validate.fns,
+      &cross_validate.rules,
       struct_attrs.break_on_failure,
-    );
+    )?;
     quote! {
       #[cfg(feature = "async")]
       #[cfg_attr(docsrs, doc(cfg(feature = "async")))]

@@ -9,32 +9,27 @@
 use proc_macro2::TokenStream;
 use quote::quote;
 
-use crate::parse::{FieldInfo, FieldType, NumericLit, OneOfItem, ValidateAttr};
+use crate::gen_validate::gen_cross_validate;
+use crate::parse::{CrossValidateRule, FieldInfo, FieldType, NumericLit, OneOfItem, ValidateAttr};
 
 /// Generate the body of `fn validate_async(&self) -> ... + Send`.
 pub fn gen_validate_async(
   fields: &[FieldInfo],
-  cross_fns: &[syn::Path],
+  cross_rules: &[CrossValidateRule],
   struct_break_on_failure: bool,
-) -> TokenStream {
+) -> syn::Result<TokenStream> {
   let field_checks: Vec<TokenStream> = fields
     .iter()
     .filter(|f| !f.validations.is_empty() || f.is_nested_validate)
     .map(|f| gen_field_validate_async(f, struct_break_on_failure))
     .collect();
 
-  let cross_checks: Vec<TokenStream> = cross_fns
+  let cross_checks: Vec<TokenStream> = cross_rules
     .iter()
-    .map(|path| {
-      quote! {
-        if let Err(violation) = #path(&self) {
-          violations.add_form_violation(violation);
-        }
-      }
-    })
-    .collect();
+    .map(|rule| gen_cross_validate(rule, fields))
+    .collect::<syn::Result<Vec<_>>>()?;
 
-  quote! {
+  Ok(quote! {
     fn validate_async(
       &self,
     ) -> impl ::core::future::Future<Output = ::core::result::Result<(), walrs_validation::FieldsetViolations>> + Send {
@@ -45,7 +40,7 @@ pub fn gen_validate_async(
         violations.into()
       }
     }
-  }
+  })
 }
 
 fn gen_field_validate_async(field: &FieldInfo, struct_break: bool) -> TokenStream {
