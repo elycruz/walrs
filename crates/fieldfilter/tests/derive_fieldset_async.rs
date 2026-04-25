@@ -141,3 +141,69 @@ async fn async_only_field_is_noop_in_sync_path() {
   // Sync codegen has no rules for `token` -> passes.
   assert!(v.validate().is_ok());
 }
+
+// --- Option-field custom_async (locks in the Option handling contract) ---
+
+async fn check_optional_handle(name: &str) -> ValidatorResult {
+  if name == "taken" {
+    Err(Violation::new(
+      ViolationType::CustomError,
+      "handle already taken",
+    ))
+  } else {
+    Ok(())
+  }
+}
+
+#[derive(Debug, DeriveFieldset)]
+#[fieldset(async)]
+struct OptionalRequired {
+  // `required` + custom_async on Option<String>: None -> value_missing only
+  // (custom_async must not run); Some -> custom_async receives &str.
+  #[validate(required, custom_async = "check_optional_handle")]
+  handle: Option<String>,
+}
+
+#[derive(Debug, DeriveFieldset)]
+#[fieldset(async)]
+struct OptionalNotRequired {
+  // No `required`: None -> skip; Some -> custom_async receives &str.
+  #[validate(custom_async = "check_optional_handle")]
+  handle: Option<String>,
+}
+
+#[tokio::test]
+async fn custom_async_on_required_option_runs_when_some() {
+  let r = OptionalRequired {
+    handle: Some("taken".into()),
+  };
+  let err = r.validate_async().await.unwrap_err();
+  assert!(err.get("handle").is_some());
+}
+
+#[tokio::test]
+async fn custom_async_on_required_option_skips_when_none() {
+  // None should produce only `value_missing` from the `required` rule —
+  // custom_async must not be invoked (would otherwise need to handle Option).
+  let r = OptionalRequired { handle: None };
+  let err = r.validate_async().await.unwrap_err();
+  let fv = err.get("handle").expect("handle missing");
+  // Exactly one violation: value_missing.
+  assert_eq!(fv.0.len(), 1);
+}
+
+#[tokio::test]
+async fn custom_async_on_optional_skips_when_none() {
+  let r = OptionalNotRequired { handle: None };
+  // No rules apply for None and no required -> passes.
+  assert!(r.validate_async().await.is_ok());
+}
+
+#[tokio::test]
+async fn custom_async_on_optional_runs_when_some() {
+  let r = OptionalNotRequired {
+    handle: Some("taken".into()),
+  };
+  let err = r.validate_async().await.unwrap_err();
+  assert!(err.get("handle").is_some());
+}

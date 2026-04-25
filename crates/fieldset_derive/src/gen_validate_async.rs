@@ -209,6 +209,12 @@ fn gen_sync_rule_block(field: &FieldInfo, break_check: &TokenStream) -> TokenStr
 }
 
 /// Emit invocations for each `custom_async = "..."` validator.
+///
+/// Mirrors the sync rule block's `Option<T>` handling: only invoke on
+/// `Some(inner)` and pass the inner `&str`/`&T` reference. `None` is skipped
+/// silently — the `required` rule (when present) already produced a
+/// `value_missing` violation in the sync rule block, so re-emitting one here
+/// would be redundant.
 fn gen_custom_async_block(
   field: &FieldInfo,
   field_name_str: &str,
@@ -229,17 +235,20 @@ fn gen_custom_async_block(
     return quote! {};
   }
 
-  let value_expr: TokenStream = match &field.ty {
+  let inner_value_expr: TokenStream = match &field.ty {
     FieldType::String => quote! { self.#field_name.as_str() },
-    FieldType::OptionString => quote! { self.#field_name.as_deref() },
-    _ => quote! { &self.#field_name },
+    FieldType::OptionString => quote! { inner.as_str() },
+    FieldType::Numeric(_) | FieldType::Bool | FieldType::Char => quote! { &self.#field_name },
+    FieldType::OptionNumeric(_) | FieldType::OptionBool | FieldType::OptionChar => quote! { inner },
+    FieldType::Other(_) => quote! { &self.#field_name },
+    FieldType::OptionOther(_) => quote! { inner },
   };
 
   let calls: Vec<TokenStream> = async_paths
     .into_iter()
     .map(|path| {
       quote! {
-        if let ::core::result::Result::Err(violation) = #path(#value_expr).await {
+        if let ::core::result::Result::Err(violation) = #path(#inner_value_expr).await {
           violations.add(#field_name_str, violation);
           #break_check
         }
@@ -247,8 +256,23 @@ fn gen_custom_async_block(
     })
     .collect();
 
-  quote! {
+  let body = quote! {
     #(#calls)*
+  };
+
+  match &field.ty {
+    FieldType::OptionString
+    | FieldType::OptionNumeric(_)
+    | FieldType::OptionBool
+    | FieldType::OptionChar
+    | FieldType::OptionOther(_) => {
+      quote! {
+        if let ::core::option::Option::Some(inner) = self.#field_name.as_ref() {
+          #body
+        }
+      }
+    }
+    _ => body,
   }
 }
 

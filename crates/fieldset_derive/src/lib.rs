@@ -23,7 +23,21 @@ use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_
 /// - `#[fieldset(break_on_failure)]` — stop validation after the first field with violations
 /// - `#[fieldset(into_form_data)]` — generate `impl From<&T> for walrs_form::FormData`
 /// - `#[fieldset(try_from_form_data)]` — generate `impl TryFrom<walrs_form::FormData> for T`
-/// - `#[fieldset(async)]` — also emit a `FieldsetAsync` impl (gated under `cfg(feature = "async")`)
+/// - `#[fieldset(async)]` — also emit a `FieldsetAsync` impl, gated by
+///   `#[cfg(feature = "async")]` **as evaluated in the consuming crate**.
+///   Enabling `walrs_fieldfilter`'s `async` feature alone is **not** enough —
+///   the crate that contains the `#[derive(Fieldset)]` struct must itself
+///   declare and enable an `async` feature so the generated `cfg` gate is
+///   active at compile time. A typical setup looks like:
+///
+///   ```toml
+///   # In the consuming crate's Cargo.toml
+///   [features]
+///   async = ["walrs_fieldfilter/async"]
+///   ```
+///
+///   Without this, the generated `impl FieldsetAsync` is silently elided
+///   even though the dependency tree has async support enabled.
 /// - `#[cross_validate(fn_name)]` — call `fn_name(&self) -> RuleResult` after per-field validation
 /// - `#[cross_validate(fields_equal(a, b))]` — both fields must be equal
 /// - `#[cross_validate(required_if(field, condition_field = <literal>))]`
