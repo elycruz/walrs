@@ -126,6 +126,11 @@ impl<'de> Deserialize<'de> for CompiledPattern {
 /// Result of applying a rule to a value.
 pub type RuleResult = Result<(), Violation>;
 
+/// Type alias for the async custom validation function pointer used by `Rule::CustomAsync`.
+#[cfg(feature = "async")]
+pub type CustomAsyncFn<T> =
+  Arc<dyn Fn(&T) -> Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>> + Send + Sync>;
+
 // ============================================================================
 // Condition Enum
 // ============================================================================
@@ -351,13 +356,7 @@ pub enum Rule<T> {
   /// Use `Rule::custom_async()` to construct this variant.
   #[cfg(feature = "async")]
   #[serde(skip)]
-  CustomAsync(
-    Arc<
-      dyn Fn(&T) -> Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>>
-        + Send
-        + Sync,
-    >,
-  ),
+  CustomAsync(CustomAsyncFn<T>),
 
   /// Reference to a named rule (left to userland code)
   #[serde(skip)]
@@ -655,13 +654,7 @@ impl<T> Rule<T> {
   /// }));
   /// ```
   #[cfg(feature = "async")]
-  pub fn custom_async(
-    f: Arc<
-      dyn Fn(&T) -> Pin<Box<dyn std::future::Future<Output = RuleResult> + Send + '_>>
-        + Send
-        + Sync,
-    >,
-  ) -> Rule<T> {
+  pub fn custom_async(f: CustomAsyncFn<T>) -> Rule<T> {
     Rule::CustomAsync(f)
   }
 
