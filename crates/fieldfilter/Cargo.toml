@@ -34,3 +34,7 @@ required-features = ["derive"]
 [[example]]
 name = "derive_nested"
 required-features = ["derive"]
+
+[[example]]
+name = "derive_cross_validate"
+required-features = ["derive"]

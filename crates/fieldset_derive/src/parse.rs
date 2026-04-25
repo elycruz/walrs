@@ -17,10 +17,48 @@ pub struct FieldsetStructAttrs {
   pub try_from_form_data: bool,
 }
 
-/// Parsed `#[cross_validate(fn_name)]` on the struct.
+/// Parsed `#[cross_validate(...)]` attributes on the struct.
 #[derive(Debug, Default)]
 pub struct CrossValidateAttrs {
-  pub fns: Vec<Path>,
+  pub rules: Vec<CrossValidateRule>,
+}
+
+/// One parsed `#[cross_validate(...)]` rule.
+#[derive(Debug)]
+pub enum CrossValidateRule {
+  /// Free-form `#[cross_validate(fn_path)]`.
+  Custom(Path),
+  /// `#[cross_validate(fields_equal(a, b))]`
+  FieldsEqual { field_a: Ident, field_b: Ident },
+  /// `#[cross_validate(required_if(field, condition_field = literal))]`
+  RequiredIf {
+    field: Ident,
+    condition_field: Ident,
+    condition: ConditionLiteral,
+  },
+  /// `#[cross_validate(required_unless(field, condition_field = literal))]`
+  RequiredUnless {
+    field: Ident,
+    condition_field: Ident,
+    condition: ConditionLiteral,
+  },
+  /// `#[cross_validate(one_of_required(a, b, ...))]`
+  OneOfRequired { fields: Vec<Ident> },
+  /// `#[cross_validate(mutually_exclusive(a, b, ...))]`
+  MutuallyExclusive { fields: Vec<Ident> },
+  /// `#[cross_validate(dependent_required(trigger = t, dependents(a, b, ...)))]`
+  DependentRequired {
+    trigger: Ident,
+    dependents: Vec<Ident>,
+  },
+}
+
+/// Literal value used in `required_if` / `required_unless` conditions.
+#[derive(Debug, Clone)]
+pub enum ConditionLiteral {
+  Str(String),
+  Bool(bool),
+  Int(i128),
 }
 
 // ---------------------------------------------------------------------------
@@ -216,16 +254,212 @@ pub fn parse_fieldset_struct_attrs(attrs: &[Attribute]) -> FieldsetStructAttrs {
 // Parse struct-level `#[cross_validate(fn_name)]`
 // ---------------------------------------------------------------------------
 
-pub fn parse_cross_validate_attrs(attrs: &[Attribute]) -> CrossValidateAttrs {
+pub fn parse_cross_validate_attrs(attrs: &[Attribute]) -> syn::Result<CrossValidateAttrs> {
   let mut result = CrossValidateAttrs::default();
   for attr in attrs {
-    if attr.path().is_ident("cross_validate")
-      && let Ok(path) = attr.parse_args::<Path>()
-    {
-      result.fns.push(path);
+    if attr.path().is_ident("cross_validate") {
+      result.rules.push(parse_one_cross_validate(attr)?);
     }
   }
-  result
+  Ok(result)
+}
+
+fn parse_one_cross_validate(attr: &Attribute) -> syn::Result<CrossValidateRule> {
+  // Look at the inner tokens. The two top-level shapes we accept:
+  //   #[cross_validate(fn_path)]                     → Custom(Path)
+  //   #[cross_validate(kind(args, ...))]             → structured variant
+  //
+  // syn's `parse_args::<Path>` matches when the inner is a single path with
+  // no parens (e.g. `passwords_match` or `my::module::fn`). When the inner
+  // is `kind(...)` syn parses it as an `ExprCall`.
+  let parsed: CrossValidateInner = attr.parse_args()?;
+  match parsed {
+    CrossValidateInner::Path(p) => Ok(CrossValidateRule::Custom(p)),
+    CrossValidateInner::Structured { kind, body } => parse_structured_rule(&kind, body),
+  }
+}
+
+enum CrossValidateInner {
+  Path(Path),
+  Structured {
+    kind: Ident,
+    body: proc_macro2::TokenStream,
+  },
+}
+
+impl Parse for CrossValidateInner {
+  fn parse(input: ParseStream) -> syn::Result<Self> {
+    // Try to parse as a structured form first: an Ident followed by a paren group.
+    let fork = input.fork();
+    if fork.parse::<Ident>().is_ok() && fork.peek(token::Paren) {
+      let kind: Ident = input.parse()?;
+      let content;
+      parenthesized!(content in input);
+      let body: proc_macro2::TokenStream = content.parse()?;
+      return Ok(CrossValidateInner::Structured { kind, body });
+    }
+    // Otherwise treat as a free-form fn path.
+    let path: Path = input.parse()?;
+    Ok(CrossValidateInner::Path(path))
+  }
+}
+
+fn parse_structured_rule(
+  kind: &Ident,
+  body: proc_macro2::TokenStream,
+) -> syn::Result<CrossValidateRule> {
+  let kind_name = kind.to_string();
+  match kind_name.as_str() {
+    "fields_equal" => {
+      let idents = parse_ident_list(body)?;
+      if idents.len() != 2 {
+        return Err(syn::Error::new(
+          kind.span(),
+          "fields_equal requires exactly two field idents",
+        ));
+      }
+      let mut iter = idents.into_iter();
+      Ok(CrossValidateRule::FieldsEqual {
+        field_a: iter.next().unwrap(),
+        field_b: iter.next().unwrap(),
+      })
+    }
+    "required_if" => {
+      let (field, condition_field, condition) = parse_required_conditional(kind, body)?;
+      Ok(CrossValidateRule::RequiredIf {
+        field,
+        condition_field,
+        condition,
+      })
+    }
+    "required_unless" => {
+      let (field, condition_field, condition) = parse_required_conditional(kind, body)?;
+      Ok(CrossValidateRule::RequiredUnless {
+        field,
+        condition_field,
+        condition,
+      })
+    }
+    "one_of_required" => {
+      let idents = parse_ident_list(body)?;
+      if idents.is_empty() {
+        return Err(syn::Error::new(
+          kind.span(),
+          "one_of_required requires at least one field ident",
+        ));
+      }
+      Ok(CrossValidateRule::OneOfRequired { fields: idents })
+    }
+    "mutually_exclusive" => {
+      let idents = parse_ident_list(body)?;
+      if idents.is_empty() {
+        return Err(syn::Error::new(
+          kind.span(),
+          "mutually_exclusive requires at least one field ident",
+        ));
+      }
+      Ok(CrossValidateRule::MutuallyExclusive { fields: idents })
+    }
+    "dependent_required" => {
+      let (trigger, dependents) = parse_dependent_required(kind, body)?;
+      Ok(CrossValidateRule::DependentRequired {
+        trigger,
+        dependents,
+      })
+    }
+    _ => Err(syn::Error::new(
+      kind.span(),
+      format!("Unknown cross_validate rule: {kind_name}"),
+    )),
+  }
+}
+
+fn parse_ident_list(body: proc_macro2::TokenStream) -> syn::Result<Vec<Ident>> {
+  let parser = Punctuated::<Ident, Token![,]>::parse_terminated;
+  let punct = syn::parse::Parser::parse2(parser, body)?;
+  Ok(punct.into_iter().collect())
+}
+
+/// Parse the body of `required_if(field, condition_field = literal)`:
+/// a leading bare ident, then a single `name = lit` pair.
+fn parse_required_conditional(
+  kind: &Ident,
+  body: proc_macro2::TokenStream,
+) -> syn::Result<(Ident, Ident, ConditionLiteral)> {
+  let parser = |input: ParseStream<'_>| -> syn::Result<(Ident, Ident, ConditionLiteral)> {
+    let field: Ident = input.parse()?;
+    let _: Token![,] = input.parse()?;
+    let condition_field: Ident = input.parse()?;
+    let _: Token![=] = input.parse()?;
+    let lit: Lit = input.parse()?;
+    let condition = lit_to_condition(&lit)?;
+    let _: Option<Token![,]> = input.parse()?;
+    Ok((field, condition_field, condition))
+  };
+  syn::parse::Parser::parse2(parser, body).map_err(|e| {
+    syn::Error::new(
+      kind.span(),
+      format!("{kind} requires `field, condition_field = <literal>`: {e}"),
+    )
+  })
+}
+
+fn lit_to_condition(lit: &Lit) -> syn::Result<ConditionLiteral> {
+  match lit {
+    Lit::Str(s) => Ok(ConditionLiteral::Str(s.value())),
+    Lit::Bool(b) => Ok(ConditionLiteral::Bool(b.value)),
+    Lit::Int(i) => Ok(ConditionLiteral::Int(i.base10_parse()?)),
+    _ => Err(syn::Error::new_spanned(
+      lit,
+      "condition literal must be a string, bool, or integer",
+    )),
+  }
+}
+
+/// Parse the body of `dependent_required(trigger = t, dependents(a, b, ...))`.
+fn parse_dependent_required(
+  kind: &Ident,
+  body: proc_macro2::TokenStream,
+) -> syn::Result<(Ident, Vec<Ident>)> {
+  let parser = |input: ParseStream<'_>| -> syn::Result<(Ident, Vec<Ident>)> {
+    // trigger = <ident>
+    let trigger_kw: Ident = input.parse()?;
+    if trigger_kw != "trigger" {
+      return Err(syn::Error::new(
+        trigger_kw.span(),
+        "expected `trigger = <field>`",
+      ));
+    }
+    let _: Token![=] = input.parse()?;
+    let trigger: Ident = input.parse()?;
+    let _: Token![,] = input.parse()?;
+    // dependents(a, b, ...)
+    let dependents_kw: Ident = input.parse()?;
+    if dependents_kw != "dependents" {
+      return Err(syn::Error::new(
+        dependents_kw.span(),
+        "expected `dependents(a, b, ...)`",
+      ));
+    }
+    let content;
+    parenthesized!(content in input);
+    let punct: Punctuated<Ident, Token![,]> = content.parse_terminated(Ident::parse, Token![,])?;
+    let dependents: Vec<Ident> = punct.into_iter().collect();
+    if dependents.is_empty() {
+      return Err(syn::Error::new(
+        dependents_kw.span(),
+        "dependents() requires at least one field ident",
+      ));
+    }
+    let _: Option<Token![,]> = input.parse()?;
+    Ok((trigger, dependents))
+  };
+  syn::parse::Parser::parse2(parser, body).map_err(|e| {
+    syn::Error::new(
+      kind.span(),
+      format!("{kind} requires `trigger = <field>, dependents(a, b, ...)`: {e}"),
+    )
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -748,5 +982,145 @@ mod tests {
         .to_string()
         .contains("expected `whitespace` inside parentheses")
     );
+  }
+
+  // -------------------------------------------------------------------------
+  // cross_validate: structured variants
+  // -------------------------------------------------------------------------
+
+  fn parse_struct_cross_validate(
+    tokens: proc_macro2::TokenStream,
+  ) -> syn::Result<CrossValidateAttrs> {
+    let item: ItemStruct = syn::parse2(tokens).expect("struct should parse");
+    parse_cross_validate_attrs(&item.attrs)
+  }
+
+  #[test]
+  fn parse_cross_validate_custom_fn() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(my_fn)]
+      struct S { x: String }
+    })
+    .unwrap();
+    assert_eq!(attrs.rules.len(), 1);
+    assert!(matches!(attrs.rules[0], CrossValidateRule::Custom(_)));
+  }
+
+  #[test]
+  fn parse_cross_validate_fields_equal() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(fields_equal(a, b))]
+      struct S { a: String, b: String }
+    })
+    .unwrap();
+    assert!(matches!(
+      attrs.rules[0],
+      CrossValidateRule::FieldsEqual { .. }
+    ));
+  }
+
+  #[test]
+  fn parse_cross_validate_fields_equal_wrong_arity() {
+    let err = parse_struct_cross_validate(quote! {
+      #[cross_validate(fields_equal(a, b, c))]
+      struct S { a: String, b: String, c: String }
+    })
+    .unwrap_err();
+    assert!(err.to_string().contains("exactly two"));
+  }
+
+  #[test]
+  fn parse_cross_validate_required_if_str() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_if(addr, country = "us"))]
+      struct S { country: String, addr: Option<String> }
+    })
+    .unwrap();
+    match &attrs.rules[0] {
+      CrossValidateRule::RequiredIf { condition, .. } => {
+        assert!(matches!(condition, ConditionLiteral::Str(s) if s == "us"));
+      }
+      _ => panic!("expected RequiredIf"),
+    }
+  }
+
+  #[test]
+  fn parse_cross_validate_required_unless_bool() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_unless(addr, same = true))]
+      struct S { same: bool, addr: Option<String> }
+    })
+    .unwrap();
+    match &attrs.rules[0] {
+      CrossValidateRule::RequiredUnless { condition, .. } => {
+        assert!(matches!(condition, ConditionLiteral::Bool(true)));
+      }
+      _ => panic!("expected RequiredUnless"),
+    }
+  }
+
+  #[test]
+  fn parse_cross_validate_dependent_required() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(dependent_required(trigger = ship, dependents(street, zip)))]
+      struct S { ship: bool, street: Option<String>, zip: Option<String> }
+    })
+    .unwrap();
+    match &attrs.rules[0] {
+      CrossValidateRule::DependentRequired {
+        trigger,
+        dependents,
+      } => {
+        assert_eq!(trigger.to_string(), "ship");
+        assert_eq!(dependents.len(), 2);
+      }
+      _ => panic!("expected DependentRequired"),
+    }
+  }
+
+  #[test]
+  fn parse_cross_validate_unknown_kind_errors() {
+    let err = parse_struct_cross_validate(quote! {
+      #[cross_validate(no_such_kind(a, b))]
+      struct S { a: String, b: String }
+    })
+    .unwrap_err();
+    assert!(err.to_string().contains("Unknown cross_validate rule"));
+  }
+
+  #[test]
+  fn parse_cross_validate_required_if_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_if(addr, country = "us",))]
+      struct S { country: String, addr: Option<String> }
+    })
+    .expect("trailing comma after literal should be accepted");
+    assert!(matches!(attrs.rules[0], CrossValidateRule::RequiredIf { .. }));
+  }
+
+  #[test]
+  fn parse_cross_validate_required_unless_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(required_unless(addr, same = true,))]
+      struct S { same: bool, addr: Option<String> }
+    })
+    .expect("trailing comma after literal should be accepted");
+    assert!(matches!(
+      attrs.rules[0],
+      CrossValidateRule::RequiredUnless { .. }
+    ));
+  }
+
+  #[test]
+  fn parse_cross_validate_dependent_required_accepts_trailing_comma() {
+    let attrs = parse_struct_cross_validate(quote! {
+      #[cross_validate(dependent_required(trigger = ship, dependents(street, zip),))]
+      struct S { ship: bool, street: Option<String>, zip: Option<String> }
+    })
+    .expect("trailing comma after dependents() should be accepted");
+    assert!(matches!(
+      attrs.rules[0],
+      CrossValidateRule::DependentRequired { .. }
+    ));
   }
 }
