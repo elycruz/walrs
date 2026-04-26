@@ -13,8 +13,6 @@ use syn::{
 #[derive(Debug, Default)]
 pub struct FieldsetStructAttrs {
   pub break_on_failure: bool,
-  pub into_form_data: bool,
-  pub try_from_form_data: bool,
   /// `#[fieldset(async)]` — emit a `FieldsetAsync` impl in addition to the sync `Fieldset` impl.
   // Field renamed from `r#async` because `r#async` cannot be used as an idiomatic struct field
   // name in some downstream tooling; meaning is "emit async impl".
@@ -248,10 +246,6 @@ pub fn parse_fieldset_struct_attrs(attrs: &[Attribute]) -> FieldsetStructAttrs {
       let _ = attr.parse_nested_meta(|meta| {
         if meta.path.is_ident("break_on_failure") {
           result.break_on_failure = true;
-        } else if meta.path.is_ident("into_form_data") {
-          result.into_form_data = true;
-        } else if meta.path.is_ident("try_from_form_data") {
-          result.try_from_form_data = true;
         } else if is_async_path(&meta.path) {
           result.async_emit = true;
         }

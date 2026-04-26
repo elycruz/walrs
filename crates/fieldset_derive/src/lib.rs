@@ -1,5 +1,4 @@
 mod gen_filter;
-mod gen_form_data;
 mod gen_validate;
 mod gen_validate_async;
 mod parse;
@@ -9,7 +8,6 @@ use quote::quote;
 use syn::{Data, DeriveInput, Fields, parse_macro_input};
 
 use gen_filter::gen_filter;
-use gen_form_data::{gen_into_form_data, gen_try_from_form_data};
 use gen_validate::gen_validate;
 use gen_validate_async::gen_validate_async;
 use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_attrs};
@@ -21,10 +19,6 @@ use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_
 /// ## Struct-level
 ///
 /// - `#[fieldset(break_on_failure)]` — stop validation after the first field with violations
-/// - `#[fieldset(into_form_data)]` — generate `impl From<&T> for walrs_form::FormData`
-///   (**deprecated** — see [issue #267](https://github.com/elycruz/walrs/issues/267))
-/// - `#[fieldset(try_from_form_data)]` — generate `impl TryFrom<walrs_form::FormData> for T`
-///   (**deprecated** — see [issue #267](https://github.com/elycruz/walrs/issues/267))
 /// - `#[fieldset(async)]` — also emit a `FieldsetAsync` impl, gated by
 ///   `#[cfg(feature = "async")]` **as evaluated in the consuming crate**.
 ///   Enabling `walrs_fieldfilter`'s `async` feature alone is **not** enough —
@@ -139,31 +133,6 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
   )?;
   let filter_fn = gen_filter(&field_infos);
 
-  // Generate FormData bridge impls if requested
-  let into_form_data_impl = if struct_attrs.into_form_data {
-    gen_into_form_data(
-      struct_name,
-      &field_infos,
-      &impl_generics,
-      &ty_generics,
-      where_clause,
-    )
-  } else {
-    quote! {}
-  };
-
-  let try_from_form_data_impl = if struct_attrs.try_from_form_data {
-    gen_try_from_form_data(
-      struct_name,
-      &field_infos,
-      &impl_generics,
-      &ty_generics,
-      where_clause,
-    )
-  } else {
-    quote! {}
-  };
-
   let async_impl = if struct_attrs.async_emit {
     let validate_async_fn = gen_validate_async(
       &field_infos,
@@ -195,8 +164,6 @@ fn derive_fieldset_impl(input: DeriveInput) -> syn::Result<proc_macro2::TokenStr
       #filter_fn
     }
 
-    #into_form_data_impl
-    #try_from_form_data_impl
     #async_impl
   })
 }
