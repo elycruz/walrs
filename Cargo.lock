@@ -2190,12 +2190,21 @@ name = "walrs_rbac"
 version = "0.2.0"
 dependencies = [
  "criterion",
- "js-sys",
  "serde",
- "serde-wasm-bindgen",
  "serde_derive",
  "serde_json",
  "serde_yaml",
+]
+
+[[package]]
+name = "walrs_rbac_wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "walrs_rbac",
  "wasm-bindgen",
 ]
 

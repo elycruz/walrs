@@ -3,11 +3,7 @@
 //! This module provides JavaScript-compatible wrappers around the RBAC structure from
 //! the walrs_rbac crate.
 
-use crate::prelude::{String, Vec, format};
-use crate::rbac::Rbac;
-use crate::rbac_builder::RbacBuilder;
-use crate::rbac_data::RbacData;
-use crate::role::Role;
+use walrs_rbac::{Rbac, RbacBuilder, RbacData};
 use wasm_bindgen::prelude::*;
 
 /// JavaScript-compatible wrapper for Rbac
@@ -22,6 +18,7 @@ pub struct JsRbac {
 impl JsRbac {
   /// Creates a new empty RBAC
   #[wasm_bindgen(constructor)]
+  #[allow(clippy::new_without_default)]
   pub fn new() -> Self {
     Self { inner: Rbac::new() }
   }
@@ -88,6 +85,7 @@ pub struct JsRbacBuilder {
 impl JsRbacBuilder {
   /// Creates a new RBAC builder
   #[wasm_bindgen(constructor)]
+  #[allow(clippy::new_without_default)]
   pub fn new() -> Self {
     Self {
       inner: RbacBuilder::new(),

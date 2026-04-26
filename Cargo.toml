@@ -42,5 +42,6 @@ members = [
     "crates/navigation",
     "crates/validation",
     "crates/rbac",
+    "crates/rbac-wasm",
     "crates/fieldset_derive"
 ]

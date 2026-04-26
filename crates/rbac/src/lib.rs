@@ -37,12 +37,6 @@ pub mod rbac_builder;
 pub mod rbac_data;
 pub mod role;
 
-#[cfg(feature = "wasm")]
-pub mod wasm;
-
-#[cfg(feature = "wasm")]
-pub use wasm::*;
-
 pub use error::{RbacError, Result};
 pub use rbac::Rbac;
 pub use rbac_builder::RbacBuilder;
