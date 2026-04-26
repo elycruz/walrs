@@ -161,14 +161,6 @@ impl<T> IsEmpty for Option<T> {
   }
 }
 
-#[cfg(feature = "value")]
-#[allow(deprecated)]
-impl IsEmpty for crate::Value {
-  fn is_empty(&self) -> bool {
-    crate::ValueExt::is_empty_value(self)
-  }
-}
-
 /// Implements [`IsEmpty`] for types that are *never* considered empty
 /// (numeric scalars, `bool`, `char`). Always returns `false`.
 macro_rules! impl_is_empty_never {

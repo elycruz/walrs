@@ -83,13 +83,6 @@
 //! assert!(optional_rule.validate(None::<i32>).is_ok());
 //! assert!(optional_rule.validate(Some(50)).is_ok());
 //! ```
-//!
-//! ## Deprecated: dynamic `Value` path
-//!
-//! The dynamic `Value` enum and its `Rule<Value>` / `Condition<Value>` impls
-//! are deprecated as of 0.2.0 and will be removed in the next major release.
-//! Use `#[derive(Fieldset)]` (from `walrs_fieldset_derive`) on a typed struct
-//! instead. See [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 pub use indexmap;
 
@@ -100,9 +93,6 @@ pub mod options;
 pub mod rule;
 pub(crate) mod rule_impls;
 pub mod traits;
-#[cfg(feature = "value")]
-#[cfg_attr(docsrs, doc(cfg(feature = "value")))]
-pub mod value;
 pub mod violation;
 
 pub use attributes::*;
@@ -111,8 +101,4 @@ pub use message::*;
 pub use options::*;
 pub use rule::{CompiledPattern, Condition, Rule, RuleResult};
 pub use traits::*;
-#[cfg(feature = "value")]
-#[cfg_attr(docsrs, doc(cfg(feature = "value")))]
-#[allow(deprecated)]
-pub use value::*;
 pub use violation::*;

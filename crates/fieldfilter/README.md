@@ -9,22 +9,20 @@ Unified field configuration for validation and filtering:
 use walrs_fieldfilter::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
 use walrs_validation::Rule;
-use walrs_validation::Value;
-use serde_json::json;
 // Simple field with just a rule (filters are optional)
-let field: Field<Value> = FieldBuilder::default()
+let required_field: Field<String> = FieldBuilder::default()
     .rule(Rule::Required)
     .build()
     .unwrap();
 // Field with rule and filter operations
-let field: Field<Value> = FieldBuilder::default()
+let cleaned_field: Field<String> = FieldBuilder::default()
     .rule(Rule::Required.and(Rule::MinLength(3)))
     .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
     .build()
     .unwrap();
 // Validate
-let result = field.validate(&json!(""));
-assert!(result.is_err()); // Required field is empty
+assert!(required_field.validate("".to_string()).is_err());
+assert!(cleaned_field.validate("hello".to_string()).is_ok());
 ```
 ### FilterOp<T> Enum
 Serializable filter operations for value transformation (defined in `walrs_filter`, re-exported here):

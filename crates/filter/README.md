@@ -67,9 +67,6 @@ fn main() {
 }
 ```
 
-When the `value` feature is enabled (default), `FilterOp<Value>` is available
-for dynamic value transformation using `walrs_validation::Value`.
-
 ### `apply_ref` vs `apply`
 
 For `FilterOp<String>`:
@@ -80,13 +77,11 @@ For `FilterOp<String>`:
 
 For `FilterOp<T>` where `T: Copy` (numeric types), only `apply(value: T) -> T` is available.
 
-For `FilterOp<Value>`, both `apply_ref(&self, &Value) -> Value` and `apply(&self, Value) -> Value` are available.
-
 ### FilterOp vs concrete filter structs
 
 | Use case | Recommendation |
 |----------|----------------|
-| Config-driven pipeline (load from JSON/YAML) | `FilterOp<String>` or `FilterOp<Value>` |
+| Config-driven pipeline (load from JSON/YAML) | `FilterOp<String>` |
 | Static pipeline in code | Either — `FilterOp::Chain(...)` is ergonomic |
 | Polymorphic dispatch via trait objects (`Box<dyn Filter<T>>`) | Concrete structs (`SlugFilter`, etc.) or `FilterOp<T>` itself where it implements `Filter<T>` |
 | Numeric clamping | `FilterOp::Clamp { min, max }` |
@@ -150,12 +145,9 @@ Available variants:
 - `Infallible(FilterOp<T>)` - Wraps an infallible filter, lifting it into the fallible pipeline
 - `Chain(Vec<TryFilterOp<T>>)` - Sequential filter chain that short-circuits on the first error
 - `ToBool` - Parse `"1"`/`"0"`/`"true"`/`"false"`/`"yes"`/`"no"`/`"on"`/`"off"` (case-insensitive).
-  On `TryFilterOp<String>`, normalises to canonical `"true"`/`"false"`; on
-  `TryFilterOp<Value>`, converts `Value::Str` → `Value::Bool`.
-- `ToInt` - Parse a decimal `i64`. Canonicalises on `String`; converts `Value::Str` →
-  `Value::I64` on `Value`.
-- `ToFloat` - Parse an `f64`. Canonicalises on `String`; converts `Value::Str` →
-  `Value::F64` on `Value`.
+  Normalises to canonical `"true"`/`"false"`.
+- `ToInt` - Parse a decimal `i64`. Canonicalises on `String`.
+- `ToFloat` - Parse an `f64`. Canonicalises on `String`.
 - `UrlDecode` - Percent-decode, validating as UTF-8 (errors on invalid byte sequences).
 - `TryCustom(Arc<dyn Fn(T) -> Result<T, FilterError>>)` - Custom fallible filter function (not serializable)
 
@@ -204,9 +196,9 @@ fn main() {
 `Chain` that contains one) returns an error. If your pipeline must survive a round-trip, avoid
 `TryCustom` or inject custom logic after deserialization.
 
-When the `value` feature is enabled (default), `TryFilterOp<Value>` is available
-for dynamic value transformation. `FilterError` can be converted to `Violation`/`Violations`
-whenever the `validation` feature is enabled.
+When the `validation` feature is enabled (default), `FilterError` can be
+converted to `Violation`/`Violations` for integration with the validation
+error pipeline.
 
 ## FilterError
 
@@ -241,8 +233,8 @@ pub trait Filter<T> {
 }
 ```
 
-`FilterOp<T>` also implements `Filter<T>` — you can use it anywhere a `Filter<String>`,
-`Filter<i32>`, `Filter<Value>`, etc. is expected:
+`FilterOp<T>` also implements `Filter<T>` — you can use it anywhere a `Filter<String>`
+or `Filter<i32>` etc. is expected:
 
 ```rust
 use walrs_filter::{Filter, FilterOp};
@@ -262,7 +254,7 @@ pub trait TryFilter<T> {
 }
 ```
 
-`TryFilterOp<T>` implements `TryFilter<T>` for `String` and `Value`:
+`TryFilterOp<T>` implements `TryFilter<T>` for `String`:
 
 ```rust
 use walrs_filter::{TryFilter, TryFilterOp, FilterOp, FilterError};
@@ -303,10 +295,6 @@ fn main () {
 
 - **`validation`** (default) — Enables the `walrs_validation` dependency,
   exposing `FilterError` → `Violation`/`Violations` conversions.
-- **`value`** (default) — Enables `FilterOp<Value>` and `TryFilterOp<Value>`
-  for dynamic value transformation using `walrs_validation::Value`. Implies
-  `validation`. Disable with `default-features = false` to build typed-only
-  (`FilterOp<String>` and scalar numerics) without the dynamic path.
 - **`fn_traits`** — Enables nightly Rust `Fn`/`FnMut`/`FnOnce` trait implementations on
   filter structs, allowing them to be called as closures. Requires a nightly compiler.
 - **`nightly`** — Catch-all for nightly features. Currently enables `fn_traits`.
@@ -344,7 +332,6 @@ cargo bench -p walrs_filter -- XmlEntitiesFilter
 cargo bench -p walrs_filter -- FilterOp_Chain
 cargo bench -p walrs_filter -- FilterOp_Clamp
 cargo bench -p walrs_filter -- TryFilterOp
-cargo bench -p walrs_filter -- FilterOp_Value
 ```
 
 Benchmark groups include:
@@ -356,7 +343,6 @@ Benchmark groups include:
 - **FilterOp_Chain** - Composition overhead for 1, 3, and 5-filter chains
 - **FilterOp_Clamp** - Numeric clamping performance (i32, f64, in-range and out-of-range)
 - **TryFilterOp** - Fallible pipeline overhead (Infallible wrapping, Chain, TryCustom)
-- **FilterOp_Value** - Dynamic dispatch performance with `walrs_validation::Value`
 
 ## License
 

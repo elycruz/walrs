@@ -1,26 +1,8 @@
 #![cfg(feature = "async")]
-#![allow(deprecated)]
 
 use std::sync::Arc;
-use walrs_fieldfilter::{FieldBuilder, Value, Violation, ViolationType};
+use walrs_fieldfilter::{FieldBuilder, Violation, ViolationType};
 use walrs_validation::Rule;
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn async_not_banned_rule(banned: &'static str) -> Rule<Value> {
-  Rule::custom_async(Arc::new(move |value: &Value| {
-    Box::pin(async move {
-      if let Some(s) = value.as_str() {
-        if s == banned {
-          return Err(Violation::new(ViolationType::CustomError, "banned"));
-        }
-      }
-      Ok(())
-    })
-  }))
-}
 
 // ---------------------------------------------------------------------------
 // Field<String> async tests
@@ -89,50 +71,4 @@ async fn string_field_clean_async() {
 
   let result = field.clean_async("  bad  ".to_string()).await;
   assert!(result.is_err());
-}
-
-// ---------------------------------------------------------------------------
-// Field<Value> async tests
-// ---------------------------------------------------------------------------
-
-#[tokio::test]
-async fn value_field_validate_ref_async_passes() {
-  let field = FieldBuilder::<Value>::default()
-    .rule(async_not_banned_rule("bad"))
-    .build()
-    .unwrap();
-  assert!(
-    field
-      .validate_ref_async(&Value::Str("good".into()))
-      .await
-      .is_ok()
-  );
-}
-
-#[tokio::test]
-async fn value_field_validate_ref_async_fails() {
-  let field = FieldBuilder::<Value>::default()
-    .rule(async_not_banned_rule("bad"))
-    .build()
-    .unwrap();
-  assert!(
-    field
-      .validate_ref_async(&Value::Str("bad".into()))
-      .await
-      .is_err()
-  );
-}
-
-#[tokio::test]
-async fn value_field_clean_async() {
-  let field = FieldBuilder::<Value>::default()
-    .rule(Rule::Required.and(async_not_banned_rule("bad")))
-    .build()
-    .unwrap();
-
-  let ok = field.clean_async(Value::Str("good".into())).await;
-  assert!(ok.is_ok());
-
-  let err = field.clean_async(Value::Str("bad".into())).await;
-  assert!(err.is_err());
 }

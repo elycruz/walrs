@@ -14,7 +14,6 @@
 //! ## Example
 //!
 //! ```rust
-//! # #![allow(deprecated)]
 //! use walrs_fieldfilter::{Field, FieldBuilder, TryFilterOp, FilterError};
 //! use walrs_filter::FilterOp;
 //! use walrs_validation::Rule;
@@ -71,10 +70,9 @@ pub mod rule;
 pub use indexmap::IndexMap;
 
 // Re-export types from walrs_validation
-#[allow(deprecated)]
 pub use walrs_validation::{
-  Attributes, FieldsetViolations, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,
-  Violation, ViolationMessage, ViolationType, Violations,
+  Attributes, FieldsetViolations, IsEmpty, Message, MessageContext, MessageParams, Violation,
+  ViolationMessage, ViolationType, Violations,
 };
 
 #[cfg(feature = "async")]

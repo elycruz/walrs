@@ -16,11 +16,10 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["validation", "value"]
+default = ["validation"]
 fn_traits = []
 nightly = ["fn_traits"]
 validation = ["dep:walrs_validation"]
-value = ["validation", "walrs_validation/value"]
 
 [dependencies]
 ammonia = "3.3.1"

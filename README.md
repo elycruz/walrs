@@ -63,11 +63,6 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 `#[derive(Fieldset)]` via the `fieldfilter-derive` feature) — define a struct
 describing your fields and get statically-checked validation and filtering.
 
-> **Deprecated: dynamic path.** `walrs_validation::Value` and the `value`
-> feature flag are deprecated as of 0.2.0 and will be removed in the next
-> major release. Use `#[derive(Fieldset)]` on a typed struct instead. See
-> [issue #267](https://github.com/elycruz/walrs/issues/267).
-
 ## Development
 
 ### Code coverage with `cargo-llvm-cov`
