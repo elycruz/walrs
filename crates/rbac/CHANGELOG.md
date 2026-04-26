@@ -29,3 +29,9 @@ walrs_rbac = "0.3"
 # After (WASM consumers — depend on the sibling crate)
 walrs_rbac_wasm = "0.1"
 ```
+
+## [0.2.0] - 2026-04-26
+
+Coordinated pre-1.0 bump alongside the rest of the workspace as part of
+[issue #267](https://github.com/elycruz/walrs/issues/267) (Phase 4, b66ea99).
+No `walrs_rbac` API changes — this entry is included for changelog completeness.
