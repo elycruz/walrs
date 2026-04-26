@@ -1,11 +1,10 @@
 //! WebAssembly bindings for walrs_acl
 //!
-//! This module provides JavaScript-compatible wrappers around the ACL structure from
+//! This crate provides JavaScript-compatible wrappers around the ACL structure from
 //! the walrs_acl crate.
 
-use crate::prelude::{String, Vec, format};
-use crate::simple::{Acl, AclBuilder, AclData, AssertionResolver};
 use js_sys::Function;
+use walrs_acl::simple::{Acl, AclBuilder, AclData, AssertionResolver};
 use wasm_bindgen::prelude::*;
 
 /// Adapter wrapping a JS callback into an [`AssertionResolver`].
@@ -64,6 +63,7 @@ pub struct JsAcl {
 impl JsAcl {
   /// Creates a new empty ACL
   #[wasm_bindgen(constructor)]
+  #[allow(clippy::new_without_default)]
   pub fn new() -> Self {
     Self { inner: Acl::new() }
   }
@@ -218,6 +218,7 @@ pub struct JsAclBuilder {
 impl JsAclBuilder {
   /// Creates a new ACL builder
   #[wasm_bindgen(constructor)]
+  #[allow(clippy::new_without_default)]
   pub fn new() -> Self {
     Self {
       inner: AclBuilder::new(),

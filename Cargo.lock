@@ -2102,14 +2102,23 @@ version = "0.2.0"
 dependencies = [
  "actix-web",
  "async-trait",
- "js-sys",
  "rand 0.9.3",
  "serde",
- "serde-wasm-bindgen",
  "serde_derive",
  "serde_json",
  "tokio",
  "walrs_digraph",
+]
+
+[[package]]
+name = "walrs_acl_wasm"
+version = "0.1.0"
+dependencies = [
+ "js-sys",
+ "serde",
+ "serde-wasm-bindgen",
+ "serde_json",
+ "walrs_acl",
  "wasm-bindgen",
  "web-sys",
 ]

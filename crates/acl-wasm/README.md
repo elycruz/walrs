@@ -1,6 +1,6 @@
-# walrs_acl (js)
+# walrs_acl_wasm
 
-Webassembly version of [walrs_acl](../../README.md).
+Webassembly version of [walrs_acl](../acl/README.md).
 
 ## Prerequisites
 
@@ -19,7 +19,7 @@ Any environment that supports WebAssembly:
 The builder for constructing ACLs:
 
 ```javascript
-import init, {JsAclBuilder} from './walrs_acl.js';
+import init, {JsAclBuilder} from './walrs_acl_wasm.js';
 
 await init();
 
@@ -89,7 +89,7 @@ console.log(acl.inheritsResource("blog", "index"));  // depends on structure
 ### Convenience Functions
 
 ```javascript
-import { createAclFromJson, checkPermission } from './pkg/walrs_acl.js';
+import { createAclFromJson, checkPermission } from './pkg/walrs_acl_wasm.js';
 
 // Quick ACL creation
 const acl = createAclFromJson(jsonString); // used `JsAclBuilder` behind the scenes
@@ -138,7 +138,7 @@ const allowed = checkPermission(jsonString, "user", "blog", "read"); // instanti
 ### Example 1: Blog Permission System
 
 ```javascript
-import init, { JsAclBuilder } from './pkg/walrs_acl.js';
+import init, { JsAclBuilder } from './pkg/walrs_acl_wasm.js';
 
 await init();
 
@@ -175,7 +175,7 @@ blogAcl.isAllowedAny(["visitor", "author"], ["posts"], ["create"]);  // true (au
 ### Example 2: Loading from JSON (Backend Integration)
 
 ```javascript
-import init, { JsAcl } from './pkg/walrs_acl.js';
+import init, { JsAcl } from './pkg/walrs_acl_wasm.js';
 
 await init();
 
@@ -202,7 +202,7 @@ if (checkAccess(currentUser, "admin_panel", "access")) {
 
 ```jsx
 import { useEffect, useState } from 'react';
-import init, { JsAcl } from './pkg/walrs_acl';
+import init, { JsAcl } from './pkg/walrs_acl_wasm';
 
 export function useAcl(config) {
     const [acl, setAcl] = useState(null);
@@ -255,7 +255,7 @@ try {
 The package includes full TypeScript definitions:
 
 ```typescript
-import init, { JsAclBuilder, JsAcl } from './pkg/walrs_acl';
+import init, { JsAclBuilder, JsAcl } from './pkg/walrs_acl_wasm';
 
 await init();
 
@@ -274,7 +274,7 @@ const canRead: boolean = acl.isAllowed("user", "api", "read");
 - **Gzipped**: **73KB** (74,571 bytes) - actual production size over HTTP (hence why it should only be used in server environment (node, deno, etc.)).
 - **Uncompressed**: 165KB (168,540 bytes) after `wasm-opt -Oz` + `wasm-strip` optimization
 - **Memory overhead**: ~50KB baseline RAM usage (for common ACLs (acls containing rules, roles and resources, in the low 100s) 
-- **runtime overhead** Non-existent - Constructed Acls' internal data structures do not grow and support fast lookups (permission checks are benchmarked at 1.3M+ per millisecond!!) making any runtime overhead negligible (in rust tests performance overhead was benchmarked at 0.001ms per check (!!!) (see [benchmarks readme](./benchmarks/README.md) for more)).
+- **runtime overhead** Non-existent - Constructed Acls' internal data structures do not grow and support fast lookups (permission checks are benchmarked at 1.3M+ per millisecond!!) making any runtime overhead negligible (in rust tests performance overhead was benchmarked at 0.001ms per check (!!!) (see [benchmarks readme](../acl/benchmarks/README.md) for more)).
 
 ### Performance Metrics
 - **Initialization**: ~10-15ms (one-time cost, includes WASM compilation)
@@ -321,23 +321,23 @@ cargo install wasm-pack
 
 **For web (browser ESM):**
 ```bash
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 ```
 
 **For Node.js:**
 ```bash
-wasm-pack build --target nodejs --no-default-features --features wasm
+wasm-pack build --target nodejs
 ```
 
 **For bundlers (webpack, rollup, etc.):**
 ```bash
-wasm-pack build --target bundler --no-default-features --features wasm
+wasm-pack build --target bundler
 ```
 
 This generates a `pkg/` directory with:
-- `walrs_acl.js` - JavaScript glue code
-- `walrs_acl_bg.wasm` - Compiled WASM binary
-- `walrs_acl.d.ts` - TypeScript definitions
+- `walrs_acl_wasm.js` - JavaScript glue code
+- `walrs_acl_wasm_bg.wasm` - Compiled WASM binary
+- `walrs_acl_wasm.d.ts` - TypeScript definitions
 - `package.json` - NPM package manifest
 
 ##### Build Optimization
@@ -350,15 +350,15 @@ The default `wasm-pack build` command uses release mode with optimizations.
 **Maximum Optimization (Recommended for Production):**
 ```bash
 # 1. Build with wasm-pack (release mode is default)
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 
 # 2. Apply aggressive size optimization with wasm-opt
-wasm-opt -Oz pkg/walrs_acl_bg.wasm -o pkg/walrs_acl_bg.wasm
+wasm-opt -Oz pkg/walrs_acl_wasm_bg.wasm -o pkg/walrs_acl_wasm_bg.wasm
 
 # 3. (Optional) Strip custom sections with wasm-strip
 # Saves an additional 244 bytes (213 bytes gzipped)
 # Removes metadata like "producers" and "target_features" sections
-wasm-strip pkg/walrs_acl_bg.wasm
+wasm-strip pkg/walrs_acl_wasm_bg.wasm
 ```
 
 **Size Results:**
@@ -371,7 +371,7 @@ wasm-strip pkg/walrs_acl_bg.wasm
 
 **Development Build (with debug symbols):**
 ```bash
-wasm-pack build --target web --no-default-features --features wasm --dev
+wasm-pack build --target web --dev
 ```
 - Faster compilation
 - Larger binary (~200KB)
@@ -387,13 +387,13 @@ wasm-pack build --target web --no-default-features --features wasm --dev
 **Verify Build:**
 ```bash
 # Check uncompressed size
-ls -lh pkg/walrs_acl_bg.wasm
+ls -lh pkg/walrs_acl_wasm_bg.wasm
 
 # Check gzipped size (what users actually download)
-gzip -c pkg/walrs_acl_bg.wasm | wc -c
+gzip -c pkg/walrs_acl_wasm_bg.wasm | wc -c
 
 # Verify it's a valid WASM file
-file pkg/walrs_acl_bg.wasm
+file pkg/walrs_acl_wasm_bg.wasm
 ```
 
 #### Publishing to NPM
@@ -408,17 +408,17 @@ npm publish
 Then install in your project:
 
 ```bash
-npm install walrs_acl
+npm install walrs_acl_wasm
 ```
 
 #### Troubleshooting
 
 ##### Common Issues
 
-###### 1. "Cannot find module './pkg/walrs_acl.js'"
+###### 1. "Cannot find module './pkg/walrs_acl_wasm.js'"
 **Solution**: Make sure you've built the WASM module first:
 ```bash
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 ```
 
 ###### 2. "MIME type mismatch" or "Failed to fetch WASM"
@@ -448,8 +448,8 @@ npx serve .
 
 **Solution**: Use aggressive optimization:
 ```bash
-wasm-pack build --target web --no-default-features --features wasm --release
-wasm-opt -Oz pkg/walrs_acl_bg.wasm -o pkg/walrs_acl_bg.wasm
+wasm-pack build --target web --release
+wasm-opt -Oz pkg/walrs_acl_wasm_bg.wasm -o pkg/walrs_acl_wasm_bg.wasm
 ```
 
 ###### 5. TypeScript errors with generated types
@@ -458,7 +458,7 @@ wasm-opt -Oz pkg/walrs_acl_bg.wasm -o pkg/walrs_acl_bg.wasm
 **Solution**: Regenerate the types with the latest wasm-pack:
 ```bash
 cargo install wasm-pack --force
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 ```
 
 ##### Debug Setup
@@ -466,25 +466,25 @@ wasm-pack build --target web --no-default-features --features wasm
 **Enable debug logging:**
 ```bash
 # Build with debug symbols
-wasm-pack build --target web --no-default-features --features wasm --dev
+wasm-pack build --target web --dev
 ```
 
 **Check WASM binary info:**
 ```bash
 # Install wasm-objdump (from WABT tools)
-wasm-objdump -h pkg/walrs_acl_bg.wasm
+wasm-objdump -h pkg/walrs_acl_wasm_bg.wasm
 
 # Check exported functions
-wasm-objdump -x pkg/walrs_acl_bg.wasm | grep export
+wasm-objdump -x pkg/walrs_acl_wasm_bg.wasm | grep export
 ```
 
 **Verify integrity:**
 ```bash
 # Check file size
-ls -lh pkg/walrs_acl_bg.wasm
+ls -lh pkg/walrs_acl_wasm_bg.wasm
 
 # Verify it's a valid WASM file
-file pkg/walrs_acl_bg.wasm
+file pkg/walrs_acl_wasm_bg.wasm
 # Should output: "WebAssembly (wasm) binary module"
 ```
 

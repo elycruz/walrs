@@ -3,12 +3,10 @@ name = "walrs_acl"
 version = "0.2.0"
 edition = "2024"
 license = "Elastic-2.0"
-crate-type = ["cdylib", "rlib"]
 
 [features]
 default = ["std"]
 std = ["serde/std", "serde_json/std"]
-wasm = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys", "web-sys"]
 async = ["dep:async-trait"]
 
 [package.metadata.docs.rs]
@@ -20,11 +18,7 @@ walrs_digraph = { path = '../digraph' }
 serde = { version = "1.0.228", default-features = false, features = ["derive", "alloc"] }
 serde_json = { version = "1.0.149", default-features = false, features = ["alloc"] }
 serde_derive = "1.0.228"
-wasm-bindgen = { version = "0.2", optional = true }
-serde-wasm-bindgen = { version = "0.6", optional = true }
-js-sys = { version = "0.3", optional = true }
 async-trait = { version = "0.1", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["console"] }
 
 [dev-dependencies]
 rand = "0.9"

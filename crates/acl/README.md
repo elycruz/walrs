@@ -179,27 +179,12 @@ See tests, [benchmarks](benchmarks), and/or [examples](examples) for more detail
 
 ## WASM Support
 
-The crate also supports WASM (WebAssembly) (see [WASM README](WASM_README.md) for more details).
-
-### Build
-
-```bash
-$ sh ./ci-cd-wasm.sh
-```
+WebAssembly bindings live in the sibling crate [`walrs_acl_wasm`](../acl-wasm/README.md).
 
 ### Features
 
 - **`std`** (default): Full standard library support with file I/O
-- **`wasm`**: WASM-compatible mode with `no_std` + `alloc`
 - **`async`**: Adds `AsyncAssertionResolver` and `Acl::is_allowed_with_async` / `is_allowed_any_with_async` for assertions that need I/O
-
-### Usage
-
-```toml
-# For WASM targets
-[dependencies]
-walrs_acl = { version = "0.1.0", default-features = false, features = ["wasm"] }
-```
 
 ## Prior Art:
 
