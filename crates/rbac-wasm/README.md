@@ -19,7 +19,7 @@ Any environment that supports WebAssembly:
 The builder for constructing RBACs:
 
 ```javascript
-import init, { JsRbacBuilder } from './pkg/walrs_rbac.js';
+import init, { JsRbacBuilder } from './pkg/walrs_rbac_wasm.js';
 
 await init();
 
@@ -74,7 +74,7 @@ console.log(rbac.roleCount());  // 4
 ### Convenience Functions
 
 ```javascript
-import { createRbacFromJson, checkPermission } from './pkg/walrs_rbac.js';
+import { createRbacFromJson, checkPermission } from './pkg/walrs_rbac_wasm.js';
 
 // Quick RBAC creation
 const rbac = createRbacFromJson(jsonString);
@@ -127,17 +127,17 @@ cargo install wasm-pack
 
 **For Node.js:**
 ```bash
-wasm-pack build --target nodejs --no-default-features --features wasm
+wasm-pack build --target nodejs
 ```
 
 **For web (browser ESM):**
 ```bash
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 ```
 
 **For bundlers (webpack, rollup, etc.):**
 ```bash
-wasm-pack build --target bundler --no-default-features --features wasm
+wasm-pack build --target bundler
 ```
 
 ### Publishing to NPM

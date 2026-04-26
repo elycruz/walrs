@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { JsRbac, JsRbacBuilder, createRbacFromJson, checkPermission } from '../pkg/walrs_rbac.js';
+import { JsRbac, JsRbacBuilder, createRbacFromJson, checkPermission } from '../pkg/walrs_rbac_wasm.js';
 
 describe('JsRbacBuilder', () => {
   describe('Constructor and Basic Building', () => {
