@@ -1,5 +1,7 @@
 //! Integration tests for FormData bridge in derive(Fieldset).
 
+#![allow(deprecated)]
+
 use walrs_fieldfilter::DeriveFieldset as Fieldset;
 use walrs_form::FormData;
 use walrs_validation::{Value, ViolationType};

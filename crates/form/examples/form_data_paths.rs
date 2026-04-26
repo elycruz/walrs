@@ -2,6 +2,8 @@
 //!
 //! This example demonstrates how to use FormData's dot notation
 //! and array indexing for nested data structures.
+#![allow(deprecated)]
+
 use walrs_form::FormData;
 use walrs_validation::Value;
 

@@ -2,6 +2,8 @@
 //!
 //! Run with: `cargo bench -p walrs_filter`
 
+#![allow(deprecated)]
+
 use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
 use std::borrow::Cow;
 use std::sync::Arc;

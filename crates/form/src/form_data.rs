@@ -1,10 +1,22 @@
 //! Form data transfer object.
+//!
+//! # Deprecated
+//!
+//! `FormData` is deprecated as of 0.2.0 and will be removed in the next major
+//! release. Use `#[derive(Fieldset)]` on a typed struct instead. See
+//! [issue #267](https://github.com/elycruz/walrs/issues/267).
+#![allow(deprecated)]
+
 use crate::path::{PathSegment, parse_path};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use walrs_validation::Value;
 /// Form data transfer object.
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct FormData(IndexMap<String, Value>);
 impl FormData {

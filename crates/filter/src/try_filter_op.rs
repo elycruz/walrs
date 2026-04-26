@@ -14,6 +14,7 @@ use std::sync::Arc;
 use crate::{FilterError, FilterOp};
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 use walrs_validation::Value;
 
 /// Parse a permissive boolean literal (case-insensitive).
@@ -27,12 +28,14 @@ fn parse_bool_literal(s: &str) -> Result<bool, FilterError> {
   let t = s.trim();
   if ["true", "1", "yes", "on"]
     .iter()
-    .any(|truthy| t.eq_ignore_ascii_case(truthy)) {
+    .any(|truthy| t.eq_ignore_ascii_case(truthy))
+  {
     return Ok(true);
   }
   if ["false", "0", "no", "off"]
     .iter()
-    .any(|falsy| t.eq_ignore_ascii_case(falsy)) {
+    .any(|falsy| t.eq_ignore_ascii_case(falsy))
+  {
     return Ok(false);
   }
   Err(FilterError::new(format!("cannot parse {s:?} as bool")).with_name("ToBool"))
@@ -275,8 +278,13 @@ impl TryFilterOp<String> {
 // ============================================================================
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 impl TryFilterOp<Value> {
   /// Apply the fallible filter to a `&Value` reference, returning a `Result<Value, FilterError>`.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn try_apply_ref(&self, value: &Value) -> Result<Value, FilterError> {
     match self {
       TryFilterOp::Infallible(op) => Ok(op.apply_ref(value)),
@@ -329,6 +337,10 @@ impl TryFilterOp<Value> {
   }
 
   /// Apply the fallible filter to an owned `Value`.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn try_apply(&self, value: Value) -> Result<Value, FilterError> {
     self.try_apply_ref(&value)
   }
@@ -394,6 +406,7 @@ impl crate::TryFilter<String> for TryFilterOp<String> {
 }
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 impl crate::TryFilter<Value> for TryFilterOp<Value> {
   type Output = Value;
 
@@ -403,6 +416,7 @@ impl crate::TryFilter<Value> for TryFilterOp<Value> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
   use super::*;
 

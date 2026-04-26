@@ -8,6 +8,8 @@
 //! Run with:
 //!   cargo run --example derive_formdata_bridge -p walrs_form
 
+#![allow(deprecated)]
+
 use walrs_fieldfilter::{DeriveFieldset, Fieldset};
 use walrs_form::FormData;
 use walrs_validation::Value;

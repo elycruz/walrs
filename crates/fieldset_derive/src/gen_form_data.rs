@@ -1,9 +1,35 @@
 //! Code generation for FormData bridge (`into_form_data`, `try_from_form_data`).
+//!
+//! # Deprecated
+//!
+//! The `#[fieldset(into_form_data, try_from_form_data)]` attributes are
+//! deprecated as of 0.2.0 and will be removed in the next major release
+//! alongside `walrs_form::FormData`. Use `#[derive(Fieldset)]` on a typed
+//! struct instead. See
+//! [issue #267](https://github.com/elycruz/walrs/issues/267).
+#![allow(deprecated)]
 
 use crate::parse::{FieldInfo, FieldType};
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::Ident;
+
+/// Currently a no-op. The user-visible `#[deprecated]` warning for
+/// `#[fieldset(into_form_data, try_from_form_data)]` opt-ins surfaces via the
+/// generated `impl From<&T> for walrs_form::FormData` /
+/// `impl TryFrom<walrs_form::FormData> for T` blocks, which name the
+/// already-deprecated `walrs_form::FormData` in their headers. To make those
+/// header references actually emit the warning at the user's site we drop the
+/// `#[allow(deprecated)]` shield from the `impl` items below.
+///
+/// We tried emitting an explicit deprecation hook (a `#[deprecated]` `fn`
+/// declared and called from generated code) but rustc treats both items as
+/// living inside the same proc-macro hygiene context and silently suppresses
+/// the lint — there's no public proc-macro2 API to opt out of that.
+#[allow(dead_code)]
+fn deprecation_hook(_attr_key: &str) -> TokenStream {
+  quote! {}
+}
 
 /// Generate `impl From<&T> for walrs_form::FormData` if requested.
 pub fn gen_into_form_data(
@@ -141,8 +167,13 @@ pub fn gen_into_form_data(
     })
     .collect();
 
+  let hook = deprecation_hook("into_form_data");
+
   quote! {
+    #hook
+
     impl #impl_generics From<&#struct_name #ty_generics> for walrs_form::FormData #where_clause {
+      #[allow(deprecated)]
       fn from(value: &#struct_name #ty_generics) -> Self {
         let mut data = walrs_form::FormData::new();
         #(#field_conversions)*
@@ -318,10 +349,15 @@ pub fn gen_try_from_form_data(
 
   let field_names: Vec<_> = field_infos.iter().map(|f| &f.ident).collect();
 
+  let hook = deprecation_hook("try_from_form_data");
+
   quote! {
+    #hook
+
     impl #impl_generics TryFrom<walrs_form::FormData> for #struct_name #ty_generics #where_clause {
       type Error = walrs_validation::FieldsetViolations;
 
+      #[allow(deprecated)]
       fn try_from(data: walrs_form::FormData) -> Result<Self, Self::Error> {
         let mut violations = walrs_validation::FieldsetViolations::new();
 

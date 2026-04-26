@@ -3,6 +3,15 @@
 //! This module provides `FieldFilter` for validating multiple fields at once,
 //! including support for cross-field validation rules like password confirmation,
 //! conditional requirements, and mutual exclusivity.
+//!
+//! # Deprecated
+//!
+//! `FieldFilter` (and the `CrossFieldRule` / `CrossFieldRuleType` types it
+//! drives) is deprecated as of 0.2.0 and will be removed in the next major
+//! release. Use `#[derive(Fieldset)]` on a typed struct instead. See
+//! [issue #267](https://github.com/elycruz/walrs/issues/267).
+
+#![allow(deprecated)]
 
 use crate::field::Field;
 use indexmap::IndexMap;
@@ -46,6 +55,10 @@ use walrs_validation::{Value, ValueExt};
 ///         },
 ///     });
 /// ```
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct FieldFilter {
   /// Field definitions keyed by name (insertion-ordered).
@@ -215,6 +228,10 @@ impl FieldFilter {
 }
 
 /// Cross-field validation rule.
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[derive(Clone, Serialize, Deserialize)]
 pub struct CrossFieldRule {
   /// Optional name for error messages.
@@ -246,6 +263,10 @@ impl CrossFieldRule {
 }
 
 /// Types of cross-field validation.
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum CrossFieldRuleType {
@@ -916,10 +937,10 @@ mod tests {
       "encoded",
       FieldBuilder::<Value>::default()
         .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
-          if let Value::Str(ref s) = v {
-            if s.contains('\0') {
-              return Err(FilterError::new("null bytes not allowed"));
-            }
+          if let Value::Str(ref s) = v
+            && s.contains('\0')
+          {
+            return Err(FilterError::new("null bytes not allowed"));
           }
           Ok(v)
         }))])
@@ -981,10 +1002,10 @@ mod tests {
       FieldBuilder::<Value>::default()
         .filters(vec![FilterOp::Trim])
         .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
-          if let Value::Str(ref s) = v {
-            if s.is_empty() {
-              return Err(FilterError::new("empty after trim"));
-            }
+          if let Value::Str(ref s) = v
+            && s.is_empty()
+          {
+            return Err(FilterError::new("empty after trim"));
           }
           Ok(v)
         }))])

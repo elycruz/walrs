@@ -2,6 +2,14 @@
 //!
 //! Provides `ValidateRef<Value>` and `Validate<Value>` for `Rule<Value>`,
 //! enabling dynamic/heterogeneous validation of form data.
+//!
+//! # Deprecated
+//!
+//! The dynamic `Value` path is deprecated as of 0.2.0 and will be removed in
+//! the next major release. Use `#[derive(Fieldset)]` on a typed struct
+//! instead. See [issue #267](https://github.com/elycruz/walrs/issues/267).
+
+#![allow(deprecated)]
 
 use std::cmp::Ordering;
 
@@ -17,6 +25,10 @@ use crate::value::{Value, ValueExt};
 
 impl Condition<Value> {
   /// Evaluates the condition against a `Value`.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn evaluate_value(&self, value: &Value) -> bool {
     match self {
       Condition::IsEmpty => value.is_empty_value(),
@@ -39,6 +51,10 @@ impl Condition<Value> {
 
 impl Rule<Value> {
   /// Validates a `Value` against this rule.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn validate_value(&self, value: &Value) -> RuleResult {
     self.validate_value_inner(value, None)
   }

@@ -1,4 +1,5 @@
 #![cfg(feature = "async")]
+#![allow(deprecated)]
 
 use std::sync::Arc;
 use walrs_validation::{Rule, ValidateAsync, ValidateRefAsync, Violation, ViolationType};

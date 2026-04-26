@@ -5,6 +5,8 @@
 //!
 //! Run with: `cargo run --example json_serialization`
 
+#![allow(deprecated)]
+
 use walrs_fieldfilter::field::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
 use walrs_validation::Rule;

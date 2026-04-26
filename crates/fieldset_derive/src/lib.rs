@@ -22,7 +22,9 @@ use parse::{parse_cross_validate_attrs, parse_field_info, parse_fieldset_struct_
 ///
 /// - `#[fieldset(break_on_failure)]` — stop validation after the first field with violations
 /// - `#[fieldset(into_form_data)]` — generate `impl From<&T> for walrs_form::FormData`
+///   (**deprecated** — see [issue #267](https://github.com/elycruz/walrs/issues/267))
 /// - `#[fieldset(try_from_form_data)]` — generate `impl TryFrom<walrs_form::FormData> for T`
+///   (**deprecated** — see [issue #267](https://github.com/elycruz/walrs/issues/267))
 /// - `#[fieldset(async)]` — also emit a `FieldsetAsync` impl, gated by
 ///   `#[cfg(feature = "async")]` **as evaluated in the consuming crate**.
 ///   Enabling `walrs_fieldfilter`'s `async` feature alone is **not** enough —

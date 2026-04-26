@@ -1,4 +1,6 @@
 //! HTML form.
+#![allow(deprecated)]
+
 use crate::element::Element;
 use crate::form_data::FormData;
 use derive_builder::Builder;

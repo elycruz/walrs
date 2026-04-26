@@ -12,6 +12,8 @@
 //! assert_eq!(email.name.as_deref(), Some("email"));
 //! assert_eq!(email._type, InputType::Email);
 //! ```
+#![allow(deprecated)]
+
 use crate::input_type::InputType;
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};

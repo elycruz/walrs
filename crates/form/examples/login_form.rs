@@ -2,6 +2,8 @@
 //!
 //! This example demonstrates how to create a simple login form
 //! with username, password, and remember me checkbox.
+#![allow(deprecated)]
+
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };

@@ -17,6 +17,7 @@
 //! ## Example
 //!
 //! ```rust
+//! # #![allow(deprecated)]
 //! use walrs_form::{Form, FormMethod, InputElement, InputType, ButtonElement, ButtonType, FormData};
 //! use walrs_validation::Value;
 //!
@@ -48,6 +49,14 @@
 //! - `walrs_fieldfilter`: Field-level validation (`Field<T>`, `FieldFilter`)
 //! - `walrs_form`: Form structure and elements (this crate)
 //! - `walrs_filter`: Value transformation filters
+//!
+//! ## Deprecated: dynamic `FormData` path
+//!
+//! [`FormData`] (and the `Value`-based dynamic path it underpins) is
+//! deprecated as of 0.2.0 and will be removed in the next major release.
+//! Use `#[derive(Fieldset)]` (from `walrs_fieldset_derive`) on a typed
+//! struct instead. See
+//! [issue #267](https://github.com/elycruz/walrs/issues/267).
 // Type enums
 pub mod button_type;
 pub mod input_type;
@@ -70,6 +79,7 @@ pub use button_type::ButtonType;
 pub use element::Element;
 pub use fieldset_element::{FieldsetElement, FieldsetElementBuilder};
 pub use form::{Form, FormBuilder, FormEnctype, FormMethod};
+#[allow(deprecated)]
 pub use form_data::FormData;
 pub use input_element::{InputElement, InputElementBuilder};
 pub use input_type::InputType;
@@ -79,5 +89,7 @@ pub use select_option::{SelectOption, SelectOptionBuilder};
 pub use select_type::SelectType;
 pub use textarea_element::{TextareaElement, TextareaElementBuilder};
 // Re-export core types
+#[allow(deprecated)]
 pub use walrs_fieldfilter::{Field, FieldBuilder, FieldFilter, FieldsetViolations, IndexMap};
+#[allow(deprecated)]
 pub use walrs_validation::{Attributes, Value, ValueExt};

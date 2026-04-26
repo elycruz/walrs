@@ -1,3 +1,5 @@
+#![allow(deprecated)]
+
 //! # Value Validation Example
 //!
 //! Demonstrates dynamic `Value` type validation — useful when working with
@@ -5,6 +7,10 @@
 //!
 //! The `serde_json_bridge` feature (enabled by default) allows converting
 //! between `serde_json::Value` and `walrs_validation::Value`.
+//!
+//! NOTE: The dynamic `Value` path is deprecated as of 0.2.0 and will be
+//! removed in the next major release. Use `#[derive(Fieldset)]` on a typed
+//! struct instead. See https://github.com/elycruz/walrs/issues/267.
 
 use walrs_validation::{Rule, Validate, ValidateRef, Value, value};
 

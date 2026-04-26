@@ -14,6 +14,8 @@
 //!
 //! assert_eq!(select.options.len(), 2);
 //! ```
+#![allow(deprecated)]
+
 use crate::select_option::SelectOption;
 use crate::select_type::SelectType;
 use derive_builder::Builder;

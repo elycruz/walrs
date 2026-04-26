@@ -1,4 +1,5 @@
 #![no_main]
+#![allow(deprecated)]
 
 use arbitrary::Arbitrary;
 use indexmap::IndexMap;
