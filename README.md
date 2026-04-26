@@ -48,6 +48,7 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | Crate | Description |
 |---|---|
 | `walrs_acl` | Access control list structure |
+| `walrs_acl_wasm` | WebAssembly bindings for `walrs_acl` (sibling crate, opt-in) |
 | `walrs_digraph` | Directed graph structures |
 | `walrs_filter` | Input value transformation/sanitization filters |
 | `walrs_graph` | Undirected graph structures |
@@ -55,6 +56,7 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | `walrs_fieldset_derive` | Proc-macro crate providing `#[derive(Fieldset)]`; consumed via `walrs_fieldfilter`'s `derive` feature |
 | `walrs_navigation` | Web page link graph / navigation structures |
 | `walrs_rbac` | Role-Based Access Control |
+| `walrs_rbac_wasm` | WebAssembly bindings for `walrs_rbac` (sibling crate, opt-in) |
 | `walrs_validation` | Composable validation rules |
 
 ### The typed path (`Fieldset`)
