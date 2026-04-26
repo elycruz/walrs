@@ -13,10 +13,6 @@ use std::sync::Arc;
 
 use crate::{FilterError, FilterOp};
 
-#[cfg(feature = "value")]
-#[allow(deprecated)]
-use walrs_validation::Value;
-
 /// Parse a permissive boolean literal (case-insensitive).
 ///
 /// Accepts `1`, `0`, `true`, `false`, `yes`, `no`, `on`, `off` — surrounding whitespace is ignored.
@@ -114,30 +110,24 @@ pub enum TryFilterOp<T> {
   /// Accepts (case-insensitive): `"1"`, `"0"`, `"true"`, `"false"`, `"yes"`, `"no"`,
   /// `"on"`, `"off"`. Errors on anything else.
   ///
-  /// - On `TryFilterOp<String>`: normalises to the canonical `"true"` / `"false"` string.
-  /// - On `TryFilterOp<Value>` (feature `validation`): converts `Value::Str` → `Value::Bool`;
-  ///   `Value::Bool` passes through; other variants pass through unchanged.
+  /// On `TryFilterOp<String>`: normalises to the canonical `"true"` / `"false"` string.
   ToBool,
 
   /// Parse the value as a signed 64-bit integer (`i64`), accepting surrounding whitespace.
   ///
-  /// - On `TryFilterOp<String>`: normalises to the canonical decimal representation.
-  ///   **Note:** a leading `+` sign is accepted by the parser but is **not**
-  ///   preserved in the canonical output (`"+42"` → `"42"`). Likewise, leading
-  ///   zeros are stripped (`"042"` → `"42"`).
-  /// - On `TryFilterOp<Value>` (feature `validation`): converts `Value::Str` → `Value::I64`;
-  ///   numeric variants pass through; other variants pass through unchanged.
+  /// On `TryFilterOp<String>`: normalises to the canonical decimal representation.
+  /// **Note:** a leading `+` sign is accepted by the parser but is **not**
+  /// preserved in the canonical output (`"+42"` → `"42"`). Likewise, leading
+  /// zeros are stripped (`"042"` → `"42"`).
   ToInt,
 
   /// Parse the value as a 64-bit floating-point number (`f64`), accepting surrounding whitespace.
   ///
-  /// - On `TryFilterOp<String>`: normalises to `Display`-canonical form.
-  ///   **Note:** this canonical form is what Rust's default `f64` `Display` impl
-  ///   produces — which drops the fractional part for whole-valued floats
-  ///   (`"3.0"` → `"3"`), normalises exponents (`"-1e2"` → `"-100"`), and
-  ///   preserves the sign of `-0.0` (`"-0.0"` → `"-0"`).
-  /// - On `TryFilterOp<Value>` (feature `validation`): converts `Value::Str` → `Value::F64`;
-  ///   numeric variants pass through; other variants pass through unchanged.
+  /// On `TryFilterOp<String>`: normalises to `Display`-canonical form.
+  /// **Note:** this canonical form is what Rust's default `f64` `Display` impl
+  /// produces — which drops the fractional part for whole-valued floats
+  /// (`"3.0"` → `"3"`), normalises exponents (`"-1e2"` → `"-100"`), and
+  /// preserves the sign of `-0.0` (`"-0.0"` → `"-0"`).
   ToFloat,
 
   /// Percent-decode the value, interpreting the result as UTF-8.
@@ -274,79 +264,6 @@ impl TryFilterOp<String> {
 }
 
 // ============================================================================
-// Value TryFilterOp Implementation (requires "value" feature)
-// ============================================================================
-
-#[cfg(feature = "value")]
-#[allow(deprecated)]
-impl TryFilterOp<Value> {
-  /// Apply the fallible filter to a `&Value` reference, returning a `Result<Value, FilterError>`.
-  #[deprecated(
-    since = "0.2.0",
-    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
-  )]
-  pub fn try_apply_ref(&self, value: &Value) -> Result<Value, FilterError> {
-    match self {
-      TryFilterOp::Infallible(op) => Ok(op.apply_ref(value)),
-      TryFilterOp::Chain(ops) => {
-        let flat = flatten_try_chain(ops);
-        if flat.is_empty() {
-          return Ok(value.clone());
-        }
-        let mut result = value.clone();
-        for op in flat {
-          result = op.try_apply_ref(&result)?;
-        }
-        Ok(result)
-      }
-      TryFilterOp::ToBool => match value {
-        Value::Str(s) => Ok(Value::Bool(parse_bool_literal(s)?)),
-        Value::Bool(_) => Ok(value.clone()),
-        other => Ok(other.clone()),
-      },
-      TryFilterOp::ToInt => match value {
-        Value::Str(s) => {
-          let parsed: i64 = s.trim().parse().map_err(|e: std::num::ParseIntError| {
-            FilterError::new(format!("cannot parse {s:?} as i64: {e}")).with_name("ToInt")
-          })?;
-          Ok(Value::I64(parsed))
-        }
-        other => Ok(other.clone()),
-      },
-      TryFilterOp::ToFloat => match value {
-        Value::Str(s) => {
-          let parsed: f64 = s.trim().parse().map_err(|e: std::num::ParseFloatError| {
-            FilterError::new(format!("cannot parse {s:?} as f64: {e}")).with_name("ToFloat")
-          })?;
-          Ok(Value::F64(parsed))
-        }
-        other => Ok(other.clone()),
-      },
-      TryFilterOp::UrlDecode => match value {
-        Value::Str(s) => {
-          let decoded = percent_decode_str(s).decode_utf8().map_err(|e| {
-            FilterError::new(format!("invalid utf-8 after percent-decode: {e}"))
-              .with_name("UrlDecode")
-          })?;
-          Ok(Value::Str(decoded.into_owned()))
-        }
-        other => Ok(other.clone()),
-      },
-      TryFilterOp::TryCustom(f) => f(value.clone()),
-    }
-  }
-
-  /// Apply the fallible filter to an owned `Value`.
-  #[deprecated(
-    since = "0.2.0",
-    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
-  )]
-  pub fn try_apply(&self, value: Value) -> Result<Value, FilterError> {
-    self.try_apply_ref(&value)
-  }
-}
-
-// ============================================================================
 // Numeric TryFilterOp Implementations
 // ============================================================================
 
@@ -370,7 +287,7 @@ macro_rules! impl_numeric_try_filter_op {
                         | TryFilterOp::ToInt
                         | TryFilterOp::ToFloat
                         | TryFilterOp::UrlDecode => unreachable!(
-                            "string-oriented TryFilterOp variant applied to numeric TryFilterOp<{}>; these variants are only valid for TryFilterOp<String> (and TryFilterOp<Value> while the validation feature is enabled)",
+                            "string-oriented TryFilterOp variant applied to numeric TryFilterOp<{}>; these variants are only valid for TryFilterOp<String>",
                             stringify!($t)
                         ),
                         TryFilterOp::TryCustom(f) => f(value),
@@ -401,16 +318,6 @@ impl crate::TryFilter<String> for TryFilterOp<String> {
   type Output = String;
 
   fn try_filter(&self, value: String) -> Result<String, crate::FilterError> {
-    self.try_apply(value)
-  }
-}
-
-#[cfg(feature = "value")]
-#[allow(deprecated)]
-impl crate::TryFilter<Value> for TryFilterOp<Value> {
-  type Output = Value;
-
-  fn try_filter(&self, value: Value) -> Result<Value, crate::FilterError> {
     self.try_apply(value)
   }
 }
@@ -555,59 +462,6 @@ mod tests {
     assert_eq!(op.try_apply(200).unwrap(), 200); // clamped to 100, then * 2
   }
 
-  // ---- Value tests ----
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_infallible_value_trim() {
-    let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
-    let result = op.try_apply(Value::Str("  hello  ".to_string())).unwrap();
-    assert_eq!(result, Value::Str("hello".to_string()));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_try_custom_value() {
-    let op: TryFilterOp<Value> = TryFilterOp::TryCustom(Arc::new(|v: Value| {
-      if let Value::Str(s) = &v {
-        if s.is_empty() {
-          Err(FilterError::new("empty string"))
-        } else {
-          Ok(Value::Str(s.to_uppercase()))
-        }
-      } else {
-        Ok(v)
-      }
-    }));
-    assert_eq!(
-      op.try_apply(Value::Str("hello".to_string())).unwrap(),
-      Value::Str("HELLO".to_string())
-    );
-    assert!(op.try_apply(Value::Str("".to_string())).is_err());
-    // Non-string values pass through
-    assert_eq!(op.try_apply(Value::I64(42)).unwrap(), Value::I64(42));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_chain_value() {
-    let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![
-      TryFilterOp::Infallible(FilterOp::Trim),
-      TryFilterOp::Infallible(FilterOp::Lowercase),
-    ]);
-    let result = op.try_apply(Value::Str("  HELLO  ".to_string())).unwrap();
-    assert_eq!(result, Value::Str("hello".to_string()));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_chain_value_empty() {
-    let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![]);
-    let value = Value::Str("hello".to_string());
-    let result = op.try_apply_ref(&value).unwrap();
-    assert_eq!(result, value);
-  }
-
   // ---- apply_ref tests ----
 
   #[test]
@@ -624,15 +478,6 @@ mod tests {
     let result = op.try_apply_ref("  hello  ").unwrap();
     assert!(matches!(result, Cow::Owned(_)));
     assert_eq!(result, "hello");
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_value_try_apply_ref() {
-    let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
-    let value = Value::Str("  hello  ".to_string());
-    let result = op.try_apply_ref(&value).unwrap();
-    assert_eq!(result, Value::Str("hello".to_string()));
   }
 
   // ---- Serialization tests ----
@@ -706,17 +551,6 @@ mod tests {
     assert_eq!(op.try_filter("  hello  ".to_string()).unwrap(), "hello");
   }
 
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_try_filter_trait_value() {
-    use crate::TryFilter;
-    let op: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
-    assert_eq!(
-      op.try_filter(Value::Str("  hello  ".to_string())).unwrap(),
-      Value::Str("hello".to_string())
-    );
-  }
-
   // ====================================================================
   // Deep nesting tests — flatten_try_chain prevents stack overflow
   // ====================================================================
@@ -737,21 +571,6 @@ mod tests {
       chain = TryFilterOp::Chain(vec![chain]);
     }
     assert_eq!(chain.try_apply_ref("  hello  ").unwrap(), "hello");
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_deeply_nested_try_chain_value() {
-    let mut chain: TryFilterOp<Value> = TryFilterOp::Infallible(FilterOp::Trim);
-    for _ in 0..10_000 {
-      chain = TryFilterOp::Chain(vec![chain]);
-    }
-    assert_eq!(
-      chain
-        .try_apply(Value::Str("  hello  ".to_string()))
-        .unwrap(),
-      Value::Str("hello".to_string())
-    );
   }
 
   #[test]
@@ -884,23 +703,6 @@ mod tests {
     assert_eq!(op.try_apply("-0.0".to_string()).unwrap(), "-0");
   }
 
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_float_value_preserves_negative_zero() {
-    // On `Value`, `-0.0` survives as a `Value::F64` with its sign bit intact.
-    let op = TryFilterOp::<Value>::ToFloat;
-    let result = op.try_apply(Value::Str("-0.0".to_string())).unwrap();
-    if let Value::F64(f) = result {
-      assert!(
-        f.is_sign_negative(),
-        "-0.0 sign should survive Value::F64 path"
-      );
-      assert_eq!(f, 0.0);
-    } else {
-      panic!("expected Value::F64, got {result:?}");
-    }
-  }
-
   #[test]
   fn test_serde_roundtrip_to_float() {
     let op = TryFilterOp::<String>::ToFloat;
@@ -987,116 +789,13 @@ mod tests {
     assert_ne!(TryFilterOp::<String>::ToBool, TryFilterOp::<String>::ToInt);
   }
 
-  // ---- TryFilterOp<Value> conversion tests ----
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_bool_value_str_to_bool() {
-    let op = TryFilterOp::<Value>::ToBool;
-    assert_eq!(
-      op.try_apply(Value::Str("yes".to_string())).unwrap(),
-      Value::Bool(true)
-    );
-    assert_eq!(
-      op.try_apply(Value::Str("0".to_string())).unwrap(),
-      Value::Bool(false)
-    );
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_bool_value_bool_pass_through() {
-    let op = TryFilterOp::<Value>::ToBool;
-    assert_eq!(op.try_apply(Value::Bool(true)).unwrap(), Value::Bool(true));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_bool_value_other_pass_through() {
-    let op = TryFilterOp::<Value>::ToBool;
-    assert_eq!(op.try_apply(Value::I64(42)).unwrap(), Value::I64(42));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_int_value_str_to_i64() {
-    let op = TryFilterOp::<Value>::ToInt;
-    assert_eq!(
-      op.try_apply(Value::Str("  -7  ".to_string())).unwrap(),
-      Value::I64(-7)
-    );
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_int_value_str_invalid_errors() {
-    let op = TryFilterOp::<Value>::ToInt;
-    assert!(op.try_apply(Value::Str("abc".to_string())).is_err());
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_int_value_non_str_pass_through() {
-    let op = TryFilterOp::<Value>::ToInt;
-    assert_eq!(op.try_apply(Value::I64(99)).unwrap(), Value::I64(99));
-    assert_eq!(op.try_apply(Value::F64(1.5)).unwrap(), Value::F64(1.5));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_float_value_str_to_f64() {
-    let op = TryFilterOp::<Value>::ToFloat;
-    assert_eq!(
-      op.try_apply(Value::Str("3.25".to_string())).unwrap(),
-      Value::F64(3.25)
-    );
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_to_float_value_non_str_pass_through() {
-    let op = TryFilterOp::<Value>::ToFloat;
-    assert_eq!(op.try_apply(Value::F64(2.5)).unwrap(), Value::F64(2.5));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_url_decode_value_str() {
-    let op = TryFilterOp::<Value>::UrlDecode;
-    assert_eq!(
-      op.try_apply(Value::Str("hello%20world".to_string()))
-        .unwrap(),
-      Value::Str("hello world".to_string())
-    );
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_url_decode_value_non_str_pass_through() {
-    let op = TryFilterOp::<Value>::UrlDecode;
-    assert_eq!(op.try_apply(Value::I64(7)).unwrap(), Value::I64(7));
-  }
-
-  #[cfg(feature = "value")]
-  #[test]
-  fn test_chain_value_trim_then_to_int() {
-    let op: TryFilterOp<Value> = TryFilterOp::Chain(vec![
-      TryFilterOp::Infallible(FilterOp::Trim),
-      TryFilterOp::ToInt,
-    ]);
-    assert_eq!(
-      op.try_apply(Value::Str("  42  ".to_string())).unwrap(),
-      Value::I64(42)
-    );
-  }
-
   // ---- Numeric types reject string-oriented conversions ----
 
   #[test]
   #[should_panic(expected = "string-oriented TryFilterOp variant applied to numeric")]
   fn test_numeric_to_int_panics() {
     // `ToInt` on a numeric `TryFilterOp<T>` is a misconfiguration — the variant is
-    // only meaningful for `TryFilterOp<String>` (and `TryFilterOp<Value>`).
+    // only meaningful for `TryFilterOp<String>`.
     let op = TryFilterOp::<i32>::ToInt;
     let _ = op.try_apply(42);
   }

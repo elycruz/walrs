@@ -203,32 +203,23 @@ let msg = Message::from_fn(|value: &String, _locale| {
 
 This crate also provides shared foundation types used across form-related crates:
 
-- **`Value`** - Native form value enum with distinct numeric variants (`I64`, `U64`, `F64`), `Str`, `Bool`, `Array`, `Object(HashMap<String, Value>)`, and `Null`
-- **`ValueExt`** - Extension trait with form-specific helper methods (e.g., `is_empty_value()`)
-- **`value!`** - Convenience macro for constructing `Value` literals
 - **`Attributes`** - HTML attributes storage and rendering
+- **`FieldsetViolations`** - Aggregate error container mapping field names to `Violations`
 
 ### Feature Flags
 
-- **`value`** (default) — Enables the dynamic `Value` enum, its `Rule<Value>` /
-  `Condition<Value>` dispatch, and the `value!` macro. Disable with
-  `default-features = false` to build typed-only (`Rule<T>`) without the
-  dynamic path.
-- **`serde_json_bridge`** (default) — Provides `From<serde_json::Value> for
-  Value` and vice-versa, plus `Rule::to_attributes_list` HTML-attribute
-  conversion. Implies `value`.
+- **`serde_json_bridge`** (default) — Provides `Rule::to_attributes_list`
+  HTML-attribute conversion via `serde_json::Value`. Disable with
+  `default-features = false` to drop the `serde_json` dependency.
 - **`async`** — Enables `ValidateAsync` / `ValidateRefAsync` traits and the
   `Rule::CustomAsync` variant.
 - **`chrono`** — Enables `chrono::NaiveDate` date validation.
 - **`jiff`** — Enables `jiff::civil::Date` date validation.
 
-### `serde_json` Bridge
-
-The `serde_json_bridge` feature (enabled by default) provides `From<serde_json::Value> for Value` and vice-versa for interoperability.
-
 ### `indexmap` Support
 
-`indexmap` is a required dependency. `From<IndexMap<String, V>> for Value` is always available for constructing `Value::Object` from an `IndexMap`. The crate also re-exports `indexmap` for convenience.
+`indexmap` is a required dependency, used by `FieldsetViolations` for
+deterministic ordering. The crate also re-exports `indexmap` for convenience.
 
 ### Date Validation (`chrono` / `jiff`)
 

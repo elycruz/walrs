@@ -449,45 +449,6 @@ fn bench_try_filter_op(c: &mut Criterion) {
   group.finish();
 }
 
-#[cfg(feature = "value")]
-fn bench_filter_op_value(c: &mut Criterion) {
-  use walrs_validation::Value;
-
-  let mut group = c.benchmark_group("FilterOp_Value");
-
-  let trim = FilterOp::<Value>::Trim;
-  group.bench_function("trim_str_noop", |b| {
-    b.iter(|| trim.apply_ref(black_box(&Value::Str("already_trimmed".to_string()))))
-  });
-  group.bench_function("trim_str_mutation", |b| {
-    b.iter(|| trim.apply_ref(black_box(&Value::Str("  needs trimming  ".to_string()))))
-  });
-  group.bench_function("trim_non_str_passthrough", |b| {
-    b.iter(|| trim.apply_ref(black_box(&Value::I64(42))))
-  });
-
-  let clamp = FilterOp::<Value>::Clamp {
-    min: Value::I64(0),
-    max: Value::I64(100),
-  };
-  group.bench_function("clamp_i64_in_range", |b| {
-    b.iter(|| clamp.apply_ref(black_box(&Value::I64(50))))
-  });
-  group.bench_function("clamp_i64_above_max", |b| {
-    b.iter(|| clamp.apply_ref(black_box(&Value::I64(200))))
-  });
-
-  let chain: FilterOp<Value> = FilterOp::Chain(vec![FilterOp::Trim, FilterOp::Lowercase]);
-  group.bench_function("chain_trim_lowercase", |b| {
-    b.iter(|| chain.apply_ref(black_box(&Value::Str("  HELLO WORLD  ".to_string()))))
-  });
-
-  group.finish();
-}
-
-#[cfg(not(feature = "value"))]
-fn bench_filter_op_value(_c: &mut Criterion) {}
-
 criterion_group!(
   benches,
   bench_slug_filter,
@@ -500,7 +461,6 @@ criterion_group!(
   bench_try_filter_op_conversions,
   bench_filter_op_clamp,
   bench_try_filter_op,
-  bench_filter_op_value,
 );
 
 criterion_main!(benches);

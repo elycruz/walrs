@@ -1,4 +1,4 @@
-#[cfg(all(feature = "value", feature = "serde_json_bridge"))]
+#[cfg(feature = "serde_json_bridge")]
 pub(crate) mod attributes;
 #[cfg(feature = "chrono")]
 pub(crate) mod date_chrono;
@@ -8,5 +8,3 @@ pub(crate) mod length;
 pub(crate) mod scalar;
 pub(crate) mod steppable;
 pub(crate) mod string;
-#[cfg(feature = "value")]
-pub(crate) mod value;

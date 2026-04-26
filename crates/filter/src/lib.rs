@@ -67,14 +67,6 @@
 //! assert!(try_op.try_apply("  hello  ".to_string()).is_ok());
 //! assert!(try_op.try_apply("     ".to_string()).is_err());
 //! ```
-//!
-//! ## Deprecated: `FilterOp<Value>` / `TryFilterOp<Value>`
-//!
-//! The `Value`-targeting impls (gated by the `value` feature) are deprecated
-//! as of 0.2.0 and will be removed in the next major release alongside
-//! `walrs_validation::Value` itself. Use `#[derive(Fieldset)]` on a typed
-//! struct instead. See
-//! [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 #![cfg_attr(feature = "fn_traits", feature(fn_traits))]
 #![cfg_attr(feature = "fn_traits", feature(unboxed_closures))]

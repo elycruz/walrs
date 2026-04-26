@@ -19,9 +19,8 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [features]
-default = ["value", "serde_json_bridge"]
-value = []
-serde_json_bridge = ["dep:serde_json", "value"]
+default = ["serde_json_bridge"]
+serde_json_bridge = ["dep:serde_json"]
 async = []
 chrono = ["dep:chrono"]
 jiff = ["dep:jiff"]
@@ -44,7 +43,3 @@ tokio = { version = "1", features = ["rt", "macros"] }
 [[bench]]
 name = "validation_benchmarks"
 harness = false
-
-[[example]]
-name = "value_validation"
-required-features = ["value"]

@@ -5,12 +5,9 @@
 //!
 //! Run with: `cargo run --example json_serialization`
 
-#![allow(deprecated)]
-
 use walrs_fieldfilter::field::{Field, FieldBuilder};
 use walrs_filter::FilterOp;
 use walrs_validation::Rule;
-use walrs_validation::Value;
 
 fn main() {
   println!("=== JSON Serialization Examples ===\n");
@@ -79,20 +76,8 @@ fn main() {
   let json = serde_json::to_string_pretty(&any_rule).unwrap();
   println!("{}", json);
 
-  // Example 6: Field with Value type for dynamic forms
-  println!("\n6. Field<Value> for dynamic forms:");
-  let dynamic_field = FieldBuilder::<Value>::default()
-    .name("dynamic_input")
-    .rule(Rule::Required)
-    .filters(vec![FilterOp::Trim])
-    .build()
-    .unwrap();
-
-  let json = serde_json::to_string_pretty(&dynamic_field).unwrap();
-  println!("{}", json);
-
-  // Example 7: Round-trip serialization
-  println!("\n7. Round-trip serialization:");
+  // Example 6: Round-trip serialization
+  println!("\n6. Round-trip serialization:");
   let original = FieldBuilder::<String>::default()
     .name("password")
     .rule(Rule::Required.and(Rule::MinLength(8)))

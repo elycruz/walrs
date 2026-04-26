@@ -107,21 +107,5 @@ fn main() {
     println!("   '{}'\n      -> '{}'", title, result);
   }
 
-  // Example 10: Applying filters to Value
-  println!("\n10. Filters with Value:");
-  use walrs_validation::Value;
-
-  let value_trim = FilterOp::<Value>::Trim;
-  let json_value = Value::Str("  hello  ".to_string());
-  let result = value_trim.apply_ref(&json_value);
-  println!("   Input:  {:?}", json_value);
-  println!("   Output: {:?}", result);
-
-  // Non-string values pass through unchanged
-  let number_value = Value::I64(42);
-  let result = value_trim.apply_ref(&number_value);
-  println!("\n   Input (number):  {:?}", number_value);
-  println!("   Output (unchanged): {:?}", result);
-
   println!("\n=== Examples Complete ===");
 }

@@ -20,7 +20,7 @@ validation rather than type conversion.
 
 ```
 walrs_validation → walrs_filter      → walrs_fieldfilter ← walrs_fieldset_derive
-(Rule<T>, Value)   (Filter trait,      (Field<T>,           (#[derive(Fieldset)])
+(Rule<T>)          (Filter trait,      (Field<T>,           (#[derive(Fieldset)])
                     FilterOp<T>,        Fieldset trait)
                     TryFilterOp<T>)
 ```
@@ -30,7 +30,6 @@ walrs_validation → walrs_filter      → walrs_fieldfilter ← walrs_fieldset_
 - **`Field<T>`** — Single-field configuration combining optional `FilterOp<T>`
   filters, optional `TryFilterOp<T>` fallible filters, and an optional
   `Rule<T>` validation rule. Built via `FieldBuilder<T>` (derive_builder).
-  Specialised impls exist for `T = String` and `T = Value`.
 
 - **`Fieldset`** — Typed multi-field pipeline trait. Implemented by hand or
   via `#[derive(Fieldset)]` (the `derive` feature). Provides `filter()`,
