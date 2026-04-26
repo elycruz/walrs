@@ -58,15 +58,17 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | `walrs_rbac` | Role-Based Access Control |
 | `walrs_validation` | Composable validation rules |
 
-### Choosing a path: typed vs dynamic
+### The typed path (`Fieldset`)
 
-`walrs_fieldfilter` offers two parallel pipelines. Use the typed `Fieldset` trait
-(or `#[derive(Fieldset)]` via the `fieldfilter-derive` feature) when fields are
-known at compile time. Use the dynamic `FieldFilter` over `walrs_form::FormData`
-when fields are only known at runtime. The derive's
-`#[fieldset(into_form_data, try_from_form_data)]` attributes bridge the two; see
-`crates/form/examples/derive_formdata_bridge.rs` for a `FormData → typed → clean → FormData`
-round-trip.
+`walrs_fieldfilter` standardises on the typed `Fieldset` trait (or
+`#[derive(Fieldset)]` via the `fieldfilter-derive` feature) — define a struct
+describing your fields and get statically-checked validation and filtering.
+
+> **Deprecated: dynamic path.** The `Value` / `FieldFilter` / `FormData` types
+> and the `#[fieldset(into_form_data, try_from_form_data)]` bridge attributes
+> are deprecated as of 0.2.0 and will be removed in the next major release.
+> Use `#[derive(Fieldset)]` on a typed struct instead. See
+> [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 ## Development
 

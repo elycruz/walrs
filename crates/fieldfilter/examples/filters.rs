@@ -5,6 +5,8 @@
 //!
 //! Run with: `cargo run --example filters`
 
+#![allow(deprecated)]
+
 use walrs_filter::FilterOp;
 
 fn main() {

@@ -11,6 +11,8 @@
 //! let textarea = TextareaElement::new("bio");
 //! assert_eq!(textarea.name.as_deref(), Some("bio"));
 //! ```
+#![allow(deprecated)]
+
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;

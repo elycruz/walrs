@@ -15,6 +15,7 @@
 //! ## Example
 //!
 //! ```rust
+//! # #![allow(deprecated)]
 //! use walrs_fieldfilter::{Field, FieldBuilder, FieldFilter, TryFilterOp, FilterError};
 //! use walrs_filter::FilterOp;
 //! use walrs_validation::Rule;
@@ -54,39 +55,20 @@
 //! assert!(encoded_field.clean("bad\0input".to_string()).is_err());
 //! ```
 //!
-//! ## Typed ↔ Dynamic interop
+//! ## Typed path — [`Fieldset`]
 //!
-//! Two parallel processing paths exist; pick by where your data shape is known:
+//! When fields are known at compile time, define a struct and either implement
+//! [`Fieldset`] manually or use `#[derive(Fieldset)]` (behind the `derive`
+//! feature, re-exported as [`DeriveFieldset`]). You get statically-checked
+//! fields, native Rust types, and per-field `clean()` semantics.
 //!
-//! - **Typed path — [`Fieldset`]** (recommended for new code). When fields
-//!   are known at compile time, define a struct and either implement
-//!   [`Fieldset`] manually or use `#[derive(Fieldset)]` (behind the `derive`
-//!   feature, re-exported as [`DeriveFieldset`]). You get statically-checked
-//!   fields, native Rust types, and per-field `clean()` semantics.
+//! ## Deprecated: dynamic [`FieldFilter`] path
 //!
-//! - **Dynamic path — [`FieldFilter`]**. When fields are not known until
-//!   runtime (e.g., user-defined forms, schema-driven payloads), build a
-//!   `FieldFilter` from `Field<Value>` entries plus optional
-//!   [`CrossFieldRule`]s. The form data travels as `walrs_form::FormData`
-//!   (an ordered `IndexMap<String, Value>`).
-//!
-//! The two paths are bridged by the derive macro's optional attributes:
-//!
-//! ```ignore
-//! #[derive(Fieldset)]
-//! #[fieldset(into_form_data, try_from_form_data)]
-//! struct Signup { /* ... */ }
-//! ```
-//!
-//! - `#[fieldset(into_form_data)]` generates `impl From<&T> for walrs_form::FormData`.
-//! - `#[fieldset(try_from_form_data)]` generates
-//!   `impl TryFrom<walrs_form::FormData> for T` returning
-//!   [`FieldsetViolations`] on shape errors.
-//!
-//! Together they let an HTTP layer that speaks dynamic `FormData` round-trip
-//! through a typed struct: `FormData → T → clean() → FormData`. See the
-//! runnable `derive_formdata_bridge` example in the `walrs_form` crate
-//! (`cargo run --example derive_formdata_bridge -p walrs_form`).
+//! [`FieldFilter`] (with `Field<Value>` entries plus [`CrossFieldRule`]s) and
+//! the `#[fieldset(into_form_data, try_from_form_data)]` bridge attributes
+//! are deprecated as of 0.2.0 and will be removed in the next major release.
+//! Use `#[derive(Fieldset)]` on a typed struct instead. See
+//! [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 #[macro_use]
 extern crate derive_builder;
@@ -101,6 +83,7 @@ pub mod rule;
 pub use indexmap::IndexMap;
 
 // Re-export types from walrs_validation
+#[allow(deprecated)]
 pub use walrs_validation::{
   Attributes, FieldsetViolations, IsEmpty, Message, MessageContext, MessageParams, Value, ValueExt,
   Violation, ViolationMessage, ViolationType, Violations,
@@ -113,6 +96,7 @@ pub use walrs_validation::{ValidateAsync, ValidateRefAsync};
 pub use walrs_filter::{FilterError, FilterOp, TryFilterOp};
 
 pub use field::{Field, FieldBuilder};
+#[allow(deprecated)]
 pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 pub use fieldset::Fieldset;
 #[cfg(feature = "derive")]

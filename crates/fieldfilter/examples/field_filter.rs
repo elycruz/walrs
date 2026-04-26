@@ -5,6 +5,8 @@
 //!
 //! Run with: `cargo run --example field_filter`
 
+#![allow(deprecated)]
+
 use indexmap::IndexMap;
 use walrs_fieldfilter::field::FieldBuilder;
 use walrs_fieldfilter::field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};

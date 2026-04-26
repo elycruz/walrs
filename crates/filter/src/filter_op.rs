@@ -13,6 +13,7 @@ use std::sync::Arc;
 use crate::{Filter, SlugFilter, StripTagsFilter, XmlEntitiesFilter};
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 use walrs_validation::Value;
 
 /// RFC 3986 §2.3 "unreserved" character set: `ALPHA / DIGIT / "-" / "." / "_" / "~"`.
@@ -550,6 +551,7 @@ impl FilterOp<String> {
 /// zero-copy `Borrowed → clone the original Value` shortcut that existing `Trim`
 /// / `Lowercase` arms use. Non-string variants pass through unchanged.
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 fn apply_string_op_to_value(op: FilterOp<String>, value: &Value) -> Value {
   if let Value::Str(s) = value {
     match op.apply_ref(s.as_str()) {
@@ -562,12 +564,17 @@ fn apply_string_op_to_value(op: FilterOp<String>, value: &Value) -> Value {
 }
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 impl FilterOp<Value> {
   /// Apply the filter operation to a `&Value` reference, returning an owned `Value`.
   ///
   /// String-based filters only apply to `Value::Str` variants.
   /// Numeric filters apply to `Value::I64` / `Value::U64` / `Value::F64` variants.
   /// Non-matching types are cloned unchanged.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn apply_ref(&self, value: &Value) -> Value {
     match self {
       FilterOp::Trim => {
@@ -711,6 +718,10 @@ impl FilterOp<Value> {
   ///
   /// String-based filters only apply to `Value::Str` variants.
   /// Numeric filters apply to `Value::I64` / `Value::U64` / `Value::F64` variants.
+  #[deprecated(
+    since = "0.2.0",
+    note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+  )]
   pub fn apply(&self, value: Value) -> Value {
     self.apply_ref(&value)
   }
@@ -766,6 +777,7 @@ impl crate::Filter<String> for FilterOp<String> {
 }
 
 #[cfg(feature = "value")]
+#[allow(deprecated)]
 impl crate::Filter<Value> for FilterOp<Value> {
   type Output = Value;
 
@@ -775,6 +787,7 @@ impl crate::Filter<Value> for FilterOp<Value> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
   use super::*;
 

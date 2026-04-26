@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use walrs_filter::{FilterOp, TryFilterOp};
+#[allow(deprecated)]
 use walrs_validation::Value;
 use walrs_validation::{Rule, ValidateRef, Violation, Violations};
 
@@ -215,6 +216,7 @@ impl FieldOps for String {
   }
 }
 
+#[allow(deprecated)]
 impl FieldOps for Value {
   type ValueRef = Value;
 
@@ -457,6 +459,7 @@ impl Field<String> {
 // Value Field Implementation
 // ============================================================================
 
+#[allow(deprecated)]
 impl Field<Value> {
   /// Apply all filters to a `&Value` reference, returning an owned `Value`.
   pub fn filter_ref(&self, value: &Value) -> Value {
@@ -564,6 +567,7 @@ impl Field<String> {
 }
 
 #[cfg(feature = "async")]
+#[allow(deprecated)]
 impl Field<Value> {
   /// Validate a `&Value` reference asynchronously.
   pub async fn validate_ref_async(&self, value: &Value) -> Result<(), Violations> {
@@ -582,6 +586,7 @@ impl Field<Value> {
 }
 
 #[cfg(test)]
+#[allow(deprecated)]
 mod tests {
   use super::*;
   use std::sync::Arc;
@@ -893,10 +898,10 @@ mod tests {
   fn test_value_field_try_filter_failure() {
     let field = FieldBuilder::<Value>::default()
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
-        if let Value::Str(ref s) = v {
-          if s.is_empty() {
-            return Err(FilterError::new("empty string"));
-          }
+        if let Value::Str(ref s) = v
+          && s.is_empty()
+        {
+          return Err(FilterError::new("empty string"));
         }
         Ok(v)
       }))])
@@ -932,10 +937,10 @@ mod tests {
     let field = FieldBuilder::<Value>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|v: Value| {
-        if let Value::Str(ref s) = v {
-          if s.is_empty() {
-            return Err(FilterError::new("empty after trim"));
-          }
+        if let Value::Str(ref s) = v
+          && s.is_empty()
+        {
+          return Err(FilterError::new("empty after trim"));
         }
         Ok(v)
       }))])

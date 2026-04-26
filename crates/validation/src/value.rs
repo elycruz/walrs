@@ -3,6 +3,14 @@
 //! This module provides a native `Value` enum with distinct numeric variants
 //! (`I64`, `U64`, `F64`), enabling proper type discrimination in validation
 //! rules and avoiding the precision/orphan-rule issues of `serde_json::Value`.
+//!
+//! # Deprecated
+//!
+//! The dynamic `Value` path is deprecated as of 0.2.0 and will be removed in
+//! the next major release. Use `#[derive(Fieldset)]` on a typed struct
+//! instead. See [issue #267](https://github.com/elycruz/walrs/issues/267).
+
+#![allow(deprecated)]
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -25,6 +33,10 @@ use std::fmt;
 /// let n = Value::from(42i64);
 /// assert_eq!(n.as_i64(), Some(42));
 /// ```
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Value {
@@ -322,6 +334,10 @@ impl From<Value> for serde_json::Value {
 // ============================================================================
 
 /// Extension trait for Value to add form-specific helper methods.
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 pub trait ValueExt {
   /// Checks if the value is "empty" (null, empty string, empty array, or empty object).
   ///
@@ -381,6 +397,10 @@ impl ValueExt for Value {
 /// let v = value!([1, 2, 3]);
 /// assert_eq!(v.as_array().unwrap().len(), 3);
 /// ```
+#[deprecated(
+  since = "0.2.0",
+  note = "Removed in next major release. Use #[derive(Fieldset)] on a typed struct instead. See issue #267."
+)]
 #[macro_export]
 macro_rules! value {
   (null) => {

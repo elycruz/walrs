@@ -5,6 +5,8 @@
 //!
 //! Run with: `cargo run --example localized_form -p walrs_form`
 
+#![allow(deprecated)]
+
 use walrs_form::{
   ButtonElement, ButtonType, Element, Form, FormData, FormMethod, InputElement, InputType,
 };

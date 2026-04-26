@@ -1,4 +1,5 @@
 #![cfg(feature = "async")]
+#![allow(deprecated)]
 
 use indexmap::IndexMap;
 use std::sync::Arc;
