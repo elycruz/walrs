@@ -38,7 +38,7 @@ jobs:
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@v0.4.0
         with:
-          version: latest
+          version: '0.14.0'
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -51,7 +51,7 @@ jobs:
 
       - name: Install JS test dependencies
         working-directory: crates/${{ matrix.crate }}/tests-js
-        run: npm install
+        run: npm ci
 
       - name: Run JS tests
         working-directory: crates/${{ matrix.crate }}/tests-js
