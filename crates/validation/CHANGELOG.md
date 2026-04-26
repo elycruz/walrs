@@ -1,18 +1,33 @@
 # Changelog
 
-## Unreleased
+All notable changes to `walrs_validation` are documented here. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this crate adheres
+to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-### Added
+## [0.2.0] - 2026-04-26
 
-- New `value` feature flag (default-on) gating the dynamic `Value` enum, its
-  `Rule<Value>` / `Condition<Value>` dispatch, the `value!` macro, and the
-  `IsEmpty` implementation for `Value`. Typed-only consumers can now opt out
-  via `default-features = false` to avoid compiling the dynamic path.
-- `serde_json_bridge` now implies `value` (the bridge converts `serde_json::Value`
-  to/from `walrs_validation::Value`, so it cannot function without it).
+Coordinated pre-1.0 bump removing the dynamic `Value` path. See
+[`md/plans/2026-04-25-dynamic-path-removal.md`](../../md/plans/2026-04-25-dynamic-path-removal.md)
+and [issue #267](https://github.com/elycruz/walrs/issues/267) for context.
 
-### Changed
+### Removed (breaking)
 
-- Default-build behavior is unchanged: `default = ["value", "serde_json_bridge"]`
-  still enables the dynamic path out of the box. Existing code that relies on
-  default features continues to compile with no action required.
+- `Value` enum and all variants (`I64`, `U64`, `F64`, `Str`, `Bool`, `Array`,
+  `Object`, `Null`).
+- `ValueExt` trait and the `value!` macro.
+- `Rule<Value>` and `Condition<Value>` dispatch (`crates/validation/src/rule_impls/value.rs`).
+- `IsEmpty for Value` impl.
+- The `value` feature flag.
+- `value_validation` example.
+
+### Changed (breaking)
+
+- `serde_json_bridge` no longer implies the removed `value` feature. The
+  bridge uses `serde_json::Value` directly and never required the now-removed
+  `walrs_validation::Value`.
+- `serde_json` is now an optional dependency, gated on `serde_json_bridge`.
+
+### Migration
+
+Replace `Field<Value>` / `Rule<Value>` / `FilterOp<Value>` with typed
+struct definitions and `#[derive(Fieldset)]` from `walrs_fieldset_derive`.
