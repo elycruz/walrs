@@ -425,7 +425,7 @@ impl Field<String> {
   /// If the field has a locale set, it is applied to the rule for internationalized
   /// error messages.
   /// Whether the calling context stops processing further fields on failure is
-  /// controlled by the `break_on_failure` flag (used by `FieldFilter`).
+  /// controlled by the `break_on_failure` flag (used by `Fieldset`).
   pub fn validate_ref(&self, value: &str) -> Result<(), Violations> {
     validate_ref_impl(self, value)
   }
@@ -707,7 +707,7 @@ mod tests {
 
   #[test]
   fn test_break_on_failure() {
-    // `break_on_failure` signals the FieldFilter to stop processing further
+    // `break_on_failure` signals the Fieldset to stop processing further
     // fields when this field fails; the `validate` method itself always
     // short-circuits on the first encountered violation.
     let field = FieldBuilder::<String>::default()

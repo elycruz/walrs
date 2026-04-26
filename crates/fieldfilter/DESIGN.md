@@ -19,10 +19,10 @@ validation rather than type conversion.
 ## Architecture
 
 ```
-walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
-(Rule<T>, Value)   (Filter trait,      (Field<T>,          (Form, Elements,
-                    FilterOp<T>,        FieldFilter,         FormData)
-                    TryFilterOp<T>)     CrossFieldRule)
+walrs_validation → walrs_filter      → walrs_fieldfilter ← walrs_fieldset_derive
+(Rule<T>, Value)   (Filter trait,      (Field<T>,           (#[derive(Fieldset)])
+                    FilterOp<T>,        Fieldset trait)
+                    TryFilterOp<T>)
 ```
 
 ### Core Types
@@ -32,40 +32,35 @@ walrs_validation → walrs_filter      → walrs_fieldfilter → walrs_form
   `Rule<T>` validation rule. Built via `FieldBuilder<T>` (derive_builder).
   Specialised impls exist for `T = String` and `T = Value`.
 
-- **`FieldFilter`** — Multi-field form-level pipeline. Holds an
-  `IndexMap<String, Field<Value>>` plus a list of `CrossFieldRule`s.
-  Provides `filter()`, `try_filter()`, `validate()`, and `clean()`.
+- **`Fieldset`** — Typed multi-field pipeline trait. Implemented by hand or
+  via `#[derive(Fieldset)]` (the `derive` feature). Provides `filter()`,
+  `validate()`, and `clean()` over a struct's named fields with
+  compile-time-checked field names and types.
 
-- **`CrossFieldRule` / `CrossFieldRuleType`** — Serializable cross-field
-  validation (FieldsEqual, RequiredIf, RequiredUnless, OneOfRequired,
-  MutuallyExclusive, DependentRequired) plus a non-serializable `Custom`
-  variant for arbitrary logic.
+- **`FieldsetAsync`** — Async variant of `Fieldset` (behind the `async`
+  feature). Same API surface returning `Future`s.
 
 - **`FieldsetViolations`** — Aggregate error container mapping field names to
   `Violations`. Form-level violations use the empty-string key.
 
 ### Processing Pipeline
 
-`FieldFilter.clean(data)` runs:
+`Fieldset::clean(self)` runs:
 
-1. **`filter(data)`** — applies each field's `FilterOp` filters in order.
-2. **`try_filter(data)`** — applies each field's `TryFilterOp` filters;
-   collects errors into `FieldsetViolations`.
-3. **`validate(&data)`** — runs each field's `Rule<T>` plus all
-   `CrossFieldRule`s; collects errors into `FieldsetViolations`.
+1. **`filter(self)`** — applies each field's `FilterOp` filters in order.
+2. **`validate(&self)`** — runs each field's `Rule<T>` plus any
+   `#[cross_validate(...)]` rules; collects errors into
+   `FieldsetViolations`.
 
 ### Design Decisions
 
-- **`Value` for dynamic form data** — `FieldFilter.fields` uses
-  `Field<Value>` so that heterogeneous form payloads (strings, numbers,
-  booleans, arrays) can be handled with a single `IndexMap<String, Value>`.
-
-- **`IndexMap` for deterministic ordering** — field iteration follows
-  insertion order, making validation error output predictable.
+- **`IndexMap` for deterministic ordering** — `FieldsetViolations` uses
+  `IndexMap` so iteration follows insertion order, making validation error
+  output predictable.
 
 - **Serializable rules and filters** — Both `Rule<T>` and `FilterOp<T>`
   derive `Serialize`/`Deserialize`, enabling server-to-client rule
   transport for client-side pre-validation.
 
-- **Stateless** — `Field<T>` and `FieldFilter` are configuration objects
-  that do not mutate internal state during processing.
+- **Stateless** — `Field<T>` is a configuration object that does not
+  mutate internal state during processing.
