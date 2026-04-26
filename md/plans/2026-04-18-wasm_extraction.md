@@ -1,10 +1,10 @@
 # WASM Extraction Plan
 
-- **Date**: 2026-04-18
-- **Status**: Design
-- **Crates affected**: `walrs_acl`, `walrs_rbac`, `walrs_form`, plus two new crates (`walrs_acl_wasm`, `walrs_rbac_wasm`)
-- **Related issues**: #43 (closed — ACL WASM support, prior art); umbrella issue TBD
-- **Related docs**: `md/plans/value_feature_gating.md`, `md/discussions/value_feature_gating_and_isolation.md`, `md/discussions/value_type_scope_and_cms_tradeoffs.md`, `md/plans/form_serde_design.md`
+- **Date**: 2026-04-18 (updated 2026-04-26)
+- **Status**: Ready for execution
+- **Crates affected**: `walrs_acl`, `walrs_rbac`, plus two new crates (`walrs_acl_wasm`, `walrs_rbac_wasm`). `walrs_form` resolved by #267 (crate removed).
+- **Related issues**: #243 (umbrella), #43 (closed — ACL WASM support, prior art), #267 (closed — `walrs_form` removal)
+- **Related docs**: `md/discussions/value_type_scope_and_cms_tradeoffs.md`
 
 ## Table of Contents
 
@@ -65,7 +65,7 @@ WASM support is affirmed as a keep-goal by `md/discussions/value_type_scope_and_
 
 ## 4. Recommended Approach
 
-**Sibling-crate extraction** with a one-release deprecation window on the core crate's `wasm` feature.
+**Sibling-crate extraction with clean break** (§6 Option B) — confirmed 2026-04-26 after audit showed no external WASM consumers.
 
 **Naming**: `walrs_<name>_wasm` (underscore suffix). Rationale:
 - Matches walrs crate conventions.
@@ -81,9 +81,9 @@ WASM support is affirmed as a keep-goal by `md/discussions/value_type_scope_and_
 
 ## 5. Extraction Sequence (per crate)
 
-Apply **ACL first as pilot**, then RBAC once validated. `walrs_form` handled separately (see §10).
+Apply **ACL first as pilot**, then RBAC once validated.
 
-Per crate:
+Per crate (Option B — clean break, no deprecation window):
 
 1. Create `crates/<name>-wasm/` with `Cargo.toml`:
    ```toml
@@ -101,12 +101,13 @@ Per crate:
    ```
 2. Move files: `src/wasm.rs` → new crate's `src/lib.rs`; move `ci-cd-wasm.sh`, `tests-js/`, relevant `examples/wasm_example.rs` into the new crate.
 3. Update new crate's `ci-cd-wasm.sh` to drop `--no-default-features --features wasm` (no longer needed — the new crate is WASM-only).
-4. In the **core** crate (`walrs_acl` / `walrs_rbac`):
-   - Leave the `wasm` feature + optional deps **in place** for this release (deprecation window).
-   - Add a comment in `Cargo.toml` marking the feature deprecated and pointing to `walrs_<name>_wasm`.
-   - Leave `lib.rs` gates as-is so existing consumers keep working.
-   - Note follow-up issue: remove `cdylib`, `wasm` feature, and WASM deps in the next minor release.
-5. Add the new crate to the workspace `Cargo.toml` `members` and `default-members` if applicable.
+4. In the **core** crate (`walrs_acl` / `walrs_rbac`) — clean break in same PR:
+   - Remove `crate-type = ["cdylib", "rlib"]` from `[lib]` (defaults to `rlib`).
+   - Remove `wasm` feature from `[features]`.
+   - Remove optional deps: `wasm-bindgen`, `serde-wasm-bindgen`, `js-sys`.
+   - Remove `pub mod wasm;` and `pub use wasm::*;` gates from `lib.rs`.
+   - Delete `src/wasm.rs` (now relocated).
+5. Add the new crate to the workspace `Cargo.toml` `members`.
 6. Update `README.md` sub-crates table and feature-flag list (CLAUDE.md requirement).
 
 ## 6. Handling the "Default Opted-In WASM" Concern
@@ -115,11 +116,11 @@ Three graded options, recorded for discussion:
 
 | Option | Risk | Speed | User-visible break |
 |---|---|---|---|
-| **A (recommended)** Sibling extract + deprecate core `wasm` feature for one release | Low | ~2 days/crate | None on release N; break on N+1 |
-| **B** Extract + remove `wasm` feature from core immediately | Medium | ~1 day/crate | Breaking on release day |
+| **A** Sibling extract + deprecate core `wasm` feature for one release | Low | ~2 days/crate | None on release N; break on N+1 |
+| **B (chosen)** Extract + remove `wasm` feature from core immediately | Medium | ~1 day/crate | Breaking on release day |
 | **C** Keep in place, remove `cdylib` only (conditional on feature) | Low | ~2 h/crate | None — but doesn't solve deps-in-Cargo.toml or versioning coupling |
 
-Recommend **A**. B is acceptable if an audit confirms no external WASM consumers (plausible at 0.1.x maturity — confirm with user). C is a palliative, not the stated "standalone crates" goal.
+**Decision (2026-04-26)**: Option B. Q3 audit confirmed no external WASM consumers, so the deprecation window has no value. Bumps to `0.3.0` per breaking-change policy.
 
 ## 7. Crate Layout
 
@@ -158,8 +159,8 @@ This closes the current gap where WASM changes can regress silently between loca
 
 ## 9. Success Criteria
 
-- `cargo tree -p walrs_acl` (after follow-up release) shows **zero** WASM-adjacent deps.
-- `cargo build -p walrs_acl` (after follow-up release) produces only `rlib`, not `cdylib`.
+- `cargo tree -p walrs_acl` shows **zero** WASM-adjacent deps.
+- `cargo build -p walrs_acl` produces only `rlib`, not `cdylib`.
 - `cargo build -p walrs_acl_wasm --target wasm32-unknown-unknown` succeeds.
 - All pre-existing JS tests in `tests-js/` pass unchanged against the new crate.
 - `cargo test --workspace` + `cargo clippy --workspace --all-targets -- -D warnings` + `cargo fmt --check` all clean.
