@@ -2084,7 +2084,7 @@ dependencies = [
 
 [[package]]
 name = "walrs"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "walrs_acl",
  "walrs_digraph",
@@ -2098,7 +2098,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_acl"
-version = "0.3.0"
+version = "0.1.0"
 dependencies = [
  "actix-web",
  "async-trait",
@@ -2125,11 +2125,11 @@ dependencies = [
 
 [[package]]
 name = "walrs_digraph"
-version = "0.2.0"
+version = "0.1.0"
 
 [[package]]
 name = "walrs_fieldfilter"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "derive_builder",
  "indexmap",
@@ -2143,7 +2143,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_fieldset_derive"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2153,7 +2153,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_filter"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "ammonia",
  "criterion",
@@ -2167,7 +2167,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_graph"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "criterion",
  "walrs_digraph",
@@ -2175,7 +2175,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_navigation"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -2187,7 +2187,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_rbac"
-version = "0.3.0"
+version = "0.1.0"
 dependencies = [
  "criterion",
  "serde",
@@ -2210,7 +2210,7 @@ dependencies = [
 
 [[package]]
 name = "walrs_validation"
-version = "0.2.0"
+version = "0.1.0"
 dependencies = [
  "chrono",
  "criterion",

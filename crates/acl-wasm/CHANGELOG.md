@@ -8,7 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Initial release. Extracted from `walrs_acl` v0.2.0 — see
+- Initial release. Extracted from `walrs_acl` — see
   [issue #243](https://github.com/elycruz/walrs/issues/243) and PR #283
   (which landed phase 1 of the extraction).
 - `wasm-bindgen` bindings: `JsAcl`, `JsAclBuilder`, plus convenience fns

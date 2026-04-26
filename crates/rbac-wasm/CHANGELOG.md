@@ -8,7 +8,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- Initial release. Extracted from `walrs_rbac` v0.2.0 — see
+- Initial release. Extracted from `walrs_rbac` — see
   [issue #243](https://github.com/elycruz/walrs/issues/243) and PR #282
   (which landed phase 2 of the extraction).
 - `wasm-bindgen` bindings: `JsRbac`, `JsRbacBuilder`, plus convenience fns
