@@ -65,7 +65,6 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 describing your fields and get statically-checked validation and filtering.
 
 > **Deprecated: dynamic path.** The `Value` / `FieldFilter` / `FormData` types
-> and the `#[fieldset(into_form_data, try_from_form_data)]` bridge attributes
 > are deprecated as of 0.2.0 and will be removed in the next major release.
 > Use `#[derive(Fieldset)]` on a typed struct instead. See
 > [issue #267](https://github.com/elycruz/walrs/issues/267).

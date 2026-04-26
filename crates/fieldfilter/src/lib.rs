@@ -64,9 +64,8 @@
 //!
 //! ## Deprecated: dynamic [`FieldFilter`] path
 //!
-//! [`FieldFilter`] (with `Field<Value>` entries plus [`CrossFieldRule`]s) and
-//! the `#[fieldset(into_form_data, try_from_form_data)]` bridge attributes
-//! are deprecated as of 0.2.0 and will be removed in the next major release.
+//! [`FieldFilter`] (with `Field<Value>` entries plus [`CrossFieldRule`]s) is
+//! deprecated as of 0.2.0 and will be removed in the next major release.
 //! Use `#[derive(Fieldset)]` on a typed struct instead. See
 //! [issue #267](https://github.com/elycruz/walrs/issues/267).
 

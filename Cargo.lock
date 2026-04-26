@@ -2171,7 +2171,6 @@ dependencies = [
  "tokio",
  "walrs_fieldfilter",
  "walrs_fieldset_derive",
- "walrs_filter",
  "walrs_validation",
  "wasm-bindgen",
  "web-sys",
