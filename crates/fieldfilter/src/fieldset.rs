@@ -1,9 +1,7 @@
 //! Typed struct validation and filtering.
 //!
 //! This module provides the [`Fieldset`] trait for compile-time-checked
-//! validation and filtering of typed structs — the recommended replacement
-//! for the dynamic `FieldFilter` path when your fields are known at
-//! compile time.
+//! validation and filtering of typed structs.
 
 use walrs_validation::FieldsetViolations;
 

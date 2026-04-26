@@ -2090,7 +2090,6 @@ dependencies = [
  "walrs_digraph",
  "walrs_fieldfilter",
  "walrs_filter",
- "walrs_form",
  "walrs_graph",
  "walrs_navigation",
  "walrs_rbac",
@@ -2155,25 +2154,6 @@ dependencies = [
  "serde",
  "serde_json",
  "walrs_validation",
-]
-
-[[package]]
-name = "walrs_form"
-version = "0.1.0"
-dependencies = [
- "derive_builder",
- "indexmap",
- "js-sys",
- "serde",
- "serde-wasm-bindgen",
- "serde_json",
- "thiserror",
- "tokio",
- "walrs_fieldfilter",
- "walrs_fieldset_derive",
- "walrs_validation",
- "wasm-bindgen",
- "web-sys",
 ]
 
 [[package]]

@@ -8,13 +8,12 @@ license = "Elastic-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["acl", "digraph", "filter", "form", "graph", "fieldfilter", "navigation", "rbac", "validation"]
-full = ["acl", "digraph", "filter", "form", "graph", "fieldfilter", "fieldfilter-derive", "navigation", "rbac", "validation"]
+default = ["acl", "digraph", "filter", "graph", "fieldfilter", "navigation", "rbac", "validation"]
+full = ["acl", "digraph", "filter", "graph", "fieldfilter", "fieldfilter-derive", "navigation", "rbac", "validation"]
 
 acl = ["dep:walrs_acl"]
 digraph = ["dep:walrs_digraph"]
 filter = ["dep:walrs_filter"]
-form = ["dep:walrs_form"]
 graph = ["dep:walrs_graph"]
 fieldfilter = ["dep:walrs_fieldfilter"]
 fieldfilter-derive = ["fieldfilter", "walrs_fieldfilter/derive"]
@@ -26,7 +25,6 @@ validation = ["dep:walrs_validation"]
 walrs_acl = { path = "crates/acl", optional = true }
 walrs_digraph = { path = "crates/digraph", optional = true }
 walrs_filter = { path = "crates/filter", optional = true }
-walrs_form = { path = "crates/form", optional = true }
 walrs_graph = { path = "crates/graph", optional = true }
 walrs_fieldfilter = { path = "crates/fieldfilter", optional = true }
 walrs_navigation = { path = "crates/navigation", optional = true }
@@ -38,7 +36,6 @@ members = [
     "crates/acl",
     "crates/digraph",
     "crates/filter",
-    "crates/form",
     "crates/graph",
     "crates/fieldfilter",
     "crates/navigation",

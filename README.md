@@ -28,7 +28,7 @@ All sub-crates are enabled by default. Disable features you don't need to reduce
 walrs = { version = "0.1", default-features = false, features = ["fieldfilter", "validation", "filter"] }
 ```
 
-Available features: `acl`, `digraph`, `filter`, `form`, `graph`, `fieldfilter`, `fieldfilter-derive`, `navigation`, `rbac`, `validation`.
+Available features: `acl`, `digraph`, `filter`, `graph`, `fieldfilter`, `fieldfilter-derive`, `navigation`, `rbac`, `validation`.
 
 `fieldfilter-derive` opts into the `#[derive(Fieldset)]` proc-macro — it implies `fieldfilter` and enables `walrs_fieldfilter`'s `derive` feature:
 
@@ -50,7 +50,6 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 | `walrs_acl` | Access control list structure |
 | `walrs_digraph` | Directed graph structures |
 | `walrs_filter` | Input value transformation/sanitization filters |
-| `walrs_form` | Form elements and structure for web frameworks |
 | `walrs_graph` | Undirected graph structures |
 | `walrs_fieldfilter` | Field-level validation and filtering for form processing |
 | `walrs_fieldset_derive` | Proc-macro crate providing `#[derive(Fieldset)]`; consumed via `walrs_fieldfilter`'s `derive` feature |
@@ -64,9 +63,9 @@ You can also depend on individual sub-crates directly (e.g., `walrs_fieldfilter 
 `#[derive(Fieldset)]` via the `fieldfilter-derive` feature) — define a struct
 describing your fields and get statically-checked validation and filtering.
 
-> **Deprecated: dynamic path.** The `Value` / `FieldFilter` / `FormData` types
-> are deprecated as of 0.2.0 and will be removed in the next major release.
-> Use `#[derive(Fieldset)]` on a typed struct instead. See
+> **Deprecated: dynamic path.** `walrs_validation::Value` and the `value`
+> feature flag are deprecated as of 0.2.0 and will be removed in the next
+> major release. Use `#[derive(Fieldset)]` on a typed struct instead. See
 > [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 ## Development
@@ -124,7 +123,7 @@ cargo fuzz run fuzz_email fuzz/corpus/fuzz_email/ -- -max_total_time=60
 |---|---|---|
 | `walrs_validation` | `fuzz_email`, `fuzz_url`, `fuzz_ip`, `fuzz_hostname`, `fuzz_date`, `fuzz_rule_composition` | String parsers, rule composition |
 | `walrs_filter` | `fuzz_strip_tags`, `fuzz_slug`, `fuzz_filter_op_string` | HTML sanitization, slug generation, filter chains |
-| `walrs_fieldfilter` | `fuzz_field_string_clean`, `fuzz_fieldfilter_validate` | Field validation pipelines, multi-field validation |
+| `walrs_fieldfilter` | `fuzz_field_string_clean` | Field validation pipelines |
 
 #### CI integration
 

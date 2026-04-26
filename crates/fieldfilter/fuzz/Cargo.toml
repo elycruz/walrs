@@ -10,7 +10,6 @@ cargo-fuzz = true
 [dependencies]
 libfuzzer-sys = "0.4"
 arbitrary = { version = "1", features = ["derive"] }
-indexmap = "2"
 
 [dependencies.walrs_fieldfilter]
 path = ".."
@@ -25,9 +24,4 @@ debug = 1
 [[bin]]
 name = "fuzz_field_string_clean"
 path = "fuzz_targets/fuzz_field_string_clean.rs"
-doc = false
-
-[[bin]]
-name = "fuzz_fieldfilter_validate"
-path = "fuzz_targets/fuzz_fieldfilter_validate.rs"
 doc = false

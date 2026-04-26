@@ -7,7 +7,6 @@
 //! - [`Fieldset`] - Typed struct validation and filtering (recommended for new code)
 //! - `FieldsetAsync` - Async version of `Fieldset` (behind `async` feature)
 //! - [`Field`] - Unified validation configuration
-//! - [`FieldFilter`] - Multi-field validation with cross-field rules
 //! - [`FilterOp`] - Serializable filter enum for value transformation (re-exported from `walrs_filter`)
 //! - [`TryFilterOp`] - Fallible filter enum for transformations that can fail (re-exported from `walrs_filter`)
 //! - [`FilterError`] - Error type for fallible filters (re-exported from `walrs_filter`)
@@ -16,11 +15,9 @@
 //!
 //! ```rust
 //! # #![allow(deprecated)]
-//! use walrs_fieldfilter::{Field, FieldBuilder, FieldFilter, TryFilterOp, FilterError};
+//! use walrs_fieldfilter::{Field, FieldBuilder, TryFilterOp, FilterError};
 //! use walrs_filter::FilterOp;
 //! use walrs_validation::Rule;
-//! use walrs_validation::Value;
-//! use serde_json::json;
 //! use std::sync::Arc;
 //!
 //! // Create a field with filters and rule (use Rule::All for multiple rules)
@@ -61,19 +58,11 @@
 //! [`Fieldset`] manually or use `#[derive(Fieldset)]` (behind the `derive`
 //! feature, re-exported as [`DeriveFieldset`]). You get statically-checked
 //! fields, native Rust types, and per-field `clean()` semantics.
-//!
-//! ## Deprecated: dynamic [`FieldFilter`] path
-//!
-//! [`FieldFilter`] (with `Field<Value>` entries plus [`CrossFieldRule`]s) is
-//! deprecated as of 0.2.0 and will be removed in the next major release.
-//! Use `#[derive(Fieldset)]` on a typed struct instead. See
-//! [issue #267](https://github.com/elycruz/walrs/issues/267).
 
 #[macro_use]
 extern crate derive_builder;
 
 pub mod field;
-pub mod field_filter;
 pub mod fieldset;
 
 pub mod rule;
@@ -95,8 +84,6 @@ pub use walrs_validation::{ValidateAsync, ValidateRefAsync};
 pub use walrs_filter::{FilterError, FilterOp, TryFilterOp};
 
 pub use field::{Field, FieldBuilder};
-#[allow(deprecated)]
-pub use field_filter::{CrossFieldRule, CrossFieldRuleType, FieldFilter};
 pub use fieldset::Fieldset;
 #[cfg(feature = "derive")]
 pub use walrs_fieldset_derive::Fieldset as DeriveFieldset;

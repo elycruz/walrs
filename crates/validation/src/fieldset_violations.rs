@@ -6,8 +6,8 @@ use crate::{Violation, Violations};
 
 /// A key-value map of field names to their validation violations.
 ///
-/// Used consistently across `walrs_validation`, `walrs_fieldfilter`, and
-/// `walrs_form` to represent multi-field validation errors.
+/// Used consistently across `walrs_validation` and `walrs_fieldfilter` to
+/// represent multi-field validation errors.
 ///
 /// - Keys are field names (e.g., `"email"`, `"address.street"`).
 /// - Values are `Violations` (a vec of `Violation` instances).

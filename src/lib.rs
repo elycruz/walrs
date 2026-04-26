@@ -19,9 +19,6 @@ pub use walrs_digraph as digraph;
 #[cfg(feature = "filter")]
 pub use walrs_filter as filter;
 
-#[cfg(feature = "form")]
-pub use walrs_form as form;
-
 #[cfg(feature = "graph")]
 pub use walrs_graph as graph;
 
