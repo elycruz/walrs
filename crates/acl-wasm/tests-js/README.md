@@ -12,12 +12,12 @@ Unit tests for the `walrs_acl` WebAssembly module using Node.js built-in test ru
 Before running tests, you need to build the WASM module:
 
 ```bash
-# From the acl directory
+# From the acl-wasm directory
 cd ..
-wasm-pack build --target nodejs --no-default-features --features wasm
+wasm-pack build --target nodejs
 
 # Or use web target if you prefer
-wasm-pack build --target web --no-default-features --features wasm
+wasm-pack build --target web
 ```
 
 or build and test in one step:
@@ -57,7 +57,7 @@ custom files you've added.
 
 To avoid losing test files on rebuild:
 1. Tests are kept in this separate `tests-js` directory
-2. Tests import from `../pkg/walrs_acl.js`
+2. Tests import from `../pkg/walrs_acl_wasm.js`
 3. The test directory is tracked in git
 4. You can run tests after any rebuild without losing them
 
@@ -79,7 +79,7 @@ describe('My Feature', () => {
 
 ## Test Fixtures
 
-The tests use JSON fixtures from `../test-fixtures/`:
+The tests use JSON fixtures from `../../acl/test-fixtures/`:
 - `invalid-acl.json` - Invalid ACL for error testing
 - `example-acl-allow-and-deny-rules.json` - ACL with both allow and deny rules
 - `example-extensive-acl-array.json` - Large ACL for performance testing

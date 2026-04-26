@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { JsAcl, JsAclBuilder, createAclFromJson, checkPermission } from '../pkg/walrs_acl.js';
+import { JsAcl, JsAclBuilder, createAclFromJson, checkPermission } from '../pkg/walrs_acl_wasm.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -13,7 +13,7 @@ let extensiveAclJson;
 
 before(async () => {
   // Load the extensive ACL fixture
-  const fixturePath = join(__dirname, '..', 'test-fixtures', 'example-extensive-acl-array.json');
+  const fixturePath = join(__dirname, '..', '..', 'acl', 'test-fixtures', 'example-extensive-acl-array.json');
   extensiveAclJson = await readFile(fixturePath, 'utf-8');
 });
 

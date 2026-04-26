@@ -1,15 +1,8 @@
 /// Example demonstrating WASM-compatible ACL usage (no file I/O)
 ///
-/// This example works with both `std` and `no_std` + `alloc` builds.
-///
-/// To run with std:
+/// To run:
 /// ```bash
-/// cargo run --example wasm_example
-/// ```
-///
-/// To verify WASM compatibility:
-/// ```bash
-/// cargo build --example wasm_example --no-default-features --features wasm
+/// cargo run -p walrs_acl_wasm --example wasm_example
 /// ```
 use walrs_acl::simple::{AclBuilder, AclData};
 

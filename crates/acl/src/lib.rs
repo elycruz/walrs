@@ -34,9 +34,3 @@ mod prelude {
 }
 
 pub mod simple;
-
-#[cfg(feature = "wasm")]
-pub mod wasm;
-
-#[cfg(feature = "wasm")]
-pub use wasm::*;

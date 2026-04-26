@@ -34,6 +34,7 @@ walrs_validation = { path = "crates/validation", optional = true }
 [workspace]
 members = [
     "crates/acl",
+    "crates/acl-wasm",
     "crates/digraph",
     "crates/filter",
     "crates/graph",
