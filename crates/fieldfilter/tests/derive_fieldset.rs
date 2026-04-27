@@ -52,23 +52,23 @@ mod derive_tests {
   }
 
   #[test]
-  fn test_simple_clean() {
+  fn test_simple_sanitize() {
     let addr = UserAddress {
       street: "  123 Main St  ".into(),
       zip: "  90210  ".into(),
     };
-    let cleaned = addr.clean().unwrap();
-    assert_eq!(cleaned.street, "123 Main St");
-    assert_eq!(cleaned.zip, "90210");
+    let sanitized = addr.sanitize().unwrap();
+    assert_eq!(sanitized.street, "123 Main St");
+    assert_eq!(sanitized.zip, "90210");
   }
 
   #[test]
-  fn test_clean_fails_validation_after_filter() {
+  fn test_sanitize_fails_validation_after_filter() {
     let addr = UserAddress {
       street: "  ab  ".into(), // trims to "ab", too short
       zip: "  bad  ".into(),   // trims to "bad", no match
     };
-    let err = addr.clean().unwrap_err();
+    let err = addr.sanitize().unwrap_err();
     assert!(err.get("street").is_some());
     assert!(err.get("zip").is_some());
   }
@@ -428,11 +428,11 @@ mod derive_tests {
   }
 
   #[test]
-  fn test_numeric_clamp_clean() {
+  fn test_numeric_clamp_sanitize() {
     let form = ClampForm { percentage: 150 };
     // After filter (clamp to 100), validation passes
-    let cleaned = form.clean().unwrap();
-    assert_eq!(cleaned.percentage, 100);
+    let sanitized = form.sanitize().unwrap();
+    assert_eq!(sanitized.percentage, 100);
   }
 
   // =========================================================================

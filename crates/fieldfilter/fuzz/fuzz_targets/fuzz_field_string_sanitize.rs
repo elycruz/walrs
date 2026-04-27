@@ -12,8 +12,8 @@ fuzz_target!(|data: &[u8]| {
             .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
             .build()
             .unwrap();
-        let _ = field.clean(s.to_string());
-        let _ = field.clean_ref(s);
+        let _ = field.sanitize(s.to_string());
+        let _ = field.sanitize_ref(s);
 
         // Field with length validation + strip tags
         let field: Field<String> = FieldBuilder::default()
@@ -22,6 +22,6 @@ fuzz_target!(|data: &[u8]| {
             .filters(vec![FilterOp::Trim, FilterOp::StripTags])
             .build()
             .unwrap();
-        let _ = field.clean(s.to_string());
+        let _ = field.sanitize(s.to_string());
     }
 });

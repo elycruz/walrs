@@ -94,14 +94,14 @@ async fn filter_async_delegates_to_sync_filter() {
 }
 
 #[tokio::test]
-async fn clean_async_runs_filter_then_validate() {
+async fn sanitize_async_runs_filter_then_validate() {
   let r = Registration {
     email: "  USER@EXAMPLE.COM  ".into(),
     username: "alice".into(),
   };
-  let cleaned = r.clean_async().await.unwrap();
-  assert_eq!(cleaned.email, "user@example.com");
-  assert_eq!(cleaned.username, "alice");
+  let sanitized = r.sanitize_async().await.unwrap();
+  assert_eq!(sanitized.email, "user@example.com");
+  assert_eq!(sanitized.username, "alice");
 }
 
 #[tokio::test]

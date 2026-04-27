@@ -22,6 +22,6 @@ members = ["."]
 debug = 1
 
 [[bin]]
-name = "fuzz_field_string_clean"
-path = "fuzz_targets/fuzz_field_string_clean.rs"
+name = "fuzz_field_string_sanitize"
+path = "fuzz_targets/fuzz_field_string_sanitize.rs"
 doc = false

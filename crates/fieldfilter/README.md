@@ -15,14 +15,14 @@ let required_field: Field<String> = FieldBuilder::default()
     .build()
     .unwrap();
 // Field with rule and filter operations
-let cleaned_field: Field<String> = FieldBuilder::default()
+let sanitized_field: Field<String> = FieldBuilder::default()
     .rule(Rule::Required.and(Rule::MinLength(3)))
     .filters(vec![FilterOp::Trim, FilterOp::Lowercase])
     .build()
     .unwrap();
 // Validate
 assert!(required_field.validate("".to_string()).is_err());
-assert!(cleaned_field.validate("hello".to_string()).is_ok());
+assert!(sanitized_field.validate("hello".to_string()).is_ok());
 ```
 ### FilterOp<T> Enum
 Serializable filter operations for value transformation (defined in `walrs_filter`, re-exported here):
@@ -72,15 +72,15 @@ fn main() {
         name: "  Alice  ".into(),
     };
     
-    match form.clean() {
-        Ok(cleaned) => println!("Cleaned: {:?}", cleaned),
+    match form.sanitize() {
+        Ok(sanitized) => println!("Sanitized: {:?}", sanitized),
         Err(violations) => eprintln!("Errors: {}", violations),
     }
 }
 ```
 
 **Key features:**
-- `clean()` — filter then validate (convenience method)
+- `sanitize()` — filter then validate (convenience method)
 - `validate()` — validate without filtering
 - `filter()` — filter without validation
 - Nested struct support with `#[validate(nested)]` and `#[filter(nested)]`
