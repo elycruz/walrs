@@ -46,11 +46,11 @@ fn main() {
         name: "  Alice  ".into(),
     };
     
-    match form.clean() {
-        Ok(cleaned) => {
-            // cleaned.email == "user@example.com"
-            // cleaned.name == "Alice"
-            println!("Success: {:?}", cleaned);
+    match form.sanitize() {
+        Ok(sanitized) => {
+            // sanitized.email == "user@example.com"
+            // sanitized.name == "Alice"
+            println!("Success: {:?}", sanitized);
         }
         Err(violations) => {
             eprintln!("Validation failed: {}", violations);

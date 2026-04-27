@@ -47,8 +47,8 @@ use std::future::Future;
 /// }
 ///
 /// let form = LoginForm { email: " Test@Example.com ".to_string(), password: "secret123".to_string() };
-/// let cleaned = form.clean().unwrap();
-/// assert_eq!(cleaned.email, "test@example.com");
+/// let sanitized = form.sanitize().unwrap();
+/// assert_eq!(sanitized.email, "test@example.com");
 /// ```
 pub trait Fieldset: Sized {
   /// If `true`, validation stops after the first field with violations.
@@ -61,7 +61,7 @@ pub trait Fieldset: Sized {
   fn filter(self) -> Result<Self, FieldsetViolations>;
 
   /// Filter and then validate (convenience method).
-  fn clean(self) -> Result<Self, FieldsetViolations> {
+  fn sanitize(self) -> Result<Self, FieldsetViolations> {
     let filtered = self.filter()?;
     filtered.validate()?;
     Ok(filtered)
@@ -81,7 +81,7 @@ pub trait FieldsetAsync: Fieldset + Send {
   fn filter_async(self) -> impl Future<Output = Result<Self, FieldsetViolations>> + Send;
 
   /// Filter and then validate asynchronously (convenience method).
-  fn clean_async(self) -> impl Future<Output = Result<Self, FieldsetViolations>> + Send {
+  fn sanitize_async(self) -> impl Future<Output = Result<Self, FieldsetViolations>> + Send {
     async {
       let filtered = self.filter_async().await?;
       filtered.validate_async().await?;
@@ -182,7 +182,7 @@ mod tests {
     }
   }
 
-  // 1. Test manual Fieldset impl — validate, filter, clean
+  // 1. Test manual Fieldset impl — validate, filter, sanitize
   #[test]
   fn test_validate_pass() {
     let form = ContactForm {
@@ -215,14 +215,14 @@ mod tests {
   }
 
   #[test]
-  fn test_clean_success() {
+  fn test_sanitize_success() {
     let form = ContactForm {
       name: "  Alice  ".into(),
       email: "  ALICE@EXAMPLE.COM  ".into(),
     };
-    let cleaned = form.clean().unwrap();
-    assert_eq!(cleaned.name, "Alice");
-    assert_eq!(cleaned.email, "alice@example.com");
+    let sanitized = form.sanitize().unwrap();
+    assert_eq!(sanitized.name, "Alice");
+    assert_eq!(sanitized.email, "alice@example.com");
   }
 
   // 2. Test BREAK_ON_FAILURE const override
@@ -245,44 +245,44 @@ mod tests {
     assert_eq!(err.len(), 1);
   }
 
-  // 3. Test that clean = filter + validate
+  // 3. Test that sanitize = filter + validate
   #[test]
-  fn test_clean_equals_filter_then_validate() {
+  fn test_sanitize_equals_filter_then_validate() {
     let form1 = ContactForm {
       name: "  Alice  ".into(),
       email: "  ALICE@EXAMPLE.COM  ".into(),
     };
     let form2 = form1.clone();
 
-    let via_clean = form1.clean().unwrap();
+    let via_sanitize = form1.sanitize().unwrap();
 
     let filtered = form2.filter().unwrap();
     filtered.validate().unwrap();
     let via_manual = filtered;
 
-    assert_eq!(via_clean, via_manual);
+    assert_eq!(via_sanitize, via_manual);
   }
 
-  // 4. Test clean with filter error
+  // 4. Test sanitize with filter error
   #[test]
-  fn test_clean_filter_error() {
+  fn test_sanitize_filter_error() {
     let form = ParsedForm {
       age: "not-a-number".into(),
     };
-    let err = form.clean().unwrap_err();
+    let err = form.sanitize().unwrap_err();
     assert!(err.get("age").is_some());
     assert_eq!(err.len(), 1);
   }
 
-  // 5. Test clean with validation error
+  // 5. Test sanitize with validation error
   #[test]
-  fn test_clean_validation_error() {
+  fn test_sanitize_validation_error() {
     let form = ContactForm {
       name: "  ".into(),
       email: "  bad  ".into(),
     };
     // Filter trims, then validate sees empty name and bad email
-    let err = form.clean().unwrap_err();
+    let err = form.sanitize().unwrap_err();
     assert!(err.get("name").is_some() || err.get("email").is_some());
   }
 
@@ -347,20 +347,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_clean_async() {
+    async fn test_sanitize_async() {
       let form = AsyncForm {
         email: "  VALID@EXAMPLE.COM  ".into(),
       };
-      let cleaned = form.clean_async().await.unwrap();
-      assert_eq!(cleaned.email, "valid@example.com");
+      let sanitized = form.sanitize_async().await.unwrap();
+      assert_eq!(sanitized.email, "valid@example.com");
     }
 
     #[tokio::test]
-    async fn test_clean_async_validation_error() {
+    async fn test_sanitize_async_validation_error() {
       let form = AsyncForm {
         email: "   ".into(),
       };
-      let err = form.clean_async().await.unwrap_err();
+      let err = form.sanitize_async().await.unwrap_err();
       assert!(err.get("email").is_some());
     }
   }

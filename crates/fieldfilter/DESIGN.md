@@ -33,7 +33,7 @@ walrs_validation → walrs_filter      → walrs_fieldfilter ← walrs_fieldset_
 
 - **`Fieldset`** — Typed multi-field pipeline trait. Implemented by hand or
   via `#[derive(Fieldset)]` (the `derive` feature). Provides `filter()`,
-  `validate()`, and `clean()` over a struct's named fields with
+  `validate()`, and `sanitize()` over a struct's named fields with
   compile-time-checked field names and types.
 
 - **`FieldsetAsync`** — Async variant of `Fieldset` (behind the `async`
@@ -44,7 +44,7 @@ walrs_validation → walrs_filter      → walrs_fieldfilter ← walrs_fieldset_
 
 ### Processing Pipeline
 
-`Fieldset::clean(self)` runs:
+`Fieldset::sanitize(self)` runs:
 
 1. **`filter(self)`** — applies each field's `FilterOp` filters in order.
 2. **`validate(&self)`** — runs each field's `Rule<T>` plus any

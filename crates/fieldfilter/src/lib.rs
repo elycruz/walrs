@@ -27,8 +27,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! // Clean (filter + validate) a value
-//! let result = email_field.clean("  TEST@EXAMPLE.COM  ".to_string());
+//! // Sanitize (filter + validate) a value
+//! let result = email_field.sanitize("  TEST@EXAMPLE.COM  ".to_string());
 //! assert!(result.is_ok());
 //! assert_eq!(result.unwrap(), "test@example.com");
 //!
@@ -47,8 +47,8 @@
 //!     .build()
 //!     .unwrap();
 //!
-//! assert!(encoded_field.clean("hello".to_string()).is_ok());
-//! assert!(encoded_field.clean("bad\0input".to_string()).is_err());
+//! assert!(encoded_field.sanitize("hello".to_string()).is_ok());
+//! assert!(encoded_field.sanitize("bad\0input".to_string()).is_err());
 //! ```
 //!
 //! ## Typed path — [`Fieldset`]
@@ -56,7 +56,7 @@
 //! When fields are known at compile time, define a struct and either implement
 //! [`Fieldset`] manually or use `#[derive(Fieldset)]` (behind the `derive`
 //! feature, re-exported as [`DeriveFieldset`]). You get statically-checked
-//! fields, native Rust types, and per-field `clean()` semantics.
+//! fields, native Rust types, and per-field `sanitize()` semantics.
 
 #[macro_use]
 extern crate derive_builder;

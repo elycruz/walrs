@@ -19,14 +19,11 @@ fn main() {
     name: "  Alice  ".into(),
   };
 
-  match form.clean() {
-    Ok(cleaned) => {
+  match form.sanitize() {
+    Ok(sanitized) => {
       println!("✓ Validation passed!");
-      println!(
-        "  Email: {} (was: {})",
-        cleaned.email, "  USER@EXAMPLE.COM  "
-      );
-      println!("  Name: {} (was: {})", cleaned.name, "  Alice  ");
+      println!("  Email: {} (was:   USER@EXAMPLE.COM  )", sanitized.email);
+      println!("  Name: {} (was:   Alice  )", sanitized.name);
     }
     Err(violations) => {
       eprintln!("✗ Validation failed:");
@@ -45,7 +42,7 @@ fn main() {
     name: "A".into(),
   };
 
-  match invalid_form.clean() {
+  match invalid_form.sanitize() {
     Ok(_) => println!("✓ Unexpected success"),
     Err(violations) => {
       eprintln!("✗ Validation failed (expected):");

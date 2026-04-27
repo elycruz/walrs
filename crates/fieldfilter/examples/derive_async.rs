@@ -36,8 +36,8 @@ async fn main() {
     email: "  USER@EXAMPLE.COM  ".into(),
     username: "alice".into(),
   };
-  match ok.clean_async().await {
-    Ok(_) => println!("ok: clean_async succeeded"),
+  match ok.sanitize_async().await {
+    Ok(_) => println!("ok: sanitize_async succeeded"),
     Err(violations) => {
       eprintln!("unexpected validation failure:");
       for (field, fv) in violations.iter() {

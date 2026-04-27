@@ -71,10 +71,10 @@ fn main() {
   println!("   Filtered: '{}'", filtered);
   println!("   Validation: {:?}", email_field.validate_ref(&filtered));
 
-  // Example 4: Clean (filter + validate in one step)
-  println!("\n4. Using clean() for filter + validate:");
+  // Example 4: Sanitize (filter + validate in one step)
+  println!("\n4. Using sanitize() for filter + validate:");
   let input = "  ADMIN@COMPANY.ORG  ".to_string();
-  match email_field.clean(input.clone()) {
+  match email_field.sanitize(input.clone()) {
     Ok(result) => println!("   Input '{}' -> Result: '{}'", input, result),
     Err(violations) => println!("   Input '{}' -> Errors: {:?}", input, violations),
   }

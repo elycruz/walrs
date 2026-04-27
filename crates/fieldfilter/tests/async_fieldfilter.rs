@@ -50,7 +50,7 @@ async fn string_field_with_custom_async_rule() {
 }
 
 #[tokio::test]
-async fn string_field_clean_async() {
+async fn string_field_sanitize_async() {
   let rule = Rule::<String>::custom_async(Arc::new(|value: &String| {
     Box::pin(async move {
       if value.contains("bad") {
@@ -66,9 +66,9 @@ async fn string_field_clean_async() {
     .build()
     .unwrap();
 
-  let result = field.clean_async("  good  ".to_string()).await;
+  let result = field.sanitize_async("  good  ".to_string()).await;
   assert_eq!(result.unwrap(), "good");
 
-  let result = field.clean_async("  bad  ".to_string()).await;
+  let result = field.sanitize_async("  bad  ".to_string()).await;
   assert!(result.is_err());
 }

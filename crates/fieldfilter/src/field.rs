@@ -55,9 +55,9 @@ use walrs_validation::ValidateRefAsync;
 ///     .build()
 ///     .unwrap();
 ///
-/// // clean() applies infallible filters, then fallible filters, then validates
-/// assert!(field.clean("  hello  ".to_string()).is_ok());
-/// assert!(field.clean("  \0bad  ".to_string()).is_err());
+/// // sanitize() applies infallible filters, then fallible filters, then validates
+/// assert!(field.sanitize("  hello  ".to_string()).is_ok());
+/// assert!(field.sanitize("  \0bad  ".to_string()).is_err());
 /// ```
 #[derive(Clone, Debug, Serialize, Deserialize, Builder)]
 #[builder(setter(into, strip_option), default)]
@@ -294,7 +294,7 @@ where
   }
 }
 
-fn clean_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
+fn sanitize_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
 where
   Rule<T>: ValidateRef<T::ValueRef>,
 {
@@ -335,7 +335,7 @@ where
 }
 
 #[cfg(feature = "async")]
-async fn clean_async_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
+async fn sanitize_async_impl<T: FieldOps>(field: &Field<T>, value: T) -> Result<T, Violations>
 where
   T::ValueRef: Sync,
   Rule<T>: ValidateRefAsync<T::ValueRef>,
@@ -402,15 +402,15 @@ impl Field<String> {
   ///
   /// Applies infallible filters first, then fallible filters, then validates.
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub fn clean(&self, value: String) -> Result<String, Violations> {
-    clean_impl(self, value)
+  pub fn sanitize(&self, value: String) -> Result<String, Violations> {
+    sanitize_impl(self, value)
   }
 
   /// Filter a `&str` and then validate the result.
   ///
-  /// Like [`clean`](Self::clean) but starts from a `&str` reference,
+  /// Like [`sanitize`](Self::sanitize) but starts from a `&str` reference,
   /// avoiding the need for the caller to allocate a `String` up-front.
-  pub fn clean_ref(&self, value: &str) -> Result<String, Violations> {
+  pub fn sanitize_ref(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref(&filtered)?;
@@ -440,12 +440,12 @@ impl Field<String> {
   /// Filter the value synchronously (infallible + fallible), then validate asynchronously.
   ///
   /// Returns `Ok(filtered_value)` if all steps pass, or `Err(Violations)`.
-  pub async fn clean_async(&self, value: String) -> Result<String, Violations> {
-    clean_async_impl(self, value).await
+  pub async fn sanitize_async(&self, value: String) -> Result<String, Violations> {
+    sanitize_async_impl(self, value).await
   }
 
-  /// Like [`clean_async`](Self::clean_async) but starts from a `&str` reference.
-  pub async fn clean_ref_async(&self, value: &str) -> Result<String, Violations> {
+  /// Like [`sanitize_async`](Self::sanitize_async) but starts from a `&str` reference.
+  pub async fn sanitize_ref_async(&self, value: &str) -> Result<String, Violations> {
     let filtered = self.filter_ref(value);
     let filtered = self.try_filter(filtered)?;
     self.validate_ref_async(&filtered).await?;
@@ -538,14 +538,14 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_clean() {
+  fn test_string_field_sanitize() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
       .build()
       .unwrap();
 
-    let result = field.clean("  hello  ".to_string());
+    let result = field.sanitize("  hello  ".to_string());
     assert_eq!(result.unwrap(), "hello");
   }
 
@@ -660,7 +660,7 @@ mod tests {
   }
 
   #[test]
-  fn test_string_field_clean_with_try_filters() {
+  fn test_string_field_sanitize_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -675,20 +675,20 @@ mod tests {
       .unwrap();
 
     // Happy path: trim -> try_filter passes -> validation passes
-    assert_eq!(field.clean("  hello  ".to_string()).unwrap(), "hello");
+    assert_eq!(field.sanitize("  hello  ".to_string()).unwrap(), "hello");
 
     // Try filter fails (empty after trim)
-    let err = field.clean("     ".to_string()).unwrap_err();
+    let err = field.sanitize("     ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
     assert!(err[0].message().contains("empty after trimming"));
 
     // Try filter passes but validation fails (too short)
-    let err = field.clean("  hi  ".to_string()).unwrap_err();
+    let err = field.sanitize("  hi  ".to_string()).unwrap_err();
     assert_eq!(err.len(), 1);
   }
 
   #[test]
-  fn test_string_field_clean_try_filter_short_circuits() {
+  fn test_string_field_sanitize_try_filter_short_circuits() {
     let field = FieldBuilder::<String>::default()
       .try_filters(vec![
         TryFilterOp::TryCustom(Arc::new(|_| Err(FilterError::new("first fails")))),
@@ -699,7 +699,7 @@ mod tests {
       .build()
       .unwrap();
 
-    let err = field.clean("hello".to_string()).unwrap_err();
+    let err = field.sanitize("hello".to_string()).unwrap_err();
     assert!(err[0].message().contains("first fails"));
   }
 
@@ -725,11 +725,11 @@ mod tests {
   }
 
   // ====================================================================
-  // clean_ref tests — Field<String>
+  // sanitize_ref tests — Field<String>
   // ====================================================================
 
   #[test]
-  fn test_string_field_clean_ref() {
+  fn test_string_field_sanitize_ref() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .rule(Rule::MinLength(3))
@@ -737,14 +737,14 @@ mod tests {
       .unwrap();
 
     // Happy path: starts from &str
-    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
+    assert_eq!(field.sanitize_ref("  hello  ").unwrap(), "hello");
 
     // Validation fails
-    assert!(field.clean_ref("  hi  ").is_err());
+    assert!(field.sanitize_ref("  hi  ").is_err());
   }
 
   #[test]
-  fn test_string_field_clean_ref_with_try_filters() {
+  fn test_string_field_sanitize_ref_with_try_filters() {
     let field = FieldBuilder::<String>::default()
       .filters(vec![FilterOp::Trim])
       .try_filters(vec![TryFilterOp::TryCustom(Arc::new(|s: String| {
@@ -758,15 +758,15 @@ mod tests {
       .build()
       .unwrap();
 
-    assert_eq!(field.clean_ref("  hello  ").unwrap(), "hello");
-    assert!(field.clean_ref("     ").is_err()); // empty after trim
-    assert!(field.clean_ref("  hi  ").is_err()); // too short
+    assert_eq!(field.sanitize_ref("  hello  ").unwrap(), "hello");
+    assert!(field.sanitize_ref("     ").is_err()); // empty after trim
+    assert!(field.sanitize_ref("  hi  ").is_err()); // too short
   }
 
   #[test]
-  fn test_string_field_clean_ref_no_filters_no_rule() {
+  fn test_string_field_sanitize_ref_no_filters_no_rule() {
     let field = FieldBuilder::<String>::default().build().unwrap();
-    assert_eq!(field.clean_ref("hello").unwrap(), "hello");
+    assert_eq!(field.sanitize_ref("hello").unwrap(), "hello");
   }
 
   // ====================================================================

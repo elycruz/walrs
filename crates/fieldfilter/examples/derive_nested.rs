@@ -33,12 +33,12 @@ fn main() {
     },
   };
 
-  match form.clean() {
-    Ok(cleaned) => {
+  match form.sanitize() {
+    Ok(sanitized) => {
       println!("✓ Validation passed!");
-      println!("  Name: {}", cleaned.name);
-      println!("  Street: {}", cleaned.address.street);
-      println!("  Zip: {}", cleaned.address.zip);
+      println!("  Name: {}", sanitized.name);
+      println!("  Street: {}", sanitized.address.street);
+      println!("  Zip: {}", sanitized.address.zip);
     }
     Err(violations) => {
       eprintln!("✗ Validation failed:");
@@ -60,7 +60,7 @@ fn main() {
     },
   };
 
-  match invalid_form.clean() {
+  match invalid_form.sanitize() {
     Ok(_) => println!("✓ Unexpected success"),
     Err(violations) => {
       eprintln!("✗ Validation failed (expected):");
