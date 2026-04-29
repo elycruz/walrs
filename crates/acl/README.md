@@ -177,14 +177,72 @@ The ACL structure is made up of a `roles`, and a `resources`, symbol graph, and 
 
 See tests, [benchmarks](benchmarks), and/or [examples](examples) for more details.
 
+## Public API surface
+
+Top-level re-exports from `walrs_acl::simple` (see `src/simple/mod.rs`):
+
+- **Core**: `Acl`, `AclBuilder`, `AclData`
+- **Rules**: `Rule`, `RuleContextScope`, `PrivilegeRules`, `RolePrivilegeRules`, `ResourceRoleRules`
+- **Type aliases**: `Role`, `Resource`, `Privilege`, `AssertionKey` (all `String`)
+- **Conditional assertions**: `AssertionResolver` trait (any `Fn(&str) -> bool` qualifies via blanket impl)
+- **Async** (feature `async`): `AsyncAssertionResolver` trait
+
+The crate is `#![no_std]`-compatible when `std` is disabled (uses `alloc`); JSON construction via `AclBuilder::try_from(&mut File)` is gated on `std`.
+
+## Installation
+
+### Default (std)
+
+```toml
+[dependencies]
+walrs_acl = { version = "0.1.0" }
+```
+
+### `no_std` (alloc only)
+
+```toml
+[dependencies]
+walrs_acl = { version = "0.1.0", default-features = false }
+```
+
+### With async assertion resolvers
+
+```toml
+[dependencies]
+walrs_acl = { version = "0.1.0", features = ["async"] }
+```
+
+### Feature flags
+
+| Feature | Default | Enables |
+|---|---|---|
+| `std` | yes | Standard library support, file I/O constructors (`AclBuilder::try_from(&mut File)`, `AclData::try_from(&mut File)`), and `serde`/`serde_json` `std` features. |
+| `async` | no | `AsyncAssertionResolver` trait and `Acl::is_allowed_with_async` / `is_allowed_any_with_async` for assertions that need I/O. |
+
+## Examples
+
+Runnable examples live in [`examples/`](./examples/). Run any of them with `cargo run -p walrs_acl --example <name>`.
+
+| Example | Demonstrates | Required features |
+|---|---|---|
+| `acl_builder_example` | Building an ACL with `AclBuilder` — roles with inheritance, resources, allow/deny rules, permission checks, role-inheritance queries | _none_ |
+| `acl_try_from_json` | Loading an `AclData` from a JSON file via `AclBuilder::try_from(&mut File)` and printing the resulting ACL | `std` (default) |
+
+Example invocations:
+
+```sh
+cargo run -p walrs_acl --example acl_builder_example
+
+# acl_try_from_json reads ./acl/test-fixtures/example-acl-allow-and-deny-rules.json,
+# so run it from the workspace `crates/` directory:
+(cd crates && cargo run -p walrs_acl --example acl_try_from_json)
+```
+
+Two further runnable benchmarks live under [`benchmarks/`](./benchmarks/) (`benchmark_extensive_acl`, `benchmark_actix_middleware`) and are wired up as `[[example]]` targets in `Cargo.toml`; see [`benchmarks/README.md`](./benchmarks/README.md) for details and run commands.
+
 ## WASM Support
 
 WebAssembly bindings live in the sibling crate [`walrs_acl_wasm`](../acl-wasm/README.md).
-
-### Features
-
-- **`std`** (default): Full standard library support with file I/O
-- **`async`**: Adds `AsyncAssertionResolver` and `Acl::is_allowed_with_async` / `is_allowed_any_with_async` for assertions that need I/O
 
 ## Prior Art:
 
