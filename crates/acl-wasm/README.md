@@ -520,5 +520,5 @@ file pkg/walrs_acl_wasm_bg.wasm
 
 ## License
 
-Same as the main crate: Apache + GPL v3.
+Elastic-2.0 (matches the parent [`walrs_acl`](../acl/README.md) crate).
 
