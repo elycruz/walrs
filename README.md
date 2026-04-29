@@ -1,6 +1,14 @@
 # walrs
 
-An experimental Web Application Library for Rust. The project is in research and development stage — please do not use it for production.
+An experimental Web Application Library for Rust — a collection of building
+blocks for form validation, input filtering, access control, and graph-based
+navigation. The project is in research and development stage — please do not
+use it for production. Early feedback and bug reports are welcome via the
+[issue tracker](https://github.com/elycruz/walrs/issues).
+
+- **Repository**: https://github.com/elycruz/walrs
+- **Minimum supported Rust version**: 1.85 (edition 2024)
+- **License**: [Elastic License 2.0](./LICENSE)
 
 ## Usage
 
@@ -11,12 +19,31 @@ Add the root crate to get access to all sub-crates:
 walrs = "0.1"
 ```
 
-Then import any sub-crate as a module:
+Each sub-crate is re-exported as a module on the umbrella crate. A short
+end-to-end example using `walrs::validation` and `walrs::filter`:
+
+```rust
+use walrs::validation::{Rule, ValidateRef};
+use walrs::filter::FilterOp;
+
+// Compose validation rules
+let username_rule = Rule::<String>::MinLength(3).and(Rule::MaxLength(20));
+assert!(username_rule.validate_ref("alice").is_ok());
+assert!(username_rule.validate_ref("ab").is_err());
+
+// Chain input filters
+let normalize = FilterOp::<String>::Chain(vec![
+    FilterOp::Trim,
+    FilterOp::Lowercase,
+]);
+assert_eq!(normalize.apply_ref("  ALICE  "), "alice");
+```
+
+For typed struct-based field validation (the recommended path for forms), see
+[`walrs::fieldfilter`](./crates/fieldfilter/README.md):
 
 ```rust
 use walrs::fieldfilter::{Field, FieldBuilder};
-use walrs::validation::Rule;
-use walrs::filter::FilterOp;
 ```
 
 ### Feature flags
@@ -28,7 +55,7 @@ All sub-crates are enabled by default. Disable features you don't need to reduce
 walrs = { version = "0.1", default-features = false, features = ["fieldfilter", "validation", "filter"] }
 ```
 
-Available features: `acl`, `digraph`, `filter`, `graph`, `fieldfilter`, `fieldfilter-derive`, `navigation`, `rbac`, `validation`.
+Available features: `acl`, `digraph`, `filter`, `graph`, `fieldfilter`, `fieldfilter-derive`, `navigation`, `rbac`, `validation`. The `full` aggregate feature turns on every sub-crate plus `fieldfilter-derive`.
 
 `fieldfilter-derive` opts into the `#[derive(Fieldset)]` proc-macro — it implies `fieldfilter` and enables `walrs_fieldfilter`'s `derive` feature:
 
