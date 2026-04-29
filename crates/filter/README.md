@@ -4,6 +4,21 @@ Filter/transformation structs for input filtering.
 
 This crate provides reusable filter implementations that can transform input values. Filters are typically used in form processing pipelines to sanitize, normalize, or transform user input before, or after, validation.
 
+It is the underlying filter layer consumed by [`walrs_fieldfilter`](../fieldfilter/README.md) (via the `validation` feature, enabled by default), which ties filtering and validation together at the field/struct level.
+
+## Public API surface
+
+Top-level re-exports from `walrs_filter` (see `src/lib.rs`):
+
+- **Traits**: [`Filter<T>`](#the-filter-trait), [`TryFilter<T>`](#the-tryfilter-trait)
+- **Filter structs**: `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter`
+- **Slug helpers**: `to_slug`, `to_pretty_slug`
+- **Composable enums**: [`FilterOp<T>`](#filterop-enum) (infallible) and [`TryFilterOp<T>`](#tryfilterop-enum-fallible-filters) (fallible)
+- **Errors**: [`FilterError`](#filtererror) — convertible to `Violation` / `Violations` when the `validation` feature is enabled
+
+`FilterOp<T>` implements `Filter<T>` for `T = String` and the supported numeric types
+(`i32`, `i64`, `u32`, `u64`, `usize`, `f32`, `f64`). `TryFilterOp<String>` implements `TryFilter<String>`.
+
 ## Available Filters
 
 - **`SlugFilter`** - Converts strings to URL-friendly slugs.
@@ -291,30 +306,39 @@ fn main () {
 }
 ```
 
-## Features
+## Feature flags
 
-- **`validation`** (default) — Enables the `walrs_validation` dependency,
-  exposing `FilterError` → `Violation`/`Violations` conversions.
-- **`fn_traits`** — Enables nightly Rust `Fn`/`FnMut`/`FnOnce` trait implementations on
-  filter structs, allowing them to be called as closures. Requires a nightly compiler.
-- **`nightly`** — Catch-all for nightly features. Currently enables `fn_traits`.
+| Feature | Default | Enables |
+|---|:---:|---|
+| `validation` | yes | Pulls in `walrs_validation` and exposes `FilterError` → `Violation`/`Violations` conversions for integration with the validation error pipeline. |
+| `fn_traits` | no | Implements nightly `Fn`/`FnMut`/`FnOnce` on `StripTagsFilter` and `XmlEntitiesFilter`, allowing them to be called as closures. **Requires a nightly compiler.** |
+| `nightly` | no | Catch-all umbrella for nightly-only features; currently re-enables `fn_traits` (the underlying gate). **Requires a nightly compiler.** |
 
-## Running Examples
+Disable defaults to drop the `walrs_validation` dependency and use just the core
+filter types:
 
-The crate includes several examples demonstrating filter usage:
+```toml
+[dependencies]
+walrs_filter = { version = "0.1", default-features = false }
+```
+
+## Examples
+
+Runnable examples live in [`examples/`](./examples/). Run any of them with
+`cargo run -p walrs_filter --example <name>`.
+
+| Example | Demonstrates | Required features |
+|---|---|---|
+| `basic_filters` | Direct `Filter` trait usage with `SlugFilter`, `StripTagsFilter`, `XmlEntitiesFilter` | _none_ |
+| `filter_chain` | Composing concrete filter structs into a custom processing pipeline | _none_ |
+| `filter_op_usage` | All `FilterOp<T>` variants, numeric clamping, JSON serde round-trips | _none_ |
+| `try_filters` | Fallible pipelines with `TryFilterOp`, custom fallible filters, `FilterError` | _none_ |
 
 ```bash
-# Basic filter usage (SlugFilter, StripTagsFilter, XmlEntitiesFilter)
 cargo run -p walrs_filter --example basic_filters
-
-# Chaining multiple filters together
 cargo run -p walrs_filter --example filter_chain
-
-# Fallible filters with TryFilterOp
-cargo run -p walrs_filter --example try_filters
-
-# FilterOp enum: all variants, serialization, numeric clamping
 cargo run -p walrs_filter --example filter_op_usage
+cargo run -p walrs_filter --example try_filters
 ```
 
 ## Running Benchmarks
