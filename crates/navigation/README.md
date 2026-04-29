@@ -176,6 +176,20 @@ Each `Page` supports the following properties:
 
 All properties are public fields and can be accessed directly. The builder pattern provides a convenient way to construct pages.
 
+## Public API
+
+Top-level re-exports from the crate root (`walrs_navigation`):
+
+| Item | Kind | Source module |
+|---|---|---|
+| `Container` | struct | `container` |
+| `Page` | struct | `page` |
+| `PageBuilder` | struct | `page` |
+| `NavigationError` | enum | `error` |
+| `Result` | type alias (`Result<T, NavigationError>`) | `error` |
+
+The `view` module is also public and exposes the rendering helpers (`render_menu`, `render_menu_with_class`, `render_breadcrumbs`, `render_sitemap`, `render_sitemap_hierarchical`, `html_escape`).
+
 ## API Reference
 
 ### Container
@@ -398,38 +412,43 @@ All view helper functions automatically:
 
 ## Examples
 
-The crate includes two comprehensive examples:
+Runnable examples live in [`examples/`](./examples/). Run any of them with `cargo run -p walrs_navigation --example <name> [--features ...]`.
+
+| Example | Demonstrates | Required features |
+|---|---|---|
+| `basic_navigation` | Core `Container` / `Page` API, search, traversal, breadcrumbs, view helpers, JSON | _none_ (uses default `json`) |
+| `yaml_navigation` | YAML serialization/deserialization round-trip via `from_yaml` / `to_yaml` | `yaml` |
+| `actix_web_navigation` | Integration with Actix Web: HTML menus, active highlighting, breadcrumbs, JSON API endpoint | _none_ (uses default `json`) |
+
+Example invocations:
+
+```bash
+cargo run -p walrs_navigation --example basic_navigation
+cargo run -p walrs_navigation --example yaml_navigation --features yaml
+cargo run -p walrs_navigation --example actix_web_navigation
+# then visit http://127.0.0.1:8080 in your browser
+```
 
 ### Basic Navigation Example
 
-Run the basic example to see core functionality:
-
-```bash
-cargo run --example basic_navigation --features json,yaml
-```
-
-This example demonstrates:
+Demonstrates:
 - Creating navigation structures
 - Adding and organizing pages
 - Finding pages by URI, label, route, and custom predicates
 - Depth-aware traversal
 - Breadcrumb generation
 - View helper rendering (menus, breadcrumbs, sitemaps)
-- JSON and YAML serialization/deserialization
+- JSON serialization/deserialization
 - Direct field access
 - Fragment-based hrefs
 
+### YAML Navigation Example
+
+Demonstrates `Container::from_yaml` / `Container::to_yaml` round-trips. Requires the `yaml` feature flag.
+
 ### Actix Web Integration Example
 
-Run the web server example:
-
-```bash
-cargo run --example actix_web_navigation --features json,yaml
-```
-
-Then visit http://127.0.0.1:8080 in your browser.
-
-This example demonstrates:
+Demonstrates:
 - Integration with Actix Web framework
 - Rendering HTML navigation menus using view helpers
 - Active page highlighting
