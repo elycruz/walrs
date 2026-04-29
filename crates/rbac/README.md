@@ -53,8 +53,7 @@ The RBAC can be constructed:
 
 - using the `RbacBuilder` structure (fluent interface).
 - from a \*.json representation, using `RbacBuilder::try_from(&mut File)?.build()`.
-- from a \*.json representation, using `RbacBuilder::try_from(RbacData)?.build()` (`RbacData` can also be constructed from a \*.json file).
-- from a \*.yaml representation (behind the `yaml` feature flag), using `RbacData::from_yaml()`.
+- from a deserialized `RbacData`, using `RbacBuilder::try_from(&RbacData)?.build()` (`RbacData` can be parsed from JSON via `RbacData::from_json` or, with the `yaml` feature, from YAML via `RbacData::from_yaml`).
 
 ### JSON Representation
 
@@ -115,19 +114,33 @@ The `is_granted(role, permission)` method checks if a role has a permission eith
 | `rbac.has_role(role)` | Check if a role exists |
 | `rbac.get_role(role)` | Get a reference to a `Role` |
 | `rbac.role_count()` | Get the number of roles |
+| `rbac.role_names()` | Iterator over role names |
 
 See tests, [benchmarks](benchmarks), and/or [examples](examples) for more details.
 
+## Public API surface
+
+Top-level re-exports from `walrs_rbac` (see `src/lib.rs`):
+
+- **Core**: `Rbac`, `RbacBuilder`, `Role`
+- **Data**: `RbacData` (serde-serializable representation; supports JSON and, with `yaml`, YAML)
+- **Errors**: `RbacError`, `Result` (alias for `core::result::Result<T, RbacError>`)
+
+`RbacError` variants: `RoleNotFound`, `CycleDetected`, `InvalidConfiguration`, `DeserializationError`, `SerializationError`.
+
 ## Features
 
-- **`std`** (default): Full standard library support with file I/O and JSON
-- **`yaml`**: YAML serialization/deserialization support
-- **`wasm`**: WASM-compatible mode with `no_std` + `alloc`
+| Feature | Default | Enables |
+|---|---|---|
+| `std` | yes | Standard-library support: file I/O (`TryFrom<&mut File>` for `RbacData`/`RbacBuilder`), `std::error::Error` impl on `RbacError`, `HashMap` storage. |
+| `yaml` | no | YAML serialization/deserialization on `RbacData` (`from_yaml` / `to_yaml`) via `serde_yaml`. |
 
-### Usage
+Disabling default features (`default-features = false`) drops `std` and switches the crate to `no_std + alloc` mode (uses `BTreeMap` instead of `HashMap`); this is the configuration used by `walrs_rbac_wasm`.
+
+### Installation
 
 ```toml
-# Default (JSON support)
+# Default (JSON support, std)
 [dependencies]
 walrs_rbac = "0.1.0"
 
@@ -135,20 +148,25 @@ walrs_rbac = "0.1.0"
 [dependencies]
 walrs_rbac = { version = "0.1.0", features = ["yaml"] }
 
-# For WASM targets
+# no_std / WASM-compatible (alloc only)
 [dependencies]
-walrs_rbac = { version = "0.1.0", default-features = false, features = ["wasm"] }
+walrs_rbac = { version = "0.1.0", default-features = false }
 ```
+
+## Examples
+
+Runnable examples live in [`examples/`](./examples/). Run any of them with `cargo run -p walrs_rbac --example <name>`.
+
+| Example | Demonstrates | Run command |
+|---|---|---|
+| `rbac_builder_example` | Fluent `RbacBuilder` usage and `is_granted` checks | `cargo run -p walrs_rbac --example rbac_builder_example` |
+| `rbac_try_from_json` | Loading an RBAC from a JSON file via `TryFrom<&mut File>` | `cargo run -p walrs_rbac --example rbac_try_from_json` (run from `crates/rbac/` so the fixture path resolves) |
 
 ## WASM Support
 
-The crate supports WebAssembly (see [WASM README](WASM_README.md) for details).
+`walrs_rbac` is `no_std`-compatible (with `alloc`) when built with `default-features = false`. JavaScript/TypeScript bindings live in the companion crate [`walrs_rbac_wasm`](../rbac-wasm/README.md), which exposes `JsRbac`, `JsRbacBuilder`, and convenience helpers via `wasm-bindgen`.
 
-### Build
-
-```bash
-$ sh ./ci-cd-wasm.sh
-```
+To build the WASM bindings, work in `crates/rbac-wasm/` (see its README).
 
 ## Prior Art
 

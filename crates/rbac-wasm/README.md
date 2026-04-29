@@ -1,6 +1,8 @@
-# walrs_rbac (js)
+# walrs_rbac_wasm
 
-WebAssembly version of [walrs_rbac](../../README.md).
+WebAssembly / JavaScript bindings for [`walrs_rbac`](../rbac/README.md).
+
+This crate re-exposes `walrs_rbac`'s `Rbac` and `RbacBuilder` to JS through `wasm-bindgen` as `JsRbac` and `JsRbacBuilder`. For Rust-side semantics (role hierarchy, inheritance rules, JSON representation), see the [`walrs_rbac` README](../rbac/README.md).
 
 ## Prerequisites
 
@@ -11,6 +13,13 @@ Any environment that supports WebAssembly:
 - Chrome/Edge 57+
 - Firefox 52+
 - Safari 11+
+
+## Public API surface (JS)
+
+Exported from `pkg/walrs_rbac_wasm.js` after a `wasm-pack` build (see `src/lib.rs` for the `#[wasm_bindgen]` definitions):
+
+- **Classes**: `JsRbacBuilder`, `JsRbac`
+- **Functions**: `createRbacFromJson(json)`, `checkPermission(rbacJson, role, permission)`
 
 ## JavaScript API
 
@@ -65,9 +74,9 @@ console.log(rbac.roleCount());  // 4
 
 #### Methods
 
-- **`new JsRbac()`** - Create empty RBAC
-- **`fromJson(json: string): JsRbac`** - Load from JSON configuration
-- **`isGranted(role: string, permission: string): boolean`** - Check permission
+- **`new JsRbac()`** - Create empty RBAC (rarely used directly; prefer the builder or `JsRbac.fromJson(...)`)
+- **`JsRbac.fromJson(json: string): JsRbac`** _(static)_ - Load from a JSON configuration string
+- **`isGranted(role: string, permission: string): boolean`** - Check permission (direct or inherited)
 - **`hasRole(role: string): boolean`** - Check if role exists
 - **`roleCount(): number`** - Get number of roles
 
@@ -140,6 +149,22 @@ wasm-pack build --target web
 wasm-pack build --target bundler
 ```
 
+**Build + run JS tests in one shot** (matches the [`WASM` CI workflow](../../.github/workflows/wasm.yml)):
+
+```bash
+sh ./ci-cd-wasm.sh
+```
+
+This runs `wasm-pack build --target nodejs`, optimizes the resulting `.wasm` with `wasm-opt -Oz`, then runs the Node test suite under `tests-js/`.
+
+### Rust-side sanity check
+
+For a quick compile check without producing a `.wasm` artifact:
+
+```bash
+cargo check -p walrs_rbac_wasm
+```
+
 ### Publishing to NPM
 
 ```bash
@@ -153,4 +178,4 @@ This crate is inspired by the [laminas-permissions-rbac](https://github.com/lami
 
 ## License
 
-Same as the main crate: Apache-2.0 AND GPL-3.0-only.
+Elastic-2.0 (matches the parent [`walrs_rbac`](../rbac/README.md) crate).
