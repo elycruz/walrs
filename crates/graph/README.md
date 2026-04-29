@@ -1,15 +1,23 @@
-# walrs_graph crate
+# walrs_graph
 
 Undirected graph data structures and algorithms for the walrs project. This crate provides efficient implementations of graph data structures and classic graph algorithms based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne.
 
-## Features
+## Overview
 
-- **Graph** - Undirected graph with adjacency list representation
-- **SymbolGraph** - Graph with string-based vertex names
-- **DFS** - Depth-first search for connectivity and path finding
-- Comprehensive test coverage
-- Benchmarks for performance tracking
-- Example programs demonstrating usage
+- **`Graph`** — undirected adjacency-list graph over `usize` vertex indices. Each undirected edge is stored in both endpoints' adjacency lists, so `edge_count()` reports twice the number of logical edges. Adjacency lists are kept sorted, enabling O(log deg(v)) `has_edge` via binary search.
+- **`DFS`** — single-source depth-first search with reachability (`marked` / `has_path_to`), reachability count (`count`), and `path_to` reconstruction.
+- **`SymbolGraph<T: Symbol>`** — graph keyed by typed symbols. Wraps a `Graph` and deduplicates vertices on insert. Comes with `GenericSymbol` (a `String`-backed implementation of `Symbol`) and a `TryFrom<&mut BufReader<File>>` impl that ingests whitespace-delimited adjacency files.
+
+## Public API surface
+
+Top-level re-exports from `walrs_graph` (everything in `src/graph/` is glob-re-exported via `src/lib.rs`):
+
+- **Core**: `Graph`, `invalid_vertex_msg`
+- **Search**: `DFS`
+- **Symbol graph**: `SymbolGraph<T>`, `GenericSymbol`, `Symbol` (trait)
+- **Utilities**: `extract_vert_and_edge_counts_from_bufreader`
+
+Submodules (`graph`, `single_source_dfs`, `symbol_graph`, `traits`, `shared_utils`) are also `pub` if you'd rather refer to a type by its full path.
 
 ## Installation
 
@@ -19,6 +27,8 @@ Add this to your `Cargo.toml`:
 [dependencies]
 walrs_graph = { path = "../graph" }
 ```
+
+This crate has no Cargo features.
 
 ## Usage
 
@@ -136,15 +146,12 @@ This crate follows the same conventions as the `walrs_digraph` crate:
 
 ## Examples
 
-Run the included examples:
+Runnable examples live in [`examples/`](./examples/).
 
-```bash
-# Graph traversal (DFS)
-cargo run --example graph_traversal -- graph.txt 0
-
-# Symbol graph demo (interactive)
-cargo run --example symbol_graph_demo -- routes.txt
-```
+| Example             | Demonstrates                                                                  | Run                                                                                                                  |
+| ------------------- | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `graph_traversal`   | Loading a `Graph` from a file and running `DFS` from a chosen source vertex   | `cargo run -p walrs_graph --example graph_traversal -- ./crates/graph/test-fixtures/graph_test_tinyG.txt 0`          |
+| `symbol_graph_demo` | Loading a `SymbolGraph<GenericSymbol>` and interactively querying neighbors via stdin | `cargo run -p walrs_graph --example symbol_graph_demo -- ./crates/graph/test-fixtures/acl_roles_symbol_graph.txt`    |
 
 ## Benchmarks
 
@@ -191,10 +198,8 @@ Based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne:
 
 ## Related Crates
 
-- **walrs_digraph** - Directed graph data structures and algorithms
-- **walrs_acl** - Access control lists using graph structures
-- **walrs_navigation** - Navigation structures using graphs
+- **walrs_digraph** — directed counterpart with `Digraph`, `DirectedCycle`, `Topology`, `DirectedPathsDFS`, and `DisymGraph`.
 
 ## License
 
-This crate is licensed as specified in the [LICENSE](../../LICENSE) file at the root of this repository.
+Elastic-2.0. See the [LICENSE](./LICENSE) file alongside this crate.
