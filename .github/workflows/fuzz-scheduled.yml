@@ -12,36 +12,46 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  list-targets:
+    name: Discover fuzz targets
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.collect.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz
+
+      - name: Collect targets
+        id: collect
+        run: |
+          set -euo pipefail
+          matrix=$(
+            for crate in validation filter fieldfilter; do
+              while IFS= read -r target; do
+                jq -nc --arg c "$crate" --arg t "$target" \
+                  '{crate: $c, target: $t}'
+              done < <(cd "crates/$crate" && cargo fuzz list)
+            done | jq -sc .
+          )
+          if [ "$matrix" = "[]" ]; then
+            echo "::error::No fuzz targets discovered — refusing to publish empty matrix"
+            exit 1
+          fi
+          echo "Discovered matrix: $matrix"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   fuzz:
     name: Deep fuzz ${{ matrix.crate }}/${{ matrix.target }}
+    needs: list-targets
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # walrs_validation targets
-          - crate: validation
-            target: fuzz_email
-          - crate: validation
-            target: fuzz_url
-          - crate: validation
-            target: fuzz_ip
-          - crate: validation
-            target: fuzz_hostname
-          - crate: validation
-            target: fuzz_date
-          - crate: validation
-            target: fuzz_rule_composition
-          # walrs_filter targets
-          - crate: filter
-            target: fuzz_strip_tags
-          - crate: filter
-            target: fuzz_slug
-          - crate: filter
-            target: fuzz_filter_op_string
-          # walrs_fieldfilter targets
-          - crate: fieldfilter
-            target: fuzz_field_string_sanitize
+        include: ${{ fromJson(needs.list-targets.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
 
