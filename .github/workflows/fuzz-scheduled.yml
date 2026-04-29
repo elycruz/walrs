@@ -41,9 +41,7 @@ jobs:
             target: fuzz_filter_op_string
           # walrs_fieldfilter targets
           - crate: fieldfilter
-            target: fuzz_field_string_clean
-          - crate: fieldfilter
-            target: fuzz_fieldfilter_validate
+            target: fuzz_field_string_sanitize
     steps:
       - uses: actions/checkout@v4
 
