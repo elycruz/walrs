@@ -12,6 +12,15 @@ Any environment that supports WebAssembly:
 - Firefox 52+
 - Safari 11+
 
+## Public API surface
+
+Wraps `walrs_acl::simple` for JavaScript consumers. All names below are exported from `wasm-bindgen` with their JS-style aliases:
+
+- **Classes**: `JsAclBuilder`, `JsAcl`
+- **Functions**: `createAclFromJson(json)`, `checkPermission(aclJson, role?, resource?, privilege?)`
+
+This crate does not expose feature flags — all configuration is via the JS API. For Rust-side conditional assertions and async resolvers, see the parent [`walrs_acl` README](../acl/README.md).
+
 ## JavaScript API
 
 ### JsAclBuilder
@@ -45,12 +54,18 @@ try {
 #### Methods
 
 - **`new JsAclBuilder()`** - Create a new builder
-- **`fromJson(json: string): JsAclBuilder`** - Load from JSON string
+- **`JsAclBuilder.fromJson(json: string): JsAclBuilder`** - Load from JSON string (static)
 - **`addRole(role: string, parents?: string[]): JsAclBuilder`** - Add a role
+- **`addRoles(entries: [string, string[] | null][]): JsAclBuilder`** - Bulk-add roles as `[name, parents | null]` tuples
 - **`addResource(resource: string, parents?: string[]): JsAclBuilder`** - Add a resource
+- **`addResources(entries: [string, string[] | null][]): JsAclBuilder`** - Bulk-add resources as `[name, parents | null]` tuples
 - **`allow(roles?: string[], resources?: string[], privileges?: string[]): JsAclBuilder`** - Add allow rule
 - **`deny(roles?: string[], resources?: string[], privileges?: string[]): JsAclBuilder`** - Add deny rule
+- **`allowIf(roles?, resources?, privileges?, assertionKey: string): JsAclBuilder`** - Add a conditional allow rule keyed by an assertion (resolved at check time via `JsAcl.isAllowedWith`)
+- **`denyIf(roles?, resources?, privileges?, assertionKey: string): JsAclBuilder`** - Add a conditional deny rule (mirrors `allowIf`)
 - **`build(): JsAcl`** - Build the final ACL
+
+See the [conditional assertions](../acl/README.md#assertions) section in the `walrs_acl` README for the semantics of `allowIf` / `denyIf` (conservative defaults, opposing-family clearing, etc.).
 
 ### JsAcl
 
@@ -77,14 +92,15 @@ console.log(acl.inheritsResource("blog", "index"));  // depends on structure
 #### Methods
 
 - **`new JsAcl()`** - Create empty ACL (not usually needed)
-- **`fromJson(json: string): JsAcl`** - Load from JSON configuration
-- **`isAllowed(role?: string, resource?: string, privilege?: string): boolean`** - Check permission
-- **`isAllowedAny(role?: string, resource?: string, privileges: string[]): boolean`** - Check if any privilege is allowed
+- **`JsAcl.fromJson(json: string): JsAcl`** - Load from JSON configuration (static)
+- **`isAllowed(role?: string, resource?: string, privilege?: string): boolean`** - Check permission. Conditional rules (`AllowIf` / `DenyIf`) are treated conservatively — see `isAllowedWith` to evaluate them.
+- **`isAllowedAny(roles?: string[], resources?: string[], privileges?: string[]): boolean`** - Check if any of the given roles/resources/privileges combinations is allowed
+- **`isAllowedWith(role?, resource?, privilege?, resolver: (key: string) => boolean): boolean`** - Like `isAllowed`, but evaluates conditional rules using the supplied JS callback. Non-boolean returns and exceptions are treated as `false` (and logged via `console.warn`).
 - **`hasRole(role: string): boolean`** - Check if role exists
 - **`hasResource(resource: string): boolean`** - Check if resource exists
 - **`inheritsRole(role: string, inherits: string): boolean`** - Check role inheritance - Throws if any of the parameters don't exist in the ACL - Enforces strongly typed/architected code.
 - **`inheritsResource(resource: string, inherits: string): boolean`** - Check resource inheritance - "".
-- **`toJson(): string`** - Serialize to JSON (not yet implemented)
+- **`toJson(): string`** - Serialize to JSON (not yet implemented — currently throws)
 
 ### Convenience Functions
 
@@ -231,6 +247,14 @@ function AdminPanel() {
     return <div>Admin Panel Content</div>;
 }
 ```
+
+### Rust example (host build)
+
+A Rust example mirroring the JS API surface with a host-side build lives at [`examples/wasm_example.rs`](./examples/wasm_example.rs). It uses `walrs_acl::simple` directly (no `wasm-bindgen`) and is convenient for iterating on ACL shape without rebuilding the WASM artifact.
+
+| Example | Demonstrates | Run command |
+|---|---|---|
+| `wasm_example` | Building an ACL programmatically, loading from a JSON string, and converting an `Acl` back into an `AclBuilder` for incremental edits — all WASM-friendly (no file I/O) | `cargo run -p walrs_acl_wasm --example wasm_example` |
 
 ### Error Handling
 
