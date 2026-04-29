@@ -137,6 +137,93 @@ fn check_passwords_match(reg: &Registration) -> RuleResult {
 }
 ```
 
+#### Built-in cross-field rules
+
+In addition to a free-form function path, `#[cross_validate(...)]` accepts
+several built-in structured variants. Multiple `#[cross_validate(...)]`
+attributes can be stacked on the same struct.
+
+```rust
+#[derive(Debug, DeriveFieldset)]
+#[cross_validate(fields_equal(password, confirm))]
+#[cross_validate(required_if(shipping_street, country = "us"))]
+#[cross_validate(required_unless(billing_street, same_as_shipping = true))]
+#[cross_validate(one_of_required(email, phone))]
+#[cross_validate(mutually_exclusive(card_token, bank_token))]
+#[cross_validate(dependent_required(trigger = ship, dependents(street, zip)))]
+struct Checkout {
+    password: String,
+    confirm: String,
+    country: String,
+    shipping_street: Option<String>,
+    same_as_shipping: bool,
+    billing_street: Option<String>,
+    email: Option<String>,
+    phone: Option<String>,
+    card_token: Option<String>,
+    bank_token: Option<String>,
+    ship: bool,
+    street: Option<String>,
+    zip: Option<String>,
+}
+```
+
+| Rule | Shape | Semantics |
+|------|-------|-----------|
+| `fields_equal` | `(a, b)` | `a == b` (exactly two field idents) |
+| `required_if` | `(field, condition_field = <lit>)` | `field` must be present when `condition_field` equals the literal (string/bool/int) |
+| `required_unless` | `(field, condition_field = <lit>)` | `field` must be present unless `condition_field` equals the literal |
+| `one_of_required` | `(a, b, ...)` | At least one of the listed fields must be present |
+| `mutually_exclusive` | `(a, b, ...)` | At most one of the listed fields may be present |
+| `dependent_required` | `(trigger = t, dependents(a, b, ...))` | If `t` is truthy/present, all `dependents` are required |
+
+### Async Validation
+
+Add `#[fieldset(async)]` to also emit a `FieldsetAsync` impl. Use
+`custom_async = "fn"` for async custom validators:
+
+```rust
+use walrs_fieldfilter::{DeriveFieldset, FieldsetAsync};
+use walrs_validation::{ValidatorResult, Violation, ViolationType};
+
+async fn check_unique_username(name: &str) -> ValidatorResult {
+    // Pretend this is a database lookup.
+    if name == "taken" {
+        Err(Violation::new(
+            ViolationType::CustomError,
+            "username already taken",
+        ))
+    } else {
+        Ok(())
+    }
+}
+
+#[derive(Debug, DeriveFieldset)]
+#[fieldset(async)]
+struct Registration {
+    #[validate(required, email)]
+    #[filter(trim, lowercase)]
+    email: String,
+
+    #[validate(required, min_length = 3, custom_async = "check_unique_username")]
+    username: String,
+}
+```
+
+The generated `impl FieldsetAsync` is gated by `#[cfg(feature = "async")]`
+**as evaluated in the consuming crate** — enabling
+`walrs_fieldfilter`'s `async` feature alone is not enough. The crate that
+contains the `#[derive(Fieldset)]` struct must itself declare and enable an
+`async` feature so the gate is active at compile time:
+
+```toml
+# In the consuming crate's Cargo.toml
+[features]
+async = ["walrs_fieldfilter/async"]
+```
+
+See `crates/fieldfilter/examples/derive_async.rs` for a runnable example.
+
 ### Break on First Failure
 
 Stop validation after the first field with violations:
@@ -269,6 +356,7 @@ impl EmojiExt for char {
 | `step = N` | Numeric step/divisibility | `#[validate(step = 5)]` |
 | `one_of = [a, b, c]` | Value in allowed list | `#[validate(one_of = ["red", "green", "blue"])]` |
 | `custom = "fn_path"` | Custom validator | `#[validate(custom = "my_validator")]` |
+| `custom_async = "fn_path"` | Async custom validator (only invoked by `FieldsetAsync`) | `#[validate(custom_async = "check_db")]` |
 | `nested` | Delegate to nested Fieldset | `#[validate(nested)]` |
 | `message = "..."` | Custom error message | `#[validate(required, message = "Required")]` |
 | `message_fn = "fn"` | Dynamic message provider | `#[validate(required, message_fn = "msg")]` |
@@ -307,7 +395,20 @@ impl EmojiExt for char {
 ## Struct-Level Attributes
 
 - `#[fieldset(break_on_failure)]` — Stop validation after the first field with violations
-- `#[cross_validate(fn_name)]` — Cross-field validation function
+- `#[fieldset(async)]` — Also emit a `FieldsetAsync` impl, gated by
+  `#[cfg(feature = "async")]` in the consuming crate (see Async Validation above)
+- `#[cross_validate(fn_path)]` — Free-form cross-field validation function
+- `#[cross_validate(fields_equal(a, b))]` — Two fields must be equal
+- `#[cross_validate(required_if(field, condition_field = <lit>))]` — Conditional presence
+- `#[cross_validate(required_unless(field, condition_field = <lit>))]` — Conditional presence (inverse)
+- `#[cross_validate(one_of_required(a, b, ...))]` — At least one of the listed fields must be present
+- `#[cross_validate(mutually_exclusive(a, b, ...))]` — At most one of the listed fields may be present
+- `#[cross_validate(dependent_required(trigger = t, dependents(a, b, ...)))]` — Dependents required when trigger is present
+
+## Field-Level Attributes
+
+- `#[fieldset(break_on_failure)]` / `#[fieldset(break_on_failure = false)]` —
+  Per-field override of the struct-level `break_on_failure` setting
 
 ## License
 
