@@ -24,6 +24,40 @@ To enable optional features:
 walrs_validation = { version = "0.1", features = ["async", "chrono"] }
 ```
 
+To drop the default `serde_json` dependency (loses
+`Rule::to_attributes_list` HTML-attribute conversion):
+
+```toml
+[dependencies]
+walrs_validation = { version = "0.1", default-features = false }
+```
+
+### Feature flags
+
+| Feature | Default | Enables |
+|---|---|---|
+| `serde_json_bridge` | yes | Pulls in `serde_json` to power `Rule::to_attributes_list` (HTML-attribute conversion). |
+| `async` | no | Adds `ValidateAsync` / `ValidateRefAsync` traits and the `Rule::CustomAsync` variant. No new deps. |
+| `chrono` | no | Enables `chrono::NaiveDate` date validation paths used by `Rule::Date` / `Rule::DateRange`. |
+| `jiff` | no | Enables `jiff::civil::Date` date validation paths. When both `chrono` and `jiff` are enabled, `chrono` takes precedence for string parsing. |
+
+## Public API surface
+
+Top-level re-exports from `walrs_validation` (see `src/lib.rs`):
+
+- **Rule core**: `Rule<T>`, `RuleResult`, `Condition<T>`, `CompiledPattern`
+- **Traits**: `Validate<T>`, `ValidateRef<T>`, `ValidatorResult`, `ScalarValue`,
+  `SteppableValue`, `IsEmpty`, `WithLength`, `ToAttributesList`
+- **Async traits** (feature `async`): `ValidateAsync<T>`, `ValidateRefAsync<T>`
+- **Violations**: `Violation`, `Violations`, `ViolationType`, `ViolationMessage`,
+  `FieldsetViolations`
+- **Messages**: `Message<T>`, `MessageContext<'a, T>`, `MessageParams`
+- **Attributes**: `Attributes` (HTML attribute map)
+- **Rule options** (configuring built-in rules): `EmailOptions`, `UrlOptions`,
+  `UriOptions`, `IpOptions`, `HostnameOptions`, `DateOptions`, `DateRangeOptions`,
+  `DateFormat`
+- **Convenience**: `indexmap` (re-exported for `FieldsetViolations` ordering)
+
 ## Validation Rules
 
 The `Rule` enum provides built-in validation for common constraints:
@@ -206,16 +240,6 @@ This crate also provides shared foundation types used across form-related crates
 - **`Attributes`** - HTML attributes storage and rendering
 - **`FieldsetViolations`** - Aggregate error container mapping field names to `Violations`
 
-### Feature Flags
-
-- **`serde_json_bridge`** (default) — Provides `Rule::to_attributes_list`
-  HTML-attribute conversion via `serde_json::Value`. Disable with
-  `default-features = false` to drop the `serde_json` dependency.
-- **`async`** — Enables `ValidateAsync` / `ValidateRefAsync` traits and the
-  `Rule::CustomAsync` variant.
-- **`chrono`** — Enables `chrono::NaiveDate` date validation.
-- **`jiff`** — Enables `jiff::civil::Date` date validation.
-
 ### `indexmap` Support
 
 `indexmap` is a required dependency, used by `FieldsetViolations` for
@@ -274,6 +298,23 @@ assert!(rule.validate_date(&date).is_ok());
 ```
 
 When both features are enabled, `chrono` takes precedence for string parsing.
+
+## Examples
+
+Runnable examples live in [`examples/`](./examples/). Run any of them with
+`cargo run -p walrs_validation --example <name>`.
+
+| Example | Demonstrates | Required features |
+|---|---|---|
+| `basic_validation` | Core rules: length, required, regex pattern, numeric range, step, equals/`OneOf` | _none_ |
+| `composable_rules` | Combining rules with `.and()`, `.or()`, `.not()`, `.when()`, `.when_else()` | _none_ |
+| `custom_validators` | `Rule::Custom` closures, `.with_message()`, `.with_message_provider()`, `.with_locale()` | _none_ |
+
+```sh
+cargo run -p walrs_validation --example basic_validation
+cargo run -p walrs_validation --example composable_rules
+cargo run -p walrs_validation --example custom_validators
+```
 
 ## License
 
