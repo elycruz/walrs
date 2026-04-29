@@ -120,7 +120,7 @@ cargo fuzz run fuzz_email fuzz/corpus/fuzz_email/ -- -max_total_time=60
 |---|---|---|
 | `walrs_validation` | `fuzz_email`, `fuzz_url`, `fuzz_ip`, `fuzz_hostname`, `fuzz_date`, `fuzz_rule_composition` | String parsers, rule composition |
 | `walrs_filter` | `fuzz_strip_tags`, `fuzz_slug`, `fuzz_filter_op_string` | HTML sanitization, slug generation, filter chains |
-| `walrs_fieldfilter` | `fuzz_field_string_clean` | Field validation pipelines |
+| `walrs_fieldfilter` | `fuzz_field_string_sanitize` | Field validation pipelines |
 
 #### CI integration
 
