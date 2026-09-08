@@ -5,3 +5,10 @@ edition = "2021"
 license = "Elastic-2.0"
 
 [dependencies]
+
+[dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "disymgraph_benchmarks"
+harness = false

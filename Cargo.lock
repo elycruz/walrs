@@ -2126,6 +2126,9 @@ dependencies = [
 [[package]]
 name = "walrs_digraph"
 version = "0.1.0"
+dependencies = [
+ "criterion",
+]
 
 [[package]]
 name = "walrs_fieldfilter"
