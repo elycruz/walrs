@@ -25,11 +25,16 @@ Reference implementation: https://algs4.cs.princeton.edu/42digraph/
   - [x] `TryFrom<&File>`
   - [x] `TryFrom<File>`
 
-- [x] `DisymGraph` - "Directed Symbol Graph"
-  - [x] `add_edge()`
-  - [x] `add_vertex()`
+- [x] `Symbol` trait (`id() -> &str`; implemented for `String`, shared with `walrs_graph`)
+
+- [x] `DisymGraph<T: Symbol = String>` - "Directed Symbol Graph"
+  - [x] `add_edge()` (requires `T: From<String>`)
+  - [x] `add_symbol()`
+  - [x] `add_vertex()` (requires `T: From<String>`)
   - [x] `adj()`
   - [x] `adj_indices()`
+  - [x] `adj_symbols()`
+  - [x] `connect()`
   - [x] `digest_lines()`
   - [x] `edge_count()`
   - [x] `graph()`
@@ -42,8 +47,12 @@ Reference implementation: https://algs4.cs.princeton.edu/42digraph/
   - [x] `new()`
   - [x] `outdegree()`
   - [x] `reverse()`
+  - [x] `symbol()`
+  - [x] `symbols()`
   - [x] `validate_vertex()` - Should be settable.
   - [x] `vert_count()`
+  - [x] `TryFrom<&DisymGraphData<T>>` / `TryFrom<DisymGraphData<T>>` (strict: adjacent ids must be listed)
+  - [x] `TryFrom<&DisymGraph<T>> for DisymGraphData<T>` / owned
   - [x] `TryFrom<&mut BuffReader<R>>`
   - [x] `TryFrom<BuffReader<R>>`
   - [x] `TryFrom<&File>`
