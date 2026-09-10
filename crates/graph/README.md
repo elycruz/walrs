@@ -6,7 +6,7 @@ Undirected graph data structures and algorithms for the walrs project. This crat
 
 - **`Graph`** — undirected adjacency-list graph over `usize` vertex indices. Each undirected edge is stored in both endpoints' adjacency lists, so `edge_count()` reports twice the number of logical edges. Adjacency lists are kept sorted, enabling O(log deg(v)) `has_edge` via binary search.
 - **`DFS`** — single-source depth-first search with reachability (`marked` / `has_path_to`), reachability count (`count`), and `path_to` reconstruction.
-- **`SymbolGraph<T: Symbol>`** — graph keyed by typed symbols. Wraps a `Graph` and deduplicates vertices on insert. Comes with `GenericSymbol` (a `String`-backed implementation of `Symbol`) and a `TryFrom<&mut BufReader<File>>` impl that ingests whitespace-delimited adjacency files.
+- **`SymbolGraph<T: Symbol>`** — graph keyed by typed symbols. Wraps a `Graph` and deduplicates vertices on insert. Comes with `GenericSymbol` (a `String`-backed implementation of `Symbol`) and a `TryFrom<&mut BufReader<File>>` impl (for `T: From<String>`) that ingests whitespace-delimited adjacency files. The `Symbol` trait (`fn id(&self) -> &str`) is defined in `walrs_digraph` and re-exported here, so one payload type works with both `SymbolGraph<T>` and the directed `walrs_digraph::DisymGraph<T>`.
 
 ## Public API surface
 
@@ -14,7 +14,7 @@ Top-level re-exports from `walrs_graph` (everything in `src/graph/` is glob-re-e
 
 - **Core**: `Graph`, `invalid_vertex_msg`
 - **Search**: `DFS`
-- **Symbol graph**: `SymbolGraph<T>`, `GenericSymbol`, `Symbol` (trait)
+- **Symbol graph**: `SymbolGraph<T>`, `GenericSymbol`, `Symbol` (trait, re-exported from `walrs_digraph`)
 - **Utilities**: `extract_vert_and_edge_counts_from_bufreader`
 
 Submodules (`graph`, `single_source_dfs`, `symbol_graph`, `traits`, `shared_utils`) are also `pub` if you'd rather refer to a type by its full path.
@@ -198,7 +198,7 @@ Based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne:
 
 ## Related Crates
 
-- **walrs_digraph** — directed counterpart with `Digraph`, `DirectedCycle`, `Topology`, `DirectedPathsDFS`, and `DisymGraph`.
+- **walrs_digraph** — directed counterpart with `Digraph`, `DirectedCycle`, `Topology`, `DirectedPathsDFS`, and `DisymGraph<T>`; also home of the shared `Symbol` trait.
 
 ## License
 

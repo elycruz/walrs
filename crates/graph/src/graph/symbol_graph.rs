@@ -27,8 +27,8 @@ impl FromStr for GenericSymbol {
 }
 
 impl Symbol for GenericSymbol {
-  fn id(&self) -> String {
-    self._id.clone()
+  fn id(&self) -> &str {
+    &self._id
   }
 }
 
@@ -175,7 +175,7 @@ where
 
   /// Adds a symbol vertex to the graph.
   pub fn add_symbol(&mut self, symbol: T) -> usize {
-    if let Some(i) = self.index(&symbol.id()) {
+    if let Some(i) = self.index(symbol.id()) {
       i
     } else {
       let i = self.vert_count();
@@ -249,7 +249,7 @@ where
 
 impl<T> TryFrom<&mut BufReader<File>> for SymbolGraph<T>
 where
-  T: Symbol,
+  T: Symbol + From<String>,
 {
   type Error = Box<dyn std::error::Error>;
 
@@ -308,12 +308,6 @@ mod test {
   use crate::graph::symbol_graph::SymbolGraph;
   use crate::graph::traits::Symbol;
 
-  impl Symbol for String {
-    fn id(&self) -> String {
-      self.clone()
-    }
-  }
-
   #[test]
   pub fn test_symbol_graph_builder_from_buf_reader() {
     use crate::graph::GenericSymbol;
@@ -338,7 +332,7 @@ mod test {
 
     // Verify known edges
     let user_adj = sg.adj("user").unwrap();
-    let user_adj_ids: Vec<String> = user_adj.iter().map(|s| s.id()).collect();
+    let user_adj_ids: Vec<String> = user_adj.iter().map(|s| s.id().to_string()).collect();
     assert!(
       user_adj_ids.contains(&"guest".to_string()),
       "user should be adjacent to guest"

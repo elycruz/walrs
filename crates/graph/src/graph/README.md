@@ -25,7 +25,7 @@
 - [ ] `DepthFirstSearch`
   - [ ] @todo
   
-- [ ] `SymbolGraph` (consider making this generic).
+- [ ] `SymbolGraph<T: Symbol>` (generic; `Symbol` is shared with `walrs_digraph::DisymGraph<T>`).
   - [ ] `new()`
   - [ ] `vert_count()`
   - [ ] `edge_count()`

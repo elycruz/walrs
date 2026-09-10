@@ -2,37 +2,78 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
+use crate::traits::Symbol;
 use crate::Digraph;
 
 pub fn invalid_vert_symbol_msg(v: &str) -> String {
   format!("Invalid vertex symbol '{}' not found in graph.", v)
 }
 
-pub type DisymGraphData = Vec<(String, Option<Vec<String>>)>;
+/// Plain-data form of a [`DisymGraph`]: one `(payload, Option<adjacent ids>)` entry per vertex.
+///
+/// Adjacent vertices are referenced by their `Symbol::id()`; every referenced id must also
+/// appear as its own entry (see `TryFrom<&DisymGraphData<T>> for DisymGraph<T>`).
+///
+/// With the default `T = String` this is `Vec<(String, Option<Vec<String>>)>`, and it is
+/// `serde::Serialize`/`Deserialize` whenever `T` is (no `serde` dependency required here).
+pub type DisymGraphData<T = String> = Vec<(T, Option<Vec<String>>)>;
 
 /// `DisymGraph` — A directed symbol graph data structure that maps
-/// string labels to vertices in an underlying `Digraph`.
+/// symbol payloads (`T: Symbol`, `String` by default) to vertices in an underlying `Digraph`.
+///
+/// Vertices are deduplicated and looked up by `Symbol::id()`; the rest of the payload is
+/// opaque to the graph and can be read back with [`DisymGraph::symbol`] / [`DisymGraph::adj_symbols`].
+///
+/// # Examples
+///
+/// String symbols (the default):
 ///
 /// ```rust
-/// // TODO
+/// use walrs_digraph::DisymGraph;
+///
+/// let mut roles = DisymGraph::new();
+/// roles.add_edge("admin", &["user"]).unwrap();
+/// assert_eq!(roles.adj("admin"), Some(vec!["user"]));
+/// ```
+///
+/// Typed payloads (an IAM-policy style statement):
+///
+/// ```rust
+/// use walrs_digraph::{DisymGraph, Symbol};
+///
+/// #[derive(Debug, Clone, PartialEq)]
+/// struct Stmt { sid: String, effect: &'static str, actions: Vec<&'static str> }
+///
+/// impl Symbol for Stmt {
+///   fn id(&self) -> &str { &self.sid }
+/// }
+///
+/// let mut policy: DisymGraph<Stmt> = DisymGraph::default();
+/// policy.add_symbol(Stmt { sid: "AllowRead".into(), effect: "Allow", actions: vec!["s3:GetObject"] });
+/// policy.add_symbol(Stmt { sid: "DenyWrite".into(), effect: "Deny", actions: vec!["s3:PutObject"] });
+/// policy.connect("AllowRead", &["DenyWrite"]).unwrap();
+///
+/// let next = policy.adj_symbols("AllowRead").unwrap();
+/// assert_eq!(next[0].effect, "Deny");
+/// assert_eq!(policy.symbol(0).unwrap().actions, vec!["s3:GetObject"]);
 /// ```
 #[derive(Debug, Clone)]
-pub struct DisymGraph {
-  _vertices: Vec<String>,
+pub struct DisymGraph<T: Symbol = String> {
+  _vertices: Vec<T>,
   _vertex_index: HashMap<String, usize>,
   _graph: Digraph,
 }
 
-impl DisymGraph {
-  /// Creates a directed symbol graph.
+impl DisymGraph<String> {
+  /// Creates a directed symbol graph with `String` symbols.
+  ///
+  /// For a custom payload type use `DisymGraph::<T>::default()` (or a typed `let` binding).
   pub fn new() -> Self {
-    DisymGraph {
-      _vertices: Vec::new(),
-      _vertex_index: HashMap::new(),
-      _graph: Digraph::new(0),
-    }
+    Self::default()
   }
+}
 
+impl<T: Symbol> DisymGraph<T> {
   /// Returns vertex count
   pub fn vert_count(&self) -> usize {
     self._graph.vert_count()
@@ -53,17 +94,18 @@ impl DisymGraph {
     self._graph.indegree(n)
   }
 
-  /// Returns given vertex' symbol adjacency list.
+  /// Returns given vertex' symbol adjacency list (as symbol ids).
   pub fn adj(&self, symbol_name: &str) -> Option<Vec<&str>> {
-    if let Some(indices) = self.adj_indices(symbol_name) {
-      return Some(
-        indices
-          .iter()
-          .map(|x| self._vertices[*x].as_str())
-          .collect(),
-      );
-    }
-    None
+    self
+      .adj_indices(symbol_name)
+      .map(|indices| indices.iter().map(|x| self._vertices[*x].id()).collect())
+  }
+
+  /// Returns given vertex' adjacency list as symbol payloads.
+  pub fn adj_symbols(&self, symbol_name: &str) -> Option<Vec<&T>> {
+    self
+      .adj_indices(symbol_name)
+      .map(|indices| indices.iter().map(|x| &self._vertices[*x]).collect())
   }
 
   /// Returns given vertex' index adjacency list - A list containing adjacent indexes.
@@ -102,11 +144,11 @@ impl DisymGraph {
 
   /// Returns the name of the given symbol index.
   pub fn name(&self, symbol_idx: usize) -> Option<String> {
-    self._vertices.get(symbol_idx).map(|x| x.to_string())
+    self.name_as_ref(symbol_idx).map(|x| x.to_string())
   }
 
   pub fn name_as_ref(&self, symbol_idx: usize) -> Option<&str> {
-    self._vertices.get(symbol_idx).map(|x| x.as_ref())
+    self._vertices.get(symbol_idx).map(|x| x.id())
   }
 
   /// Returns the symbol names for the given indices.
@@ -118,18 +160,38 @@ impl DisymGraph {
     }
   }
 
-  /// Adds a symbol vertex to the graph.
-  pub fn add_vertex(&mut self, v: &str) -> usize {
-    if let Some(i) = self.index(v) {
+  /// Returns the symbol payload at the given index.
+  pub fn symbol(&self, symbol_idx: usize) -> Option<&T> {
+    self._vertices.get(symbol_idx)
+  }
+
+  /// Returns the symbol payloads for the given indices (unknown indices are skipped).
+  pub fn symbols(&self, indices: &[usize]) -> Vec<&T> {
+    indices
+      .iter()
+      .filter_map(|i| self._vertices.get(*i))
+      .collect()
+  }
+
+  /// Adds a symbol vertex to the graph, returning its index.
+  ///
+  /// Symbols are deduplicated by `id()`: if a symbol with the same id already exists its
+  /// index is returned and the given payload is dropped.
+  pub fn add_symbol(&mut self, symbol: T) -> usize {
+    if let Some(i) = self.index(symbol.id()) {
       i
     } else {
-      let i = self._vertices.len();
-      let vertex_name = v.to_string();
-      self._vertex_index.insert(vertex_name.clone(), i);
-      self._vertices.push(vertex_name);
-      self._graph.add_vertex(i);
-      i
+      self._push_symbol(symbol)
     }
+  }
+
+  /// Appends a symbol known not to be in the graph yet and returns its index.
+  fn _push_symbol(&mut self, symbol: T) -> usize {
+    let i = self._vertices.len();
+    self._vertex_index.insert(symbol.id().to_string(), i);
+    self._vertices.push(symbol);
+    self._graph.add_vertex(i);
+    i
   }
 
   /// Checks if graph has vertex.
@@ -145,15 +207,20 @@ impl DisymGraph {
     }
   }
 
-  /// Adds edge to graph
-  pub fn add_edge(&mut self, vertex: &str, weights: &[&str]) -> Result<&mut Self, String> {
-    let v1 = self.add_vertex(vertex);
+  /// Adds edges from `from` to each of `to`, all of which must already exist in the graph.
+  ///
+  /// Unlike [`DisymGraph::add_edge`], no vertices are created. If any endpoint is unknown an
+  /// error is returned and the graph is left unchanged.
+  pub fn connect(&mut self, from: &str, to: &[&str]) -> Result<&mut Self, String> {
+    let v1 = self
+      .index(from)
+      .ok_or_else(|| invalid_vert_symbol_msg(from))?;
+    let targets = to
+      .iter()
+      .map(|w| self.index(w).ok_or_else(|| invalid_vert_symbol_msg(w)))
+      .collect::<Result<Vec<usize>, String>>()?;
 
-    // Ensure each edge "end" vertex is attached to DAG
-    for w in weights {
-      let v2 = self.add_vertex(w);
-
-      // Add edges
+    for v2 in targets {
       self._graph.add_edge(v1, v2)?;
     }
 
@@ -171,26 +238,63 @@ impl DisymGraph {
   }
 }
 
-impl Default for DisymGraph {
-  fn default() -> Self {
-    Self::new()
+impl<T: Symbol + From<String>> DisymGraph<T> {
+  /// Adds a symbol vertex to the graph by name, constructing the payload via `T::from`.
+  pub fn add_vertex(&mut self, v: &str) -> usize {
+    if let Some(i) = self.index(v) {
+      i
+    } else {
+      self._push_symbol(T::from(v.to_string()))
+    }
+  }
+
+  /// Adds edge to graph, creating any missing vertices by name.
+  pub fn add_edge(&mut self, vertex: &str, weights: &[&str]) -> Result<&mut Self, String> {
+    let v1 = self.add_vertex(vertex);
+
+    // Ensure each edge "end" vertex is attached to DAG
+    for w in weights {
+      let v2 = self.add_vertex(w);
+
+      // Add edges
+      self._graph.add_edge(v1, v2)?;
+    }
+
+    Ok(self)
   }
 }
 
-impl TryFrom<&DisymGraphData> for DisymGraph {
+impl<T: Symbol> Default for DisymGraph<T> {
+  fn default() -> Self {
+    DisymGraph {
+      _vertices: Vec::new(),
+      _vertex_index: HashMap::new(),
+      _graph: Digraph::new(0),
+    }
+  }
+}
+
+/// Builds a graph from its data form. Every adjacent id must be listed as its own entry;
+/// otherwise an error is returned.
+impl<T: Symbol> TryFrom<&DisymGraphData<T>> for DisymGraph<T> {
   type Error = String;
 
-  fn try_from(data: &DisymGraphData) -> Result<Self, Self::Error> {
-    let mut graph = DisymGraph::new();
+  fn try_from(data: &DisymGraphData<T>) -> Result<Self, Self::Error> {
+    let mut graph = DisymGraph::default();
 
+    // First pass: register every symbol so edges can reference entries in any order.
+    for (vertex, _) in data.iter() {
+      graph.add_symbol(vertex.clone());
+    }
+
+    // Second pass: connect edges by id; every target must have been listed above.
     for (vertex, edges) in data.iter() {
-      // Handle Option<Vec<String>> - if None, add vertex with no edges
       if let Some(edge_list) = edges {
-        let edge_refs: Vec<&str> = edge_list.iter().map(|s| s.as_str()).collect();
-        graph.add_edge(vertex.as_str(), &edge_refs)?;
-      } else {
-        // Just add the vertex without any edges
-        graph.add_vertex(vertex.as_str());
+        let v1 = graph.index(vertex.id()).unwrap();
+        for w in edge_list {
+          let v2 = graph.index(w).ok_or_else(|| invalid_vert_symbol_msg(w))?;
+          graph._graph.add_edge(v1, v2)?;
+        }
       }
     }
 
@@ -198,44 +302,46 @@ impl TryFrom<&DisymGraphData> for DisymGraph {
   }
 }
 
-impl TryFrom<DisymGraphData> for DisymGraph {
+impl<T: Symbol> TryFrom<DisymGraphData<T>> for DisymGraph<T> {
   type Error = String;
 
-  fn try_from(data: DisymGraphData) -> Result<Self, Self::Error> {
+  fn try_from(data: DisymGraphData<T>) -> Result<Self, Self::Error> {
     DisymGraph::try_from(&data)
   }
 }
 
-impl TryFrom<&DisymGraph> for DisymGraphData {
+impl<T: Symbol> TryFrom<&DisymGraph<T>> for DisymGraphData<T> {
   type Error = String;
 
-  fn try_from(graph: &DisymGraph) -> Result<Self, Self::Error> {
+  fn try_from(graph: &DisymGraph<T>) -> Result<Self, Self::Error> {
     let mut data = Vec::new();
 
     // Iterate through all vertices
-    for i in 0..graph.vert_count() {
-      if let Some(vertex_name) = graph.name(i) {
-        // Get adjacency list for this vertex
-        let edges = graph.adj(&vertex_name).and_then(|adj_list| {
-          if adj_list.is_empty() {
-            None // No edges - return None instead of Some(empty vec)
-          } else {
-            Some(adj_list.into_iter().map(|s| s.to_string()).collect())
-          }
-        });
+    for (i, symbol) in graph._vertices.iter().enumerate() {
+      // Get adjacency list for this vertex
+      let edges = graph._graph.adj(i)?;
+      let edges = if edges.is_empty() {
+        None // No edges - return None instead of Some(empty vec)
+      } else {
+        Some(
+          edges
+            .iter()
+            .map(|x| graph._vertices[*x].id().to_string())
+            .collect(),
+        )
+      };
 
-        data.push((vertex_name, edges));
-      }
+      data.push((symbol.clone(), edges));
     }
 
     Ok(data)
   }
 }
 
-impl TryFrom<DisymGraph> for DisymGraphData {
+impl<T: Symbol> TryFrom<DisymGraph<T>> for DisymGraphData<T> {
   type Error = String;
 
-  fn try_from(graph: DisymGraph) -> Result<Self, Self::Error> {
+  fn try_from(graph: DisymGraph<T>) -> Result<Self, Self::Error> {
     DisymGraphData::try_from(&graph)
   }
 }
@@ -263,12 +369,12 @@ impl TryFrom<DisymGraph> for DisymGraphData {
 ///
 ///  println!("{:?}", dg);
 /// ```
-impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for DisymGraph {
+impl<T: Symbol + From<String>, R: std::io::Read> TryFrom<&mut BufReader<R>> for DisymGraph<T> {
   type Error = Box<dyn std::error::Error>;
 
-  fn try_from(reader: &mut BufReader<R>) -> Result<DisymGraph, Self::Error> {
+  fn try_from(reader: &mut BufReader<R>) -> Result<DisymGraph<T>, Self::Error> {
     // Construct graph
-    let mut dg = DisymGraph::new();
+    let mut dg = DisymGraph::default();
     let lines = reader.lines();
     // Populate graph from buffer lines
     for line in lines {
@@ -287,7 +393,7 @@ impl<R: std::io::Read> TryFrom<&mut BufReader<R>> for DisymGraph {
   }
 }
 
-impl<R: std::io::Read> TryFrom<BufReader<R>> for DisymGraph {
+impl<T: Symbol + From<String>, R: std::io::Read> TryFrom<BufReader<R>> for DisymGraph<T> {
   type Error = Box<dyn std::error::Error>;
 
   fn try_from(mut reader: BufReader<R>) -> Result<Self, Self::Error> {
@@ -295,7 +401,7 @@ impl<R: std::io::Read> TryFrom<BufReader<R>> for DisymGraph {
   }
 }
 
-impl TryFrom<&File> for DisymGraph {
+impl<T: Symbol + From<String>> TryFrom<&File> for DisymGraph<T> {
   type Error = Box<dyn std::error::Error>;
 
   fn try_from(file_struct: &File) -> Result<Self, Self::Error> {
@@ -303,7 +409,7 @@ impl TryFrom<&File> for DisymGraph {
   }
 }
 
-impl TryFrom<File> for DisymGraph {
+impl<T: Symbol + From<String>> TryFrom<File> for DisymGraph<T> {
   type Error = Box<dyn std::error::Error>;
 
   fn try_from(file_struct: File) -> Result<Self, Self::Error> {
@@ -335,7 +441,7 @@ mod test {
 
   #[test]
   fn test_default() {
-    let dsg = DisymGraph::default();
+    let dsg: DisymGraph = DisymGraph::default();
 
     assert_eq!(dsg.vert_count(), 0);
     assert_eq!(dsg.edge_count(), 0);
@@ -461,9 +567,8 @@ mod test {
   #[test]
   fn test_adj_indices() -> Result<(), String> {
     let mut dsg = DisymGraph::new();
-    assert_eq!(
+    assert!(
       dsg.adj_indices("non-existing-symbol").is_none(),
-      true,
       "Should return 'None' on empty graph"
     );
 
@@ -498,9 +603,8 @@ mod test {
   fn test_contains() {
     let mut dsg = DisymGraph::new();
 
-    assert_eq!(
-      dsg.contains("hello"),
-      false,
+    assert!(
+      !dsg.contains("hello"),
       "Empty graph instances shouldn't contain any vertices."
     );
     let v1 = "abc";
@@ -508,26 +612,15 @@ mod test {
     dsg.add_vertex(v1);
     dsg.add_vertex(v2);
 
-    assert_eq!(
-      dsg.contains(v1),
-      true,
-      "graph should contain symbol \"{}\"",
-      v1
-    );
-    assert_eq!(
-      dsg.contains(v2),
-      true,
-      "graph should contain symbol \"{}\"",
-      v2
-    );
+    assert!(dsg.contains(v1), "graph should contain symbol \"{}\"", v1);
+    assert!(dsg.contains(v2), "graph should contain symbol \"{}\"", v2);
   }
 
   #[test]
   fn test_index() {
     let mut dsg = DisymGraph::new();
-    assert_eq!(
+    assert!(
       dsg.index("abc").is_none(),
-      true,
       "Empty graphs shouldn't contain indices for non-existent vertices"
     );
 
@@ -559,9 +652,8 @@ mod test {
       .split_ascii_whitespace()
       .collect();
 
-    assert_eq!(
+    assert!(
       dsg.indices(&symbols).is_none(),
-      true,
       "Empty graphs shouldn't contain indices for non-existent vertices"
     );
 
@@ -581,9 +673,8 @@ mod test {
   #[test]
   fn test_name() {
     let mut dsg = DisymGraph::new();
-    assert_eq!(
+    assert!(
       dsg.name(0).is_none(),
-      true,
       "Empty graphs shouldn't contain symbols for non-existent indices"
     );
 
@@ -611,9 +702,8 @@ mod test {
   #[test]
   fn test_name_as_ref() {
     let mut dsg = DisymGraph::new();
-    assert_eq!(
+    assert!(
       dsg.name_as_ref(0).is_none(),
-      true,
       "Empty graphs shouldn't contain symbols for non-existent indices"
     );
 
@@ -646,9 +736,8 @@ mod test {
       .collect();
     let indices: Vec<usize> = (0..symbols.len()).collect();
 
-    assert_eq!(
+    assert!(
       dsg.names(&indices).is_none(),
-      true,
       "Empty graphs shouldn't contain names for non-existent indices"
     );
 
@@ -689,9 +778,8 @@ mod test {
   #[test]
   fn test_has_vertex() {
     let mut dsg = DisymGraph::new();
-    assert_eq!(
-      dsg.has_vertex("abc"),
-      false,
+    assert!(
+      !dsg.has_vertex("abc"),
       "Empty graphs shouldn't contain any vertices"
     );
 
@@ -700,11 +788,10 @@ mod test {
     dsg.add_vertex(v1);
     dsg.add_vertex(v2);
 
-    assert_eq!(dsg.has_vertex(v1), true, "should contain vertex \"{}\"", v1);
-    assert_eq!(dsg.has_vertex(v2), true, "should contain vertex \"{}\"", v2);
-    assert_eq!(
-      dsg.has_vertex("non-existent"),
-      false,
+    assert!(dsg.has_vertex(v1), "should contain vertex \"{}\"", v1);
+    assert!(dsg.has_vertex(v2), "should contain vertex \"{}\"", v2);
+    assert!(
+      !dsg.has_vertex("non-existent"),
       "shouldn't contain non-existent vertex"
     );
   }
@@ -840,7 +927,7 @@ mod test {
       );
 
       // Ensure expected weights match received weights
-      for (j, w) in v2_weights_expected.into_iter().enumerate() {
+      for (j, w) in v2_weights_expected.iter().enumerate() {
         assert_eq!(
           &v2_weights[j], w,
           "v2_weights[{}] should v2_weights_expected[{}]",
@@ -878,7 +965,7 @@ mod test {
     let file_path = "./test-fixtures/symbol_graph_test_routes.txt";
 
     // Get graph 'symbol' data
-    let f = File::open(&file_path)?;
+    let f = File::open(file_path)?;
 
     // Get mutable reader
     let mut reader = BufReader::new(f);
@@ -1246,7 +1333,7 @@ mod test {
       let reconstructed_entry = reconstructed_data
         .iter()
         .find(|(v, _)| v == orig_vertex)
-        .expect(&format!("Should contain vertex {}", orig_vertex));
+        .unwrap_or_else(|| panic!("Should contain vertex {}", orig_vertex));
 
       // Check edges match
       match (orig_edges, &reconstructed_entry.1) {

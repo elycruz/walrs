@@ -1,6 +1,6 @@
 # walrs_digraph
 
-Directed graph data structures and algorithms for the walrs project. Adjacency-list-backed `Digraph` plus a small set of classic DFS-based algorithms (cycle detection, depth-first ordering, topological sort, single-source reachability) and a string-keyed symbol-graph wrapper, all based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne.
+Directed graph data structures and algorithms for the walrs project. Adjacency-list-backed `Digraph` plus a small set of classic DFS-based algorithms (cycle detection, depth-first ordering, topological sort, single-source reachability) and a symbol-graph wrapper generic over the vertex payload (`String` by default), all based on *Algorithms, 4th Edition* by Robert Sedgewick and Kevin Wayne.
 
 ## Overview
 
@@ -11,7 +11,8 @@ Directed graph data structures and algorithms for the walrs project. Adjacency-l
 - **`DepthFirstOrder`** — DFS preorder, postorder, and reverse-postorder traversals (the latter is the basis of topological sort).
 - **`Topology`** — topological order for a DAG, plus `is_dag()` / per-vertex `rank(v)`.
 - **`DirectedPathsDFS`** — single-source reachability and path reconstruction from a given source vertex.
-- **`DisymGraph`** — directed symbol graph that maps `String` names onto an underlying `Digraph` and supports `TryFrom<&File>` / `TryFrom<&mut BufReader<R>>` plus `TryFrom<DisymGraphData>` round-trips.
+- **`DisymGraph<T: Symbol = String>`** — directed symbol graph that maps typed symbol payloads onto an underlying `Digraph`, deduplicated and looked up by `Symbol::id()`. Supports `TryFrom<&File>` / `TryFrom<&mut BufReader<R>>` (for `T: From<String>`) plus `TryFrom<DisymGraphData<T>>` round-trips.
+- **`Symbol`** — the vertex-payload trait (`Clone + Debug + PartialEq`, `fn id(&self) -> &str`), implemented for `String` and shared with `walrs_graph::SymbolGraph<T>`.
 
 ## Public API surface
 
@@ -19,8 +20,8 @@ Top-level re-exports from `walrs_digraph` (see `src/lib.rs`):
 
 - **Core**: `Digraph`
 - **Traversals & algorithms**: `DepthFirstOrder`, `DirectedCycle`, `DirectedPathsDFS`, `Topology`
-- **Symbol graph**: `DisymGraph`, `DisymGraphData`, `invalid_vert_symbol_msg`
-- **Traits**: `DigraphDFSShape` (shared marker for DFS structs)
+- **Symbol graph**: `DisymGraph<T>`, `DisymGraphData<T>`, `invalid_vert_symbol_msg`
+- **Traits**: `Symbol` (vertex payload), `DigraphDFSShape` (shared marker for DFS structs)
 - **Utilities**: `extract_vert_and_edge_counts_from_bufreader`, `invalid_vertex_msg`, `vertex_marked`
 
 Submodules (`digraph`, `directed_cycle`, `depth_first_order`, `topology`, `directed_paths_dfs`, `disymgraph`, `traits`, `utils`) are also `pub` if you want to refer to a type by its full path.
@@ -32,7 +33,7 @@ Submodules (`digraph`, `directed_cycle`, `depth_first_order`, `topology`, `direc
 walrs_digraph = { path = "../digraph" }
 ```
 
-This crate has no Cargo features and no runtime dependencies.
+This crate has no Cargo features and no runtime dependencies (`criterion`, `serde`, and `serde_json` are dev-dependencies for benches, tests, and examples only).
 
 ## Usage
 
@@ -140,7 +141,39 @@ assert!(sg.contains("admin"));
 assert_eq!(sg.adj("admin").unwrap().len(), 2);
 ```
 
-`DisymGraph` also implements `TryFrom<&File>` / `TryFrom<&mut BufReader<R>>` for whitespace-delimited adjacency files (one `<vertex> <neighbor>...` line per row), and `TryFrom<DisymGraphData>` (`Vec<(String, Option<Vec<String>>)>`) for in-memory construction.
+`DisymGraph` also implements `TryFrom<&File>` / `TryFrom<&mut BufReader<R>>` for whitespace-delimited adjacency files (one `<vertex> <neighbor>...` line per row), and `TryFrom<DisymGraphData>` (`Vec<(String, Option<Vec<String>>)>`) for in-memory construction. Every id referenced as an adjacent vertex in `DisymGraphData` must also appear as its own entry; otherwise conversion fails with `invalid_vert_symbol_msg`.
+
+### Typed vertex payloads
+
+`DisymGraph<T>` accepts any `T: Symbol`. `Symbol::id()` is the lookup/dedupe key; the rest of the payload travels with the vertex (e.g. an IAM policy statement's effect and actions):
+
+```rust
+use walrs_digraph::{DisymGraph, DisymGraphData, Symbol};
+
+#[derive(Debug, Clone, PartialEq)]
+struct Stmt { sid: String, effect: &'static str, actions: Vec<&'static str> }
+
+impl Symbol for Stmt {
+  fn id(&self) -> &str { &self.sid }
+}
+
+let mut policy: DisymGraph<Stmt> = DisymGraph::default();
+policy.add_symbol(Stmt { sid: "AllowRead".into(), effect: "Allow", actions: vec!["s3:GetObject"] });
+policy.add_symbol(Stmt { sid: "bucket".into(), effect: "", actions: vec![] });
+policy.connect("AllowRead", &["bucket"]).unwrap();
+
+assert_eq!(policy.adj_symbols("AllowRead").unwrap()[0].sid, "bucket");
+assert_eq!(policy.symbol(0).unwrap().effect, "Allow");
+
+// Plain-data form, `serde`-able whenever `Stmt` is.
+let data: DisymGraphData<Stmt> = DisymGraphData::try_from(&policy).unwrap();
+assert_eq!(DisymGraph::try_from(&data).unwrap().edge_count(), 1);
+```
+
+- Construct with `DisymGraph::<T>::default()`; `DisymGraph::new()` is the `String` constructor.
+- `add_symbol(T)`, `symbol(idx)`, `symbols(&[idx])`, `adj_symbols(id)` work with payloads; `connect(from, &[to])` links existing vertices by id and fails (without modifying the graph) if any endpoint is unknown.
+- `add_vertex(&str)`, `add_edge(&str, &[&str])`, and the file/`BufReader` loaders create vertices by name and therefore require `T: From<String>` (`String` qualifies).
+- `DisymGraphData<T>` is `Vec<(T, Option<Vec<String>>)>`; with `T: serde::Serialize + Deserialize` it round-trips through JSON with no extra support from this crate. See `examples/iam_policy_graph.rs`.
 
 ## API conventions
 
@@ -156,6 +189,15 @@ Runnable examples live in [`examples/`](./examples/).
 | Example            | Demonstrates                                                            | Run                                                                                           |
 | ------------------ | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
 | `directed_cycle`   | Loading a `Digraph` from a file and reporting any cycle via `DirectedCycle` | `cargo run -p walrs_digraph --example directed_cycle -- ./crates/digraph/test-fixtures/digraph_test_tinyDG.txt` |
+| `iam_policy_graph` | `DisymGraph<T>` with IAM-policy-style payloads (principals → statements → resources), cycle check, topological order, and a `serde_json` round-trip | `cargo run -p walrs_digraph --example iam_policy_graph` |
+
+## Benchmarks
+
+```sh
+cargo bench -p walrs_digraph
+```
+
+`benches/disymgraph_benchmarks.rs` covers the `String`-keyed `DisymGraph` fast path (`add_edge`, `add_vertex` dedupe, `index`/`name_as_ref`/`adj` lookups, `DisymGraphData` conversion, `reverse`).
 
 ## Testing
 
@@ -172,7 +214,7 @@ Doc tests on most public methods exercise the documented behaviour, alongside pe
 
 ## Related crates
 
-- **walrs_graph** — undirected counterpart with `Graph`, `DFS`, and `SymbolGraph<T>`.
+- **walrs_graph** — undirected counterpart with `Graph`, `DFS`, and `SymbolGraph<T>` (which re-uses this crate's `Symbol` trait).
 
 ## License
 
