@@ -21,7 +21,7 @@ serde_derive = "1.0.228"
 async-trait = { version = "0.1", optional = true }
 
 [dev-dependencies]
-rand = "0.9"
+rand = "0.10"
 actix-web = "4"
 tokio = { version = "1", features = ["rt", "macros"] }
 
